@@ -91,3 +91,4 @@ backend/test/load/fixtures/*.generated*.json
 .tmp_render*.json
 osv-scan.json
 .vercel
+.aider*

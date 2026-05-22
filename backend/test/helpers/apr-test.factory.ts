@@ -6,6 +6,7 @@ export type AprFactoryInput = {
   titulo: string;
   siteId: string;
   elaboradorId: string;
+  participantIds?: string[];
   dataInicio?: string;
   dataFim?: string;
 };
@@ -37,7 +38,7 @@ export async function createTestApr(
       data_fim: input.dataFim ?? '2026-04-19',
       site_id: input.siteId,
       elaborador_id: input.elaboradorId,
-      participants: [input.elaboradorId],
+      participants: input.participantIds ?? [input.elaboradorId],
       risk_items: [
         {
           atividade: 'Operação de rotina',

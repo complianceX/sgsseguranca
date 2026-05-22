@@ -1,0 +1,165 @@
+APR - ANÁLISE PRELIMINAR DE RISCOS Código
+APR-2026-64AE9A7F
+Descrição da atividade: APR lote governado 1 	Empresa: 	Tenant A SST LTDA
+Data de elaboração: 	22/05/2026 	CNPJ: 	11222333000181
+Data revisão/ versão: 	22/05/2026 / v1 	Responsável: 	Admin A
+Site / obra: 	Site A 	Validade: 	22/05/2026 a 23/05/2026
+Status: 	Aprovada 	Número APR: 	APR-BATCH-001
+ITENS AVALIADOS
+1
+ACEITÁVEL
+1
+DE ATENÇÃO
+0
+SUBSTANCIAL
+0
+CRÍTICO
+0
+ASSINATURAS
+2
+EVIDÊNCIAS
+0
+Reconhecimento de Riscos
+Atividades / Processos 	Reconhecimento de Riscos 	Avaliação de Riscos 	Medidas de Prevenção
+Agente Ambiental 	Condição perigosa 	Fontes ou
+circunstâncias
+Possíveis lesões ou
+agravos à saúde
+Probabilidade 	Severidade 	Categoria de Risco
+Operação de rotina 	Ruído 	Exposição
+eventual
+Linha de produção Perda auditiva 	2 	2 	Aceitável 	Uso de EPI e monitoramento
+Score inicial: 4
+Prioridade: Não prioritário
+Responsável: Técnico SST
+Identificação e contexto
+ELABORADOR
+Tecnico A
+APROVADO POR
+Admin A
+PARTICIPANTES
+2
+PERÍODO
+22/05/2026 a 23/05/2026
+CAMPOS COMPLEMENTARES DA APR
+VERSÃO
+1
+CRIADA EM
+22/05/2026, 13:04:48
+ATUALIZADA EM
+22/05/2026, 13:04:48
+EVIDÊNCIA DE CONTROLE
+Não
+APR · Código APR-2026-64AE9A7F 	Gerado em 22/05/2026, 13:04:48 · Pág. 1 de 4
+
+-- 1 of 4 --
+
+Participantes (2)
+# 	NOME 	CARGO / FUNÇÃO 	PERFIL 	STATUS 	ASSINATURA 	TIPO 	REGISTRADA
+EM
+1 	Tecnico A 	Técnico de Segurança do Trabalho Técnico de Segurança
+do Trabalho (TST)
+Assinado
+Imagem da assinatura registrada
+Assinatura
+desenhada
+22/05/2026,
+13:04:48
+2 	Admin A 	Administrador da empresa 	Administrador da
+Empresa
+Assinado
+Imagem da assinatura registrada
+Assinatura
+desenhada
+22/05/2026,
+13:04:48
+Atividades previstas (0)
+# 	ATIVIDADE 	DESCRIÇÃO
+Nenhuma atividade vinculada.
+Equipamentos de Proteção Individual — EPIs (0)
+# 	EPI 	CA 	VALIDADE CA 	DESCRIÇÃO
+Nenhum EPI vinculado.
+APR · Código APR-2026-64AE9A7F 	Gerado em 22/05/2026, 13:04:48 · Pág. 2 de 4
+
+-- 2 of 4 --
+
+Matriz de risco e critério de ação
+1 	2 	3 	4 	5
+SEVERIDADE 	Insignificante
+1
+Menor
+2
+Moderada
+3
+Grave
+4
+Catastrófica
+5
+1
+Improvável
+1 	Aceitável 	Aceitável 	Aceitável 	Aceitável 	De atenção
+2
+Remota
+2 	Aceitável 	De atenção 	De atenção 	De atenção 	Substancial
+3
+Ocasional
+3 	Aceitável 	De atenção 	De atenção 	Substancial 	Substancial
+4
+Provável
+4 	Aceitável 	De atenção 	Substancial 	Substancial 	Crítico
+5
+Frequente
+5 	De atenção 	De atenção 	Substancial 	Crítico 	Crítico
+Matriz 5×5: o cruzamento entre probabilidade e severidade orienta a priorização operacional, o bloqueio de atividades críticas e a escalada gerencial.
+Aceitável 	NÃO PRIORITÁRIO
+Risco dentro do patamar aceitável. Manter controles vigentes, registrar e monitorar a atividade.
+De atenção 	PRIORIDADE BÁSICA
+Reavaliar controles, registrar justificativa de aceitação e acompanhar a execução com vigilância operacional.
+Substancial 	PRIORIDADE PREFERENCIAL
+A atividade não deve iniciar ou continuar sem redução de risco e validação dos controles implementados.
+Crítico 	PRIORIDADE MÁXIMA
+Interromper imediatamente a atividade e escalar para gestão até que o risco seja reduzido e formalmente revalidado.
+Histórico de aprovação
+NÍVEL 	ETAPA 	PERFIL 	STATUS 	DECISÃO EM 	RESPONSÁVEL
+1 	Validação técnica SST 	Técnico de Segurança do Trabalho
+(TST)
+approved 	22/05/2026, 13:04:48 	Admin A
+2 	Liberação da supervisão operacional 	Supervisor / Encarregado 	approved 	22/05/2026, 13:04:48 	Admin A
+3 	Aprovação gerencial da empresa 	Administrador da Empresa 	approved 	22/05/2026, 13:04:48 	Admin A
+PROBABILIDADE
+APR · Código APR-2026-64AE9A7F 	Gerado em 22/05/2026, 13:04:48 · Pág. 3 de 4
+
+-- 3 of 4 --
+
+Aprovação
+APROVADO POR
+Admin A
+DATA DE APROVAÇÃO
+22/05/2026, 13:04:48
+RESULTADO
+Aprovada
+OBSERVAÇÕES DE APROVAÇÃO
+APR validada para emissão em lote.
+Autenticidade e rastreabilidade
+CÓDIGO DE VERIFICAÇÃO
+APR-6132BBE34C
+HASH SHA-256
+Calculado e registrado após a emissão
+GERADO EM
+22/05/2026, 13:04:48
+CÓDIGO DOCUMENTAL
+APR-2026-64AE9A7F
+Assinaturas registradas
+ASSINANTE 	CARGO / FUNÇÃO 	ASSINATURA 	TIPO 	REGISTRADA EM 	HASH
+Tecnico A 	Técnico de Segurança do
+Trabalho
+Imagem da assinatura registrada
+Assinatura desenhada 22/05/2026, 13:04:48 	4edc7a35592fe35c
+Admin A 	Administrador da empresa
+Imagem da assinatura registrada
+Assinatura desenhada 22/05/2026, 13:04:48 	6c6614d8c6fc485e
+Documento técnico governado — emitido pela esteira oficial do SGS · Código: APR-2026-64AE9A7F · Última atualização: 22/05/2026, 13:04:48
+APR · Código APR-2026-64AE9A7F 	Gerado em 22/05/2026, 13:04:48 · Pág. 4 de 4
+
+-- 4 of 4 --
+

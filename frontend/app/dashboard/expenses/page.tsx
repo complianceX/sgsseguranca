@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -10,6 +11,8 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout, type MetricItem } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 import { sitesService, type Site } from '@/services/sitesService';
 import { usersService, type User } from '@/services/usersService';
 import {
@@ -44,6 +47,9 @@ export default function ExpensesPage() {
   const [reports, setReports] = useState<ExpenseReport[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
   const [usersLoaded, setUsersLoaded] = useState(false);
   const usersLoadPromiseRef = useRef<Promise<void> | null>(null);
   const [reportsLoading, setReportsLoading] = useState(true);
@@ -66,6 +72,22 @@ export default function ExpensesPage() {
     notes: '',
   });
 
+  useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const metrics = useMemo<MetricItem[]>(() => {
     const totalAdvances = reports.reduce(
       (sum, report) => sum + Number(report.totals?.totalAdvances || report.total_advances || 0),
@@ -87,6 +109,12 @@ export default function ExpensesPage() {
     try {
       setReportsLoading(true);
       setLoadError(null);
+      if (!activeCompanyId) {
+        setReports([]);
+        setTotal(0);
+        setLastPage(1);
+        return;
+      }
       const reportsPage = await expensesService.findPaginated({
         page,
         limit: 10,
@@ -99,33 +127,43 @@ export default function ExpensesPage() {
       setTotal(reportsPage.total);
       setLastPage(reportsPage.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar despesas:', error);
+      logger.error('Erro ao carregar despesas:', error);
       setLoadError('Não foi possível carregar o módulo de despesas.');
       toast.error('Erro ao carregar despesas.');
     } finally {
       setReportsLoading(false);
     }
-  }, [page, periodEndFilter, periodStartFilter, siteFilter, statusFilter]);
+  }, [activeCompanyId, page, periodEndFilter, periodStartFilter, siteFilter, statusFilter]);
 
   const loadSites = useCallback(async () => {
     try {
       setSitesLoading(true);
-      const sitesList = await sitesService.findAll();
+      if (!activeCompanyId) {
+        setSites([]);
+        return;
+      }
+      const sitesList = await sitesService.findAll(activeCompanyId);
       setSites(sitesList);
       setForm((current) => ({
         ...current,
         site_id: current.site_id || sitesList[0]?.id || '',
       }));
     } catch (error) {
-      console.error('Erro ao carregar obras para despesas:', error);
+      logger.error('Erro ao carregar obras para despesas:', error);
       toast.error('Não foi possível carregar as obras disponíveis.');
       setSites([]);
     } finally {
       setSitesLoading(false);
     }
-  }, []);
+  }, [activeCompanyId]);
 
   const ensureUsersLoaded = useCallback(async () => {
+    if (!activeCompanyId) {
+      setUsers([]);
+      setUsersLoaded(false);
+      return;
+    }
+
     if (usersLoaded) {
       return;
     }
@@ -136,7 +174,7 @@ export default function ExpensesPage() {
 
     const loadPromise = (async () => {
       try {
-        const usersList = await usersService.findAll();
+        const usersList = await usersService.findAll(activeCompanyId);
         setUsers(usersList);
         setUsersLoaded(true);
         setForm((current) => ({
@@ -144,7 +182,7 @@ export default function ExpensesPage() {
           responsible_id: current.responsible_id || usersList[0]?.id || '',
         }));
       } catch (error) {
-        console.error('Erro ao carregar responsáveis das despesas:', error);
+        logger.error('Erro ao carregar responsáveis das despesas:', error);
         toast.error('Não foi possível carregar os responsáveis das despesas.');
         throw error;
       } finally {
@@ -154,7 +192,7 @@ export default function ExpensesPage() {
 
     usersLoadPromiseRef.current = loadPromise;
     await loadPromise;
-  }, [usersLoaded]);
+  }, [activeCompanyId, usersLoaded]);
 
   useEffect(() => {
     void loadData();
@@ -166,6 +204,10 @@ export default function ExpensesPage() {
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de criar uma prestação.');
+      return;
+    }
     if (!form.site_id || !form.responsible_id) {
       toast.error('Selecione obra e responsável.');
       return;
@@ -179,7 +221,7 @@ export default function ExpensesPage() {
       await loadData();
       window.location.href = `/dashboard/expenses/${report.id}`;
     } catch (error) {
-      console.error('Erro ao criar prestação:', error);
+      logger.error('Erro ao criar prestação:', error);
       toast.error('Erro ao criar prestação de despesas.');
     } finally {
       setSubmitting(false);
@@ -187,6 +229,11 @@ export default function ExpensesPage() {
   }
 
   const handleToggleCreate = useCallback(async () => {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de criar uma prestação.');
+      return;
+    }
+
     if (showCreate) {
       setShowCreate(false);
       return;
@@ -198,7 +245,7 @@ export default function ExpensesPage() {
     } catch {
       return;
     }
-  }, [ensureUsersLoaded, showCreate]);
+  }, [activeCompanyId, ensureUsersLoaded, showCreate]);
 
   if (loadError) {
     return (

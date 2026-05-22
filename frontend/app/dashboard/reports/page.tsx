@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -360,7 +361,7 @@ export default function ReportsPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar relatórios:", error);
+      logger.error("Erro ao carregar relatórios:", error);
       setReportsError(
         await extractApiErrorMessage(
           error,
@@ -414,7 +415,7 @@ export default function ReportsPage() {
           );
         }
       } catch (error) {
-        console.error(
+        logger.error(
           "Erro ao carregar centro operacional de relatórios:",
           error,
         );
@@ -447,7 +448,7 @@ export default function ReportsPage() {
       setMailLogs(mailResult.items || []);
       setMailLogsTotal(mailResult.total || 0);
     } catch (error) {
-      console.error("Erro ao carregar logs de e-mail:", error);
+      logger.error("Erro ao carregar logs de e-mail:", error);
       setMailLogs([]);
       setMailLogsTotal(0);
     }
@@ -602,7 +603,7 @@ export default function ReportsPage() {
         setPage(1);
       }
     } catch (error) {
-      console.error("Erro ao gerar relatório:", error);
+      logger.error("Erro ao gerar relatório:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -619,7 +620,7 @@ export default function ReportsPage() {
       await refreshAll();
       toast.success("Central de relatórios atualizada.");
     } catch (error) {
-      console.error("Erro ao atualizar central de relatórios:", error);
+      logger.error("Erro ao atualizar central de relatórios:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -643,7 +644,7 @@ export default function ReportsPage() {
       await loadReports();
       void refreshQueue("refresh");
     } catch (error) {
-      console.error("Erro ao excluir relatório:", error);
+      logger.error("Erro ao excluir relatório:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -660,7 +661,7 @@ export default function ReportsPage() {
       downloadBlob(blob, `mail-logs-${format(new Date(), "yyyy-MM-dd")}.csv`);
       toast.success("Logs de e-mail exportados com sucesso.");
     } catch (error) {
-      console.error("Erro ao exportar logs de e-mail:", error);
+      logger.error("Erro ao exportar logs de e-mail:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -689,7 +690,7 @@ export default function ReportsPage() {
       );
       void refreshQueue("refresh");
     } catch (error) {
-      console.error("Erro ao reenfileirar relatório mensal:", error);
+      logger.error("Erro ao reenfileirar relatório mensal:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -739,7 +740,7 @@ export default function ReportsPage() {
           "Este relatório ainda não possui PDF final governado. Foi baixada uma cópia local de contingência.",
       );
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
+      logger.error("Erro ao gerar PDF:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -781,7 +782,7 @@ export default function ReportsPage() {
         );
       });
     } catch (error) {
-      console.error("Erro ao imprimir relatório:", error);
+      logger.error("Erro ao imprimir relatório:", error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -827,7 +828,7 @@ export default function ReportsPage() {
       });
       setIsMailModalOpen(true);
     } catch (error) {
-      console.error("Erro ao preparar e-mail:", error);
+      logger.error("Erro ao preparar e-mail:", error);
       toast.error(
         await extractApiErrorMessage(
           error,

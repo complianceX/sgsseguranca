@@ -99,7 +99,10 @@ describe('AprsService', () => {
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
-  let signaturesService: Pick<SignaturesService, 'findByDocument'>;
+  let signaturesService: Pick<
+    SignaturesService,
+    'findByDocument' | 'resolveSignatureData'
+  >;
   let aprRiskMatrixService: Pick<
     AprRiskMatrixService,
     'evaluate' | 'normalizeCategory' | 'summarize'
@@ -242,10 +245,13 @@ describe('AprsService', () => {
     signaturesService = {
       findByDocument: jest.fn(() => {
         const result: SignatureLookupResult = [
-          { user_id: 'user-1' },
+          { user_id: 'user-1', signature_data: 'assinatura' },
         ] as SignatureLookupResult;
         return Promise.resolve(result);
       }),
+      resolveSignatureData: jest.fn((signature) =>
+        Promise.resolve(signature.signature_data ?? null),
+      ),
     };
     aprRiskMatrixService = {
       evaluate: jest.fn(

@@ -1,4 +1,5 @@
 ﻿'use client';
+import { logger } from '@/lib/logger';
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -970,7 +971,7 @@ export function PtForm({ id }: PtFormProps) {
               : 'Título, descrição e contexto operacional foram reaproveitados quando estavam em branco.',
         });
       } catch (error) {
-        console.error('Erro ao aplicar contexto da APR na PT:', error);
+        logger.error('Erro ao aplicar contexto da APR na PT:', error);
         toast.error('Não foi possível aproveitar automaticamente o contexto da APR.');
       }
     },
@@ -1377,7 +1378,7 @@ export function PtForm({ id }: PtFormProps) {
 
         await loadCompanies(companySeedId);
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        logger.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados para o formulário.');
       } finally {
         setPreApprovalHistoryLoading(false);
@@ -1409,7 +1410,7 @@ export function PtForm({ id }: PtFormProps) {
               nextAprs = dedupeById([currentApr, ...nextAprs]);
             }
           } catch (error) {
-            console.warn('Falha ao carregar APR selecionada para fallback da PT:', error);
+            logger.warn('Falha ao carregar APR selecionada para fallback da PT:', error);
           }
         } else {
           nextAprs = dedupeById(nextAprs);
@@ -1422,7 +1423,7 @@ export function PtForm({ id }: PtFormProps) {
           ]),
         );
       } catch (error) {
-        console.error('Erro ao carregar APRs da PT:', error);
+        logger.error('Erro ao carregar APRs da PT:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
@@ -1460,7 +1461,7 @@ export function PtForm({ id }: PtFormProps) {
               nextSites = dedupeById([currentSite, ...nextSites]);
             }
           } catch (error) {
-            console.warn('Falha ao carregar site selecionado para fallback da PT:', error);
+            logger.warn('Falha ao carregar site selecionado para fallback da PT:', error);
           }
         } else {
           nextSites = dedupeById(nextSites);
@@ -1473,7 +1474,7 @@ export function PtForm({ id }: PtFormProps) {
           ]),
         );
       } catch (error) {
-        console.error('Erro ao carregar obras da PT:', error);
+        logger.error('Erro ao carregar obras da PT:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
@@ -1540,7 +1541,7 @@ export function PtForm({ id }: PtFormProps) {
           ]),
         );
       } catch (error) {
-        console.error('Erro ao carregar usuários da PT:', error);
+        logger.error('Erro ao carregar usuários da PT:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
@@ -1730,7 +1731,7 @@ export function PtForm({ id }: PtFormProps) {
         duration: 8000,
       });
     } catch (error) {
-      console.error('Erro na análise do SGS:', error);
+      logger.error('Erro na análise do SGS:', error);
       toast.error('Não foi possível realizar a análise no momento.');
     } finally {
       setAnalyzing(false);

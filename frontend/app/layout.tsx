@@ -11,6 +11,11 @@ const FONT_VARIABLES: CSSVariableProperties = {
   "--font-syne": "var(--font-sans)",
 };
 
+/**
+ * Inline script para inicialização do tema antes do hydration do React.
+ * SECURITY: Script hardcoded sem interpolação - seguro contra XSS.
+ * Necessário usar dangerouslySetInnerHTML para executar antes do hydration.
+ */
 const THEME_INIT_INLINE_SCRIPT = `
 (() => {
   try {
@@ -25,6 +30,11 @@ const THEME_INIT_INLINE_SCRIPT = `
 })();
 `;
 
+/**
+ * Inline script para reset de cache em desenvolvimento.
+ * SECURITY: Script hardcoded sem interpolação - seguro contra XSS.
+ * Apenas em desenvolvimento, com verificação de hostname.
+ */
 const DEV_CACHE_RESET_INLINE_SCRIPT = `
 (() => {
   try {

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import {
   useCallback,
@@ -213,7 +214,7 @@ export default function DocumentPendenciesPage() {
       });
       setCompanies(response.data);
     } catch (loadError) {
-      console.error(
+      logger.error(
         "Erro ao carregar empresas da central documental:",
         loadError,
       );
@@ -249,7 +250,7 @@ export default function DocumentPendenciesPage() {
         );
       }
     } catch (loadError) {
-      console.error(
+      logger.error(
         "Erro ao carregar obras/setores da central documental:",
         loadError,
       );
@@ -287,7 +288,7 @@ export default function DocumentPendenciesPage() {
       }
     } catch (loadError) {
       if (requestId === requestSequenceRef.current) {
-        console.error(
+        logger.error(
           "Erro ao carregar central de pendências documentais:",
           loadError,
         );
@@ -497,7 +498,7 @@ export default function DocumentPendenciesPage() {
 
         toast.error("Ação operacional ainda não suportada pela central.");
       } catch (actionError) {
-        console.error(
+        logger.error(
           "Erro ao executar ação operacional da pendência:",
           actionError,
         );

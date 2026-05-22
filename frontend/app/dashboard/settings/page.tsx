@@ -1,6 +1,7 @@
 'use client';
+import { logger } from '@/lib/logger';
 
-import { useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -91,6 +92,7 @@ export default function SettingsPage() {
     user?.profile?.nome === 'Administrador da Empresa';
   const isAdmin = isTenantAdmin;
   const [currentPassword, setCurrentPassword] = useState('');
+const timerRef = useRef<number | undefined>(undefined);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -248,6 +250,23 @@ export default function SettingsPage() {
   ].filter((area) => area.visible);
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     let active = true;
     const loadCompany = async () => {
       if (!user?.company_id) {
@@ -260,7 +279,7 @@ export default function SettingsPage() {
         setCompany(data);
         setLogoPreview(data.logo_url || null);
       } catch (error) {
-        console.error('Erro ao carregar dados da empresa:', error);
+        logger.error('Erro ao carregar dados da empresa:', error);
         toast.error('Não foi possível carregar a logo da empresa.');
       } finally {
         if (active) setLoadingLogo(false);
@@ -304,7 +323,7 @@ export default function SettingsPage() {
         if (!active) return;
         setPrivacyRequests(requests);
       } catch (error) {
-        console.error('Erro ao carregar requisições LGPD:', error);
+        logger.error('Erro ao carregar requisições LGPD:', error);
         toast.error('Não foi possível carregar suas requisições de privacidade.');
       } finally {
         if (active) setLoadingPrivacyRequests(false);
@@ -327,7 +346,7 @@ export default function SettingsPage() {
         if (!active) return;
         setApprovalRules(rules);
       } catch (error) {
-        console.error('Erro ao carregar regras de aprovação de PT:', error);
+        logger.error('Erro ao carregar regras de aprovação de PT:', error);
         toast.error('Não foi possível carregar regras de aprovação da PT.');
       } finally {
         if (active) setLoadingApprovalRules(false);
@@ -368,7 +387,7 @@ export default function SettingsPage() {
         setAlertFallbackRecipients(settings.fallbackRecipients);
         setMailProviderConfigured(settings.providerConfigured);
       } catch (error) {
-        console.error('Erro ao carregar configurações de alertas:', error);
+        logger.error('Erro ao carregar configurações de alertas:', error);
         toast.error('Não foi possível carregar as configurações de alertas.');
       } finally {
         if (active) setLoadingAlertSettings(false);
@@ -410,7 +429,7 @@ export default function SettingsPage() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      console.error('Erro ao trocar senha:', error);
+      logger.error('Erro ao trocar senha:', error);
       toast.error('Não foi possível alterar a senha.');
     } finally {
       setSaving(false);
@@ -490,7 +509,7 @@ export default function SettingsPage() {
       setLogoRemoved(false);
       toast.success('Logo atualizada com sucesso.');
     } catch (error) {
-      console.error('Erro ao salvar logo:', error);
+      logger.error('Erro ao salvar logo:', error);
       toast.error('Não foi possível salvar a logo.');
     } finally {
       setSavingLogo(false);
@@ -521,7 +540,7 @@ export default function SettingsPage() {
       setApprovalRules(updated);
       toast.success('Regras de aprovação de PT atualizadas.');
     } catch (error) {
-      console.error('Erro ao salvar regras de aprovação de PT:', error);
+      logger.error('Erro ao salvar regras de aprovação de PT:', error);
       toast.error('Não foi possível salvar as regras de aprovação de PT.');
     } finally {
       setSavingApprovalRules(false);
@@ -592,7 +611,7 @@ export default function SettingsPage() {
       setMailProviderConfigured(updated.providerConfigured);
       toast.success('Configurações de alertas atualizadas.');
     } catch (error) {
-      console.error('Erro ao salvar configurações de alertas:', error);
+      logger.error('Erro ao salvar configurações de alertas:', error);
       const message = await extractMailDispatchErrorMessage(error);
       toast.error(message);
     } finally {
@@ -628,7 +647,7 @@ export default function SettingsPage() {
         `Resumo disparado para ${response.recipients.length} destinatário(s).`,
       );
     } catch (error) {
-      console.error('Erro ao disparar alertas corporativos:', error);
+      logger.error('Erro ao disparar alertas corporativos:', error);
       const message = await extractMailDispatchErrorMessage(error);
       toast.error(message);
     } finally {
@@ -648,7 +667,7 @@ export default function SettingsPage() {
       setAlertPreview(preview);
       toast.success('Prévia de alertas atualizada.');
     } catch (error) {
-      console.error('Erro ao gerar prévia de alertas:', error);
+      logger.error('Erro ao gerar prévia de alertas:', error);
       const message = await extractMailDispatchErrorMessage(error);
       toast.error(message);
     } finally {
@@ -672,7 +691,7 @@ export default function SettingsPage() {
       setPrivacyRequestDescription('');
       toast.success('Requisição de privacidade registrada.');
     } catch (error) {
-      console.error('Erro ao criar requisição LGPD:', error);
+      logger.error('Erro ao criar requisição LGPD:', error);
       toast.error('Não foi possível registrar a requisição.');
     } finally {
       setCreatingPrivacyRequest(false);
@@ -696,7 +715,7 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
       toast.success('Exportação LGPD gerada neste dispositivo.');
     } catch (error) {
-      console.error('Erro ao exportar dados LGPD:', error);
+      logger.error('Erro ao exportar dados LGPD:', error);
       toast.error('Não foi possível exportar seus dados agora.');
     } finally {
       setExportingMyData(false);

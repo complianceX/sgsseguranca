@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export default function ToolsPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar ferramentas:', error);
+      logger.error('Erro ao carregar ferramentas:', error);
       setLoadError('Nao foi possivel carregar a lista de ferramentas.');
       toast.error('Erro ao carregar lista de ferramentas.');
     } finally {
@@ -73,7 +74,7 @@ export default function ToolsPage() {
       }
       void loadTools();
     } catch (error) {
-      console.error('Erro ao excluir ferramenta:', error);
+      logger.error('Erro ao excluir ferramenta:', error);
       toast.error('Erro ao excluir ferramenta. Verifique dependencias e tente novamente.');
     }
   }

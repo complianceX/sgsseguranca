@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { episService, Epi } from '@/services/episService';
@@ -46,7 +47,7 @@ export default function EpisPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar EPIs:', error);
+      logger.error('Erro ao carregar EPIs:', error);
       toast.error('Erro ao carregar EPIs.');
     } finally {
       setLoading(false);
@@ -68,7 +69,7 @@ export default function EpisPage() {
         }
         void loadEpis();
       } catch (error) {
-        console.error('Erro ao excluir EPI:', error);
+        logger.error('Erro ao excluir EPI:', error);
         toast.error('Erro ao excluir EPI. Verifique se existem dependências e tente novamente.');
       }
     }

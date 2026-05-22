@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -44,7 +45,7 @@ export default function MachinesPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar maquinas:', error);
+      logger.error('Erro ao carregar maquinas:', error);
       setLoadError('Nao foi possivel carregar a lista de maquinas.');
       toast.error('Erro ao carregar lista de maquinas.');
     } finally {
@@ -70,7 +71,7 @@ export default function MachinesPage() {
       }
       void loadMachines();
     } catch (error) {
-      console.error('Erro ao excluir maquina:', error);
+      logger.error('Erro ao excluir maquina:', error);
       toast.error('Erro ao excluir maquina. Verifique dependencias e tente novamente.');
     }
   }

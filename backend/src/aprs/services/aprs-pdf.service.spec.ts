@@ -35,7 +35,10 @@ describe('AprsPdfService', () => {
     DocumentGovernanceService,
     'registerFinalDocument'
   >;
-  let signaturesService: Pick<SignaturesService, 'findByDocument'>;
+  let signaturesService: Pick<
+    SignaturesService,
+    'findByDocument' | 'resolveSignatureData'
+  >;
 
   beforeEach(() => {
     const update = jest.fn();
@@ -97,9 +100,14 @@ describe('AprsPdfService', () => {
     };
     signaturesService = {
       findByDocument: jest.fn(() =>
-        Promise.resolve([{ user_id: 'user-1' }] as unknown as Awaited<
+        Promise.resolve([
+          { user_id: 'user-1', signature_data: 'assinatura' },
+        ] as unknown as Awaited<
           ReturnType<SignaturesService['findByDocument']>
         >),
+      ),
+      resolveSignatureData: jest.fn((signature) =>
+        Promise.resolve(signature.signature_data ?? null),
       ),
     };
 
@@ -241,7 +249,14 @@ describe('AprsPdfService', () => {
         updated_at: new Date('2026-03-14T09:30:00.000Z'),
         pdf_file_key: null,
         is_modelo: false,
-        participants: [{ id: 'user-1', nome: 'Maria' }],
+        participants: [
+          {
+            id: 'user-1',
+            nome: 'Maria',
+            funcao: 'Técnica de Segurança',
+            profile: { nome: 'TST' },
+          },
+        ],
         company: {
           razao_social: 'Empresa Teste',
           cnpj: '00.000.000/0001-00',
@@ -326,6 +341,18 @@ describe('AprsPdfService', () => {
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('Assinaturas registradas'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Cargo / função'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Técnica de Segurança'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Assinatura registrada no SGS'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(

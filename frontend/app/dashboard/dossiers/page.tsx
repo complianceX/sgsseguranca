@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -73,7 +74,7 @@ export default function DossiersPage() {
         }
         setSites(nextSites);
       } catch (error) {
-        console.error('Erro ao carregar dossies:', error);
+        logger.error('Erro ao carregar dossies:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
@@ -104,7 +105,7 @@ export default function DossiersPage() {
         });
         setUserOptions(usersPage.data);
       } catch (error) {
-        console.error('Erro ao carregar colaboradores para dossie:', error);
+        logger.error('Erro ao carregar colaboradores para dossie:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
@@ -136,7 +137,7 @@ export default function DossiersPage() {
           setEmployeeContext(context);
         }
       } catch (error) {
-        console.error('Erro ao carregar contexto de dossiê do colaborador:', error);
+        logger.error('Erro ao carregar contexto de dossiê do colaborador:', error);
         if (active) {
           const message = await extractApiErrorMessage(
             error,
@@ -177,7 +178,7 @@ export default function DossiersPage() {
           setSiteContext(context);
         }
       } catch (error) {
-        console.error('Erro ao carregar contexto de dossiê da obra/setor:', error);
+        logger.error('Erro ao carregar contexto de dossiê da obra/setor:', error);
         if (active) {
           const message = await extractApiErrorMessage(
             error,
@@ -262,7 +263,7 @@ export default function DossiersPage() {
       await dossiersService.downloadEmployeePdf(selectedUserId);
       toast.success('Dossie do colaborador gerado.');
     } catch (error) {
-      console.error('Erro ao gerar dossie colaborador:', error);
+      logger.error('Erro ao gerar dossie colaborador:', error);
       const message = await extractApiErrorMessage(
         error,
         'Falha ao gerar dossiê do colaborador.',
@@ -288,7 +289,7 @@ export default function DossiersPage() {
       await dossiersService.downloadSitePdf(selectedSiteId);
       toast.success('Dossie da obra/setor gerado.');
     } catch (error) {
-      console.error('Erro ao gerar dossie obra:', error);
+      logger.error('Erro ao gerar dossie obra:', error);
       const message = await extractApiErrorMessage(
         error,
         'Falha ao gerar dossiê da obra/setor.',
@@ -315,7 +316,7 @@ export default function DossiersPage() {
       await dossiersService.downloadEmployeeBundle(selectedUserId);
       toast.success('Pacote ZIP do dossie do colaborador gerado.');
     } catch (error) {
-      console.error('Erro ao gerar bundle do dossie colaborador:', error);
+      logger.error('Erro ao gerar bundle do dossie colaborador:', error);
       toast.error(
         await extractApiErrorMessage(
           error,
@@ -343,7 +344,7 @@ export default function DossiersPage() {
       await dossiersService.downloadSiteBundle(selectedSiteId);
       toast.success('Pacote ZIP do dossie da obra/setor gerado.');
     } catch (error) {
-      console.error('Erro ao gerar bundle do dossie da obra/setor:', error);
+      logger.error('Erro ao gerar bundle do dossie da obra/setor:', error);
       toast.error(
         await extractApiErrorMessage(
           error,

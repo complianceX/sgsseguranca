@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import {
@@ -64,6 +65,8 @@ import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore } from "@/lib/sessionStore";
 import {
   safeToLocaleDateString,
   toInputDateValue,
@@ -195,8 +198,12 @@ function rdoToForm(rdo: Rdo): RdoFormState {
 export default function RdosPage() {
   const { hasPermission } = useAuth();
   const [rdos, setRdos] = useState<Rdo[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
   const referenceDataScopeRef = useRef<string | null>(null);
   const usersScopeRef = useRef<string | null>(null);
   const usersLoadPromiseRef = useRef<Promise<void> | null>(null);
@@ -227,6 +234,23 @@ export default function RdosPage() {
   );
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     pendingActivityPhotosRef.current = pendingActivityPhotos;
   }, [pendingActivityPhotos]);
 
@@ -235,6 +259,22 @@ export default function RdosPage() {
       revokePendingActivityEntries(pendingActivityPhotosRef.current);
     };
   }, [revokePendingActivityEntries]);
+
+  useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const resetPendingActivityPhotos = useCallback(() => {
     revokePendingActivityEntries(pendingActivityPhotosRef.current);
@@ -351,24 +391,36 @@ export default function RdosPage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
+    if (!activeCompanyId) {
+      setSites([]);
+      referenceDataScopeRef.current = null;
+      return;
+    }
+
     const nextScope = canManageRdo ? "manage" : "view";
     if (referenceDataScopeRef.current === nextScope) {
       return;
     }
 
     try {
-      const sitesResult = await sitesService.findAll();
+      const sitesResult = await sitesService.findAll(activeCompanyId);
       setSites(sitesResult);
       referenceDataScopeRef.current = nextScope;
     } catch (error) {
-      console.error("Erro ao carregar dados de referência do RDO:", error);
+      logger.error("Erro ao carregar dados de referência do RDO:", error);
       setLoadError("Não foi possível carregar os dados de apoio do RDO.");
       toast.error("Erro ao carregar dados de apoio do RDO.");
     }
-  }, [canManageRdo]);
+  }, [activeCompanyId, canManageRdo]);
 
   const ensureUsersLoaded = useCallback(async () => {
     if (!canManageRdo) {
+      return;
+    }
+
+    if (!activeCompanyId) {
+      setUsers([]);
+      usersScopeRef.current = null;
       return;
     }
 
@@ -384,11 +436,11 @@ export default function RdosPage() {
 
     const loadPromise = (async () => {
       try {
-        const usersResult = await usersService.findAll();
+        const usersResult = await usersService.findAll(activeCompanyId);
         setUsers(usersResult);
         usersScopeRef.current = nextScope;
       } catch (error) {
-        console.error("Erro ao carregar responsáveis do RDO:", error);
+        logger.error("Erro ao carregar responsáveis do RDO:", error);
         toast.error("Não foi possível carregar os responsáveis do RDO.");
         throw error;
       } finally {
@@ -398,7 +450,7 @@ export default function RdosPage() {
 
     usersLoadPromiseRef.current = loadPromise;
     await loadPromise;
-  }, [canManageRdo, users.length]);
+  }, [activeCompanyId, canManageRdo, users.length]);
 
   useEffect(() => {
     if (canManageRdo) {
@@ -411,6 +463,17 @@ export default function RdosPage() {
   }, [canManageRdo]);
 
   const refreshOverview = useCallback(async () => {
+    if (!activeCompanyId) {
+      setSummary({
+        total: 0,
+        rascunho: 0,
+        enviado: 0,
+        aprovado: 0,
+        cancelado: 0,
+      });
+      return;
+    }
+
     const overviewResult = await rdosService.getAnalyticsOverview();
     setSummary({
       total: overviewResult.totalRdos,
@@ -419,12 +482,25 @@ export default function RdosPage() {
       aprovado: overviewResult.aprovado,
       cancelado: overviewResult.cancelado,
     });
-  }, []);
+  }, [activeCompanyId]);
 
   const loadRdoPageData = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
+      if (!activeCompanyId) {
+        setRdos([]);
+        setTotal(0);
+        setLastPage(1);
+        setSummary({
+          total: 0,
+          rascunho: 0,
+          enviado: 0,
+          aprovado: 0,
+          cancelado: 0,
+        });
+        return;
+      }
       const rdosResult = await rdosService.findPaginated({
         page,
         limit,
@@ -441,13 +517,14 @@ export default function RdosPage() {
       setLastPage(rdosData.lastPage);
 
     } catch (error) {
-      console.error("Erro ao carregar RDOs:", error);
+      logger.error("Erro ao carregar RDOs:", error);
       setLoadError("Não foi possível carregar os RDOs.");
       toast.error("Erro ao carregar RDOs.");
     } finally {
       setLoading(false);
     }
   }, [
+    activeCompanyId,
     page,
     limit,
     filterStatus,
@@ -472,7 +549,7 @@ export default function RdosPage() {
 
   useEffect(() => {
     void refreshOverview().catch((error) => {
-      console.error("Erro ao carregar overview analítico de RDOs:", error);
+      logger.error("Erro ao carregar overview analítico de RDOs:", error);
     });
   }, [refreshOverview]);
 
@@ -502,7 +579,7 @@ export default function RdosPage() {
             );
             return access.url ? ([photo, access.url] as const) : null;
           } catch (error) {
-            console.error("Erro ao resolver foto da atividade do RDO:", error);
+            logger.error("Erro ao resolver foto da atividade do RDO:", error);
             return null;
           }
         }),
@@ -893,7 +970,7 @@ export default function RdosPage() {
           }
         }
       } catch (uploadError) {
-        console.error(
+        logger.error(
           "Erro ao enviar fotos pendentes das atividades do RDO:",
           uploadError,
         );
@@ -907,7 +984,7 @@ export default function RdosPage() {
       try {
         await refreshRdoDashboard();
       } catch (refreshError) {
-        console.error("Erro ao atualizar a lista de RDOs após salvar:", refreshError);
+        logger.error("Erro ao atualizar a lista de RDOs após salvar:", refreshError);
         toast.warning(
           "RDO salvo, mas a atualização da lista falhou. Recarregue a tela para ver o conteúdo atualizado.",
         );
@@ -917,7 +994,7 @@ export default function RdosPage() {
         try {
           await handlePrintAfterSave(savedRdo);
         } catch (printError) {
-          console.error(
+          logger.error(
             "Erro ao preparar impressão automática do RDO:",
             printError,
           );
@@ -927,7 +1004,7 @@ export default function RdosPage() {
         }
       }
     } catch (error) {
-      console.error("Erro ao salvar RDO:", error);
+      logger.error("Erro ao salvar RDO:", error);
       toast.error(getApiErrorMessage(error) || "Erro ao salvar RDO.");
     } finally {
       setSaving(false);
@@ -948,11 +1025,11 @@ export default function RdosPage() {
         setViewRdo((v) => (v ? { ...v, ...updated } : v));
       }
       void refreshOverview().catch((error) => {
-        console.error("Erro ao atualizar overview após mudança de status:", error);
+        logger.error("Erro ao atualizar overview após mudança de status:", error);
       });
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
-      console.error("Erro ao atualizar status:", error);
+      logger.error("Erro ao atualizar status:", error);
       toast.error(
         getApiErrorMessage(error) || "Erro ao atualizar status do RDO.",
       );
@@ -991,7 +1068,7 @@ export default function RdosPage() {
       void refreshOverview();
       toast.success("RDO cancelado com sucesso.");
     } catch (error) {
-      console.error("Erro ao cancelar RDO:", error);
+      logger.error("Erro ao cancelar RDO:", error);
       toast.error(
         getApiErrorMessage(error) || "Não foi possível cancelar o RDO.",
       );
@@ -1009,7 +1086,7 @@ export default function RdosPage() {
       toast.success("RDO excluído.");
       await refreshRdoDashboard();
     } catch (error) {
-      console.error("Erro ao excluir RDO:", error);
+      logger.error("Erro ao excluir RDO:", error);
       toast.error("Erro ao excluir RDO.");
     }
   };
@@ -1219,7 +1296,7 @@ export default function RdosPage() {
           toast.success("Foto(s) da atividade anexada(s) ao RDO.");
         }
       } catch (error) {
-        console.error("Erro ao anexar fotos da atividade do RDO:", error);
+        logger.error("Erro ao anexar fotos da atividade do RDO:", error);
         toast.error(
           getApiErrorMessage(error) ||
             "Não foi possível anexar as fotos da atividade.",
@@ -1320,7 +1397,7 @@ export default function RdosPage() {
         toast.success("Foto da atividade removida.");
       }
     } catch (error) {
-      console.error("Erro ao remover foto da atividade do RDO:", error);
+      logger.error("Erro ao remover foto da atividade do RDO:", error);
       toast.error(
         getApiErrorMessage(error) ||
           "Não foi possível remover a foto da atividade.",
@@ -1420,7 +1497,7 @@ export default function RdosPage() {
         const fullRdo = await rdosService.findOne(rdo.id);
         await printGeneratedRdoPdf(fullRdo, true);
       } catch (error) {
-        console.error("Erro ao imprimir RDO:", error);
+        logger.error("Erro ao imprimir RDO:", error);
         toast.error("Não foi possível preparar a impressão do RDO.");
       }
     })();
@@ -1487,7 +1564,7 @@ export default function RdosPage() {
           return;
         }
       } catch (error) {
-        console.error("Erro ao emitir/abrir PDF final do RDO:", error);
+        logger.error("Erro ao emitir/abrir PDF final do RDO:", error);
         toast.error("Não foi possível emitir ou abrir o PDF final do RDO.");
       }
     },

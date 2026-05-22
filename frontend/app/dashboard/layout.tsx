@@ -60,6 +60,11 @@ function DashboardShell({
     selectedTenantStore.get(),
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && user && isAdminGeral && !selectedTenantStore.get()) {
@@ -116,7 +121,7 @@ function DashboardShell({
     setSelectorOpen(false);
   };
 
-  if (loading) {
+  if (loading || !isMounted) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-12 w-12 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
@@ -218,8 +223,10 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
-    <AppErrorBoundary>
+    <AppErrorBoundary resetKey={pathname}>
       <AuthProvider>
         <SentryUserContext />
         <StaleCacheBanner />

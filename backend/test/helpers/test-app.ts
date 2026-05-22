@@ -524,6 +524,7 @@ export class TestApp {
   }): Promise<Record<string, SeedUserRecord>> {
     const adminGeral = await this.upsertUser({
       nome: `Admin Geral ${input.suffix.toUpperCase()}`,
+      funcao: 'Administrador geral',
       cpf: input.cpfSeed.adminGeral,
       email: `admin-geral-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
@@ -535,6 +536,7 @@ export class TestApp {
 
     const admin = await this.upsertUser({
       nome: `Admin ${input.suffix.toUpperCase()}`,
+      funcao: 'Administrador da empresa',
       cpf: input.cpfSeed.admin,
       email: `admin-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
@@ -546,6 +548,7 @@ export class TestApp {
 
     const tst = await this.upsertUser({
       nome: `Tecnico ${input.suffix.toUpperCase()}`,
+      funcao: 'Técnico de Segurança do Trabalho',
       cpf: input.cpfSeed.tst,
       email: `tst-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
@@ -557,6 +560,7 @@ export class TestApp {
 
     const worker = await this.upsertUser({
       nome: `Trabalhador ${input.suffix.toUpperCase()}`,
+      funcao: 'Trabalhador operacional',
       cpf: input.cpfSeed.worker,
       email: `worker-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
@@ -600,6 +604,7 @@ export class TestApp {
 
   private async upsertUser(input: {
     nome: string;
+    funcao: string;
     cpf: string;
     email: string;
     passwordHash: string;
@@ -619,6 +624,7 @@ export class TestApp {
       this.usersRepo.create({
         ...existing,
         nome: input.nome,
+        funcao: input.funcao,
         cpf,
         cpf_hash: cpfHash,
         cpf_ciphertext: cpfCiphertext,

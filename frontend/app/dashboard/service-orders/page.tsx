@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -150,7 +151,7 @@ export default function ServiceOrdersPage() {
       setTotal(paged.total);
       setLastPage(paged.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar Ordens de Servico:', error);
+      logger.error('Erro ao carregar Ordens de Servico:', error);
       setLoadError('Nao foi possivel carregar as Ordens de Servico.');
       toast.error('Erro ao carregar Ordens de Servico.');
     } finally {

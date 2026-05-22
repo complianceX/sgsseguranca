@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -42,7 +43,7 @@ export default function WorkerTimelinePage() {
       const response = await usersService.getWorkerTimelineByCpf(targetCpf);
       setTimeline(response);
     } catch (loadError) {
-      console.error('Erro ao carregar timeline do trabalhador:', loadError);
+      logger.error('Erro ao carregar timeline do trabalhador:', loadError);
       setTimeline(null);
       setError('Não foi possível carregar a timeline operacional para este CPF.');
       toast.error('Erro ao carregar timeline do trabalhador.');
@@ -58,7 +59,7 @@ export default function WorkerTimelinePage() {
       const response = await usersService.getWorkerTimelineById(userId);
       setTimeline(response);
     } catch (loadError) {
-      console.error('Erro ao carregar timeline do trabalhador:', loadError);
+      logger.error('Erro ao carregar timeline do trabalhador:', loadError);
       setTimeline(null);
       setError('Não foi possível carregar a timeline operacional para este trabalhador.');
       toast.error('Erro ao carregar timeline do trabalhador.');

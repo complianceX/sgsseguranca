@@ -8,10 +8,10 @@ interface State {
 }
 
 export class AppErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+  { children: React.ReactNode; resetKey?: string },
   State
 > {
-  constructor(props: { children: React.ReactNode }) {
+  constructor(props: { children: React.ReactNode; resetKey?: string }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -28,6 +28,12 @@ export class AppErrorBoundary extends React.Component<
     });
     if (process.env.NODE_ENV !== 'production') {
       console.error('[UI Boundary Error]', error, errorInfo);
+    }
+  }
+
+  componentDidUpdate(prevProps: Readonly<{ resetKey?: string }>) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
     }
   }
 

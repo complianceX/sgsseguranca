@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import {
@@ -148,7 +149,7 @@ export default function CatsPage() {
       setTotal(catsPage.total);
       setLastPage(catsPage.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar CATs:", error);
+      logger.error("Erro ao carregar CATs:", error);
       toast.error("Erro ao carregar fluxo de CAT.");
     } finally {
       setLoading(false);
@@ -170,7 +171,7 @@ export default function CatsPage() {
       const summaryData = await catsSummaryCache.fetch();
       setSummary(summaryData);
     } catch (error) {
-      console.error("Erro ao carregar resumo de CATs:", error);
+      logger.error("Erro ao carregar resumo de CATs:", error);
     }
   }, [canViewCats, catsSummaryCache]);
 
@@ -211,7 +212,7 @@ export default function CatsPage() {
         }
         setSites(nextSites);
       } catch (error) {
-        console.error("Erro ao carregar obras/setores:", error);
+        logger.error("Erro ao carregar obras/setores:", error);
         toast.error("Erro ao carregar obras/setores.");
       }
     };
@@ -234,7 +235,7 @@ export default function CatsPage() {
         });
         setWorkerOptions(workersPage.data);
       } catch (error) {
-        console.error("Erro ao carregar colaboradores da CAT:", error);
+        logger.error("Erro ao carregar colaboradores da CAT:", error);
         toast.error("Erro ao carregar colaboradores.");
       }
     };
@@ -305,7 +306,7 @@ export default function CatsPage() {
       await loadCats();
       void loadSummary();
     } catch (error) {
-      console.error("Erro ao salvar CAT:", error);
+      logger.error("Erro ao salvar CAT:", error);
       toast.error("Nao foi possivel salvar a CAT.");
     } finally {
       setCreating(false);
@@ -339,7 +340,7 @@ export default function CatsPage() {
       await loadCats();
       void loadSummary();
     } catch (error) {
-      console.error("Erro ao iniciar investigacao:", error);
+      logger.error("Erro ao iniciar investigacao:", error);
       toast.error("Falha ao iniciar investigacao da CAT.");
     }
   };
@@ -371,7 +372,7 @@ export default function CatsPage() {
       await loadCats();
       void loadSummary();
     } catch (error) {
-      console.error("Erro ao fechar CAT:", error);
+      logger.error("Erro ao fechar CAT:", error);
       toast.error("Falha ao fechar CAT.");
     }
   };
@@ -390,7 +391,7 @@ export default function CatsPage() {
       toast.success("Anexo enviado.");
       await loadCats();
     } catch (error) {
-      console.error("Erro ao enviar anexo:", error);
+      logger.error("Erro ao enviar anexo:", error);
       toast.error("Falha ao anexar arquivo na CAT.");
     } finally {
       const input = fileInputRefs.current[catId];
@@ -405,7 +406,7 @@ export default function CatsPage() {
       const access = await catsService.getAttachmentAccess(catId, attachmentId);
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error("Erro ao abrir anexo:", error);
+      logger.error("Erro ao abrir anexo:", error);
       toast.error("Nao foi possivel abrir o anexo.");
     }
   };
@@ -470,7 +471,7 @@ export default function CatsPage() {
       }
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error("Erro ao emitir/abrir PDF final da CAT:", error);
+      logger.error("Erro ao emitir/abrir PDF final da CAT:", error);
       toast.error("Nao foi possivel emitir ou abrir o PDF final da CAT.");
     }
   };
@@ -504,7 +505,7 @@ export default function CatsPage() {
       });
       setMailModalOpen(true);
     } catch (error) {
-      console.error("Erro ao preparar envio de e-mail da CAT:", error);
+      logger.error("Erro ao preparar envio de e-mail da CAT:", error);
       toast.error("Nao foi possivel preparar o envio por e-mail da CAT.");
     }
   };
@@ -525,7 +526,7 @@ export default function CatsPage() {
           "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
       );
     } catch (error) {
-      console.error("Erro ao gerar PDF da CAT:", error);
+      logger.error("Erro ao gerar PDF da CAT:", error);
       toast.error("Nao foi possivel gerar o PDF da CAT.");
     }
   };

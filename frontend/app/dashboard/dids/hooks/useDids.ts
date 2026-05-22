@@ -1,6 +1,7 @@
 'use client';
+import { logger } from '@/lib/logger';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useRef, useEffect, useMemo, useState } from 'react';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
@@ -23,6 +24,7 @@ type UseDidsOptions = {
 
 export function useDids({ canManageDids }: UseDidsOptions) {
   const [dids, setDids] = useState<Did[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,13 +61,30 @@ export function useDids({ canManageDids }: UseDidsOptions) {
     } catch (error) {
       setLoadError('Não foi possível carregar a lista do Início do Dia.');
       toast.error('Erro ao carregar Diálogos do Início do Dia.');
-      console.error(error);
+      logger.error(error);
     } finally {
       setLoading(false);
     }
   }, [deferredSearchTerm, page, statusFilter]);
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     void loadDids();
   }, [loadDids]);
 
@@ -193,7 +212,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         openUrlInNewTab(fileUrl);
         setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         toast.error(
           getFormErrorMessage(error, {
             fallback:
@@ -292,7 +311,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         });
         setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         toast.error('Não foi possível gerar o PDF para impressão.');
       } finally {
         setBusyDidId(null);
@@ -346,7 +365,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         });
         setIsMailModalOpen(true);
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         toast.error(
           getFormErrorMessage(error, {
             fallback: 'Não foi possível preparar o envio por e-mail do DID.',
@@ -380,7 +399,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         }
         await loadDids();
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         toast.error('Não foi possível excluir o registro.');
       } finally {
         setBusyDidId(null);
@@ -408,7 +427,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
           `Status atualizado para "${DID_STATUS_LABEL[updated.status]}".`,
         );
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         toast.error('Não foi possível atualizar o status.');
       } finally {
         setBusyDidId(null);

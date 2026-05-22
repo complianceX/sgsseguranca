@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -35,6 +36,8 @@ import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/stat
 import { InlineCallout } from '@/components/ui/inline-callout';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 import {
   ModalBody,
   ModalFooter,
@@ -118,39 +121,76 @@ export default function MedicalExamsPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const usersRequestRef = useRef(0);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
+
+  useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
 
     try {
+      if (!activeCompanyId) {
+        setExams([]);
+        setTotal(0);
+        setLastPage(1);
+        return;
+      }
+
       const paged = await medicalExamsService.findPaginated({
         page,
         limit,
         tipo_exame: filterTipo || undefined,
         resultado: filterResultado || undefined,
+        companyId: activeCompanyId,
       });
 
       setExams(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar exames medicos:', error);
+      logger.error('Erro ao carregar exames medicos:', error);
       setLoadError('Nao foi possivel carregar o monitor de exames medicos.');
       toast.error('Erro ao carregar exames medicos.');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, filterTipo, filterResultado]);
+  }, [activeCompanyId, page, limit, filterTipo, filterResultado]);
 
   const loadSummary = useCallback(async () => {
     try {
-      const sum = await medicalExamsService.getExpirySummary();
+      if (!activeCompanyId) {
+        setSummary({
+          total: 0,
+          expired: 0,
+          expiringSoon: 0,
+          valid: 0,
+        });
+        return;
+      }
+
+      const sum = await medicalExamsService.getExpirySummary(activeCompanyId);
       setSummary(sum);
     } catch (error) {
-      console.error('Erro ao carregar resumo de exames medicos:', error);
+      logger.error('Erro ao carregar resumo de exames medicos:', error);
     }
-  }, []);
+  }, [activeCompanyId]);
 
   useEffect(() => {
     void loadData();
@@ -165,11 +205,17 @@ export default function MedicalExamsPage() {
       return;
     }
 
+    if (!activeCompanyId) {
+      setUsers([]);
+      setUsersLoading(false);
+      return;
+    }
+
     const requestId = ++usersRequestRef.current;
     setUsersLoading(true);
 
     void medicalExamsService
-      .findAllLookupUsers()
+      .findAllLookupUsers(undefined, activeCompanyId)
       .then((data) => {
         if (requestId !== usersRequestRef.current) {
           return;
@@ -180,7 +226,7 @@ export default function MedicalExamsPage() {
         if (requestId !== usersRequestRef.current) {
           return;
         }
-        console.error('Erro ao carregar colaboradores para exames medicos:', error);
+        logger.error('Erro ao carregar colaboradores para exames medicos:', error);
         toast.error('Nao foi possivel carregar a lista de colaboradores.');
       })
       .finally(() => {
@@ -188,15 +234,23 @@ export default function MedicalExamsPage() {
           setUsersLoading(false);
         }
       });
-  }, [showModal]);
+  }, [activeCompanyId, showModal]);
 
   const openCreate = () => {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de registrar um exame.');
+      return;
+    }
     setEditId(null);
     setForm(INITIAL_FORM);
     setShowModal(true);
   };
 
   const openEdit = (exam: MedicalExam) => {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de editar um exame.');
+      return;
+    }
     setEditId(exam.id);
     setForm({
       user_id: exam.user_id,
@@ -217,6 +271,10 @@ export default function MedicalExamsPage() {
   };
 
   const handleSave = async () => {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de salvar um exame.');
+      return;
+    }
     if (!form.user_id || !form.data_realizacao) {
       toast.error('Funcionario e data de realizacao sao obrigatorios.');
       return;
@@ -234,10 +292,10 @@ export default function MedicalExamsPage() {
       };
 
       if (editId) {
-        await medicalExamsService.update(editId, payload);
+        await medicalExamsService.update(editId, payload, activeCompanyId);
         toast.success('Exame atualizado com sucesso.');
       } else {
-        await medicalExamsService.create(payload);
+        await medicalExamsService.create(payload, activeCompanyId);
         toast.success('Exame registrado com sucesso.');
       }
 
@@ -245,7 +303,7 @@ export default function MedicalExamsPage() {
       await loadData();
       void loadSummary();
     } catch (error) {
-      console.error('Erro ao salvar exame medico:', error);
+      logger.error('Erro ao salvar exame medico:', error);
       toast.error('Erro ao salvar exame.');
     } finally {
       setSaving(false);
@@ -253,15 +311,20 @@ export default function MedicalExamsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de excluir um exame.');
+      return;
+    }
+
     if (!confirm('Excluir este exame medico?')) return;
 
     try {
-      await medicalExamsService.delete(id);
+      await medicalExamsService.delete(id, activeCompanyId || undefined);
       toast.success('Exame excluido.');
       await loadData();
       void loadSummary();
     } catch (error) {
-      console.error('Erro ao excluir exame medico:', error);
+      logger.error('Erro ao excluir exame medico:', error);
       toast.error('Erro ao excluir exame.');
     }
   };

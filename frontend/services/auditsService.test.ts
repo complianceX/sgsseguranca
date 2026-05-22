@@ -38,6 +38,6 @@ describe('auditsService', () => {
       url: null,
     });
 
-    expect(api.get).toHaveBeenCalledWith('/audits/audit-1/pdf');
+    expect(api.get).toHaveBeenCalledWith('/audits/audit-1/pdf', {});
   });
 });

@@ -1,8 +1,9 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useRef, useEffect, useMemo, useState } from 'react';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
@@ -71,6 +72,7 @@ export default function ArrsPage() {
   const canViewArrs = hasPermission('can_view_arrs');
   const canManageArrs = hasPermission('can_manage_arrs');
   const [arrs, setArrs] = useState<Arr[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,13 +125,30 @@ export default function ArrsPage() {
     } catch (error) {
       setLoadError('Não foi possível carregar a lista de ARRs.');
       toast.error('Erro ao carregar Análises de Risco Rápida.');
-      console.error(error);
+      logger.error(error);
     } finally {
       setLoading(false);
     }
   }, [canViewArrs, deferredSearchTerm, page, statusFilter]);
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     void loadArrs();
   }, [loadArrs]);
 
@@ -239,7 +258,7 @@ export default function ArrsPage() {
       openUrlInNewTab(fileUrl);
       setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error(
         getFormErrorMessage(error, {
           fallback:
@@ -328,7 +347,7 @@ export default function ArrsPage() {
       });
       setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error('Não foi possível gerar o PDF para impressão.');
     } finally {
       setBusyArrId((current) => (current === arr.id ? null : current));
@@ -386,7 +405,7 @@ export default function ArrsPage() {
       });
       setIsMailModalOpen(true);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error(
         getFormErrorMessage(error, {
           fallback: 'Não foi possível preparar o envio por e-mail da ARR.',
@@ -417,7 +436,7 @@ export default function ArrsPage() {
       }
       await loadArrs();
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error('Não foi possível excluir o registro.');
     } finally {
       setBusyArrId((current) => (current === id ? null : current));
@@ -440,7 +459,7 @@ export default function ArrsPage() {
       );
       toast.success(`Status atualizado para "${ARR_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error('Não foi possível atualizar o status.');
     } finally {
       setBusyArrId((current) => (current === arr.id ? null : current));

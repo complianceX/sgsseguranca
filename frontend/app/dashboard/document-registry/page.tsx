@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import {
   useCallback,
@@ -122,7 +123,7 @@ export default function DocumentRegistryPage() {
 
       setCompanies(nextCompanies);
     } catch (loadError) {
-      console.error(
+      logger.error(
         'Erro ao carregar empresas do registry documental:',
         loadError,
       );
@@ -144,7 +145,7 @@ export default function DocumentRegistryPage() {
       });
       setEntries(registryData);
     } catch (loadError) {
-      console.error('Erro ao carregar registry documental:', loadError);
+      logger.error('Erro ao carregar registry documental:', loadError);
       setError('Nao foi possivel carregar o registry documental.');
       toast.error('Erro ao carregar documentos consolidados.');
     } finally {
@@ -272,7 +273,7 @@ export default function DocumentRegistryPage() {
       URL.revokeObjectURL(url);
       toast.success('Pacote consolidado gerado com sucesso.');
     } catch (bundleError) {
-      console.error('Erro ao baixar pacote consolidado:', bundleError);
+      logger.error('Erro ao baixar pacote consolidado:', bundleError);
       toast.error('Não foi possível gerar o pacote consolidado.');
     } finally {
       setLoadingBundle(false);
@@ -299,7 +300,7 @@ export default function DocumentRegistryPage() {
       anchor.click();
       document.body.removeChild(anchor);
     } catch (downloadError) {
-      console.error('Erro ao baixar PDF arquivado:', downloadError);
+      logger.error('Erro ao baixar PDF arquivado:', downloadError);
       toast.error('Não foi possível baixar o PDF arquivado.');
     }
   };
@@ -327,7 +328,7 @@ export default function DocumentRegistryPage() {
       );
     } catch (printError) {
       printWindow?.close();
-      console.error('Erro ao imprimir PDF arquivado:', printError);
+      logger.error('Erro ao imprimir PDF arquivado:', printError);
       toast.error('Não foi possível abrir o PDF arquivado para impressão.');
     }
   };
@@ -359,7 +360,7 @@ export default function DocumentRegistryPage() {
       );
     } catch (bundleError) {
       printWindow?.close();
-      console.error('Erro ao imprimir pacote consolidado:', bundleError);
+      logger.error('Erro ao imprimir pacote consolidado:', bundleError);
       toast.error('Não foi possível abrir o pacote consolidado.');
     } finally {
       setLoadingBundle(false);

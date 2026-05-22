@@ -1,5 +1,6 @@
 'use client';
 
+import { logger } from '@/lib/logger';
 import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -47,7 +48,7 @@ export default function ActivitiesPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar atividades:', error);
+      logger.error('Erro ao carregar atividades:', error);
       setLoadError('Nao foi possivel carregar a lista de atividades.');
       toast.error('Erro ao carregar lista de atividades.');
     } finally {
@@ -73,7 +74,7 @@ export default function ActivitiesPage() {
       }
       void loadActivities();
     } catch (error) {
-      console.error('Erro ao excluir atividade:', error);
+      logger.error('Erro ao excluir atividade:', error);
       toast.error('Erro ao excluir atividade. Verifique dependencias e tente novamente.');
     }
   }
@@ -200,7 +201,6 @@ export default function ActivitiesPage() {
     </ListPageLayout>
   );
 }
-
 
 
 

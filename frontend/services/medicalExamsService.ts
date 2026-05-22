@@ -68,8 +68,13 @@ export const medicalExamsService = {
     tipo_exame?: string;
     resultado?: string;
     user_id?: string;
+    companyId?: string;
   }): Promise<MedicalExamPage> {
-    const res = await api.get('/medical-exams', { params });
+    const { companyId, ...query } = params ?? {};
+    const res = await api.get('/medical-exams', {
+      params: query,
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
@@ -77,10 +82,15 @@ export const medicalExamsService = {
     page?: number;
     limit?: number;
     search?: string;
+    companyId?: string;
   }): Promise<PaginatedResponse<MedicalExamLookupUser>> {
+    const { companyId, ...query } = params ?? {};
     const res = await api.get<PaginatedResponse<MedicalExamLookupUser>>(
       '/medical-exams/lookups/users',
-      { params },
+      {
+        params: query,
+        ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+      },
     );
     return res.data;
   },
@@ -91,52 +101,77 @@ export const medicalExamsService = {
     tipo_exame?: string;
     resultado?: string;
     user_id?: string;
+    companyId?: string;
   }): Promise<CursorPaginatedResponse<MedicalExam>> {
+    const { companyId, ...query } = params ?? {};
     const res = await api.get('/medical-exams', {
       params: {
-        cursor: params?.cursor,
-        limit: params?.limit ?? 20,
-        ...(params?.tipo_exame ? { tipo_exame: params.tipo_exame } : {}),
-        ...(params?.resultado ? { resultado: params.resultado } : {}),
-        ...(params?.user_id ? { user_id: params.user_id } : {}),
+        cursor: query.cursor,
+        limit: query.limit ?? 20,
+        ...(query.tipo_exame ? { tipo_exame: query.tipo_exame } : {}),
+        ...(query.resultado ? { resultado: query.resultado } : {}),
+        ...(query.user_id ? { user_id: query.user_id } : {}),
       },
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
     });
     return res.data;
   },
 
-  async findAllForExport(): Promise<MedicalExam[]> {
-    const res = await api.get('/medical-exams/export/all');
+  async findAllForExport(companyId?: string): Promise<MedicalExam[]> {
+    const res = await api.get('/medical-exams/export/all', {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
-  async findOne(id: string): Promise<MedicalExam> {
-    const res = await api.get(`/medical-exams/${id}`);
+  async findOne(id: string, companyId?: string): Promise<MedicalExam> {
+    const res = await api.get(`/medical-exams/${id}`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
-  async create(data: Partial<MedicalExam>): Promise<MedicalExam> {
-    const res = await api.post('/medical-exams', data);
+  async create(
+    data: Partial<MedicalExam>,
+    companyId?: string,
+  ): Promise<MedicalExam> {
+    const res = await api.post('/medical-exams', data, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
-  async update(id: string, data: Partial<MedicalExam>): Promise<MedicalExam> {
-    const res = await api.patch(`/medical-exams/${id}`, data);
+  async update(
+    id: string,
+    data: Partial<MedicalExam>,
+    companyId?: string,
+  ): Promise<MedicalExam> {
+    const res = await api.patch(`/medical-exams/${id}`, data, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
-  async delete(id: string): Promise<void> {
-    await api.delete(`/medical-exams/${id}`);
+  async delete(id: string, companyId?: string): Promise<void> {
+    await api.delete(`/medical-exams/${id}`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
   },
 
-  async getExpirySummary(): Promise<MedicalExamExpirySummary> {
-    const res = await api.get('/medical-exams/expiry/summary');
+  async getExpirySummary(companyId?: string): Promise<MedicalExamExpirySummary> {
+    const res = await api.get('/medical-exams/expiry/summary', {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return res.data;
   },
 
-  async findAllLookupUsers(search?: string): Promise<MedicalExamLookupUser[]> {
+  async findAllLookupUsers(
+    search?: string,
+    companyId?: string,
+  ): Promise<MedicalExamLookupUser[]> {
     return fetchAllPages({
       fetchPage: (page, limit) =>
-        medicalExamsService.findLookupUsers({ page, limit, search }),
+        medicalExamsService.findLookupUsers({ page, limit, search, companyId }),
       limit: 100,
       maxPages: 50,
       cacheKey: `GET:/medical-exams/lookups/users?page=*&limit=100&search=${

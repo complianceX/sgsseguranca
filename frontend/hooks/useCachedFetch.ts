@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { recordClientMetric } from '@/lib/perf/clientMetrics';
-import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { resolveBrowserCacheScope } from '@/lib/cache-scope';
 
 type CacheEntry<TResult> = {
   value?: TResult;
@@ -68,13 +68,9 @@ function buildCacheKey(
   return `${scopedBaseKey}:${JSON.stringify(args)}`;
 }
 
-function resolveTenantScopeKey() {
-  if (typeof window === 'undefined') {
-    return 'server';
-  }
-
-  const tenant = selectedTenantStore.get();
-  return tenant?.companyId ? `tenant:${tenant.companyId}` : 'tenant:none';
+export function clearCachedFetches(): void {
+  memoryCache.clear();
+  lastCacheCleanupAt = Date.now();
 }
 
 export interface CachedFetchController<TArgs extends unknown[], TResult> {
@@ -112,7 +108,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
       const resolvedKey = buildCacheKey(
         cacheKey,
         args,
-        resolveTenantScopeKey(),
+        resolveBrowserCacheScope(),
       );
       const now = Date.now();
       const existingEntry = memoryCache.get(resolvedKey) as
@@ -207,7 +203,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
       const resolvedKey = buildCacheKey(
         cacheKey,
         args,
-        resolveTenantScopeKey(),
+        resolveBrowserCacheScope(),
       );
       memoryCache.delete(resolvedKey);
       maybePruneCache(true);

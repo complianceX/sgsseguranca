@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -98,7 +99,7 @@ export default function PrivacyRequestsAdminPage() {
         ),
       );
     } catch (error) {
-      console.error('Erro ao carregar protocolos LGPD do tenant:', error);
+      logger.error('Erro ao carregar protocolos LGPD do tenant:', error);
       toast.error('Não foi possível carregar os protocolos LGPD.');
     } finally {
       setLoading(false);
@@ -133,7 +134,7 @@ export default function PrivacyRequestsAdminPage() {
       );
       toast.success('Protocolo LGPD atualizado.');
     } catch (error) {
-      console.error('Erro ao atualizar protocolo LGPD:', error);
+      logger.error('Erro ao atualizar protocolo LGPD:', error);
       toast.error('Não foi possível atualizar o protocolo.');
     } finally {
       setSavingId(null);
@@ -158,7 +159,7 @@ export default function PrivacyRequestsAdminPage() {
         [requestId]: events,
       }));
     } catch (error) {
-      console.error('Erro ao carregar eventos do protocolo LGPD:', error);
+      logger.error('Erro ao carregar eventos do protocolo LGPD:', error);
       toast.error('Não foi possível carregar o histórico do protocolo.');
     } finally {
       setLoadingEventsId(null);
