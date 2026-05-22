@@ -264,7 +264,7 @@ export function DdsForm({ id }: DdsFormProps) {
     clearErrors,
     watch,
     setFocus,
-    formState: { errors, isValid, isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm<DdsFormData>({
     resolver: zodResolver(ddsSchema),
     mode: "onBlur",
@@ -1642,7 +1642,7 @@ export function DdsForm({ id }: DdsFormProps) {
             </Button>
             <Button
               type="submit"
-              disabled={ddsReadOnly || loading || isSubmitting || !isValid}
+              disabled={ddsReadOnly || loading || isSubmitting}
               leftIcon={
                 loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

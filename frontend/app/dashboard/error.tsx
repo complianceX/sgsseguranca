@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useEffect } from 'react';
 
@@ -10,7 +11,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') console.error('[DashboardError]', error);
+    if (process.env.NODE_ENV !== 'production') logger.error('[DashboardError]', error);
   }, [error]);
 
   return (

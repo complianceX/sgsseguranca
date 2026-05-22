@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import EmployeesPage from './page';
 import { usersService } from '@/services/usersService';
+import { sessionStore } from '@/lib/sessionStore';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 jest.mock('@/services/usersService', () => ({
   usersService: {
@@ -19,6 +21,16 @@ jest.mock('sonner', () => ({
 describe('EmployeesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    selectedTenantStore.clear();
+    sessionStore.set({
+      userId: 'user-1',
+      companyId: 'company-1',
+      user: {
+        id: 'user-1',
+        companyId: 'company-1',
+        isAdminGeral: false,
+      },
+    });
   });
 
   it('carrega funcionarios sem tornar usuario com acesso mutuamente exclusivo', async () => {
@@ -53,6 +65,7 @@ describe('EmployeesPage', () => {
       expect(usersService.findPaginated).toHaveBeenCalledWith({
         page: 1,
         search: undefined,
+        companyId: 'company-1',
       });
     });
 

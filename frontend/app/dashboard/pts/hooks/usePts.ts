@@ -1,6 +1,7 @@
 'use client';
+import { logger } from '@/lib/logger';
 
-import { useState, useEffect, useCallback, useDeferredValue } from 'react';
+import { useState, useRef, useEffect, useCallback, useDeferredValue } from 'react';
 import {
   getPtApprovalBlockedPayload,
   Pt,
@@ -81,6 +82,7 @@ async function loadPtPdfGenerator() {
 
 export function usePts() {
   const [pts, setPts] = useState<Pt[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -169,7 +171,7 @@ export function usePts() {
       const overview = await ptsService.getAnalyticsOverview();
       setOverviewMetrics(overview);
     } catch (error) {
-      console.error('Erro ao carregar overview analítico de PTs:', error);
+      logger.error('Erro ao carregar overview analítico de PTs:', error);
       setOverviewMetrics(null);
     }
   }, []);
@@ -183,7 +185,7 @@ export function usePts() {
       );
       setInsights(ptInsights);
     } catch (error) {
-      console.error('Erro ao carregar insights:', error);
+      logger.error('Erro ao carregar insights:', error);
     }
   }, []);
 
@@ -193,7 +195,7 @@ export function usePts() {
       const rules = await ptsService.getApprovalRules();
       setApprovalRules(rules);
     } catch (error) {
-      console.error('Erro ao carregar regras de aprovação da PT:', error);
+      logger.error('Erro ao carregar regras de aprovação da PT:', error);
       setApprovalRules(null);
     } finally {
       setApprovalRulesLoading(false);
@@ -202,6 +204,16 @@ export function usePts() {
 
   // Reset page when filters change
   useEffect(() => {
+    const timer = timerRef.current;
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
+
+useEffect(() => {
     setPage(1);
   }, [deferredSearchTerm, statusFilter]);
 
@@ -505,7 +517,7 @@ export function usePts() {
             buildPreApprovalAuditPayload(review, 'preview'),
           );
         } catch (auditError) {
-          console.error('Erro ao registrar pré-liberação da PT:', auditError);
+          logger.error('Erro ao registrar pré-liberação da PT:', auditError);
           toast.warning(
             'A pré-liberação foi aberta, mas o registro auditável não pôde ser salvo agora.',
           );

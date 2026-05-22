@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import { risksService, Risk } from '@/services/risksService';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 
 export function useRisks() {
   const [risks, setRisks] = useState<Risk[]>([]);
@@ -13,14 +15,40 @@ export function useRisks() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
+
+  useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const loadRisks = useCallback(async () => {
     try {
       setLoading(true);
+      if (!activeCompanyId) {
+        setRisks([]);
+        setTotal(0);
+        setLastPage(1);
+        return;
+      }
       const response = await risksService.findPaginated({
         page,
         limit: 10,
         search: deferredSearchTerm || undefined,
+        companyId: activeCompanyId,
       });
       setRisks(response.data);
       setTotal(response.total);
@@ -30,7 +58,7 @@ export function useRisks() {
     } finally {
       setLoading(false);
     }
-  }, [deferredSearchTerm, page]);
+  }, [activeCompanyId, deferredSearchTerm, page]);
 
   useEffect(() => {
     loadRisks();
@@ -44,7 +72,7 @@ export function useRisks() {
   const handleDelete = useCallback(async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este risco?')) {
       try {
-        await risksService.delete(id);
+        await risksService.delete(id, activeCompanyId || undefined);
         toast.success('Risco excluído com sucesso!');
         if (risks.length === 1 && page > 1) {
           setPage((current) => current - 1);
@@ -55,7 +83,7 @@ export function useRisks() {
         handleApiError(error, 'Riscos');
       }
     }
-  }, [loadRisks, page, risks.length]);
+  }, [activeCompanyId, loadRisks, page, risks.length]);
 
   return {
     risks,

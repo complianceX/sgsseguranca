@@ -1,4 +1,5 @@
 ﻿"use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -200,7 +201,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
       return nextState;
     } catch (error) {
-      console.error("Erro ao atualizar assinaturas do checklist:", error);
+      logger.error("Erro ao atualizar assinaturas do checklist:", error);
       if (options?.notifyReset && (options.previousCount || 0) > 0) {
         setSignatures({});
         toast.warning(
@@ -270,7 +271,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         );
       }
     } catch (error) {
-      console.error("Erro ao anexar foto do equipamento:", error);
+      logger.error("Erro ao anexar foto do equipamento:", error);
       toast.error("Não foi possível anexar a foto do equipamento.");
     } finally {
       e.target.value = "";
@@ -367,7 +368,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         setResolvedPdfAccessMessage(
           "PDF final registrado, mas a URL assinada não está disponível no momento.",
         );
-        console.error("Erro ao resolver PDF final do checklist:", error);
+        logger.error("Erro ao resolver PDF final do checklist:", error);
         toast.error("Não foi possível abrir o PDF final deste checklist.");
         return false;
       }
@@ -845,7 +846,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               if (cancelled) {
                 return;
               }
-              console.error("Erro ao carregar assinaturas do checklist:", error);
+              logger.error("Erro ao carregar assinaturas do checklist:", error);
               toast.error(
                 "As assinaturas do checklist não puderam ser carregadas agora.",
               );
@@ -939,7 +940,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               toast.success("Modelo carregado! Preencha os dados da verificação.");
             }
           } catch (error) {
-            console.error("Erro ao carregar modelo:", error);
+            logger.error("Erro ao carregar modelo:", error);
             toast.error("Erro ao carregar modelo.");
           }
         }
@@ -985,7 +986,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           }
         }
       } catch (error) {
-        console.error("Erro ao carregar dados:", error);
+        logger.error("Erro ao carregar dados:", error);
         toast.error("Erro ao carregar dados do formulário.");
       } finally {
         if (cancelled) {
@@ -1075,7 +1076,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           }));
         })
         .catch((error) => {
-          console.error("Erro ao resolver foto governada do checklist:", error);
+          logger.error("Erro ao resolver foto governada do checklist:", error);
           setResolvedGovernedPhotoUrls((prev) => ({
             ...prev,
             [cacheKey]: "",
@@ -1127,7 +1128,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
         setSites(nextSites);
       } catch (error) {
-        console.error("Erro ao carregar obras do checklist:", error);
+        logger.error("Erro ao carregar obras do checklist:", error);
         setSites([]);
       }
     }
@@ -1168,7 +1169,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
         setUsers(nextUsers);
       } catch (error) {
-        console.error("Erro ao carregar usuários do checklist:", error);
+        logger.error("Erro ao carregar usuários do checklist:", error);
         setUsers([]);
       }
     }
@@ -1260,7 +1261,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       }
       toast.info("Rascunho restaurado automaticamente.");
     } catch (error) {
-      console.error("Erro ao restaurar rascunho de checklist:", error);
+      logger.error("Erro ao restaurar rascunho de checklist:", error);
     }
   }, [draftStorageKey, fetching, normalizeHierarchyState, reset]);
 
@@ -1377,7 +1378,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         toast.success("Checklist gerado com sucesso!");
       }
     } catch (error) {
-      console.error("Erro IA:", error);
+      logger.error("Erro IA:", error);
       toast.error("Erro ao gerar checklist com IA.");
     } finally {
       setAiGenerating(false);
@@ -1798,7 +1799,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         setEmailModalOpen(false);
       }
     } catch (error) {
-      console.error("Erro ao enviar email:", error);
+      logger.error("Erro ao enviar email:", error);
       const message = (
         error as
           | { response?: { data?: { message?: string | string[] } } }
@@ -1874,7 +1875,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       );
       await refreshGovernedPdfAccess(resolvedChecklistId, { openMode: "open" });
     } catch (error) {
-      console.error("Erro ao emitir PDF final do checklist:", error);
+      logger.error("Erro ao emitir PDF final do checklist:", error);
       toast.error("Não foi possível emitir o PDF final deste checklist.");
     } finally {
       setFinalizingPdf(false);
@@ -2889,7 +2890,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               );
               setIsSignatureModalOpen(false);
             } catch (error) {
-              console.error("Erro ao salvar assinatura:", error);
+              logger.error("Erro ao salvar assinatura:", error);
               toast.error("Erro ao salvar assinatura.");
             }
           } else {

@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useEffect } from 'react';
 
@@ -16,7 +17,7 @@ export default function GlobalError({
         extra: { digest: error.digest },
       });
     });
-    if (process.env.NODE_ENV !== 'production') console.error('[Global Error Page]', error);
+    if (process.env.NODE_ENV !== 'production') logger.error('[Global Error Page]', error);
   }, [error]);
 
   return (

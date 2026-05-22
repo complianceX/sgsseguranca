@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
 import Link from 'next/link';
@@ -24,6 +25,8 @@ import { StatusPill } from '@/components/ui/status-pill';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 
 const searchInputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] py-2 pl-10 pr-4 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -37,6 +40,25 @@ export default function EmployeesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
+
+  useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -50,21 +72,28 @@ export default function EmployeesPage() {
     try {
       setLoading(true);
       setLoadError(null);
+      if (!activeCompanyId) {
+        setEmployees([]);
+        setTotal(0);
+        setLastPage(1);
+        return;
+      }
       const res = await usersService.findPaginated({
         page,
         search: deferredSearchTerm || undefined,
+        companyId: activeCompanyId,
       });
       setEmployees(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar funcionarios:', error);
+      logger.error('Erro ao carregar funcionarios:', error);
       setLoadError('Nao foi possivel carregar a lista de funcionarios.');
       toast.error('Erro ao carregar lista de funcionarios.');
     } finally {
       setLoading(false);
     }
-  }, [page, deferredSearchTerm]);
+  }, [activeCompanyId, page, deferredSearchTerm]);
 
   useEffect(() => {
     setPage(1);
@@ -75,6 +104,11 @@ export default function EmployeesPage() {
   }, [loadEmployees]);
 
   async function handleDelete(id: string) {
+    if (!activeCompanyId) {
+      toast.error('Selecione uma empresa antes de excluir um funcionario.');
+      return;
+    }
+
     if (!confirm('Tem certeza que deseja excluir este funcionario?')) return;
 
     try {
@@ -92,11 +126,15 @@ export default function EmployeesPage() {
               password: trimmed,
             });
 
-      await usersService.delete(id, stepUp.stepUpToken);
+      await usersService.delete(
+        id,
+        stepUp.stepUpToken,
+        activeCompanyId || undefined,
+      );
       setEmployees((current) => current.filter((employee) => employee.id !== id));
       toast.success('Funcionario excluido com sucesso.');
     } catch (error) {
-      console.error('Erro ao excluir funcionario:', error);
+      logger.error('Erro ao excluir funcionario:', error);
       toast.error('Erro ao excluir funcionario. Verifique se existem dependencias.');
     }
   }

@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -301,7 +302,7 @@ export default function SstAgentPage() {
         setDdsSiteId((current) => current || preferredSiteId);
         setNcSiteId((current) => current || preferredSiteId);
       } catch (error) {
-        console.error('Erro ao carregar sites para SOPHIE:', error);
+        logger.error('Erro ao carregar sites para SOPHIE:', error);
         if (active) setSites([]);
       } finally {
         if (active) setLoadingSites(false);
@@ -457,7 +458,7 @@ export default function SstAgentPage() {
       }
       router.push(`/dashboard/aprs/new?${params.toString()}`);
     } catch (error) {
-      console.error('Erro ao gerar APR assistida:', error);
+      logger.error('Erro ao gerar APR assistida:', error);
       toast.error('Não foi possível gerar a APR assistida agora.');
     } finally {
       setCreatingAprDraft(false);
@@ -513,7 +514,7 @@ export default function SstAgentPage() {
       }
       router.push(`/dashboard/pts/new?${params.toString()}`);
     } catch (error) {
-      console.error('Erro ao gerar PT assistida:', error);
+      logger.error('Erro ao gerar PT assistida:', error);
       toast.error('Não foi possível gerar a PT assistida agora.');
     } finally {
       setCreatingPtDraft(false);
@@ -543,7 +544,7 @@ export default function SstAgentPage() {
       setCreatedChecklist(response);
       toast.success('Checklist criado pela SOPHIE com sucesso.');
     } catch (error) {
-      console.error('Erro ao criar checklist assistido:', error);
+      logger.error('Erro ao criar checklist assistido:', error);
       toast.error('Não foi possível criar o checklist assistido agora.');
     } finally {
       setCreatingChecklist(false);
@@ -571,7 +572,7 @@ export default function SstAgentPage() {
       setCreatedDds(response);
       toast.success('DDS criado pela SOPHIE com sucesso.');
     } catch (error) {
-      console.error('Erro ao criar DDS assistido:', error);
+      logger.error('Erro ao criar DDS assistido:', error);
       toast.error('Não foi possível criar o DDS assistido agora.');
     } finally {
       setCreatingDds(false);
@@ -628,7 +629,7 @@ export default function SstAgentPage() {
       toast.success('Não conformidade criada pela SOPHIE. Abrindo a tela para revisão.');
       router.push(`/dashboard/nonconformities/edit/${response.nonConformity.id}?assistant=sophie`);
     } catch (error) {
-      console.error('Erro ao criar NC assistida:', error);
+      logger.error('Erro ao criar NC assistida:', error);
       toast.error('Não foi possível criar a não conformidade assistida agora.');
     } finally {
       setCreatingNc(false);
@@ -658,7 +659,7 @@ export default function SstAgentPage() {
       setQueuedReport(response);
       toast.success('Relatório mensal enfileirado pela SOPHIE.');
     } catch (error) {
-      console.error('Erro ao enfileirar relatório mensal:', error);
+      logger.error('Erro ao enfileirar relatório mensal:', error);
       toast.error('Não foi possível enfileirar o relatório mensal agora.');
     } finally {
       setQueueingReport(false);
@@ -678,7 +679,7 @@ export default function SstAgentPage() {
       setPendingContextAnalysis(response);
       toast.success('SOPHIE analisou a pendência selecionada.');
     } catch (error) {
-      console.error('Erro ao analisar pendência com a SOPHIE:', error);
+      logger.error('Erro ao analisar pendência com a SOPHIE:', error);
       toast.error('Não foi possível analisar a pendência com a SOPHIE agora.');
     } finally {
       setAnalyzingPendingContext(false);

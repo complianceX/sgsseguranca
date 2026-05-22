@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
 import { aiService } from '@/services/aiService';
@@ -30,6 +30,7 @@ export interface ExportCsvOptions {
 export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
   const area = options?.area;
   const [checklists, setChecklists] = useState<Checklist[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,6 +85,23 @@ export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
   );
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     loadChecklists();
   }, [loadChecklists]);
 

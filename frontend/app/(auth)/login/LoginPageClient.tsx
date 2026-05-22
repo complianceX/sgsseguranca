@@ -444,11 +444,23 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
 function RecoveryCodes({ codes }: { codes: string[] }) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const timerRef = React.useRef<number | undefined>(undefined);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(codes.join('\n'));
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    timerRef.current = window.setTimeout(() => setCopied(false), 2500);
   };
 
   return (

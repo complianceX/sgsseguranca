@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import {
@@ -142,7 +143,7 @@ export default function NonConformitiesPage() {
       setTotal(pageResult.total);
       setLastPage(pageResult.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar nao conformidades:", error);
+      logger.error("Erro ao carregar nao conformidades:", error);
       setLoadError("Nao foi possivel carregar a lista de nao conformidades.");
       toast.error("Erro ao carregar nao conformidades");
     } finally {
@@ -155,7 +156,7 @@ export default function NonConformitiesPage() {
       const overview = await nonConformitiesService.getAnalyticsOverview();
       setSummary(overview);
     } catch (error) {
-      console.error("Erro ao carregar resumo de nao conformidades:", error);
+      logger.error("Erro ao carregar resumo de nao conformidades:", error);
     }
   }, []);
 
@@ -186,7 +187,7 @@ export default function NonConformitiesPage() {
       await fetchItems();
       void loadSummary();
     } catch (error) {
-      console.error("Erro ao excluir nao conformidade:", error);
+      logger.error("Erro ao excluir nao conformidade:", error);
       toast.error("Erro ao excluir nao conformidade");
     }
   };
@@ -224,7 +225,7 @@ export default function NonConformitiesPage() {
         "Emita o PDF final governado antes de enviar esta não conformidade por e-mail.",
       );
     } catch (error) {
-      console.error("Erro ao preparar e-mail:", error);
+      logger.error("Erro ao preparar e-mail:", error);
       toast.error("Erro ao preparar o documento para envio.");
     }
   };
@@ -240,7 +241,7 @@ export default function NonConformitiesPage() {
       await correctiveActionsService.createFromNonConformity(item.id);
       toast.success("CAPA criada a partir da nao conformidade.");
     } catch (error) {
-      console.error("Erro ao criar CAPA:", error);
+      logger.error("Erro ao criar CAPA:", error);
       toast.error("Nao foi possivel criar CAPA.");
     }
   };
@@ -262,7 +263,7 @@ export default function NonConformitiesPage() {
       toast.success(`Status atualizado para "${NC_STATUS_LABEL[newStatus]}"`);
       void loadSummary();
     } catch (error) {
-      console.error("Erro ao atualizar status da nao conformidade:", error);
+      logger.error("Erro ao atualizar status da nao conformidade:", error);
       toast.error("Erro ao atualizar status da nao conformidade");
     }
   };

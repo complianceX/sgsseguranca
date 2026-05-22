@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import {
   ChangeEvent,
-  type ComponentType,
   useState,
   useEffect,
   useCallback,
@@ -17,14 +16,6 @@ import type {
   AprRiskItemInput,
 } from "@/services/aprsService";
 import { aprsService } from "@/services/aprsService";
-import { activitiesService } from "@/services/activitiesService";
-import { risksService } from "@/services/risksService";
-import { episService } from "@/services/episService";
-import { toolsService } from "@/services/toolsService";
-import { machinesService } from "@/services/machinesService";
-import { sitesService } from "@/services/sitesService";
-import { companiesService } from "@/services/companiesService";
-import { usersService } from "@/services/usersService";
 import type { Activity } from "@/services/activitiesService";
 import type { Risk } from "@/services/risksService";
 import type { Epi } from "@/services/episService";
@@ -33,7 +24,6 @@ import type { Machine } from "@/services/machinesService";
 import type { Site } from "@/services/sitesService";
 import type { Company } from "@/services/companiesService";
 import type { User } from "@/services/usersService";
-import type { Signature } from "@/services/signaturesService";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -74,7 +64,6 @@ import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
-import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import type { AprLogEntry } from "./AprTimeline";
 import { useAuth } from "@/context/AuthContext";
 import type {
@@ -85,27 +74,56 @@ import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
 import { AprActionModal } from "./AprActionModal";
+import { useAprCatalogs } from "../hooks/useAprCatalogs";
 import { useAprDraft } from "../hooks/useAprDraft";
+import { useAprInitialData } from "../hooks/useAprInitialData";
+import { useAprPdfWorkflow } from "../hooks/useAprPdfWorkflow";
+import { useAprWorkflowActions } from "../hooks/useAprWorkflowActions";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import {
   type AprOfflineSyncStatus,
   type AprDraftPendingOfflineSync,
   createAprDraftMetadata,
-  readAprDraft,
 } from "./aprDraftStorage";
 import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
 import { AprApprovalPanel } from "./AprApprovalPanel";
 import { AprCompliancePanel } from "./AprCompliancePanel";
-import { handleApiError } from "@/lib/error-handler";
 import type { AprValidationResult } from "@/services/aprsService";
 import {
   getOfflineQueueSnapshot,
   removeOfflineQueueItem,
   retryOfflineQueueItem,
 } from "@/lib/offline-sync";
-import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
+import { safeToLocaleString } from "@/lib/date/safeFormat";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
+import {
+  createEmptyRiskRow,
+  hasText,
+  inferAprDocumentRiskLevel,
+  splitDocumentTokens,
+  uniqueDocumentTokens,
+  formatDocumentDate,
+  formatDocumentPeriod,
+  normalizeRiskRow,
+  buildRiskRowKey,
+  isUuidLike,
+  type AprDocumentRiskLevel,
+  type AprDocumentRiskSummary,
+} from "./aprFormUtils";
+import {
+  APR_DOCUMENT_RISK_LEVELS,
+  DocumentInfoCell,
+  DocumentRiskSummaryList,
+  DocumentSignatureCard,
+  AprRiskGridHeader,
+  AprRiskReferencePanel,
+  LegendItem,
+  MiniStat,
+  SectionGrid,
+  SummaryMetaCard,
+  WizardMetric,
+} from "./AprFormPresentation";
 
 const SignatureModal = dynamic(
   () =>
@@ -133,9 +151,6 @@ const AprRiskRow = dynamic(() =>
 const AprExecutiveSummary = dynamic(() =>
   import("./AprExecutiveSummary").then((module) => module.AprExecutiveSummary),
 );
-
-const loadAprPdfGenerator = () => import("@/lib/pdf/aprGenerator");
-const loadPdfFileUtils = () => import("@/lib/pdf/pdfFile");
 
 /* Schema movido para ./aprForm.schema.ts
    (mantemos o nome `aprSchema` via import para o zodResolver)
@@ -197,21 +212,6 @@ interface AprFormProps {
   id?: string;
 }
 
-type AprFormRiskRow = NonNullable<AprFormData["itens_risco"]>[number];
-type AprDocumentRiskLevel =
-  | "insignificante"
-  | "baixo"
-  | "medio"
-  | "alto"
-  | "critico";
-
-type AprDocumentRiskSummary = {
-  counts: Record<AprDocumentRiskLevel, number>;
-  total: number;
-  highestLabel: string;
-  criticalCount: number;
-};
-
 const APR_STEPS = [
   {
     id: 1,
@@ -232,45 +232,6 @@ const APR_STEPS = [
     icon: ShieldCheck,
   },
 ] as const;
-
-const APR_DOCUMENT_RISK_LEVELS: Array<{
-  key: AprDocumentRiskLevel;
-  label: string;
-  tone: string;
-  subtle: string;
-}> = [
-  {
-    key: "insignificante",
-    label: "Insignificante",
-    tone: "bg-[var(--ds-color-border-strong)]",
-    subtle:
-      "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
-  },
-  {
-    key: "baixo",
-    label: "Baixo",
-    tone: "bg-emerald-600",
-    subtle: "bg-emerald-50 text-emerald-700",
-  },
-  {
-    key: "medio",
-    label: "Médio",
-    tone: "bg-amber-600",
-    subtle: "bg-amber-50 text-amber-700",
-  },
-  {
-    key: "alto",
-    label: "Alto",
-    tone: "bg-orange-600",
-    subtle: "bg-orange-50 text-orange-700",
-  },
-  {
-    key: "critico",
-    label: "Crítico",
-    tone: "bg-red-600",
-    subtle: "bg-red-50 text-red-700",
-  },
-];
 
 const aprBackButtonClass =
   "group rounded-full p-2 text-[var(--ds-color-text-secondary)] transition-none hover:bg-transparent hover:text-[var(--ds-color-text-secondary)]";
@@ -334,181 +295,6 @@ const renderLegacyAprContext = false;
   }
 }
 */
-
-function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
-  return {
-    atividade_processo: "",
-    etapa: "",
-    agente_ambiental: "",
-    condicao_perigosa: "",
-    fontes_circunstancias: "",
-    possiveis_lesoes: "",
-    probabilidade: "",
-    severidade: "",
-    categoria_risco: "",
-    medidas_prevencao: "",
-    epc: "",
-    epi: "",
-    permissao_trabalho: "",
-    normas_relacionadas: "",
-    responsavel: "",
-    prazo: "",
-    status_acao: "",
-  };
-}
-
-function hasText(value: unknown) {
-  return String(value ?? "").trim().length > 0;
-}
-
-function normalizeDocumentToken(value: unknown) {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-function parseRiskScaleNumber(value: unknown) {
-  const match = String(value ?? "").match(/\d+/);
-  return match ? Number(match[0]) : 0;
-}
-
-function inferAprDocumentRiskLevel(
-  item?: AprFormRiskRow,
-): AprDocumentRiskLevel {
-  const category = normalizeDocumentToken(item?.categoria_risco);
-
-  if (category.includes("critic")) return "critico";
-  if (category.includes("substancial") || category.includes("alto")) {
-    return "alto";
-  }
-  if (
-    category.includes("atencao") ||
-    category.includes("medio") ||
-    category.includes("moderad")
-  ) {
-    return "medio";
-  }
-  if (category.includes("aceitavel") || category.includes("baixo")) {
-    return "baixo";
-  }
-  if (category.includes("insignificante")) return "insignificante";
-
-  const probability = parseRiskScaleNumber(item?.probabilidade);
-  const severity = parseRiskScaleNumber(item?.severidade);
-  const score = probability * severity;
-
-  if (!score) return "insignificante";
-  if (score >= 9) return "critico";
-  if (score >= 6) return "alto";
-  if (score >= 3) return "medio";
-  return "baixo";
-}
-
-function splitDocumentTokens(value: unknown) {
-  return String(value ?? "")
-    .split(/[,\n;|]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function uniqueDocumentTokens(values: string[]) {
-  const seen = new Set<string>();
-  return values.filter((value) => {
-    const key = normalizeDocumentToken(value);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function formatDocumentDate(value?: unknown) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "Não definida";
-
-  const datePart = raw.includes("T") ? raw.slice(0, 10) : raw;
-  const match = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    return `${match[3]}/${match[2]}/${match[1]}`;
-  }
-
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleDateString("pt-BR");
-}
-
-function formatDocumentPeriod(start?: unknown, end?: unknown) {
-  const startLabel = formatDocumentDate(start);
-  const endLabel = formatDocumentDate(end);
-
-  if (startLabel === "Não definida" && endLabel === "Não definida") {
-    return "Não definido";
-  }
-
-  if (startLabel === endLabel || endLabel === "Não definida") {
-    return startLabel;
-  }
-
-  return `${startLabel} até ${endLabel}`;
-}
-
-function normalizeRiskRow(
-  row?: Partial<NonNullable<AprFormData["itens_risco"]>[number]>,
-): NonNullable<AprFormData["itens_risco"]>[number] {
-  return {
-    ...createEmptyRiskRow(),
-    ...row,
-  };
-}
-
-function mapPersistedRiskItemToFormRow(
-  item: NonNullable<Apr["risk_items"]>[number],
-): NonNullable<AprFormData["itens_risco"]>[number] {
-  return normalizeRiskRow({
-    atividade_processo: item.atividade || "",
-    etapa: item.etapa || "",
-    agente_ambiental: item.agente_ambiental || "",
-    condicao_perigosa: item.condicao_perigosa || "",
-    fontes_circunstancias: item.fonte_circunstancia || "",
-    possiveis_lesoes: item.lesao || "",
-    probabilidade:
-      item.probabilidade !== undefined && item.probabilidade !== null
-        ? String(item.probabilidade)
-        : "",
-    severidade:
-      item.severidade !== undefined && item.severidade !== null
-        ? String(item.severidade)
-        : "",
-    categoria_risco: item.categoria_risco || "",
-    medidas_prevencao: item.medidas_prevencao || "",
-    epc: item.epc || "",
-    epi: item.epi || "",
-    permissao_trabalho: item.permissao_trabalho || "",
-    normas_relacionadas: item.normas_relacionadas || "",
-    responsavel: item.responsavel || "",
-    prazo: item.prazo || "",
-    status_acao: item.status_acao || "",
-  });
-}
-
-function buildRiskRowKey(
-  row?: Partial<NonNullable<AprFormData["itens_risco"]>[number]>,
-) {
-  const normalized = normalizeRiskRow(row);
-  return [
-    normalized.atividade_processo,
-    normalized.etapa,
-    normalized.condicao_perigosa,
-    normalized.agente_ambiental,
-  ]
-    .map((value) =>
-      String(value || "")
-        .trim()
-        .toLowerCase(),
-    )
-    .join("|");
-}
 
 export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
@@ -694,6 +480,20 @@ export function AprForm({ id }: AprFormProps) {
   useEffect(() => {
     getValuesRef.current = getValues;
   }, [getValues]);
+
+  const {
+    ensureGovernedPdf,
+    reloadAprWorkflowTimeline,
+    reloadAprWorkflowContext,
+    handlePrintAfterSave,
+  } = useAprPdfWorkflow({
+    canViewSignatures,
+    setCurrentApr,
+    setAprLogs,
+    setAprEvidences,
+    setVersionHistory,
+    setValue,
+  });
 
   const watchedStatus = useWatch({
     control,
@@ -1059,125 +859,6 @@ export function AprForm({ id }: AprFormProps) {
       shouldDirty: false,
     });
   }, [selectedElaborador?.nome, setValue]);
-
-  const getGovernedPdfAccess = useCallback(async (aprId: string) => {
-    const access = await aprsService.getPdfAccess(aprId);
-    return access.hasFinalPdf ? access : null;
-  }, []);
-
-  const ensureGovernedPdf = useCallback(
-    async (apr: Apr) => {
-      const existingAccess = await getGovernedPdfAccess(apr.id);
-      if (existingAccess) {
-        return existingAccess;
-      }
-
-      if (apr.status !== "Aprovada") {
-        return null;
-      }
-
-      const generatedAccess = await aprsService.generateFinalPdf(apr.id);
-      if (generatedAccess.generated) {
-        toast.success("PDF final da APR emitido e registrado com sucesso.");
-      }
-      return generatedAccess;
-    },
-    [getGovernedPdfAccess],
-  );
-
-  const reloadAprWorkflowTimeline = useCallback(async (aprId: string) => {
-    try {
-      const [logs, versions, evidences] = await Promise.all([
-        aprsService.getLogs(aprId),
-        aprsService.getVersionHistory(aprId),
-        aprsService.listAprEvidences(aprId),
-      ]);
-      setAprLogs(logs);
-      setAprEvidences(evidences);
-      setVersionHistory(
-        versions.map((item) => ({
-          id: item.id,
-          numero: item.numero,
-          versao: item.versao,
-          status: item.status,
-        })),
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar a linha do tempo da APR:", error);
-    }
-  }, []);
-
-  const reloadAprWorkflowContext = useCallback(
-    async (aprId: string) => {
-      const freshApr = await aprsService.findOne(aprId);
-      setCurrentApr(freshApr);
-      setValue("status", freshApr.status);
-      void reloadAprWorkflowTimeline(aprId);
-      return freshApr;
-    },
-    [reloadAprWorkflowTimeline, setValue],
-  );
-
-  const handlePrintAfterSave = useCallback(
-    async (
-      aprId: string,
-    ): Promise<{ didNavigateToPdf: boolean; usedPopup: boolean }> => {
-      toast.info("Preparando impressão da APR...");
-      const current = await aprsService.findOne(aprId);
-      const shouldUseGovernedPdf =
-        Boolean(current.pdf_file_key) || current.status === "Aprovada";
-
-      if (shouldUseGovernedPdf) {
-        const access = await ensureGovernedPdf(current);
-        if (access?.url) {
-          const usedPopup = openPdfForPrint(access.url, () => {
-            toast.info(
-              "Pop-up bloqueado. Abrimos o PDF final da APR na mesma aba para impressão.",
-            );
-          });
-          return { didNavigateToPdf: true, usedPopup };
-        }
-
-        toast.warning(
-          access?.message ||
-            "O PDF final da APR foi emitido, mas a URL segura não está disponível agora.",
-        );
-        return { didNavigateToPdf: false, usedPopup: false };
-      }
-
-      const [fullApr, aprSignatures, evidences] = await Promise.all([
-        aprsService.findOne(aprId),
-        canViewSignatures
-          ? signaturesService.findByDocument(aprId, "APR")
-          : Promise.resolve<Signature[]>([]),
-        aprsService.listAprEvidences(aprId),
-      ]);
-      const [{ generateAprPdf }, { base64ToPdfBlob }] = await Promise.all([
-        loadAprPdfGenerator(),
-        loadPdfFileUtils(),
-      ]);
-      const result = (await generateAprPdf(fullApr, aprSignatures, {
-        save: false,
-        output: "base64",
-        evidences,
-        draftWatermark: true,
-      })) as { base64: string } | undefined;
-
-      if (!result?.base64) {
-        throw new Error("Falha ao gerar o PDF da APR para impressão.");
-      }
-
-      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-      const usedPopup = openPdfForPrint(fileURL, () => {
-        toast.info(
-          "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
-        );
-      });
-      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
-      return { didNavigateToPdf: true, usedPopup };
-    },
-    [canViewSignatures, ensureGovernedPdf],
-  );
 
   const buildChecklistSuggestionHref = useCallback(
     (suggestion: SophieDraftChecklistSuggestion) => {
@@ -2187,741 +1868,94 @@ export function AprForm({ id }: AprFormProps) {
     }
   };
 
-  const handleSuggestControls = useCallback(async () => {
-    if (isReadOnly) {
-      notifyReadOnly("Não é possível sugerir controles em uma APR bloqueada.");
-      return;
-    }
-    if (riskFields.length === 0) {
-      toast.error("Adicione ao menos uma linha de risco para gerar sugestões.");
-      return;
-    }
-
-    try {
-      setSuggestingControls(true);
-      const rows = watch("itens_risco") || [];
-      await Promise.all(
-        rows.map(async (row, index) => {
-          const result = await aprsService.getControlSuggestions({
-            probability: row?.probabilidade
-              ? Number(row.probabilidade)
-              : undefined,
-            severity: row?.severidade ? Number(row.severidade) : undefined,
-            exposure: 1,
-            activity: row?.atividade_processo || tituloApr,
-            condition: row?.condicao_perigosa,
-          });
-
-          const suggestionText = result.suggestions
-            .map((item) => `${item.title}: ${item.description}`)
-            .join(" | ");
-
-          if (suggestionText) {
-            setValue(`itens_risco.${index}.medidas_prevencao`, suggestionText, {
-              shouldDirty: true,
-              shouldValidate: true,
-            });
-          }
-        }),
-      );
-
-      toast.success("Sugestões de controles aplicadas nas linhas de risco.");
-    } catch (error) {
-      console.error("Erro ao sugerir controles:", error);
-      toast.error("Não foi possível gerar sugestões de controles.");
-    } finally {
-      setSuggestingControls(false);
-    }
-  }, [
-    isReadOnly,
-    notifyReadOnly,
-    riskFields.length,
-    setValue,
-    tituloApr,
-    watch,
-  ]);
-
-  const handleApproveApr = useCallback(async () => {
-    if (!id) return;
-    if (!canApproveCurrentApr) {
-      toast.warning(
-        "Aprovação indisponível para esta APR no estado atual do fluxo.",
-      );
-      return;
-    }
-    setFormActionModal("approve");
-  }, [canApproveCurrentApr, id]);
-
-  const handleEmitGovernedPdf = useCallback(async () => {
-    if (!id || !currentApr) return;
-    if (isOffline) {
-      registerOfflineBlocked("final_pdf_requires_online");
-      toast.warning(
-        "A emissão do PDF final governado exige conexão ativa com o servidor.",
-      );
-      return;
-    }
-    if (currentApr.status !== "Aprovada") {
-      toast.warning(
-        "Somente APRs aprovadas podem emitir o PDF final governado.",
-      );
-      return;
-    }
-
-    try {
-      setEmittingGovernedPdf(true);
-      const access = await ensureGovernedPdf(currentApr);
-      await reloadAprWorkflowContext(id);
-
-      if (access?.url) {
-        openUrlInNewTab(access.url);
-        return;
-      }
-
-      toast.warning(
-        access?.message ||
-          "O PDF final foi emitido, mas a URL segura ainda não está disponível.",
-      );
-    } catch (error) {
-      console.error("Erro ao emitir PDF governado da APR:", error);
-      toast.error("Não foi possível emitir o PDF final governado.");
-    } finally {
-      setEmittingGovernedPdf(false);
-    }
-  }, [
-    currentApr,
-    ensureGovernedPdf,
-    id,
-    isOffline,
-    registerOfflineBlocked,
-    reloadAprWorkflowContext,
-  ]);
-
-  const handleCloseApr = useCallback(async () => {
-    if (!id || !currentApr) return;
-    if (currentApr.status !== "Aprovada") {
-      toast.warning("Somente APRs aprovadas podem ser encerradas.");
-      return;
-    }
-    if (!currentApr.pdf_file_key) {
-      toast.warning(
-        "Emita o PDF final governado da APR antes de encerrar o documento.",
-      );
-      return;
-    }
-    setFormActionModal("finalize");
-  }, [currentApr, id]);
-
-  const confirmFormAction = useCallback(async () => {
-    if (!id || !formActionModal) return;
-    setFormActionModalLoading(true);
-
-    try {
-      if (formActionModal === "approve") {
-        setFinalizing(true);
-        await aprsService.approve(id);
-        const refreshedApr = await reloadAprWorkflowContext(id);
-        const nextPendingStep =
-          refreshedApr.approval_steps?.find(
-            (step) => step.status === "pending",
-          ) || null;
-        if (refreshedApr.status === "Aprovada") {
-          toast.success("APR aprovada com sucesso.");
-        } else {
-          toast.success(
-            nextPendingStep
-              ? `Etapa aprovada. Próxima aprovação: ${nextPendingStep.title}.`
-              : "Etapa de aprovação concluída.",
-          );
-        }
-      } else {
-        setClosingApr(true);
-        await aprsService.finalize(id);
-        await reloadAprWorkflowContext(id);
-        toast.success("APR encerrada com sucesso.");
-      }
-      setFormActionModal(null);
-    } catch (error) {
-      const contextLabel =
-        formActionModal === "approve"
-          ? "Aprovação de APR"
-          : "Encerramento de APR";
-      handleApiError(error, contextLabel);
-    } finally {
-      setFormActionModalLoading(false);
-      setFinalizing(false);
-      setClosingApr(false);
-    }
-  }, [formActionModal, id, reloadAprWorkflowContext]);
-
-  const handleOpenGovernedPdf = useCallback(async () => {
-    if (!id || !currentApr) return;
-    if (isOffline) {
-      registerOfflineBlocked("open_final_pdf_requires_online");
-      toast.warning(
-        "O PDF final governado só pode ser aberto enquanto houver conexão ativa.",
-      );
-      return;
-    }
-
-    try {
-      const access = await aprsService.getPdfAccess(id);
-      if (access.url) {
-        openUrlInNewTab(access.url);
-        return;
-      }
-
-      if (currentApr.status === "Aprovada") {
-        await handleEmitGovernedPdf();
-        return;
-      }
-
-      toast.warning(
-        access.message ||
-          "O PDF final governado não está disponível para abertura agora.",
-      );
-    } catch (error) {
-      console.error("Erro ao abrir PDF governado da APR:", error);
-      toast.error("Não foi possível abrir o PDF final governado.");
-    }
-  }, [
-    currentApr,
+  const {
+    handleSuggestControls,
+    handleApproveApr,
     handleEmitGovernedPdf,
+    handleCloseApr,
+    confirmFormAction,
+    handleOpenGovernedPdf,
+    handleCreateVersion,
+    handleCompareVersions,
+    handleCaptureLocation,
+    handleUploadEvidence,
+    handleVerifyHash,
+  } = useAprWorkflowActions({
     id,
-    isOffline,
-    registerOfflineBlocked,
-  ]);
-
-  const handleCreateVersion = useCallback(async () => {
-    if (!id) return;
-    try {
-      setCreatingVersion(true);
-      const newApr = await aprsService.createNewVersion(id);
-      toast.success(`Nova versão criada: ${newApr.numero}`);
-      router.push(`/dashboard/aprs/edit/${newApr.id}`);
-    } catch (error) {
-      console.error("Erro ao criar nova versão:", error);
-      toast.error("Não foi possível criar nova versão.");
-    } finally {
-      setCreatingVersion(false);
-    }
-  }, [id, router]);
-
-  const handleCompareVersions = useCallback(async () => {
-    if (!id || !compareTargetId) return;
-    try {
-      setComparing(true);
-      const result = await aprsService.compareVersions(id, compareTargetId);
-      setCompareResult({ summary: result.summary });
-      toast.success("Comparação de versões concluída.");
-    } catch (error) {
-      console.error("Erro ao comparar versões:", error);
-      toast.error("Não foi possível comparar as versões.");
-    } finally {
-      setComparing(false);
-    }
-  }, [id, compareTargetId]);
-
-  const handleCaptureLocation = useCallback(() => {
-    if (isReadOnly) {
-      notifyReadOnly(
-        "Captura de localização não está disponível em uma APR bloqueada.",
-      );
-      return;
-    }
-    if (!navigator.geolocation) {
-      toast.error("Geolocalização não suportada neste navegador.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setEvidenceLatitude(String(position.coords.latitude));
-        setEvidenceLongitude(String(position.coords.longitude));
-        setEvidenceAccuracy(String(position.coords.accuracy));
-        toast.success("Localização capturada.");
-      },
-      () => toast.error("Não foi possível capturar a localização."),
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }, [isReadOnly, notifyReadOnly]);
-
-  const handleUploadEvidence = useCallback(async () => {
-    if (isReadOnly) {
-      notifyReadOnly(
-        "Envio de evidências não está disponível em uma APR bloqueada.",
-      );
-      return;
-    }
-    if (!id || !selectedRiskItemEvidence || !evidenceFile) {
-      toast.error("Selecione item de risco e imagem.");
-      return;
-    }
-    if (!evidenceLatitude || !evidenceLongitude) {
-      toast.error("Capture a geolocalização antes de enviar a evidência.");
-      return;
-    }
-    if (!evidenceFile.type.startsWith("image/")) {
-      toast.error("Envie uma imagem válida para manter a trilha de evidência.");
-      return;
-    }
-    const MAX_EVIDENCE_BYTES = 15 * 1024 * 1024; // 15 MB
-    if (evidenceFile.size > MAX_EVIDENCE_BYTES) {
-      toast.error(
-        `A imagem excede o limite de 15 MB (${(evidenceFile.size / 1024 / 1024).toFixed(1)} MB). Compacte a imagem antes de enviar.`,
-      );
-      return;
-    }
-    try {
-      setUploadingEvidence(true);
-      await aprsService.uploadRiskEvidence(
-        id,
-        selectedRiskItemEvidence,
-        evidenceFile,
-        {
-          captured_at: new Date().toISOString(),
-          latitude: evidenceLatitude ? Number(evidenceLatitude) : undefined,
-          longitude: evidenceLongitude ? Number(evidenceLongitude) : undefined,
-          accuracy_m: evidenceAccuracy ? Number(evidenceAccuracy) : undefined,
-          device_id:
-            typeof window !== "undefined"
-              ? window.navigator.userAgent.slice(0, 110)
-              : undefined,
-        },
-      );
-      const evidences = await aprsService.listAprEvidences(id);
-      setAprEvidences(evidences);
-      setEvidenceFile(null);
-      toast.success("Evidência enviada com hash de integridade.");
-    } catch (error) {
-      console.error("Erro ao enviar evidência:", error);
-      toast.error("Falha ao enviar evidência.");
-    } finally {
-      setUploadingEvidence(false);
-    }
-  }, [
-    id,
+    currentApr,
     isReadOnly,
-    notifyReadOnly,
+    isOffline,
+    canApproveCurrentApr,
+    riskRowCount: riskFields.length,
+    tituloApr,
+    compareTargetId,
     selectedRiskItemEvidence,
     evidenceFile,
     evidenceLatitude,
     evidenceLongitude,
     evidenceAccuracy,
-  ]);
-
-  const handleVerifyHash = useCallback(async () => {
-    if (!hashToVerify.trim()) {
-      toast.error("Informe o hash SHA-256 para validar.");
-      return;
-    }
-    try {
-      setVerifyingHash(true);
-      const result = await aprsService.verifyEvidenceHash(hashToVerify.trim());
-      setVerificationResult({
-        verified: result.verified,
-        matchedIn: result.matchedIn,
-        message: result.message,
-      });
-      if (result.verified) {
-        toast.success("Hash validado com sucesso.");
-      } else {
-        toast.error(result.message || "Hash não encontrado.");
-      }
-    } catch (error) {
-      console.error("Erro ao verificar hash:", error);
-      toast.error("Falha ao validar hash.");
-    } finally {
-      setVerifyingHash(false);
-    }
-  }, [hashToVerify]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadData() {
-      let timelineLoadStarted = false;
-
-      try {
-        let companySeedId = isUuidLike(user?.company_id)
-          ? String(user?.company_id)
-          : "";
-
-        const loadCompanies = async (selectedCompanyId?: string) => {
-          const isGlobalAdmin = user?.profile?.nome === "Administrador Geral";
-          let nextCompanies: Company[] = [];
-          const scopedCompanyId = isUuidLike(selectedCompanyId)
-            ? String(selectedCompanyId)
-            : undefined;
-
-          if (isGlobalAdmin) {
-            try {
-              const companiesPage = await companiesService.findPaginated({
-                page: 1,
-                limit: 100,
-              });
-              nextCompanies = companiesPage.data;
-            } catch (error) {
-              console.error(
-                "Erro ao carregar lista de empresas da APR:",
-                error,
-              );
-            }
-          } else {
-            const fallbackCompanyId =
-              scopedCompanyId ||
-              (isUuidLike(user?.company_id)
-                ? String(user?.company_id)
-                : undefined);
-            if (fallbackCompanyId) {
-              try {
-                const selectedCompany =
-                  await companiesService.findOne(fallbackCompanyId);
-                nextCompanies = [selectedCompany];
-              } catch (error) {
-                console.error(
-                  "Erro ao carregar empresa padrão da APR para o usuário:",
-                  error,
-                );
-              }
-            }
-          }
-
-          if (
-            isGlobalAdmin &&
-            scopedCompanyId &&
-            !nextCompanies.some((company) => company.id === scopedCompanyId)
-          ) {
-            try {
-              const selectedCompany =
-                await companiesService.findOne(scopedCompanyId);
-              nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
-            } catch {
-              nextCompanies = dedupeById(nextCompanies);
-            }
-          }
-
-          setCompanies(dedupeById(nextCompanies));
-        };
-
-        if (id) {
-          setLoadingTimeline(true);
-          setDraftId(null);
-          setDraftPendingOfflineSync(null);
-          setPersistedSignatures({});
-          setSignatures({});
-          const signaturesPromise = canViewSignatures
-            ? signaturesService.findByDocument(id, "APR")
-            : Promise.resolve<Signature[]>([]);
-          const apr = await aprsService.findOne(id);
-          setCurrentApr(apr);
-
-          void signaturesPromise
-            .then((sigs) => {
-              if (cancelled) {
-                return;
-              }
-              const sigMap: Record<string, { data: string; type: string }> =
-                {};
-              const persistedSigMap: Record<
-                string,
-                { id?: string; data: string; type: string }
-              > = {};
-              sigs.forEach((s) => {
-                if (!s.user_id) return;
-                sigMap[s.user_id] = { data: s.signature_data, type: s.type };
-                persistedSigMap[s.user_id] = {
-                  id: s.id,
-                  data: s.signature_data,
-                  type: s.type,
-                };
-              });
-              setSignatures(sigMap);
-              setPersistedSignatures(persistedSigMap);
-            })
-            .catch((error) => {
-              if (cancelled) {
-                return;
-              }
-              console.error("Erro ao carregar assinaturas da APR:", error);
-              toast.error(
-                "Algumas assinaturas da APR não puderam ser carregadas.",
-              );
-            });
-
-          companySeedId = apr.company_id || companySeedId;
-          setActivities(dedupeById(apr.activities || []));
-          setRisks(dedupeById(apr.risks || []));
-          setEpis(dedupeById(apr.epis || []));
-          setTools(dedupeById(apr.tools || []));
-          setMachines(dedupeById(apr.machines || []));
-          setSites(dedupeById(apr.site ? [apr.site] : []));
-          setUsers(
-            dedupeById([
-              ...(apr.elaborador ? [apr.elaborador] : []),
-              ...(apr.participants || []),
-              ...(apr.auditado_por ? [apr.auditado_por] : []),
-            ]),
-          );
-          setSophieSuggestedRisks([]);
-          setSophieMandatoryChecklists([]);
-
-          timelineLoadStarted = true;
-          void (async () => {
-            try {
-              const [logs, versions, evidences] = await Promise.all([
-                aprsService.getLogs(id),
-                aprsService.getVersionHistory(id),
-                aprsService.listAprEvidences(id),
-              ]);
-              setAprLogs(logs);
-              setAprEvidences(evidences);
-              setVersionHistory(
-                versions.map((item) => ({
-                  id: item.id,
-                  numero: item.numero,
-                  versao: item.versao,
-                  status: item.status,
-                })),
-              );
-            } catch (error) {
-              console.error("Erro ao carregar a linha do tempo da APR:", error);
-            } finally {
-              setLoadingTimeline(false);
-            }
-          })();
-
-          reset({
-            pdf_signed: Boolean(apr.pdf_file_key),
-            numero: apr.numero,
-            titulo: apr.titulo,
-            descricao: apr.descricao || "",
-            tipo_atividade: apr.tipo_atividade || "",
-            frente_trabalho: apr.frente_trabalho || "",
-            area_risco: apr.area_risco || "",
-            turno: apr.turno || "",
-            local_execucao_detalhado: apr.local_execucao_detalhado || "",
-            responsavel_tecnico_nome: apr.responsavel_tecnico_nome || "",
-            responsavel_tecnico_registro:
-              apr.responsavel_tecnico_registro || "",
-            data_inicio: toInputDateValue(apr.data_inicio),
-            data_fim: toInputDateValue(apr.data_fim),
-            status: apr.status,
-            company_id: apr.company_id,
-            site_id: apr.site_id,
-            elaborador_id: apr.elaborador_id,
-            activities: apr.activities.map((a: Activity) => a.id),
-            risks: apr.risks.map((r: Risk) => r.id),
-            epis: apr.epis.map((e: Epi) => e.id),
-            tools: apr.tools.map((t: Tool) => t.id),
-            machines: apr.machines.map((m: Machine) => m.id),
-            participants: apr.participants.map((p: User) => p.id),
-            is_modelo: apr.is_modelo || false,
-            is_modelo_padrao: apr.is_modelo_padrao || false,
-            itens_risco:
-              apr.risk_items && apr.risk_items.length > 0
-                ? apr.risk_items.map((item) =>
-                    mapPersistedRiskItemToFormRow(item),
-                  )
-                : apr.itens_risco && apr.itens_risco.length > 0
-                  ? apr.itens_risco.map((item) => normalizeRiskRow(item))
-                  : [],
-            auditado_por_id: apr.auditado_por_id || "",
-            data_auditoria: toInputDateValue(apr.data_auditoria),
-            resultado_auditoria: apr.resultado_auditoria || "",
-            notas_auditoria: apr.notas_auditoria || "",
-          });
-          setLoadingTimeline(false);
-        } else if (draftStorageKey && typeof window !== "undefined") {
-          setPersistedSignatures({});
-          setSignatures({});
-          const draftReadResult = readAprDraft(
-            draftStorageKey,
-            legacyDraftStorageKey,
-          );
-
-          if (draftReadResult.corrupted) {
-            trackAprOfflineTelemetry("draft_corrupted_discarded", {
-              source: "apr_form_load",
-            });
-            setDraftSecurityNotice((prev) => ({ ...prev, corrupted: true }));
-          }
-
-          if (draftReadResult.removedSensitiveState) {
-            trackAprOfflineTelemetry("draft_restored_sanitized", {
-              draftId: draftReadResult.draft?.metadata.draftId,
-              source: "apr_form_load",
-            });
-            setDraftSecurityNotice((prev) => ({
-              ...prev,
-              sensitiveDataRemoved: true,
-            }));
-          }
-
-          if (draftReadResult.draft) {
-            const parsedDraft = draftReadResult.draft;
-            setDraftId(parsedDraft.metadata.draftId);
-
-            if (draftReadResult.migratedFromLegacy) {
-              trackAprOfflineTelemetry("draft_legacy_detected", {
-                draftId: parsedDraft.metadata.draftId,
-                source: "apr_form_load",
-              });
-            }
-
-            if (parsedDraft.values) {
-              reset({
-                ...getValuesRef.current(),
-                ...parsedDraft.values,
-              });
-              companySeedId = parsedDraft.values.company_id || companySeedId;
-              replaceRisk(
-                parsedDraft.values.itens_risco &&
-                  parsedDraft.values.itens_risco.length > 0
-                  ? parsedDraft.values.itens_risco.map((item) =>
-                      normalizeRiskRow(item),
-                    )
-                  : [],
-              );
-            }
-
-            setCurrentStep(parsedDraft.step);
-
-            setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
-            setSophieMandatoryChecklists(
-              parsedDraft.metadata?.mandatoryChecklists || [],
-            );
-            setDraftPendingOfflineSync(
-              parsedDraft.metadata?.pendingOfflineSync || null,
-            );
-
-            setDraftRestored(true);
-          } else {
-            const initialMetadata = createAprDraftMetadata();
-            setPersistedSignatures({});
-          setSignatures({});
-          setDraftId(initialMetadata.draftId);
-          setSophieSuggestedRisks([]);
-          setSophieMandatoryChecklists([]);
-          setDraftPendingOfflineSync(null);
-            const defaultAprPage = await aprsService.findPaginated({
-              page: 1,
-              limit: 20,
-              companyId: user?.company_id,
-              isModeloPadrao: true,
-            });
-            const defaultAprItem = defaultAprPage.data[0];
-
-            if (defaultAprItem) {
-              const defaultApr = await aprsService.findOne(defaultAprItem.id);
-              companySeedId = defaultApr.company_id || companySeedId;
-              setValue("company_id", defaultApr.company_id || "");
-              setValue("titulo", defaultApr.titulo);
-              setValue("descricao", defaultApr.descricao || "");
-              setValue("tipo_atividade", defaultApr.tipo_atividade || "");
-              setValue("frente_trabalho", defaultApr.frente_trabalho || "");
-              setValue("area_risco", defaultApr.area_risco || "");
-              setValue("turno", defaultApr.turno || "");
-              setValue(
-                "local_execucao_detalhado",
-                defaultApr.local_execucao_detalhado || "",
-              );
-              setValue(
-                "responsavel_tecnico_nome",
-                defaultApr.responsavel_tecnico_nome || "",
-              );
-              setValue(
-                "responsavel_tecnico_registro",
-                defaultApr.responsavel_tecnico_registro || "",
-              );
-              setValue(
-                "activities",
-                (defaultApr.activities || []).map((activity) => activity.id),
-              );
-              setValue(
-                "risks",
-                (defaultApr.risks || []).map((risk) => risk.id),
-              );
-              setValue(
-                "epis",
-                (defaultApr.epis || []).map((epi) => epi.id),
-              );
-              setValue(
-                "tools",
-                (defaultApr.tools || []).map((tool) => tool.id),
-              );
-              setValue(
-                "machines",
-                (defaultApr.machines || []).map((machine) => machine.id),
-              );
-              setValue(
-                "participants",
-                (defaultApr.participants || []).map(
-                  (participant) => participant.id,
-                ),
-              );
-              replaceRisk(
-                defaultApr.risk_items && defaultApr.risk_items.length > 0
-                  ? defaultApr.risk_items.map((item) =>
-                      mapPersistedRiskItemToFormRow(item),
-                    )
-                  : defaultApr.itens_risco && defaultApr.itens_risco.length > 0
-                    ? defaultApr.itens_risco.map((item) =>
-                        normalizeRiskRow(item),
-                      )
-                    : [],
-              );
-              setActivities(dedupeById(defaultApr.activities || []));
-              setRisks(dedupeById(defaultApr.risks || []));
-              setEpis(dedupeById(defaultApr.epis || []));
-              setTools(dedupeById(defaultApr.tools || []));
-              setMachines(dedupeById(defaultApr.machines || []));
-              setSites(dedupeById(defaultApr.site ? [defaultApr.site] : []));
-              setUsers(
-                dedupeById([
-                  ...(defaultApr.elaborador ? [defaultApr.elaborador] : []),
-                  ...(defaultApr.participants || []),
-                  ...(defaultApr.auditado_por ? [defaultApr.auditado_por] : []),
-                ]),
-              );
-            }
-          }
-        }
-
-        await loadCompanies(companySeedId);
-      } catch (error) {
-        console.error("Erro ao carregar dados:", error);
-        toast.error("Erro ao carregar dados para o formulário.");
-      } finally {
-        if (cancelled) {
-          return;
-        }
-        if (!timelineLoadStarted) {
-          setLoadingTimeline(false);
-        }
-        setFetching(false);
-      }
-    }
-    loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    draftStorageKey,
-    canViewSignatures,
-    id,
-    legacyDraftStorageKey,
-    replaceRisk,
-    reset,
-    setDraftId,
-    setDraftPendingOfflineSync,
-    setDraftRestored,
-    setDraftSecurityNotice,
-    setSophieMandatoryChecklists,
-    setSophieSuggestedRisks,
+    hashToVerify,
+    formActionModal,
+    watch,
     setValue,
-    user?.company_id,
-    user?.profile?.nome,
-  ]);
+    notifyReadOnly,
+    registerOfflineBlocked,
+    ensureGovernedPdf,
+    reloadAprWorkflowContext,
+    navigateToApr: (aprId) => router.push(`/dashboard/aprs/edit/${aprId}`),
+    setSuggestingControls,
+    setEmittingGovernedPdf,
+    setClosingApr,
+    setCreatingVersion,
+    setComparing,
+    setCompareResult,
+    setEvidenceFile,
+    setEvidenceLatitude,
+    setEvidenceLongitude,
+    setEvidenceAccuracy,
+    setUploadingEvidence,
+    setAprEvidences,
+    setVerifyingHash,
+    setVerificationResult,
+    setFormActionModal,
+    setFormActionModalLoading,
+    setFinalizing,
+  });
+
+  useAprInitialData({
+    id,
+    user,
+    canViewSignatures,
+    draftStorageKey,
+    legacyDraftStorageKey,
+    getValuesRef,
+    reset,
+    setValue,
+    replaceRisk,
+    setFetching,
+    setLoadingTimeline,
+    setCurrentApr,
+    setAprLogs,
+    setVersionHistory,
+    setAprEvidences,
+    setActivities,
+    setRisks,
+    setEpis,
+    setTools,
+    setMachines,
+    setSites,
+    setUsers,
+    setCompanies,
+    setSignatures,
+    setPersistedSignatures,
+    setCurrentStep,
+    setDraftId,
+    setDraftRestored,
+    setDraftPendingOfflineSync,
+    setDraftSecurityNotice,
+    setSophieSuggestedRisks,
+    setSophieMandatoryChecklists,
+  });
 
   useEffect(() => {
     if (draftSecurityNotice.corrupted) {
@@ -3168,243 +2202,20 @@ export function AprForm({ id }: AprFormProps) {
     };
   }, [draftPendingOfflineSync, persistPendingOfflineSync]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOperationalCatalogs() {
-      if (!selectedCompanyId) {
-        if (cancelled) return;
-        setActivities([]);
-        setRisks([]);
-        setEpis([]);
-        return;
-      }
-
-      if (!isUuidLike(selectedCompanyId)) {
-        if (cancelled) return;
-        console.warn(
-          "Empresa inválida ao carregar catálogos operacionais da APR:",
-          selectedCompanyId,
-        );
-        setActivities([]);
-        setRisks([]);
-        setEpis([]);
-        toast.error(
-          "A empresa selecionada para a APR está inválida. Recarregue a tela e selecione novamente.",
-        );
-        return;
-      }
-
-      try {
-        const [actResult, riskResult, epiResult] = await Promise.allSettled([
-          activitiesService.findAll(selectedCompanyId),
-          risksService.findAll(selectedCompanyId),
-          episService.findAll(selectedCompanyId),
-        ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        const catalogFailures: string[] = [];
-
-        const mergeCatalog = <T extends { id: string; company_id: string }>(
-          result: PromiseSettledResult<T[]>,
-          label: string,
-          setter: (updater: (prev: T[]) => T[]) => void,
-        ) => {
-          if (result.status === "fulfilled") {
-            setter((prev) =>
-              dedupeById([
-                ...prev.filter((item) => item.company_id !== selectedCompanyId),
-                ...result.value,
-              ]),
-            );
-            return;
-          }
-
-          catalogFailures.push(label);
-          console.error(
-            "Erro ao carregar catálogo operacional da APR: %s",
-            label,
-            result.reason,
-          );
-        };
-
-        mergeCatalog(actResult, "atividades", setActivities);
-        mergeCatalog(riskResult, "riscos", setRisks);
-        mergeCatalog(epiResult, "EPIs", setEpis);
-
-        if (catalogFailures.length > 0) {
-          toast.error("Alguns catálogos operacionais da APR não puderam ser carregados.", {
-            description: `Falharam: ${catalogFailures.join(", ")}.`,
-          });
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        console.error(
-          "Erro inesperado ao carregar catálogos operacionais da APR:",
-          error,
-        );
-        toast.error("Erro ao carregar catálogos operacionais da APR.");
-      }
-    }
-
-    void loadOperationalCatalogs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCompanyId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadEquipmentCatalogs() {
-      if (!selectedCompanyId) {
-        if (cancelled) return;
-        setTools([]);
-        setMachines([]);
-        setSites([]);
-        return;
-      }
-
-      if (!isUuidLike(selectedCompanyId)) {
-        if (cancelled) return;
-        console.warn(
-          "Empresa inválida ao carregar catálogos de apoio da APR:",
-          selectedCompanyId,
-        );
-        setTools([]);
-        setMachines([]);
-        setSites([]);
-        return;
-      }
-
-      try {
-        const [siteResult, toolResult, machineResult] = await Promise.allSettled([
-          sitesService.findAll(selectedCompanyId),
-          toolsService.findAll(selectedCompanyId),
-          machinesService.findAll(selectedCompanyId),
-        ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        const catalogFailures: string[] = [];
-
-        const mergeCatalog = <T extends { id: string; company_id: string }>(
-          result: PromiseSettledResult<T[]>,
-          label: string,
-          setter: (updater: (prev: T[]) => T[]) => void,
-        ) => {
-          if (result.status === "fulfilled") {
-            setter((prev) =>
-              dedupeById([
-                ...prev.filter((item) => item.company_id !== selectedCompanyId),
-                ...result.value,
-              ]),
-            );
-            return;
-          }
-
-          catalogFailures.push(label);
-          console.error(
-            "Erro ao carregar catálogo de apoio da APR: %s",
-            label,
-            result.reason,
-          );
-        };
-
-        mergeCatalog(siteResult, "obras", setSites);
-        mergeCatalog(toolResult, "ferramentas", setTools);
-        mergeCatalog(machineResult, "máquinas", setMachines);
-
-        if (catalogFailures.length > 0) {
-          toast.error("Alguns catálogos de apoio da APR não puderam ser carregados.", {
-            description: `Falharam: ${catalogFailures.join(", ")}.`,
-          });
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        console.error("Erro inesperado ao carregar catálogos de apoio da APR:", error);
-        toast.error("Erro ao carregar catálogos de apoio da APR.");
-      }
-    }
-
-    void loadEquipmentCatalogs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCompanyId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadUsersForSite() {
-      if (!selectedCompanyId) {
-        if (cancelled) return;
-        setUsers([]);
-        return;
-      }
-
-      if (!isUuidLike(selectedCompanyId)) {
-        if (cancelled) return;
-        setUsers([]);
-        return;
-      }
-
-      try {
-        const usersResult = await usersService.findAll(
-          selectedCompanyId,
-          selectedSiteId || undefined,
-        );
-        if (cancelled) {
-          return;
-        }
-        setUsers(usersResult);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        console.error("Erro ao carregar usuários da APR:", error);
-        toast.error("Alguns responsáveis da APR não puderam ser carregados.");
-      }
-    }
-
-    void loadUsersForSite();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCompanyId, selectedSiteId]);
-
-  useEffect(() => {
-    if (id || selectedCompanyId) return;
-    const companyId = user?.company_id;
-    if (!isUuidLike(companyId)) return;
-    setValue("company_id", String(companyId));
-    if (isUuidLike(user?.site_id)) {
-      setValue("site_id", String(user?.site_id));
-    }
-    if (isUuidLike(user?.id)) {
-      setValue("elaborador_id", String(user?.id));
-      setValue("participants", [String(user?.id)]);
-    }
-  }, [
+  useAprCatalogs({
     id,
     selectedCompanyId,
+    selectedSiteId,
+    user,
     setValue,
-    user?.company_id,
-    user?.id,
-    user?.site_id,
-  ]);
+    setActivities,
+    setRisks,
+    setEpis,
+    setTools,
+    setMachines,
+    setSites,
+    setUsers,
+  });
 
   useEffect(() => {
     if (isReadOnly) return;
@@ -4498,7 +3309,10 @@ export function AprForm({ id }: AprFormProps) {
                 </span>
               </div>
 
-              <DocumentRiskSummaryList summary={aprDocumentRiskSummary} />
+              <DocumentRiskSummaryList
+                summary={aprDocumentRiskSummary}
+                levels={APR_DOCUMENT_RISK_LEVELS}
+              />
 
               <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
@@ -6584,631 +5398,5 @@ export function AprForm({ id }: AprFormProps) {
         userName={currentSigningUser?.nome || ""}
       />
     </div>
-  );
-}
-
-function DocumentInfoCell({
-  icon: Icon,
-  label,
-  value,
-  helper,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  helper?: string;
-}) {
-  return (
-    <div className="min-h-[108px] border-b border-r border-[var(--ds-color-border-subtle)] px-4 py-3 last:border-r-0 md:last:border-r xl:border-b-0">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]">
-          <Icon className="h-4 w-4" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-            {label}
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ds-color-text-primary)]">
-            {value}
-          </p>
-          {helper ? (
-            <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-              {helper}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DocumentRiskSummaryList({
-  summary,
-}: {
-  summary: AprDocumentRiskSummary;
-}) {
-  const denominator = Math.max(summary.total, 1);
-
-  return (
-    <div className="mt-4 space-y-3">
-      {APR_DOCUMENT_RISK_LEVELS.map((level) => {
-        const count = summary.counts[level.key];
-        const width = `${Math.round((count / denominator) * 100)}%`;
-
-        return (
-          <div key={level.key}>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2.5 w-2.5 rounded-full", level.tone)} />
-                <span className="font-medium text-[var(--ds-color-text-primary)]">
-                  {level.label}
-                </span>
-              </div>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-bold",
-                  level.subtle,
-                )}
-              >
-                {count}
-              </span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--ds-color-surface-base)]">
-              <div
-                className={cn("h-full rounded-full", level.tone)}
-                style={{ width }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DocumentSignatureCard({
-  title,
-  name,
-  detail,
-  state,
-}: {
-  title: string;
-  name: string;
-  detail: string;
-  state: "done" | "pending";
-}) {
-  const isDone = state === "done";
-
-  return (
-    <div
-      className={cn(
-        "min-h-[116px] rounded-lg border px-4 py-3",
-        isDone
-          ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/35"
-          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-            {title}
-          </p>
-          <p className="mt-2 truncate text-sm font-black text-[var(--ds-color-text-primary)]">
-            {name}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-            isDone
-              ? "bg-[var(--color-success)] text-[var(--color-text-inverse)]"
-              : "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",
-          )}
-        >
-          {isDone ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <Lock className="h-4 w-4" />
-          )}
-        </span>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-        {detail}
-      </p>
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/26 p-2.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-        {label}
-      </p>
-      <p className="text-lg font-bold text-[var(--color-text)]">{value}</p>
-    </div>
-  );
-}
-
-function SummaryMetaCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ds-color-text-primary)]">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function WizardMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "default" | "info" | "warning" | "success";
-}) {
-  const tones = {
-    default: {
-      container:
-        "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 text-[var(--ds-color-text-primary)]",
-      label: "text-[var(--ds-color-text-secondary)]",
-    },
-    info: {
-      container:
-        "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
-      label: "text-[var(--color-info)] opacity-80",
-    },
-    warning: {
-      container:
-        "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
-      label: "text-[var(--color-warning)] opacity-80",
-    },
-    success: {
-      container:
-        "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
-      label: "text-[var(--color-success)] opacity-80",
-    },
-  };
-
-  return (
-    <div
-      className={`rounded-[var(--ds-radius-md)] border px-2.5 py-2 ${tones[tone].container}`}
-    >
-      <p
-        className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${tones[tone].label}`}
-      >
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function AprRiskGridHeader({
-  hiddenCompactDetailsCount,
-}: {
-  hiddenCompactDetailsCount: number;
-}) {
-  return (
-    <div className="sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 backdrop-blur xl:block">
-      <div className="grid gap-3 xl:grid-cols-[124px_minmax(0,1fr)]">
-        <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-            Linha
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-            Identificação e ações rápidas
-          </p>
-          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-            Arraste para reordenar
-          </p>
-          {hiddenCompactDetailsCount > 0 ? (
-            <span className="mt-2 inline-flex rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-warning)]">
-              {hiddenCompactDetailsCount} linha(s) com detalhes ocultos
-            </span>
-          ) : null}
-        </div>
-
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.32fr)_minmax(360px,0.88fr)]">
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-              Estrutura do risco
-            </p>
-            <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-              Identificação, exposição e matriz de classificação
-            </p>
-          </div>
-
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-              Governança
-            </p>
-            <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-              Medidas preventivas, responsável, prazo e status da ação
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AprRiskReferencePanel({
-  getActionCriteriaText,
-}: {
-  getActionCriteriaText: (
-    categoria?: string,
-    variant?: "short" | "long",
-  ) => string | undefined;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
-      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Referência operacional
-        </p>
-        <h3 className="mt-1.5 text-sm font-black text-[var(--ds-color-text-primary)]">
-          Matriz P x S e critério de ação
-        </h3>
-        <p className="mt-1 text-[11px] leading-5 text-[var(--ds-color-text-secondary)]">
-          Consulta rápida para conferência, sem competir com a grade.
-        </p>
-      </div>
-
-      <div className="space-y-3 p-4">
-        <details
-          open
-          className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14"
-        >
-          <summary className="cursor-pointer list-none px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-            Matriz de risco P x S
-          </summary>
-          <div className="border-t border-[var(--ds-color-border-subtle)] p-3">
-            <div className="overflow-x-auto rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)]">
-              <table className="apr-tech-table w-full min-w-[420px] table-auto text-sm">
-                <thead>
-                  <tr>
-                    <th>Prob. \\ Sev.</th>
-                    <th>1</th>
-                    <th>2</th>
-                    <th>3</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="font-bold">1</td>
-                    <td className="risk-badge-acceptable text-center font-bold">
-                      Aceitável
-                    </td>
-                    <td className="risk-badge-acceptable text-center font-bold">
-                      Aceitável
-                    </td>
-                    <td className="risk-badge-attention text-center font-bold">
-                      Atenção
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">2</td>
-                    <td className="risk-badge-acceptable text-center font-bold">
-                      Aceitável
-                    </td>
-                    <td className="risk-badge-attention text-center font-bold">
-                      Atenção
-                    </td>
-                    <td className="risk-badge-substantial text-center font-bold">
-                      Substancial
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">3</td>
-                    <td className="risk-badge-attention text-center font-bold">
-                      Atenção
-                    </td>
-                    <td className="risk-badge-substantial text-center font-bold">
-                      Substancial
-                    </td>
-                    <td className="risk-badge-critical text-center font-bold">
-                      Crítico
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </details>
-
-        <details className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14">
-          <summary className="cursor-pointer list-none px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-            Critério de ação por categoria
-          </summary>
-          <div className="space-y-2 border-t border-[var(--ds-color-border-subtle)] p-3 text-sm">
-            <ActionCriteriaCard
-              categoria="Aceitável"
-              prioridade="Não prioritário"
-              criterio={getActionCriteriaText("Aceitável", "long") || "-"}
-            />
-            <ActionCriteriaCard
-              categoria="Atenção"
-              prioridade="Prioridade básica"
-              criterio={getActionCriteriaText("Atenção", "long") || "-"}
-            />
-            <ActionCriteriaCard
-              categoria="Substancial"
-              prioridade="Prioridade preferencial"
-              criterio={getActionCriteriaText("Substancial", "long") || "-"}
-            />
-            <ActionCriteriaCard
-              categoria="Crítico"
-              prioridade="Prioridade máxima"
-              criterio={getActionCriteriaText("Crítico", "long") || "-"}
-            />
-          </div>
-        </details>
-      </div>
-    </div>
-  );
-}
-
-function ActionCriteriaCard({
-  categoria,
-  prioridade,
-  criterio,
-}: {
-  categoria: string;
-  prioridade: string;
-  criterio: string;
-}) {
-  return (
-    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
-            categoria === "Aceitável"
-              ? "risk-badge-acceptable"
-              : categoria === "Atenção"
-                ? "risk-badge-attention"
-                : categoria === "Substancial"
-                  ? "risk-badge-substantial"
-                  : "risk-badge-critical",
-          )}
-        >
-          {categoria}
-        </span>
-        <span className="text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
-          {prioridade}
-        </span>
-      </div>
-      <p className="mt-1.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-        {criterio}
-      </p>
-    </div>
-  );
-}
-
-function LegendItem({
-  tone,
-  label,
-  description,
-}: {
-  tone: "critical" | "incomplete" | "ready" | "priority";
-  label: string;
-  description: string;
-}) {
-  const toneClasses = {
-    critical: {
-      container:
-        "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]",
-      dot: "border-[var(--ds-color-danger-border)] bg-[var(--risk-critical)]",
-    },
-    incomplete: {
-      container:
-        "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)] text-[var(--apr-incomplete-fg)]",
-      dot: "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete)]",
-    },
-    ready: {
-      container:
-        "border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)] text-[var(--apr-ready-fg)]",
-      dot: "border-[var(--apr-ready-border)] bg-[var(--apr-ready)]",
-    },
-    priority: {
-      container:
-        "border-[var(--apr-priority-border)] bg-[var(--apr-priority-subtle)] text-[var(--apr-priority-fg)]",
-      dot: "border-[var(--apr-priority-border)] bg-[var(--apr-priority)]",
-    },
-  };
-
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-2.5 rounded-[var(--ds-radius-md)] border px-3 py-2.5",
-        toneClasses[tone].container,
-      )}
-    >
-      <span
-        className={cn(
-          "mt-1 h-2.5 w-2.5 rounded-full border",
-          toneClasses[tone].dot,
-        )}
-      />
-      <div>
-        <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
-          {label}
-        </p>
-        <p className="mt-0.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-interface SectionItem {
-  id: string;
-  nome?: string;
-  razao_social?: string;
-  titulo?: string;
-}
-
-interface SectionGridProps {
-  title: string;
-  items: SectionItem[];
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-  error?: string;
-  signatures?: Record<string, { data: string; type: string }>;
-  helperText?: string;
-}
-
-function SectionGrid({
-  title,
-  items,
-  selectedIds,
-  onToggle,
-  error,
-  signatures,
-  helperText,
-}: SectionGridProps) {
-  const selectedCount = selectedIds.length;
-  const signedCount = selectedIds.filter((id) =>
-    Boolean(signatures?.[id]),
-  ).length;
-
-  return (
-    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/12 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-            Governança de participação
-          </p>
-          <h2 className="mt-1 text-base font-semibold text-[var(--ds-color-text-primary)]">
-            {title}
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-            {helperText ||
-              "Selecione quem participa da APR e acompanhe quem já concluiu a assinatura."}
-          </p>
-          <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
-            Ao selecionar um participante novo, o fluxo abre a captura de
-            assinatura imediatamente quando a APR estiver online.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 font-semibold text-[var(--ds-color-text-secondary)]">
-            {selectedCount} no fluxo
-          </span>
-          <span className="rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-1 font-semibold text-[var(--color-success)]">
-            {signedCount} assinados
-          </span>
-        </div>
-      </div>
-      {error && (
-        <div className="border-b border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-2.5 text-xs text-[var(--color-danger)]">
-          <p className="flex items-center gap-1.5">
-            <AlertTriangle className="h-3 w-3" /> {error}
-          </p>
-        </div>
-      )}
-      <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => {
-          const isSelected = selectedIds.includes(item.id);
-          const hasSignature = Boolean(signatures?.[item.id]);
-          const displayName = item.nome || item.razao_social || item.titulo;
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onToggle(item.id)}
-              aria-label={
-                hasSignature
-                  ? `${displayName}: participante assinado. Clique para remover do fluxo.`
-                  : isSelected
-                    ? `${displayName}: participante selecionado. Clique para remover do fluxo.`
-                    : `${displayName}: selecionar participante e abrir captura de assinatura.`
-              }
-              className={cn(
-                "flex min-h-[76px] items-start gap-3 rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left motion-safe:transition-colors",
-                isSelected
-                  ? "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)]"
-                  : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:bg-[var(--ds-color-surface-muted)]/16",
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold motion-safe:transition-colors",
-                  isSelected
-                    ? "border-[var(--color-info)] bg-[var(--color-info)] text-[var(--color-text-inverse)]"
-                    : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",
-                )}
-              >
-                {isSelected ? <CheckCircle2 className="h-3.5 w-3.5" /> : "+"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {displayName}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                      {hasSignature
-                        ? "Assinatura capturada e participante mantido no fluxo."
-                        : isSelected
-                          ? "Selecionado no fluxo. Clique para remover se necessário."
-                          : "Clique para selecionar e abrir a captura de assinatura."}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-                        hasSignature
-                          ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
-                          : isSelected
-                            ? "border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]"
-                            : "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
-                      )}
-                    >
-                      {hasSignature
-                        ? "Assinado"
-                        : isSelected
-                          ? "Selecionado"
-                          : "Disponível"}
-                    </span>
-                    <span className="text-[10px] font-medium text-[var(--ds-color-text-muted)]">
-                      {hasSignature
-                        ? "Remover"
-                        : isSelected
-                          ? "Retirar"
-                          : "Assinar"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-        {items.length === 0 && (
-          <div className="col-span-full rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 py-6 text-center text-sm italic text-[var(--color-text-secondary)]">
-            Nenhum item disponível para a empresa selecionada.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function dedupeById<T extends { id: string }>(items: T[]) {
-  return Array.from(new Map(items.map((item) => [item.id, item])).values());
-}
-
-function isUuidLike(value?: string | null) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || "").trim(),
   );
 }

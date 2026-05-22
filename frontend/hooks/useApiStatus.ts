@@ -8,14 +8,14 @@ type ApiOfflineDetail = {
 };
 
 export function useApiStatus() {
-  const [isOffline, setIsOffline] = useState<boolean>(
-    typeof navigator !== 'undefined' ? !navigator.onLine : false,
-  );
+  const [isOffline, setIsOffline] = useState<boolean>(false);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [hasStaleCache, setHasStaleCache] = useState<boolean>(false);
 
   useEffect(() => {
+    setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+
     const handleBrowserOnline = () => {
       setIsOffline(false);
       setApiBaseUrl('');

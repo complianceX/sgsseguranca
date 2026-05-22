@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -128,7 +129,7 @@ export function useDidCatalogs({
           return;
         }
         setSites([]);
-        console.error('Erro ao carregar sites do DID:', error);
+        logger.error('Erro ao carregar sites do DID:', error);
       }
     }
 
@@ -172,7 +173,7 @@ export function useDidCatalogs({
           return;
         }
         setUsers([]);
-        console.error('Erro ao carregar usuários do DID:', error);
+        logger.error('Erro ao carregar usuários do DID:', error);
       }
     }
 

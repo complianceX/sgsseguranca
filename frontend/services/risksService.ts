@@ -82,7 +82,9 @@ export const risksService = {
     return response.data;
   },
 
-  delete: async (id: string) => {
-    await api.delete(`/risks/${id}`);
+  delete: async (id: string, companyId?: string) => {
+    await api.delete(`/risks/${id}`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
   },
 };

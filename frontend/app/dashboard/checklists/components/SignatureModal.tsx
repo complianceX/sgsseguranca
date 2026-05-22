@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
@@ -24,6 +25,7 @@ interface SignatureModalProps {
 
 export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureModalProps) {
   const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'hmac'>('digital');
+const timerRef = useRef<number | undefined>(undefined);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [hasPin, setHasPin] = useState<boolean | null>(null);
@@ -45,7 +47,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.error('Erro ao acessar a câmera:', err);
+      logger.error('Erro ao acessar a câmera:', err);
       toast.error('Não foi possível acessar a câmera.');
       // Usar um pequeno delay para evitar renderização em cascata se chamado do useEffect
       setTimeout(() => setActiveTab('digital'), 0);
@@ -61,6 +63,23 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   };
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     if (activeTab === 'facial' && isOpen) {
       startCamera();
     } else {
@@ -132,7 +151,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         return trimmedCanvas.toDataURL('image/png');
       }
     } catch (error) {
-      console.error('Falha ao gerar assinatura recortada, aplicando fallback:', error);
+      logger.error('Falha ao gerar assinatura recortada, aplicando fallback:', error);
     }
 
     try {
@@ -140,7 +159,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         return canvasHandle.toDataURL('image/png');
       }
     } catch (error) {
-      console.error('Falha ao gerar assinatura via SignatureCanvas.toDataURL:', error);
+      logger.error('Falha ao gerar assinatura via SignatureCanvas.toDataURL:', error);
     }
 
     try {
@@ -150,7 +169,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         return rawCanvas.toDataURL('image/png');
       }
     } catch (error) {
-      console.error('Falha ao gerar assinatura via canvas nativo:', error);
+      logger.error('Falha ao gerar assinatura via canvas nativo:', error);
     }
 
     return '';

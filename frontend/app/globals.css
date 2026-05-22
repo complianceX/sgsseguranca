@@ -35,7 +35,7 @@ body {
   font-family: var(--font-sans), "Inter", "Segoe UI", "Noto Sans", sans-serif;
   font-size: var(--ds-text-md);
   line-height: var(--ds-line-base);
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 html[data-theme="dark"] {

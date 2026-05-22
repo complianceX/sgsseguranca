@@ -102,11 +102,20 @@ function buildWorkerOperationalStatusService(): WorkerOperationalStatusService {
   return {} as unknown as WorkerOperationalStatusService;
 }
 
+type SignatureServiceMockEntry = {
+  user_id?: string;
+  type?: string;
+  signature_data?: string | null;
+};
+
 function buildSignaturesService(
-  signatures: Array<{ user_id?: string; type?: string }> = [],
+  signatures: SignatureServiceMockEntry[] = [],
 ): SignaturesService {
   return {
     findByDocument: jest.fn().mockResolvedValue(signatures),
+    resolveSignatureData: jest.fn((signature: SignatureServiceMockEntry) =>
+      Promise.resolve(signature.signature_data ?? null),
+    ),
   } as unknown as SignaturesService;
 }
 

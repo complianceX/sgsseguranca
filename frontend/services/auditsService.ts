@@ -106,51 +106,70 @@ export type AuditPdfAccessAvailability = GovernedPdfAccessAvailability;
 export type AuditPdfAccessResponse = GovernedPdfAccessResponse;
 
 export const auditsService = {
-  findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Audit>> => {
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Audit>> => {
+    const { companyId, ...query } = opts ?? {};
     const response = await api.get<PaginatedResponse<Audit>>('/audits', {
       params: {
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
-        ...(opts?.search ? { search: opts.search } : {}),
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        ...(query.search ? { search: query.search } : {}),
       },
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
     });
     return response.data;
   },
 
-  findAll: async () => {
+  findAll: async (companyId?: string) => {
     return fetchAllPages({
-      fetchPage: (page, limit) => auditsService.findPaginated({ page, limit }),
+      fetchPage: (page, limit) =>
+        auditsService.findPaginated({ page, limit, companyId }),
       limit: 100,
       maxPages: 20,
     });
   },
 
-  findOne: async (id: string) => {
-    const response = await api.get<Audit>(`/audits/${id}`);
-    return response.data;
-  },
-
-  create: async (data: CreateAuditDto) => {
-    const response = await api.post<Audit>('/audits', data);
-    return response.data;
-  },
-
-  update: async (id: string, data: Partial<CreateAuditDto>) => {
-    const response = await api.patch<Audit>(`/audits/${id}`, data);
-    return response.data;
-  },
-
-  attachFile: async (id: string, file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post(`/audits/${id}/file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+  findOne: async (id: string, companyId?: string) => {
+    const response = await api.get<Audit>(`/audits/${id}`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
     });
     return response.data;
   },
 
-  getPdfAccess: async (id: string) => {
-    const response = await api.get<AuditPdfAccessResponse>(`/audits/${id}/pdf`);
+  create: async (data: CreateAuditDto, companyId?: string) => {
+    const response = await api.post<Audit>('/audits', data, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
+    return response.data;
+  },
+
+  update: async (id: string, data: Partial<CreateAuditDto>, companyId?: string) => {
+    const response = await api.patch<Audit>(`/audits/${id}`, data, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
+    return response.data;
+  },
+
+  attachFile: async (id: string, file: File, companyId?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/audits/${id}/file`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(companyId ? { 'x-company-id': companyId } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string, companyId?: string) => {
+    const response = await api.get<AuditPdfAccessResponse>(`/audits/${id}/pdf`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
     return response.data;
   },
 
@@ -174,7 +193,9 @@ export const auditsService = {
     return response.data as Blob;
   },
 
-  delete: async (id: string) => {
-    await api.delete(`/audits/${id}`);
+  delete: async (id: string, companyId?: string) => {
+    await api.delete(`/audits/${id}`, {
+      ...(companyId ? { headers: { 'x-company-id': companyId } } : {}),
+    });
   },
 };

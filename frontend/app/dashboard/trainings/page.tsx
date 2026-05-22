@@ -1,7 +1,8 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
-import { useCallback, useDeferredValue, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Training,
@@ -72,6 +73,7 @@ type PrintablePdfResult = { base64: string; filename: string };
 
 export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -118,7 +120,7 @@ export default function TrainingsPage() {
       setTotal(paged.total);
       setLastPage(paged.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar treinamentos:", error);
+      logger.error("Erro ao carregar treinamentos:", error);
       setLoadError("Nao foi possivel carregar o monitor de treinamentos.");
       toast.error("Nao foi possivel carregar os treinamentos.");
     } finally {
@@ -131,7 +133,7 @@ export default function TrainingsPage() {
       const summary = await trainingsService.getExpirySummary();
       setExpirySummary(summary);
     } catch (error) {
-      console.error("Erro ao carregar resumo de vencimentos:", error);
+      logger.error("Erro ao carregar resumo de vencimentos:", error);
     }
   }, []);
 
@@ -140,11 +142,28 @@ export default function TrainingsPage() {
       const pendingUsers = await trainingsService.getBlockingUsers();
       setBlockingUsers(pendingUsers);
     } catch (error) {
-      console.error("Erro ao carregar bloqueios de treinamentos:", error);
+      logger.error("Erro ao carregar bloqueios de treinamentos:", error);
     }
   }, []);
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     void loadTrainings();
   }, [loadTrainings]);
 
@@ -166,7 +185,7 @@ export default function TrainingsPage() {
       void loadExpirySummary();
       void loadBlockingUsers();
     } catch (error) {
-      console.error("Erro ao notificar vencimentos:", error);
+      logger.error("Erro ao notificar vencimentos:", error);
       toast.error("Nao foi possivel enviar alertas automaticos.");
     }
   }, [loadBlockingUsers, loadExpirySummary, loadTrainings]);
@@ -261,7 +280,7 @@ export default function TrainingsPage() {
           "PDF oficial emitido, mas a URL segura não está disponível agora. Baixamos a cópia local do mesmo documento.",
       );
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
+      logger.error("Erro ao gerar PDF:", error);
       toast.error("Erro ao gerar PDF do treinamento.");
     } finally {
       setPrintingId(null);
@@ -287,7 +306,7 @@ export default function TrainingsPage() {
       });
       setIsMailModalOpen(true);
     } catch (error) {
-      console.error("Erro ao enviar e-mail:", error);
+      logger.error("Erro ao enviar e-mail:", error);
       toast.error("Erro ao enviar e-mail.");
     } finally {
       setPrintingId(null);
@@ -323,7 +342,7 @@ export default function TrainingsPage() {
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     } catch (error) {
-      console.error("Erro ao imprimir:", error);
+      logger.error("Erro ao imprimir:", error);
       toast.error("Erro ao preparar impressao do treinamento.");
     } finally {
       setPrintingId(null);
@@ -340,7 +359,7 @@ export default function TrainingsPage() {
       void loadExpirySummary();
       void loadBlockingUsers();
     } catch (error) {
-      console.error("Erro ao excluir treinamento:", error);
+      logger.error("Erro ao excluir treinamento:", error);
       toast.error("Erro ao excluir treinamento.");
     }
   };

@@ -1,3 +1,5 @@
+import { scopeBrowserCacheKey } from '@/lib/cache-scope';
+
 export type PaginatedResponse<T> = {
   data: T[];
   total: number;
@@ -57,14 +59,15 @@ function getCachedFetchAllPagesData<T>(cacheKey?: string): T[] | null {
     return null;
   }
 
+  const scopedCacheKey = scopeBrowserCacheKey(cacheKey);
   const now = Date.now();
-  const entry = fetchAllPagesCache.get(cacheKey);
+  const entry = fetchAllPagesCache.get(scopedCacheKey);
   if (!entry) {
     return null;
   }
 
   if (entry.expiresAt <= now) {
-    fetchAllPagesCache.delete(cacheKey);
+    fetchAllPagesCache.delete(scopedCacheKey);
     return null;
   }
 
@@ -80,7 +83,7 @@ function setCachedFetchAllPagesData<T>(
     return;
   }
 
-  fetchAllPagesCache.set(cacheKey, {
+  fetchAllPagesCache.set(scopeBrowserCacheKey(cacheKey), {
     expiresAt: Date.now() + ttlMs,
     data: [...data],
   });
@@ -104,7 +107,7 @@ export function clearFetchAllPagesCache(cacheKey?: string): void {
     return;
   }
 
-  fetchAllPagesCache.delete(cacheKey);
+  fetchAllPagesCache.delete(scopeBrowserCacheKey(cacheKey));
 }
 
 export async function fetchAllPages<T>(opts: {

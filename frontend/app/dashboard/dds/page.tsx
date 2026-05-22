@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -162,6 +163,7 @@ export default function DdsPage() {
   const canViewDds = hasPermission("can_view_dds");
   const canManageDds = hasPermission("can_manage_dds");
   const [ddsList, setDdsList] = useState<Dds[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -267,7 +269,7 @@ export default function DdsPage() {
       setLastPage(response.lastPage);
     } catch (error) {
       if (seq !== ddsRequestSeqRef.current) return;
-      console.error("Erro ao carregar DDS:", error);
+      logger.error("Erro ao carregar DDS:", error);
       setLoadError("Nao foi possivel carregar a lista de DDS.");
       toast.error("Erro ao carregar lista de DDS.");
     } finally {
@@ -301,7 +303,7 @@ export default function DdsPage() {
       }
     } catch (error) {
       if (requestId === filesRequestSequenceRef.current) {
-        console.error("Erro ao carregar arquivos DDS:", error);
+        logger.error("Erro ao carregar arquivos DDS:", error);
         toast.error("Erro ao carregar arquivos salvos de DDS.");
       }
     } finally {
@@ -323,7 +325,7 @@ export default function DdsPage() {
       const overview = await ddsService.getObservabilityOverview();
       setObservability(overview);
     } catch (error) {
-      console.error("Erro ao carregar observabilidade DDS:", error);
+      logger.error("Erro ao carregar observabilidade DDS:", error);
       setObservability(null);
       toast.error(
         "Não foi possível carregar a observabilidade interna do DDS.",
@@ -345,7 +347,7 @@ export default function DdsPage() {
       const alerts = await ddsService.getObservabilityAlertsPreview();
       setObservabilityAlerts(alerts);
     } catch (error) {
-      console.error("Erro ao carregar alertas DDS:", error);
+      logger.error("Erro ao carregar alertas DDS:", error);
       setObservabilityAlerts(null);
       toast.error(
         "Não foi possível carregar os alertas operacionais do DDS.",
@@ -356,6 +358,23 @@ export default function DdsPage() {
   }, [canViewDds]);
 
   useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
     loadDds();
   }, [loadDds]);
 
@@ -404,7 +423,7 @@ export default function DdsPage() {
       await loadDds();
       void loadObservabilityOverview();
     } catch (error) {
-      console.error("Erro ao excluir DDS:", error);
+      logger.error("Erro ao excluir DDS:", error);
       toast.error(
         "Erro ao excluir DDS. Verifique dependências e tente novamente.",
       );
@@ -458,7 +477,7 @@ export default function DdsPage() {
         if (options?.requireApprovedFlow) {
           throw error;
         }
-        console.error(
+        logger.error(
           "Erro ao carregar fluxo de aprovação DDS para PDF:",
           error,
         );
@@ -579,7 +598,7 @@ export default function DdsPage() {
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
+      logger.error("Erro ao gerar PDF:", error);
       toast.error("Erro ao gerar PDF para impressão.");
     }
   };
@@ -620,7 +639,7 @@ export default function DdsPage() {
       });
       setIsMailModalOpen(true);
     } catch (error) {
-      console.error("Erro ao preparar e-mail:", error);
+      logger.error("Erro ao preparar e-mail:", error);
       toast.error("Erro ao preparar e-mail com o documento.");
     }
   };
@@ -642,7 +661,7 @@ export default function DdsPage() {
       );
       router.push(`/dashboard/dds/edit/${newDds.id}`);
     } catch (error) {
-      console.error("Erro ao operacionalizar template:", error);
+      logger.error("Erro ao operacionalizar template:", error);
       toast.error(
         "Erro ao operacionalizar modelo. Verifique se o modelo está válido.",
       );
@@ -682,7 +701,7 @@ export default function DdsPage() {
       openUrlInNewTab(fileUrl);
       setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
     } catch (error) {
-      console.error("Erro ao emitir/abrir PDF final do DDS:", error);
+      logger.error("Erro ao emitir/abrir PDF final do DDS:", error);
       const message = getFormErrorMessage(error, {
         badRequest:
           "Não foi possível emitir o PDF final. Verifique status, participantes e assinaturas do DDS.",
@@ -706,7 +725,7 @@ export default function DdsPage() {
       }
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error("Erro ao obter link do PDF:", error);
+      logger.error("Erro ao obter link do PDF:", error);
       toast.error("Não foi possível abrir o PDF armazenado.");
     }
   };
@@ -726,7 +745,7 @@ export default function DdsPage() {
       void loadObservabilityOverview();
       toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
-      console.error("Erro ao atualizar status do DDS:", error);
+      logger.error("Erro ao atualizar status do DDS:", error);
       toast.error(
         getApiErrorMessage(error) || "Não foi possível atualizar o status.",
       );
@@ -738,7 +757,7 @@ export default function DdsPage() {
       await navigator.clipboard.writeText(folderPath);
       toast.success("Caminho da pasta copiado.");
     } catch (error) {
-      console.error("Erro ao copiar caminho:", error);
+      logger.error("Erro ao copiar caminho:", error);
       toast.error("Não foi possível copiar o caminho da pasta.");
     }
   };
@@ -801,7 +820,7 @@ export default function DdsPage() {
       await navigator.clipboard.writeText(access.url);
       toast.success("Link do PDF copiado.");
     } catch (error) {
-      console.error("Erro ao copiar link do PDF:", error);
+      logger.error("Erro ao copiar link do PDF:", error);
       toast.error("Não foi possível copiar o link do PDF.");
     }
   };
@@ -868,7 +887,7 @@ export default function DdsPage() {
           : "Links de assinatura copiados.",
       );
     } catch (error) {
-      console.error("Erro ao gerar links de assinatura DDS:", error);
+      logger.error("Erro ao gerar links de assinatura DDS:", error);
       toast.error(
         getApiErrorMessage(error) ||
           "Não foi possível gerar os links de assinatura.",
@@ -895,7 +914,7 @@ export default function DdsPage() {
       }
       await loadObservabilityAlerts();
     } catch (error) {
-      console.error("Erro ao disparar alertas DDS:", error);
+      logger.error("Erro ao disparar alertas DDS:", error);
       toast.error("Não foi possível disparar os alertas operacionais DDS.");
     } finally {
       setObservabilityAlertsDispatching(false);
@@ -924,7 +943,7 @@ export default function DdsPage() {
       URL.revokeObjectURL(url);
       toast.success("Pacote semanal gerado com sucesso.");
     } catch (error) {
-      console.error("Erro ao gerar pacote semanal DDS:", error);
+      logger.error("Erro ao gerar pacote semanal DDS:", error);
       toast.error("Não foi possível gerar o pacote semanal de DDS.");
     }
   };
@@ -946,7 +965,7 @@ export default function DdsPage() {
         toast.info("Pop-up bloqueado. Abrimos o pacote na mesma aba.");
       });
     } catch (error) {
-      console.error("Erro ao imprimir pacote semanal DDS:", error);
+      logger.error("Erro ao imprimir pacote semanal DDS:", error);
       toast.error("Não foi possível abrir o pacote semanal de DDS.");
     }
   };

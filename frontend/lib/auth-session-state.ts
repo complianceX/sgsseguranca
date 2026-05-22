@@ -1,4 +1,6 @@
 import { authRefreshHint } from "@/lib/authRefreshHint";
+import { clearCachedFetches } from "@/hooks/useCachedFetch";
+import { clearFetchAllPagesCache } from "@/services/pagination";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore, type Session as AuthSession } from "@/lib/sessionStore";
 import { tokenStore } from "@/lib/tokenStore";
@@ -74,6 +76,8 @@ export function persistAuthenticatedSession(params: {
 
 export function clearAuthenticatedSession() {
   clearSensitiveBrowserStorage();
+  clearCachedFetches();
+  clearFetchAllPagesCache();
   tokenStore.clear();
   sessionStore.clear();
   authRefreshHint.clear();

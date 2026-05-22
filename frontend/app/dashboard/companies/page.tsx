@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -54,7 +55,7 @@ export default function CompaniesPage() {
       setLastPage(response.lastPage);
     } catch (error) {
       if (seq !== requestSeqRef.current) return;
-      console.error('Erro ao carregar empresas:', error);
+      logger.error('Erro ao carregar empresas:', error);
       setLoadError('Nao foi possivel carregar a lista de empresas.');
       toast.error('Erro ao carregar lista de empresas.');
     } finally {
@@ -79,7 +80,7 @@ export default function CompaniesPage() {
       }
       void loadCompanies();
     } catch (error) {
-      console.error('Erro ao excluir empresa:', error);
+      logger.error('Erro ao excluir empresa:', error);
       toast.error('Erro ao excluir empresa. Verifique dependencias e tente novamente.');
     } finally {
       setDeleteLoading(false);

@@ -16,6 +16,7 @@ import { TenantService } from '../../common/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../common/tenant/site-access-scope.util';
 import { DocumentGovernanceService } from '../../document-registry/document-governance.service';
 import { SignaturesService } from '../../signatures/signatures.service';
+import type { Signature } from '../../signatures/entities/signature.entity';
 import { PublicValidationGrantService } from '../../common/services/public-validation-grant.service';
 import { StorageService } from '../../common/services/storage.service';
 import { AprLog } from '../entities/apr-log.entity';
@@ -160,14 +161,18 @@ export class AprsPdfService {
         'company',
         'site',
         'elaborador',
+        'elaborador.profile',
         'activities',
         'risks',
         'epis',
         'tools',
         'machines',
         'participants',
+        'participants.profile',
         'auditado_por',
+        'auditado_por.profile',
         'aprovado_por',
+        'aprovado_por.profile',
         'approval_steps',
         'approval_steps.approver_user',
         'risk_items',
@@ -251,6 +256,86 @@ export class AprsPdfService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  private resolveAprUserFunction(
+    user?: {
+      funcao?: string | null;
+      profile?: { nome?: string | null } | null;
+    } | null,
+  ): string {
+    const functionName = String(user?.funcao || '').trim();
+    if (functionName) {
+      return functionName;
+    }
+
+    const profileName = String(user?.profile?.nome || '').trim();
+    return profileName || '-';
+  }
+
+  private resolveAprSignatureTypeLabel(type?: string | null): string {
+    const normalized = String(type || '')
+      .trim()
+      .toLowerCase();
+    const labels: Record<string, string> = {
+      drawn: 'Assinatura desenhada',
+      draw: 'Assinatura desenhada',
+      digital: 'Assinatura digital',
+      simple: 'Assinatura simples',
+      hmac: 'Assinatura eletrônica por PIN',
+      upload: 'Assinatura anexada',
+      facial: 'Validação facial',
+    };
+    return labels[normalized] || type || '-';
+  }
+
+  private resolveAprApprovalStepStatus(status?: string | null): {
+    label: string;
+    tone: 'success' | 'critical' | 'neutral' | 'warning';
+  } {
+    switch (status) {
+      case AprApprovalStepStatus.APPROVED:
+        return { label: 'Aprovado', tone: 'success' };
+      case AprApprovalStepStatus.REJECTED:
+        return { label: 'Reprovado', tone: 'critical' };
+      case AprApprovalStepStatus.SKIPPED:
+        return { label: 'Ignorado', tone: 'neutral' };
+      case AprApprovalStepStatus.PENDING:
+      default:
+        return { label: 'Pendente', tone: 'warning' };
+    }
+  }
+
+  private resolveAprSignatureImageDataUrl(signatureData?: string | null) {
+    const value = String(signatureData || '').trim();
+    if (/^data:image\/(?:png|jpe?g|webp);base64,/i.test(value)) {
+      return value;
+    }
+    return null;
+  }
+
+  private buildAprSignatureProofLabel(input: {
+    signature: Signature | null;
+    signatureData: string | null;
+  }): string {
+    if (!input.signature) {
+      return 'Assinatura pendente';
+    }
+
+    if (this.resolveAprSignatureImageDataUrl(input.signatureData)) {
+      return 'Imagem da assinatura registrada';
+    }
+
+    if (input.signature.type === 'hmac') {
+      return 'Assinatura eletrônica verificada por PIN';
+    }
+
+    return 'Assinatura registrada no SGS';
+  }
+
+  private buildAprSignatureHashLabel(signature?: Signature | null): string {
+    const hash = String(signature?.signature_hash || '').trim();
+    return hash ? hash.slice(0, 16) : '-';
   }
 
   private normalizeAprPdfNarrativeValue(
@@ -555,12 +640,7 @@ export class AprsPdfService {
   private async renderAprFinalPdfHtml(input: {
     apr: Apr;
     documentCode: string;
-    signatures: Array<{
-      user_id?: string;
-      type?: string;
-      signed_at?: Date | string;
-      user?: { nome?: string } | null;
-    }>;
+    signatures: Signature[];
     evidences: AprRiskEvidence[];
     isSuperseded?: boolean;
     logoUrl?: string | null;
@@ -599,23 +679,102 @@ export class AprsPdfService {
         });
       }
     }
-    const signatureRows = signatures
-      .map(
-        (signature) => `
+    const signaturesWithData = await Promise.all(
+      signatures.map(async (signature) => {
+        const signatureData = await this.signaturesService
+          .resolveSignatureData(signature)
+          .catch((error) => {
+            this.logger.warn({
+              event: 'apr_pdf_signature_data_resolve_failed',
+              aprId: apr.id,
+              signatureId: signature.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          });
+
+        return { signature, signatureData };
+      }),
+    );
+    const signatureEntryByUserId = new Map<
+      string,
+      (typeof signaturesWithData)[number]
+    >();
+    signaturesWithData.forEach((entry) => {
+      if (
+        entry.signature.user_id &&
+        !signatureEntryByUserId.has(entry.signature.user_id)
+      ) {
+        signatureEntryByUserId.set(entry.signature.user_id, entry);
+      }
+    });
+    const renderSignatureProofCell = (
+      entry?: (typeof signaturesWithData)[number],
+    ) => {
+      const signature = entry?.signature ?? null;
+      const signatureData = entry?.signatureData ?? null;
+      const imageDataUrl = this.resolveAprSignatureImageDataUrl(signatureData);
+
+      if (imageDataUrl) {
+        return `
+          <div class="signature-proof">
+            <img class="signature-image" src="${this.escapeHtml(imageDataUrl)}" alt="Assinatura registrada" />
+            <div>${this.escapeHtml(this.buildAprSignatureProofLabel({ signature, signatureData }))}</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="signature-proof">
+          <strong>${this.escapeHtml(this.buildAprSignatureProofLabel({ signature, signatureData }))}</strong>
+          <span>Hash: ${this.escapeHtml(this.buildAprSignatureHashLabel(signature))}</span>
+          ${
+            signature?.timestamp_authority
+              ? `<span>Autoridade: ${this.escapeHtml(signature.timestamp_authority)}</span>`
+              : ''
+          }
+        </div>
+      `;
+    };
+    const participants = Array.isArray(apr.participants)
+      ? apr.participants
+      : [];
+    const participantList = participants
+      .map((participant) => participant.nome)
+      .filter((name): name is string => Boolean(name));
+    const participantRows = participants
+      .map((participant, index) => {
+        const signatureEntry = signatureEntryByUserId.get(participant.id);
+        const signature = signatureEntry?.signature ?? null;
+        const statusLabel = signature ? 'Assinado' : 'Pendente';
+        return `
           <tr>
-            <td>${this.escapeHtml(signature.user?.nome || signature.user_id || 'Usuário')}</td>
-            <td>${this.escapeHtml(signature.type || 'digital')}</td>
-            <td>${this.escapeHtml(this.formatAprDisplayDateTime(signature.signed_at, '-'))}</td>
+            <td>${this.escapeHtml(index + 1)}</td>
+            <td>${this.escapeHtml(participant.nome || '-')}</td>
+            <td>${this.escapeHtml(this.resolveAprUserFunction(participant))}</td>
+            <td>${this.escapeHtml(participant.profile?.nome || '-')}</td>
+            <td><span class="status-tag status-tag--${signature ? 'success' : 'warning'}">${this.escapeHtml(statusLabel)}</span></td>
+            <td>${renderSignatureProofCell(signatureEntry)}</td>
+            <td>${this.escapeHtml(this.resolveAprSignatureTypeLabel(signature?.type))}</td>
+            <td>${this.escapeHtml(this.formatAprDisplayDateTime(signature?.signed_at, '-'))}</td>
+          </tr>
+        `;
+      })
+      .join('');
+    const signatureRows = signaturesWithData
+      .map(
+        (entry) => `
+          <tr>
+            <td>${this.escapeHtml(entry.signature.user?.nome || entry.signature.user_id || 'Usuário')}</td>
+            <td>${this.escapeHtml(this.resolveAprUserFunction(entry.signature.user))}</td>
+            <td>${renderSignatureProofCell(entry)}</td>
+            <td>${this.escapeHtml(this.resolveAprSignatureTypeLabel(entry.signature.type))}</td>
+            <td>${this.escapeHtml(this.formatAprDisplayDateTime(entry.signature.signed_at, '-'))}</td>
+            <td>${this.escapeHtml(this.buildAprSignatureHashLabel(entry.signature))}</td>
           </tr>
         `,
       )
       .join('');
-
-    const participantList = Array.isArray(apr.participants)
-      ? apr.participants
-          .map((participant) => participant.nome)
-          .filter((name): name is string => Boolean(name))
-      : [];
 
     const evidenceCountByRiskItem = new Map<string, number>();
     evidences.forEach((evidence) => {
@@ -624,6 +783,81 @@ export class AprsPdfService {
         (evidenceCountByRiskItem.get(evidence.apr_risk_item_id) || 0) + 1,
       );
     });
+    const riskItemLabelById = new Map(
+      riskItems.map((item) => [
+        item.id,
+        this.normalizeAprPdfNarrativeValue(
+          item.atividade,
+          'Item de risco não identificado',
+        ),
+      ]),
+    );
+    const evidenceManifestHtml =
+      evidences.length > 0
+        ? `
+        <section class="section-card">
+          <div class="section-banner section-banner--teal">Manifesto de evidências (${this.escapeHtml(evidences.length)})</div>
+          <table class="support-table">
+            <thead>
+              <tr>
+                <th style="width:5%">#</th>
+                <th style="width:18%">Item de risco</th>
+                <th style="width:20%">Arquivo</th>
+                <th style="width:12%">Tipo</th>
+                <th style="width:10%">Tamanho</th>
+                <th style="width:14%">Captura / upload</th>
+                <th style="width:12%">Hash</th>
+                <th>Geolocalização</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${evidences
+                .map(
+                  (evidence, index) => `
+                    <tr>
+                      <td>${this.escapeHtml(index + 1)}</td>
+                      <td>${this.escapeHtml(riskItemLabelById.get(evidence.apr_risk_item_id) || '-')}</td>
+                      <td>
+                        <strong>${this.escapeHtml(evidence.original_name || 'Evidência registrada')}</strong>
+                        ${
+                          evidence.watermark_text
+                            ? `<div class="cell-helper">Marca d'água: ${this.escapeHtml(evidence.watermark_text)}</div>`
+                            : ''
+                        }
+                      </td>
+                      <td>${this.escapeHtml(evidence.mime_type || '-')}</td>
+                      <td>${this.escapeHtml(`${evidence.file_size_bytes || 0} bytes`)}</td>
+                      <td>
+                        ${this.escapeHtml(this.formatAprDisplayDateTime(evidence.captured_at, '-'))}
+                        <div class="cell-helper">Upload: ${this.escapeHtml(this.formatAprDisplayDateTime(evidence.uploaded_at, '-'))}</div>
+                      </td>
+                      <td>
+                        ${this.escapeHtml(String(evidence.hash_sha256 || '').slice(0, 16) || '-')}
+                        ${
+                          evidence.watermarked_hash_sha256
+                            ? `<div class="cell-helper">WM: ${this.escapeHtml(evidence.watermarked_hash_sha256.slice(0, 16))}</div>`
+                            : ''
+                        }
+                      </td>
+                      <td>${
+                        evidence.latitude != null && evidence.longitude != null
+                          ? this.escapeHtml(
+                              `${evidence.latitude}, ${evidence.longitude}${
+                                evidence.accuracy_m != null
+                                  ? ` (${evidence.accuracy_m}m)`
+                                  : ''
+                              }`,
+                            )
+                          : '-'
+                      }</td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </section>`
+        : '';
 
     const summary = apr.classificacao_resumo || {
       total: riskItems.length,
@@ -658,6 +892,24 @@ export class AprsPdfService {
           .sort((left, right) => left.level_order - right.level_order)
       : [];
     const complementaryFields = [
+      { label: 'Versão', value: apr.versao },
+      {
+        label: 'Criada em',
+        value: this.formatAprDisplayDateTime(apr.created_at, ''),
+      },
+      {
+        label: 'Atualizada em',
+        value: this.formatAprDisplayDateTime(apr.updated_at, ''),
+      },
+      {
+        label: 'Modelo reutilizável',
+        value: apr.is_modelo ? 'Sim' : null,
+      },
+      {
+        label: 'Modelo padrão',
+        value: apr.is_modelo_padrao ? 'Sim' : null,
+      },
+      { label: 'APR anterior', value: apr.parent_apr_id },
       { label: 'Tipo de atividade', value: apr.tipo_atividade },
       { label: 'Frente de trabalho', value: apr.frente_trabalho },
       { label: 'Área de risco', value: apr.area_risco },
@@ -685,6 +937,7 @@ export class AprsPdfService {
       },
       { label: 'Evidência fotográfica', value: apr.evidence_photo },
       { label: 'Evidência documental', value: apr.evidence_document },
+      { label: 'Pontuação de conformidade', value: apr.complianceScore },
       { label: 'Reprovado por', value: apr.reprovado_por?.nome },
       {
         label: 'Data de reprovação',
@@ -826,6 +1079,10 @@ export class AprsPdfService {
             );
             const preventionLines = [
               this.normalizeAprPdfNarrativeValue(item.medidas_prevencao),
+              item.score_risco != null
+                ? `Score inicial: ${item.score_risco}`
+                : null,
+              item.prioridade ? `Prioridade: ${item.prioridade}` : null,
               item.epc ? `EPC: ${item.epc}` : null,
               item.epi ? `EPI: ${item.epi}` : null,
               item.permissao_trabalho
@@ -844,8 +1101,9 @@ export class AprsPdfService {
               item.status_acao ? `Status: ${item.status_acao}` : null,
               item.residual_probabilidade != null ||
               item.residual_severidade != null ||
+              item.residual_score != null ||
               item.residual_categoria
-                ? `Residual P/S/Cat: ${item.residual_probabilidade ?? '-'}/${item.residual_severidade ?? '-'}/${item.residual_categoria || '-'}`
+                ? `Residual P/S/Score/Cat: ${item.residual_probabilidade ?? '-'}/${item.residual_severidade ?? '-'}/${item.residual_score ?? '-'}/${item.residual_categoria || '-'}`
                 : null,
               evidenceCount > 0
                 ? `Evidências: ${evidenceCount} arquivo${evidenceCount !== 1 ? 's' : ''}`
@@ -1026,28 +1284,23 @@ export class AprsPdfService {
               </thead>
               <tbody>
                 ${approvalSteps
-                  .map(
-                    (step) => `
+                  .map((step) => {
+                    const stepStatus = this.resolveAprApprovalStepStatus(
+                      step.status,
+                    );
+                    return `
                       <tr>
                         <td>${this.escapeHtml(step.level_order)}</td>
                         <td>${this.escapeHtml(step.title)}</td>
                         <td>${this.escapeHtml(step.approver_role)}</td>
                         <td>
-                          <span class="status-tag status-tag--${
-                            step.status === AprApprovalStepStatus.APPROVED
-                              ? 'success'
-                              : step.status === AprApprovalStepStatus.REJECTED
-                                ? 'critical'
-                                : step.status === AprApprovalStepStatus.SKIPPED
-                                  ? 'neutral'
-                                  : 'warning'
-                          }">${this.escapeHtml(step.status)}</span>
+                          <span class="status-tag status-tag--${stepStatus.tone}">${this.escapeHtml(stepStatus.label)}</span>
                         </td>
                         <td>${this.escapeHtml(this.formatAprDisplayDateTime(step.decided_at, '-'))}</td>
                         <td>${this.escapeHtml(step.approver_user?.nome || '-')}</td>
                       </tr>
-                    `,
-                  )
+                    `;
+                  })
                   .join('')}
               </tbody>
             </table>
@@ -1055,7 +1308,13 @@ export class AprsPdfService {
         : '';
 
     // ── Seção auditoria (condicional) ────────────────────────────────────────
-    const auditHtml = apr.auditado_por
+    const hasAuditData = Boolean(
+      apr.auditado_por ||
+      apr.data_auditoria ||
+      apr.resultado_auditoria ||
+      apr.notas_auditoria,
+    );
+    const auditHtml = hasAuditData
       ? `
         <section class="section-card">
           <div class="section-banner section-banner--teal">Auditoria</div>
@@ -1470,6 +1729,27 @@ export class AprsPdfService {
               letter-spacing: .06em;
               font-weight: 700;
             }
+            .signature-proof {
+              display: flex;
+              flex-direction: column;
+              gap: 3px;
+              font-size: 8px;
+              color: var(--muted);
+            }
+            .signature-proof strong {
+              color: var(--ink);
+              font-size: 9px;
+            }
+            .signature-image {
+              display: block;
+              width: 130px;
+              height: 42px;
+              object-fit: contain;
+              border: 1px solid #dbe7f2;
+              border-radius: 6px;
+              background: #fff;
+              padding: 3px;
+            }
 
             .matrix-layout > * + * { margin-top: 8px; }
             .matrix-severity-table th {
@@ -1698,22 +1978,22 @@ export class AprsPdfService {
               <div class="section-banner section-banner--teal">Participantes (${this.escapeHtml(participantList.length)})</div>
               <table class="support-table">
                 <thead>
-                  <tr><th style="width:8%">#</th><th>Nome</th></tr>
+                  <tr>
+                    <th style="width:5%">#</th>
+                    <th style="width:18%">Nome</th>
+                    <th style="width:17%">Cargo / função</th>
+                    <th style="width:12%">Perfil</th>
+                    <th style="width:10%">Status</th>
+                    <th style="width:20%">Assinatura</th>
+                    <th style="width:10%">Tipo</th>
+                    <th>Registrada em</th>
+                  </tr>
                 </thead>
                 <tbody>
                   ${
                     participantList.length
-                      ? participantList
-                          .map(
-                            (name, index) => `
-                              <tr>
-                                <td>${this.escapeHtml(index + 1)}</td>
-                                <td>${this.escapeHtml(name)}</td>
-                              </tr>
-                            `,
-                          )
-                          .join('')
-                      : `<tr><td colspan="2" class="empty-state">Nenhum participante vinculado.</td></tr>`
+                      ? participantRows
+                      : `<tr><td colspan="8" class="empty-state">Nenhum participante vinculado.</td></tr>`
                   }
                 </tbody>
               </table>
@@ -1774,6 +2054,8 @@ export class AprsPdfService {
                 : ''
             }
 
+            ${evidenceManifestHtml}
+
             <section class="section-card">
               <div class="section-banner section-banner--amber">Matriz de risco e critério de ação</div>
               <div class="section-body">
@@ -1791,10 +2073,17 @@ export class AprsPdfService {
               <div class="section-banner section-banner--teal">Assinaturas registradas</div>
               <table class="signature-table">
                 <thead>
-                  <tr><th style="width:40%">Assinante</th><th style="width:18%">Tipo</th><th>Registrada em</th></tr>
+                  <tr>
+                    <th style="width:18%">Assinante</th>
+                    <th style="width:16%">Cargo / função</th>
+                    <th style="width:26%">Assinatura</th>
+                    <th style="width:12%">Tipo</th>
+                    <th style="width:14%">Registrada em</th>
+                    <th>Hash</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  ${signatureRows || `<tr><td colspan="3" class="empty-state">Nenhuma assinatura registrada.</td></tr>`}
+                  ${signatureRows || `<tr><td colspan="6" class="empty-state">Nenhuma assinatura registrada.</td></tr>`}
                 </tbody>
               </table>
             </section>
@@ -1999,7 +2288,7 @@ export class AprsPdfService {
         this.signaturesService.findByDocument(full.id, 'APR'),
         this.aprsRepository.manager.getRepository(AprRiskEvidence).find({
           where: { apr_id: full.id },
-          relations: ['apr_risk_item'],
+          relations: ['apr_risk_item', 'uploaded_by', 'uploaded_by.profile'],
           order: { uploaded_at: 'DESC' },
         }),
       ]);
@@ -2078,7 +2367,7 @@ export class AprsPdfService {
       this.signaturesService.findByDocument(apr.id, 'APR'),
       this.aprsRepository.manager.getRepository(AprRiskEvidence).find({
         where: { apr_id: apr.id },
-        relations: ['apr_risk_item'],
+        relations: ['apr_risk_item', 'uploaded_by', 'uploaded_by.profile'],
         order: { uploaded_at: 'DESC' },
       }),
       this.aprsRepository.findOne({

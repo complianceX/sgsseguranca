@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -88,7 +89,7 @@ export default function ExpenseReportDetailPage() {
       setLoadError(null);
       setReport(await expensesService.findOne(id));
     } catch (error) {
-      console.error('Erro ao carregar prestação:', error);
+      logger.error('Erro ao carregar prestação:', error);
       setLoadError('Não foi possível carregar a prestação de despesas.');
       toast.error('Erro ao carregar prestação.');
     } finally {
@@ -120,7 +121,7 @@ export default function ExpenseReportDetailPage() {
       });
       toast.success('Adiantamento lançado.');
     } catch (error) {
-      console.error('Erro ao lançar adiantamento:', error);
+      logger.error('Erro ao lançar adiantamento:', error);
       toast.error('Erro ao lançar adiantamento.');
     } finally {
       setSubmitting(false);
@@ -156,7 +157,7 @@ export default function ExpenseReportDetailPage() {
       });
       toast.success('Despesa lançada.');
     } catch (error) {
-      console.error('Erro ao lançar despesa:', error);
+      logger.error('Erro ao lançar despesa:', error);
       toast.error('Erro ao lançar despesa.');
     } finally {
       setSubmitting(false);
@@ -170,7 +171,7 @@ export default function ExpenseReportDetailPage() {
       setReport(next);
       toast.success('Despesa removida.');
     } catch (error) {
-      console.error('Erro ao remover despesa:', error);
+      logger.error('Erro ao remover despesa:', error);
       toast.error('Erro ao remover despesa.');
     }
   }
@@ -181,7 +182,7 @@ export default function ExpenseReportDetailPage() {
       const access = await expensesService.getReceiptAccess(report.id, itemId);
       openSafeExternalUrlInNewTab(access.url);
     } catch (error) {
-      console.error('Erro ao abrir comprovante:', error);
+      logger.error('Erro ao abrir comprovante:', error);
       toast.error('Erro ao abrir comprovante.');
     }
   }
@@ -197,7 +198,7 @@ export default function ExpenseReportDetailPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erro ao exportar relatório:', error);
+      logger.error('Erro ao exportar relatório:', error);
       toast.error('Erro ao exportar relatório.');
     }
   }
@@ -211,7 +212,7 @@ export default function ExpenseReportDetailPage() {
       setReport(next);
       toast.success('Prestação fechada.');
     } catch (error) {
-      console.error('Erro ao fechar prestação:', error);
+      logger.error('Erro ao fechar prestação:', error);
       toast.error('Erro ao fechar prestação.');
     }
   }

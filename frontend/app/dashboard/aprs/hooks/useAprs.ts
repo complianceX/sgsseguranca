@@ -1,6 +1,7 @@
-"use client";
+'use client';
+import { logger } from "@/lib/logger";
 
-import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react";
 import { isAxiosError } from "axios";
 import { aprsService, Apr } from "@/services/aprsService";
 import { aiService } from "@/services/aiService";
@@ -88,6 +89,7 @@ async function loadAprPdfGenerator() {
 
 export function useAprs(options?: UseAprsOptions) {
   const [aprs, setAprs] = useState<Apr[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [overviewMetrics, setOverviewMetrics] =
@@ -192,13 +194,23 @@ export function useAprs(options?: UseAprsOptions) {
         });
       setOverviewMetrics(analytics);
     } catch (error) {
-      console.error('Erro ao carregar overview analítico de APRs:', error);
+      logger.error('Erro ao carregar overview analítico de APRs:', error);
       setOverviewMetrics(null);
     }
   }, []);
 
   // Reset page when filters change
   useEffect(() => {
+    const timer = timerRef.current;
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
+
+useEffect(() => {
     setPage(1);
   }, [
     deferredSearchTerm,
@@ -223,7 +235,7 @@ export function useAprs(options?: UseAprsOptions) {
         setInsights([]);
         return;
       }
-      console.error("Erro ao carregar insights:", error);
+      logger.error("Erro ao carregar insights:", error);
     }
   }, []);
 

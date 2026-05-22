@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -95,7 +96,7 @@ export function ChecklistModelsView({
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar modelos:", error);
+      logger.error("Erro ao carregar modelos:", error);
       toast.error("Não foi possível carregar os modelos de checklist.");
     } finally {
       setLoading(false);
@@ -120,7 +121,7 @@ export function ChecklistModelsView({
       }
       toast.success("Modelo excluído com sucesso!");
     } catch (error) {
-      console.error("Erro ao excluir modelo:", error);
+      logger.error("Erro ao excluir modelo:", error);
       toast.error("Erro ao excluir modelo.");
     }
   }
@@ -140,7 +141,7 @@ export function ChecklistModelsView({
       setPage(1);
       await loadModels();
     } catch (error) {
-      console.error("Erro ao sincronizar os modelos padrão:", error);
+      logger.error("Erro ao sincronizar os modelos padrão:", error);
       toast.error("Não foi possível sincronizar os modelos padrão.");
     } finally {
       setBootstrapping(false);
@@ -167,7 +168,7 @@ export function ChecklistModelsView({
         setIsMailModalOpen(true);
       }
     } catch (error) {
-      console.error("Erro ao enviar e-mail:", error);
+      logger.error("Erro ao enviar e-mail:", error);
       toast.error("Erro ao enviar e-mail.");
     } finally {
       setPrintingId(null);

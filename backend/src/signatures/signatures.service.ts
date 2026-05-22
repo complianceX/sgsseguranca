@@ -452,7 +452,7 @@ export class SignaturesService {
       : { document_id, document_type: normalizedDocumentType };
     return this.signaturesRepository.find({
       where,
-      relations: ['user'],
+      relations: ['user', 'user.profile'],
     });
   }
 

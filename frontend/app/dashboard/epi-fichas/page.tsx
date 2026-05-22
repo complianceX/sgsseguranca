@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import {
   useCallback,
@@ -152,7 +153,7 @@ export default function EpiFichasPage() {
       setTotal(assignmentsPage.total);
       setLastPage(assignmentsPage.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar fichas EPI:', error);
+      logger.error('Erro ao carregar fichas EPI:', error);
       toast.error('Erro ao carregar fichas de EPI.');
     } finally {
       if (requestId === assignmentsRequestRef.current) {
@@ -167,7 +168,7 @@ export default function EpiFichasPage() {
       const summaryData = await summaryCache.fetch();
       setSummary(summaryData);
     } catch (error) {
-      console.error('Erro ao carregar resumo de EPI:', error);
+      logger.error('Erro ao carregar resumo de EPI:', error);
       toast.error('Erro ao carregar resumo de EPI.');
     } finally {
       setSummaryLoading(false);
@@ -193,7 +194,7 @@ export default function EpiFichasPage() {
         const nextEpis = dedupeById(await episLookupCache.fetch());
         setEpis(nextEpis);
       } catch (error) {
-        console.error('Erro ao carregar EPIs:', error);
+        logger.error('Erro ao carregar EPIs:', error);
         toast.error('Erro ao carregar catálogo de EPIs.');
       }
     };
@@ -207,7 +208,7 @@ export default function EpiFichasPage() {
         const nextUsers = dedupeById(await usersLookupCache.fetch());
         setUserOptions(nextUsers);
       } catch (error) {
-        console.error('Erro ao carregar colaboradores da ficha EPI:', error);
+        logger.error('Erro ao carregar colaboradores da ficha EPI:', error);
         toast.error('Erro ao carregar colaboradores.');
       }
     };
@@ -253,7 +254,7 @@ export default function EpiFichasPage() {
       }
       await refreshAll();
     } catch (error) {
-      console.error('Erro ao criar ficha EPI:', error);
+      logger.error('Erro ao criar ficha EPI:', error);
       toast.error('Falha ao registrar ficha de EPI.');
     } finally {
       setCreating(false);
@@ -279,7 +280,7 @@ export default function EpiFichasPage() {
       toast.success('Devolucao registrada.');
       await refreshAll();
     } catch (error) {
-      console.error('Erro ao devolver EPI:', error);
+      logger.error('Erro ao devolver EPI:', error);
       toast.error('Falha ao registrar devolucao.');
     }
   };
@@ -300,7 +301,7 @@ export default function EpiFichasPage() {
       toast.success('Ficha marcada como substituida.');
       await refreshAll();
     } catch (error) {
-      console.error('Erro ao substituir EPI:', error);
+      logger.error('Erro ao substituir EPI:', error);
       toast.error('Falha ao marcar substituicao.');
     }
   };

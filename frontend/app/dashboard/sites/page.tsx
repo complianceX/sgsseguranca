@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -50,7 +51,7 @@ export default function SitesPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar sites:', error);
+      logger.error('Erro ao carregar sites:', error);
       setLoadError('Nao foi possivel carregar a lista de obras/setores.');
       toast.error('Erro ao carregar lista de obras/setores.');
     } finally {
@@ -76,7 +77,7 @@ export default function SitesPage() {
       }
       void loadSites();
     } catch (error) {
-      console.error('Erro ao excluir site:', error);
+      logger.error('Erro ao excluir site:', error);
       toast.error('Erro ao excluir obra/setor. Verifique dependencias e tente novamente.');
     }
   }

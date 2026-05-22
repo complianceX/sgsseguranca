@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -134,7 +135,7 @@ export function RiskForm({ id }: RiskFormProps) {
           Array.from(new Map(nextCompanies.map((company) => [company.id, company])).values()),
         );
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        logger.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados do formulário.');
         if (id) router.push('/dashboard/risks');
       } finally {

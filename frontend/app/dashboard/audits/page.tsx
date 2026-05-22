@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
 import {
@@ -31,6 +32,8 @@ import { buildPdfFilename } from "@/lib/pdf-system/core/format";
 import { correctiveActionsService } from "@/services/correctiveActionsService";
 import { companiesService } from "@/services/companiesService";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore } from "@/lib/sessionStore";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -84,6 +87,7 @@ const revokeObjectUrlLater = (objectUrl: string) => {
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<Audit[]>([]);
+const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,6 +98,9 @@ export default function AuditsPage() {
   const [companyOptions, setCompanyOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
+    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
+  );
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -122,6 +129,39 @@ export default function AuditsPage() {
     >
   >(new Map());
 
+  useEffect(() => {
+
+    const timer = timerRef.current;
+
+
+    return () => {
+
+      if (timer) {
+
+        clearTimeout(timer);
+
+      }
+
+    };
+
+  }, []);
+
+useEffect(() => {
+    const syncActiveCompanyId = () => {
+      setActiveCompanyId(
+        selectedTenantStore.get()?.companyId ||
+          sessionStore.get()?.companyId ||
+          null,
+      );
+    };
+
+    syncActiveCompanyId();
+    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const buildAuditFilename = (audit: Audit) =>
     buildPdfFilename(
       "AUDITORIA",
@@ -130,7 +170,7 @@ export default function AuditsPage() {
     );
 
   const getGovernedPdfAccess = async (auditId: string) =>
-    auditsService.getPdfAccess(auditId);
+    auditsService.getPdfAccess(auditId, activeCompanyId || undefined);
 
   const getCachedGeneratedPdf = (auditId: string) =>
     generatedPdfCacheRef.current.get(auditId);
@@ -152,7 +192,10 @@ export default function AuditsPage() {
       return cached;
     }
 
-    const fullAudit = await auditsService.findOne(audit.id);
+    const fullAudit = await auditsService.findOne(
+      audit.id,
+      activeCompanyId || undefined,
+    );
     const { generateAuditPdf } = await loadAuditPdfGenerator();
     const result = (await generateAuditPdf(fullAudit, {
       save: false,
@@ -180,10 +223,17 @@ export default function AuditsPage() {
     if (!access.hasFinalPdf) {
       payload = payload || (await generateAuditPdfPayload(audit));
       const file = base64ToPdfFile(payload.base64, payload.filename);
-      await auditsService.attachFile(audit.id, file);
+      await auditsService.attachFile(
+        audit.id,
+        file,
+        activeCompanyId || undefined,
+      );
       await fetchAudits();
       toast.success("PDF final da auditoria emitido e registrado com sucesso.");
-      access = await auditsService.getPdfAccess(audit.id);
+      access = await auditsService.getPdfAccess(
+        audit.id,
+        activeCompanyId || undefined,
+      );
     }
 
     if (options?.needLocalPayload && !payload) {
@@ -197,21 +247,28 @@ export default function AuditsPage() {
     try {
       setLoading(true);
       setLoadError(null);
+      if (!activeCompanyId) {
+        setAudits([]);
+        setTotal(0);
+        setLastPage(1);
+        return;
+      }
       const response = await auditsService.findPaginated({
         page,
         search: deferredSearchTerm || undefined,
+        companyId: activeCompanyId,
       });
       setAudits(response.data);
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error("Erro ao carregar auditorias:", error);
+      logger.error("Erro ao carregar auditorias:", error);
       setLoadError("Nao foi possivel carregar os relatorios de auditoria.");
       toast.error("Erro ao carregar auditorias");
     } finally {
       setLoading(false);
     }
-  }, [deferredSearchTerm, page]);
+  }, [activeCompanyId, deferredSearchTerm, page]);
 
   useEffect(() => {
     setPage(1);
@@ -237,7 +294,7 @@ export default function AuditsPage() {
           })),
         );
       } catch (error) {
-        console.error("Erro ao carregar empresas para arquivos salvos:", error);
+        logger.error("Erro ao carregar empresas para arquivos salvos:", error);
       }
     };
 
@@ -254,11 +311,11 @@ export default function AuditsPage() {
     }
 
     try {
-      await auditsService.delete(id);
+      await auditsService.delete(id, activeCompanyId || undefined);
       toast.success("Auditoria excluida com sucesso");
       await fetchAudits();
     } catch (error) {
-      console.error("Erro ao excluir auditoria:", error);
+      logger.error("Erro ao excluir auditoria:", error);
       toast.error("Erro ao excluir auditoria");
     }
   };
@@ -290,7 +347,7 @@ export default function AuditsPage() {
         { id: toastId },
       );
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
+      logger.error("Erro ao gerar PDF:", error);
       toast.error("Erro ao gerar PDF da auditoria.", { id: toastId });
     }
   };
@@ -330,7 +387,7 @@ export default function AuditsPage() {
         { id: toastId },
       );
     } catch (error) {
-      console.error("Erro ao imprimir:", error);
+      logger.error("Erro ao imprimir:", error);
       toast.error("Erro ao preparar impressao da auditoria.", { id: toastId });
     }
   };
@@ -371,7 +428,7 @@ export default function AuditsPage() {
         toast.success("Documento pronto para envio.", { id: toastId });
       }
     } catch (error) {
-      console.error("Erro ao preparar e-mail:", error);
+      logger.error("Erro ao preparar e-mail:", error);
       toast.error("Erro ao preparar o documento para envio.", {
         id: toastId,
       });
@@ -402,7 +459,7 @@ export default function AuditsPage() {
       }
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error("Erro ao emitir/abrir PDF final da auditoria:", error);
+      logger.error("Erro ao emitir/abrir PDF final da auditoria:", error);
       toast.error("Nao foi possivel emitir ou abrir o PDF final da auditoria.");
     }
   };
@@ -412,7 +469,7 @@ export default function AuditsPage() {
       await correctiveActionsService.createFromAudit(audit.id);
       toast.success("CAPA criada a partir da auditoria");
     } catch (error) {
-      console.error("Erro ao criar CAPA da auditoria:", error);
+      logger.error("Erro ao criar CAPA da auditoria:", error);
       toast.error("Nao foi possivel criar CAPA.");
     }
   };
