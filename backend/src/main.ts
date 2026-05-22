@@ -33,7 +33,10 @@ import {
   type TelemetryRuntime,
 } from './common/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
-import { resolveAllowedCorsOrigins } from './common/security/cors-origins';
+import {
+  isCorsOriginAllowed,
+  resolveAllowedCorsOrigins,
+} from './common/security/cors-origins';
 import { ALLOWED_CORS_HEADERS } from './common/security/cors-headers';
 import { constantTimeEquals } from './common/security/constant-time.util';
 import type { VersionValue } from '@nestjs/common/interfaces';
@@ -339,23 +342,22 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      if (!origin || origin === 'null') return callback(null, false);
-      const isExplicitAllowed = allowedOrigins.includes(origin);
-      const isDevNetworkAllowed =
-        !isProduction &&
-        (/^http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}$/i.test(origin) ||
-          /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
-            origin,
-          ));
-      if (isExplicitAllowed || isDevNetworkAllowed) {
-        return callback(null, true);
-      }
-      bootstrapLogger.warn({
-        event: 'cors_origin_blocked',
+      const isAllowed = isCorsOriginAllowed({
         origin,
         allowedOrigins,
+        isProduction,
       });
-      callback(new Error('Not allowed by CORS'));
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      if (origin && origin !== 'null') {
+        bootstrapLogger.warn({
+          event: 'cors_origin_blocked',
+          origin,
+          allowedOrigins,
+        });
+      }
+      callback(null, false);
     },
     credentials: true,
     allowedHeaders: [...ALLOWED_CORS_HEADERS],

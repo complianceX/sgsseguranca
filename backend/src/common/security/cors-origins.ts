@@ -28,6 +28,15 @@ function uniqueOrigins(origins: string[]): string[] {
   return Array.from(new Set(origins.map((origin) => normalizeOrigin(origin))));
 }
 
+function isDevNetworkOrigin(origin: string): boolean {
+  return (
+    /^http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}$/i.test(origin) ||
+    /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
+      origin,
+    )
+  );
+}
+
 export function resolveAllowedCorsOrigins(options: {
   isProduction: boolean;
   configuredOriginsRaw?: string | null;
@@ -52,4 +61,21 @@ export function normalizeOriginValue(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function isCorsOriginAllowed(options: {
+  origin?: string;
+  allowedOrigins: string[];
+  isProduction: boolean;
+}): boolean {
+  const origin = options.origin?.trim();
+  if (!origin || origin === 'null') {
+    return false;
+  }
+
+  if (options.allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  return !options.isProduction && isDevNetworkOrigin(origin);
 }
