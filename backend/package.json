@@ -169,7 +169,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.13",
     "@opentelemetry/auto-instrumentations-node": "0.75.0",
-    "@opentelemetry/exporter-prometheus": "0.217.0",
+    "@opentelemetry/exporter-prometheus": "0.218.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.217.0",
     "@opentelemetry/instrumentation-fs": "^0.31.0",
     "@opentelemetry/resources": "^2.5.1",
