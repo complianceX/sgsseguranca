@@ -10,6 +10,11 @@ import {
   drawNarrativeSection,
   drawSemanticTable,
 } from "../components";
+import {
+  resolveSignatureSignerName,
+  resolveSignatureSignerRole,
+  resolveSignatureTypeLabel,
+} from "../signaturePresentation";
 
 type ChecklistSubitemLike = { texto?: string };
 type ChecklistItemLike = {
@@ -72,7 +77,12 @@ function groupChecklistItems(checklist: Checklist) {
 }
 
 function isConforme(status: unknown): boolean {
-  return status === true || status === "ok" || status === "sim" || status === "conforme";
+  return (
+    status === true ||
+    status === "ok" ||
+    status === "sim" ||
+    status === "conforme"
+  );
 }
 
 function isNaoConforme(status: unknown): boolean {
@@ -80,8 +90,15 @@ function isNaoConforme(status: unknown): boolean {
 }
 
 function statusLabel(status: boolean | string | undefined): string {
-  if (status === true || status === "ok" || status === "sim" || status === "conforme") return "Conforme";
-  if (status === false || status === "nok" || status === "nao") return "Nao Conforme";
+  if (
+    status === true ||
+    status === "ok" ||
+    status === "sim" ||
+    status === "conforme"
+  )
+    return "Conforme";
+  if (status === false || status === "nok" || status === "nao")
+    return "Nao Conforme";
   if (status === "na") return "N/A";
   return sanitize(status as string);
 }
@@ -117,14 +134,31 @@ export async function drawChecklistBlueprint(
 
   drawExecutiveSummaryStrip(ctx, {
     title: "Resumo executivo de conformidade",
-    summary: "Leitura rapida para operacao e gestao, com destaque para score, pendencias e nao conformidades.",
+    summary:
+      "Leitura rapida para operacao e gestao, com destaque para score, pendencias e nao conformidades.",
     metrics: [
-      { label: "Status", value: sanitize(checklist.status), tone: naoConformes > 0 ? "warning" : "success" },
-      { label: "Score", value: `${score}%`, tone: score >= 90 ? "success" : score >= 70 ? "warning" : "danger" },
+      {
+        label: "Status",
+        value: sanitize(checklist.status),
+        tone: naoConformes > 0 ? "warning" : "success",
+      },
+      {
+        label: "Score",
+        value: `${score}%`,
+        tone: score >= 90 ? "success" : score >= 70 ? "warning" : "danger",
+      },
       { label: "Itens", value: totalItems, tone: "info" },
       { label: "Conformes", value: conformes, tone: "success" },
-      { label: "Nao conformes", value: naoConformes, tone: naoConformes > 0 ? "danger" : "success" },
-      { label: "Inspetor", value: sanitize(checklist.inspetor?.nome), tone: "default" },
+      {
+        label: "Nao conformes",
+        value: naoConformes,
+        tone: naoConformes > 0 ? "danger" : "success",
+      },
+      {
+        label: "Inspetor",
+        value: sanitize(checklist.inspetor?.nome),
+        tone: "default",
+      },
     ],
   });
 
@@ -137,7 +171,10 @@ export async function drawChecklistBlueprint(
       { label: "Data", value: formatDate(checklist.data) },
       { label: "Inspetor", value: checklist.inspetor?.nome },
       { label: "Site/Obra", value: checklist.site?.nome },
-      { label: "Equipamento", value: checklist.equipamento || checklist.maquina },
+      {
+        label: "Equipamento",
+        value: checklist.equipamento || checklist.maquina,
+      },
       { label: "Periodicidade", value: checklist.periodicidade },
       { label: "Topicos", value: groupedItems.length || 1 },
       { label: "Indicadores", value: `${conformes}/${totalItems} conformes` },
@@ -202,21 +239,14 @@ export async function drawChecklistBlueprint(
     });
   }
 
-  const SIGNATURE_TYPE_LABEL: Record<string, string> = {
-    digital: 'Assinatura Digital',
-    upload: 'Imagem Enviada',
-    facial: 'Facial',
-    hmac: 'PIN Seguro (HMAC-SHA256)',
-  };
-
   await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
-      label: SIGNATURE_TYPE_LABEL[signature.type] ?? sanitize(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: SIGNATURE_TYPE_LABEL[signature.type] ?? sanitize(signature.type),
+      label: resolveSignatureTypeLabel(signature.type),
+      name: resolveSignatureSignerName(signature),
+      role: resolveSignatureSignerRole(signature),
       date: formatDate(signature.signed_at || signature.created_at),
       // For HMAC, signature_data is a hex string — mark it so GovernanceClosingBlock handles it correctly
-      image: signature.signature_data,
+      image: signature.signature_data ?? null,
       signatureType: signature.type,
     })),
     code,

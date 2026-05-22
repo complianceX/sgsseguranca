@@ -14,6 +14,7 @@ import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { Dds, DdsStatus } from './entities/dds.entity';
 import { DdsSignatureInvite } from './entities/dds-signature-invite.entity';
 import { IssueDdsSignatureInvitesDto } from './dto/dds-signature-invite.dto';
+import { MailService } from '../mail/mail.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
@@ -88,6 +89,7 @@ export class DdsSignatureInviteService {
     private readonly ddsRepository: Repository<Dds>,
     private readonly tenantService: TenantService,
     private readonly signaturesService: SignaturesService,
+    private readonly mailService: MailService,
   ) {}
 
   async issueInvites(
@@ -180,6 +182,41 @@ export class DdsSignatureInviteService {
       }
     });
 
+    for (const [participantId, link] of createdInvites.entries()) {
+      const participant = participants.find((p) => p.id === participantId);
+      if (!participant) continue;
+      const email = participant.email;
+      if (!email) continue;
+
+      const subject = `Convite para assinar DDS: ${dds.tema}`;
+      const body = `Olá ${participant.nome || 'participante'},\n\nVocê recebeu um convite para assinar o DDS "${dds.tema}".\nClique no link abaixo para acessar a assinatura pública:\n\n${link.signingUrl ?? link.signingPath ?? ''}\n\nEste convite expira em ${expiresAt?.toISOString() ?? 'N/A'}.\n\nAtt,\nEquipe SGS`;
+      try {
+        await this.mailService.sendMailSimple(email, subject, body, {
+          companyId: dds.company_id,
+          userId: createdByUserId,
+        });
+        this.logger.log({
+          event: 'dds_signature_invite_email_sent',
+          ddsId: dds.id,
+          companyId: dds.company_id,
+          participantUserId: participant.id,
+          inviteId: link.inviteId,
+        });
+      } catch (e) {
+        this.logger.error(
+          {
+            event: 'dds_signature_invite_email_failed',
+            ddsId: dds.id,
+            companyId: dds.company_id,
+            participantUserId: participant.id,
+            inviteId: link.inviteId,
+            error: e instanceof Error ? e.message : String(e),
+          },
+          e instanceof Error ? e.stack : undefined,
+        );
+      }
+    }
+
     const invites = participants.map((participant) => {
       const existingSignature = existingSignatureByUser.get(participant.id);
       if (existingSignature) {
@@ -206,7 +243,7 @@ export class DdsSignatureInviteService {
       ddsId: dds.id,
       companyId: dds.company_id,
       generated: createdInvites.size,
-      alreadySigned: existingSignatures.length,
+      alreadySigned: existingSignatureByUser.size,
     });
 
     return {

@@ -6,7 +6,7 @@ export function drawParticipantTable(
   ctx: PdfContext,
   autoTable: AutoTableFn,
   title: string,
-  participants: Array<{ name?: string; role?: string }>,
+  participants: Array<{ name?: string | null; role?: string | null }>,
 ) {
   if (!participants.length) return;
   const numberColumnWidth = 12;

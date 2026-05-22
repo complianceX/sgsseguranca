@@ -32,9 +32,7 @@ export type PublicDdsSignatureSubmitResult = {
 function buildPublicSignatureUrl(token: string): string {
   const url = buildApiUrl(`/public/dds/signature/${encodeURIComponent(token)}`);
   if (!url) {
-    throw new Error(
-      "API pública não configurada. Defina NEXT_PUBLIC_API_URL.",
-    );
+    throw new Error("API pública não configurada. Defina NEXT_PUBLIC_API_URL.");
   }
   return url;
 }
@@ -44,7 +42,22 @@ async function readApiError(response: Response): Promise<string> {
     const payload = (await response.json()) as {
       message?: string | string[];
       error?: string;
+      errors?: Array<{ field?: string; errors?: string[] }>;
     };
+    if (Array.isArray(payload.errors)) {
+      const validationMessages = payload.errors
+        .flatMap((item) =>
+          Array.isArray(item.errors)
+            ? item.errors.map((message) =>
+                item.field ? `${item.field}: ${message}` : message,
+              )
+            : [],
+        )
+        .filter(Boolean);
+      if (validationMessages.length > 0) {
+        return validationMessages.join(" ");
+      }
+    }
     if (Array.isArray(payload.message)) {
       return payload.message.join(" ");
     }

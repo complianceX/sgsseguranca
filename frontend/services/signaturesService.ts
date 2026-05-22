@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
 
 export interface Signature {
   integrity_payload?: {
@@ -15,6 +15,7 @@ export interface Signature {
   user_id?: string;
   user?: {
     nome?: string;
+    funcao?: string | null;
   };
   document_id: string;
   document_type: string;
@@ -36,14 +37,14 @@ export const signaturesService = {
     const tenantSafeData = { ...data };
     delete tenantSafeData.company_id;
     let payload = { ...tenantSafeData };
-    if (data.type === 'hmac') {
+    if (data.type === "hmac") {
       payload = {
         ...tenantSafeData,
         pin: data.pin ?? data.signature_data, // PIN vindo como signature_data
-        signature_data: 'HMAC_PENDING', // backend substitui pelo HMAC real
+        signature_data: "HMAC_PENDING", // backend substitui pelo HMAC real
       };
     }
-    const response = await api.post<Signature>('/signatures', payload, {
+    const response = await api.post<Signature>("/signatures", payload, {
       timeout: 45000,
     });
     return response.data;
@@ -51,7 +52,7 @@ export const signaturesService = {
 
   getSignaturePinStatus: async (): Promise<{ has_pin: boolean }> => {
     const response = await api.get<{ has_pin: boolean }>(
-      '/auth/signature-pin/status',
+      "/auth/signature-pin/status",
     );
     return response.data;
   },
@@ -60,28 +61,31 @@ export const signaturesService = {
     pin: string,
     current_password?: string,
   ): Promise<void> => {
-    await api.post('/auth/signature-pin', { pin, current_password });
+    await api.post("/auth/signature-pin", { pin, current_password });
   },
 
   findByDocument: async (document_id: string, document_type: string) => {
-    const response = await api.get<Signature[]>('/signatures', {
+    const response = await api.get<Signature[]>("/signatures", {
       params: { document_id, document_type },
     });
     return response.data;
   },
 
   findByChecklist: async (id: string) => {
-    return signaturesService.findByDocument(id, 'CHECKLIST');
+    return signaturesService.findByDocument(id, "CHECKLIST");
   },
 
   findByTraining: async (id: string) => {
-    return signaturesService.findByDocument(id, 'TRAINING');
+    return signaturesService.findByDocument(id, "TRAINING");
   },
 
   deleteByDocument: async (document_id: string, document_type: string) => {
-    await api.delete(`/signatures/document/${encodeURIComponent(document_id)}`, {
-      params: { document_type },
-    });
+    await api.delete(
+      `/signatures/document/${encodeURIComponent(document_id)}`,
+      {
+        params: { document_type },
+      },
+    );
   },
 
   deleteById: async (id: string) => {

@@ -1,6 +1,12 @@
 import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
+const CSRF_EXEMPT_PATH_PREFIXES = [
+  '/auth/csrf',
+  '/public/dds/signature/',
+  '/tenant-lifecycle/onboarding/',
+];
+
 function getCookieValue(request: Request, key: string): string {
   const cookies: unknown = Reflect.get(request, 'cookies');
   if (typeof cookies !== 'object' || cookies === null) {
@@ -11,11 +17,26 @@ function getCookieValue(request: Request, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+export function isCsrfExemptPath(path: string): boolean {
+  const pathname = path.split('?')[0] || '';
+  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  const versionlessPath = normalizedPath.replace(/^\/v\d+(?=\/)/, '');
+  return CSRF_EXEMPT_PATH_PREFIXES.some(
+    (prefix) =>
+      normalizedPath.startsWith(prefix) || versionlessPath.startsWith(prefix),
+  );
+}
+
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction) {
     const method = req.method.toUpperCase();
     if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+      return next();
+    }
+
+    const requestPath = req.path || req.originalUrl || req.url || '';
+    if (isCsrfExemptPath(requestPath)) {
       return next();
     }
 

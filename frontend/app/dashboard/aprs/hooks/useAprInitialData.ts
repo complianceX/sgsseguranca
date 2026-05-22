@@ -1,4 +1,9 @@
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import {
+  useEffect,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import type {
   UseFieldArrayReplace,
   UseFormGetValues,
@@ -16,7 +21,10 @@ import type { Machine } from "@/services/machinesService";
 import type { Site } from "@/services/sitesService";
 import { companiesService, type Company } from "@/services/companiesService";
 import type { User } from "@/services/usersService";
-import { signaturesService, type Signature } from "@/services/signaturesService";
+import {
+  signaturesService,
+  type Signature,
+} from "@/services/signaturesService";
 import { toInputDateValue } from "@/lib/date/safeFormat";
 import type {
   SophieDraftChecklistSuggestion,
@@ -42,15 +50,15 @@ import type {
   AprWorkflowVersionHistoryItem,
 } from "./useAprPdfWorkflow";
 
-type AprInitialDataUser = Pick<
-  User,
-  "company_id" | "profile"
-> & {
+type AprInitialDataUser = Pick<User, "company_id" | "profile"> & {
   company_id?: string | null;
 };
 
 type SignatureMap = Record<string, { data: string; type: string }>;
-type PersistedSignatureMap = Record<string, { id?: string; data: string; type: string }>;
+type PersistedSignatureMap = Record<
+  string,
+  { id?: string; data: string; type: string }
+>;
 
 interface UseAprInitialDataOptions {
   id?: string;
@@ -90,7 +98,9 @@ interface UseAprInitialDataOptions {
       sensitiveDataRemoved: boolean;
     }>
   >;
-  setSophieSuggestedRisks: Dispatch<SetStateAction<SophieDraftRiskSuggestion[]>>;
+  setSophieSuggestedRisks: Dispatch<
+    SetStateAction<SophieDraftRiskSuggestion[]>
+  >;
   setSophieMandatoryChecklists: Dispatch<
     SetStateAction<SophieDraftChecklistSuggestion[]>
   >;
@@ -177,7 +187,8 @@ export function useAprInitialData({
         !nextCompanies.some((company) => company.id === scopedCompanyId)
       ) {
         try {
-          const selectedCompany = await companiesService.findOne(scopedCompanyId);
+          const selectedCompany =
+            await companiesService.findOne(scopedCompanyId);
           nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
         } catch {
           nextCompanies = dedupeById(nextCompanies);
@@ -223,13 +234,14 @@ export function useAprInitialData({
               const persistedSigMap: PersistedSignatureMap = {};
               sigs.forEach((signature) => {
                 if (!signature.user_id) return;
+                const signatureData = signature.signature_data ?? "";
                 sigMap[signature.user_id] = {
-                  data: signature.signature_data,
+                  data: signatureData,
                   type: signature.type,
                 };
                 persistedSigMap[signature.user_id] = {
                   id: signature.id,
-                  data: signature.signature_data,
+                  data: signatureData,
                   type: signature.type,
                 };
               });
@@ -286,7 +298,10 @@ export function useAprInitialData({
               );
             } catch (error) {
               if (!cancelled) {
-                console.error("Erro ao carregar a linha do tempo da APR:", error);
+                console.error(
+                  "Erro ao carregar a linha do tempo da APR:",
+                  error,
+                );
               }
             } finally {
               if (!cancelled) {
@@ -319,7 +334,9 @@ export function useAprInitialData({
             epis: apr.epis.map((epi: Epi) => epi.id),
             tools: apr.tools.map((tool: Tool) => tool.id),
             machines: apr.machines.map((machine: Machine) => machine.id),
-            participants: apr.participants.map((participant: User) => participant.id),
+            participants: apr.participants.map(
+              (participant: User) => participant.id,
+            ),
             is_modelo: apr.is_modelo || false,
             is_modelo_padrao: apr.is_modelo_padrao || false,
             itens_risco:
@@ -453,7 +470,10 @@ export function useAprInitialData({
                 "risks",
                 (defaultApr.risks || []).map((risk) => risk.id),
               );
-              setValue("epis", (defaultApr.epis || []).map((epi) => epi.id));
+              setValue(
+                "epis",
+                (defaultApr.epis || []).map((epi) => epi.id),
+              );
               setValue(
                 "tools",
                 (defaultApr.tools || []).map((tool) => tool.id),

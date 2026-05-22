@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { FormEvent, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 import {
   PublicOnboardingInvite,
   tenantLifecycleService,
-} from '@/services/tenantLifecycleService';
-import { Button } from '@/components/ui/button';
-import { InlineLoadingState } from '@/components/ui/state';
+} from "@/services/tenantLifecycleService";
+import { Button } from "@/components/ui/button";
+import { InlineLoadingState } from "@/components/ui/state";
 
 type FormState = {
   razao_social: string;
@@ -24,21 +24,65 @@ type FormState = {
   termsAccepted: boolean;
 };
 
+type ApiValidationError = {
+  field?: string;
+  errors?: string[];
+};
+
+type ApiErrorPayload = {
+  message?: string | string[];
+  error?: string;
+  errors?: ApiValidationError[];
+};
+
 const initialState: FormState = {
-  razao_social: '',
-  cnpj: '',
-  endereco: '',
-  responsavel: '',
-  email_contato: '',
-  admin_nome: '',
-  admin_cpf: '',
-  admin_email: '',
-  admin_password: '',
+  razao_social: "",
+  cnpj: "",
+  endereco: "",
+  responsavel: "",
+  email_contato: "",
+  admin_nome: "",
+  admin_cpf: "",
+  admin_email: "",
+  admin_password: "",
   termsAccepted: false,
 };
 
 const fieldClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+
+function extractApiErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object" || !("response" in err)) {
+    return "";
+  }
+
+  const payload = (err as { response?: { data?: ApiErrorPayload } }).response
+    ?.data;
+  if (!payload) {
+    return "";
+  }
+
+  const validationMessages = Array.isArray(payload.errors)
+    ? payload.errors
+        .flatMap((item) =>
+          Array.isArray(item.errors)
+            ? item.errors.map((message) =>
+                item.field ? `${item.field}: ${message}` : message,
+              )
+            : [],
+        )
+        .filter(Boolean)
+    : [];
+  if (validationMessages.length > 0) {
+    return validationMessages.join(" ");
+  }
+
+  if (Array.isArray(payload.message)) {
+    return payload.message.join(" ");
+  }
+
+  return payload.message || payload.error || "";
+}
 
 export default function OnboardingPage() {
   const params = useParams<{ token: string }>();
@@ -62,13 +106,13 @@ export default function OnboardingPage() {
         setInvite(data);
         setForm((current) => ({
           ...current,
-          razao_social: data.intended_company_name || '',
+          razao_social: data.intended_company_name || "",
           email_contato: data.email,
           admin_email: data.email,
         }));
       })
       .catch(() => {
-        if (mounted) setError('Convite inválido ou expirado.');
+        if (mounted) setError("Convite inválido ou expirado.");
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -93,17 +137,8 @@ export default function OnboardingPage() {
       });
       setCompletedTrialEndsAt(result.trial_ends_at);
     } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? String(
-              (
-                err as {
-                  response?: { data?: { message?: string | string[] } };
-                }
-              ).response?.data?.message || '',
-            )
-          : '';
-      setError(message || 'Não foi possível concluir o cadastro.');
+      const message = extractApiErrorMessage(err);
+      setError(message || "Não foi possível concluir o cadastro.");
     } finally {
       setSubmitting(false);
     }
@@ -128,13 +163,13 @@ export default function OnboardingPage() {
             Empresa cadastrada
           </h1>
           <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
-            O teste de 30 dias foi ativado. Vencimento:{' '}
-            {new Date(completedTrialEndsAt).toLocaleDateString('pt-BR')}.
+            O teste de 30 dias foi ativado. Vencimento:{" "}
+            {new Date(completedTrialEndsAt).toLocaleDateString("pt-BR")}.
           </p>
           <Button
             type="button"
             className="mt-6"
-            onClick={() => router.push('/login')}
+            onClick={() => router.push("/login")}
           >
             Ir para login
           </Button>
@@ -175,59 +210,59 @@ export default function OnboardingPage() {
             <Input
               label="Razão social"
               value={form.razao_social}
-              onChange={(value) => updateField('razao_social', value)}
+              onChange={(value) => updateField("razao_social", value)}
               required
             />
             <Input
               label="CNPJ"
               value={form.cnpj}
-              onChange={(value) => updateField('cnpj', value)}
+              onChange={(value) => updateField("cnpj", value)}
               required
             />
             <Input
               label="Endereço"
               value={form.endereco}
-              onChange={(value) => updateField('endereco', value)}
+              onChange={(value) => updateField("endereco", value)}
               required
               wide
             />
             <Input
               label="Responsável"
               value={form.responsavel}
-              onChange={(value) => updateField('responsavel', value)}
+              onChange={(value) => updateField("responsavel", value)}
               required
             />
             <Input
               label="E-mail institucional"
               type="email"
               value={form.email_contato}
-              onChange={(value) => updateField('email_contato', value)}
+              onChange={(value) => updateField("email_contato", value)}
               required
             />
             <Input
               label="Nome do administrador"
               value={form.admin_nome}
-              onChange={(value) => updateField('admin_nome', value)}
+              onChange={(value) => updateField("admin_nome", value)}
               required
             />
             <Input
               label="CPF do administrador"
               value={form.admin_cpf}
-              onChange={(value) => updateField('admin_cpf', value)}
+              onChange={(value) => updateField("admin_cpf", value)}
               required
             />
             <Input
               label="E-mail do administrador"
               type="email"
               value={form.admin_email}
-              onChange={(value) => updateField('admin_email', value)}
+              onChange={(value) => updateField("admin_email", value)}
               required
             />
             <Input
               label="Senha inicial"
               type="password"
               value={form.admin_password}
-              onChange={(value) => updateField('admin_password', value)}
+              onChange={(value) => updateField("admin_password", value)}
               required
             />
             <label className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-3 text-sm text-[var(--ds-color-text-secondary)] md:col-span-2">
@@ -235,7 +270,7 @@ export default function OnboardingPage() {
                 type="checkbox"
                 checked={form.termsAccepted}
                 onChange={(event) =>
-                  updateField('termsAccepted', event.target.checked)
+                  updateField("termsAccepted", event.target.checked)
                 }
                 className="mt-1 h-4 w-4 accent-[var(--ds-color-action-primary)]"
                 required
@@ -256,7 +291,7 @@ export default function OnboardingPage() {
                 type="submit"
                 disabled={submitting || !form.termsAccepted}
               >
-                {submitting ? 'Cadastrando...' : 'Ativar teste'}
+                {submitting ? "Cadastrando..." : "Ativar teste"}
               </Button>
             </div>
           </form>
@@ -275,13 +310,13 @@ function Input(props: {
   wide?: boolean;
 }) {
   return (
-    <label className={props.wide ? 'space-y-2 md:col-span-2' : 'space-y-2'}>
+    <label className={props.wide ? "space-y-2 md:col-span-2" : "space-y-2"}>
       <span className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
         {props.label}
       </span>
       <input
         className={fieldClassName}
-        type={props.type || 'text'}
+        type={props.type || "text"}
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
         required={props.required}

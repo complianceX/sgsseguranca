@@ -44,7 +44,7 @@ describe("drawDdsBlueprint", () => {
         company_id: "company-1",
         site_id: "site-1",
         facilitador_id: "user-1",
-        participants: [{ id: "user-1", nome: "Joao" }],
+        participants: [{ id: "user-1", nome: "Joao", funcao: "Operador" }],
         site: { nome: "Obra Central" },
         facilitador: { nome: "Maria" },
       } as never,
@@ -53,7 +53,7 @@ describe("drawDdsBlueprint", () => {
           user_id: "user-1",
           type: "digital",
           signature_data: "assinatura",
-          user: { nome: "Joao" },
+          user: { nome: "Joao", funcao: "Operador" },
           signed_at: "2026-03-16T10:00:00.000Z",
         },
         {
@@ -108,9 +108,22 @@ describe("drawDdsBlueprint", () => {
         signatures: [
           expect.objectContaining({
             name: "Joao",
+            role: "Operador",
+            image: "assinatura",
           }),
         ],
       }),
+    );
+    expect(drawParticipantTable).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "Participantes (1)",
+      [
+        expect.objectContaining({
+          name: "Joao",
+          role: "Operador",
+        }),
+      ],
     );
   });
 

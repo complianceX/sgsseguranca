@@ -19,6 +19,10 @@ import {
   drawSemanticTable,
 } from "../components";
 import { drawParticipantTable } from "../tables";
+import {
+  resolveSignatureSignerName,
+  resolveSignatureSignerRole,
+} from "../signaturePresentation";
 
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
 const TEAM_PHOTO_SIGNATURE_PATTERN = /^team_photo_\d+$/i;
@@ -38,7 +42,7 @@ const SIGNATURE_TYPE_LABEL: Record<string, string> = {
   operador: "Operador",
 };
 
-function resolveSignatureRole(type?: string): string {
+function resolveDdsSignatureLabel(type?: string): string {
   if (!type) return "Signatário";
   const key = type.toLowerCase().trim();
   return SIGNATURE_TYPE_LABEL[key] ?? sanitize(type);
@@ -55,7 +59,7 @@ type TeamPhotoEvidence = {
   };
 };
 
-type DdsParticipantLike = { nome?: string };
+type DdsParticipantLike = { nome?: string; funcao?: string | null };
 
 const APPROVAL_STATUS_LABEL: Record<DdsApprovalAction, string> = {
   pending: "Pendente",
@@ -463,6 +467,7 @@ export async function drawDdsBlueprint(
     `Participantes (${participantCount})`,
     (dds.participants || []).map((participant: DdsParticipantLike) => ({
       name: participant.nome,
+      role: participant.funcao,
     })),
   );
 
@@ -490,7 +495,9 @@ export async function drawDdsBlueprint(
   });
 
   const availableVideos = (videoAttachments || []).filter(
-    (video) => video.availability === "stored" || video.availability === "registered_without_signed_url",
+    (video) =>
+      video.availability === "stored" ||
+      video.availability === "registered_without_signed_url",
   );
   if (availableVideos.length > 0) {
     drawSemanticTable(ctx, {
@@ -520,11 +527,11 @@ export async function drawDdsBlueprint(
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: participantSignatures.map((signature) => ({
-      label: resolveSignatureRole(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: resolveSignatureRole(signature.type),
+      label: resolveDdsSignatureLabel(signature.type),
+      name: resolveSignatureSignerName(signature),
+      role: resolveSignatureSignerRole(signature),
       date: formatDate(signature.signed_at || signature.created_at),
-      image: signature.signature_data,
+      image: signature.signature_data ?? null,
     })),
     code,
     url: validationUrl,

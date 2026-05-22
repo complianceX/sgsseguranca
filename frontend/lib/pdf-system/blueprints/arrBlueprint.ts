@@ -1,30 +1,30 @@
-import type { Arr } from '@/services/arrsService';
-import type { AutoTableFn, PdfContext } from '../core/types';
-import { formatDate, formatDateTime, sanitize } from '../core/format';
+import type { Arr } from "@/services/arrsService";
+import type { AutoTableFn, PdfContext } from "../core/types";
+import { formatDate, formatDateTime, sanitize } from "../core/format";
 import {
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
-} from '../components';
-import { drawParticipantTable } from '../tables';
+} from "../components";
+import { drawParticipantTable } from "../tables";
 
-type ArrParticipantLike = { nome?: string };
+type ArrParticipantLike = { nome?: string; funcao?: string | null };
 
 function buildStatusTone(status: string) {
-  if (status === 'tratada') return 'success' as const;
-  if (status === 'analisada') return 'info' as const;
-  if (status === 'rascunho') return 'warning' as const;
-  return 'default' as const;
+  if (status === "tratada") return "success" as const;
+  if (status === "analisada") return "info" as const;
+  if (status === "rascunho") return "warning" as const;
+  return "default" as const;
 }
 
 function buildCriticality(arr: Arr) {
-  if (arr.status === 'arquivada') return 'Arquivado';
-  if (arr.nivel_risco === 'critico') return 'Crítico';
-  if (arr.nivel_risco === 'alto') return 'Alto';
-  if (arr.nivel_risco === 'medio') return 'Moderado';
-  return 'Baixo';
+  if (arr.status === "arquivada") return "Arquivado";
+  if (arr.nivel_risco === "critico") return "Crítico";
+  if (arr.nivel_risco === "alto") return "Alto";
+  if (arr.nivel_risco === "medio") return "Moderado";
+  return "Baixo";
 }
 
 export async function drawArrBlueprint(
@@ -37,122 +37,126 @@ export async function drawArrBlueprint(
   const participantCount = arr.participants?.length ?? 0;
   const hasFinalPdfMetadata = Boolean(
     arr.document_code ||
-      arr.final_pdf_hash_sha256 ||
-      arr.pdf_generated_at ||
-      arr.emitted_by,
+    arr.final_pdf_hash_sha256 ||
+    arr.pdf_generated_at ||
+    arr.emitted_by,
   );
 
   drawDocumentIdentityRail(ctx, {
-    documentType: 'ARR',
+    documentType: "ARR",
     criticality: buildCriticality(arr),
-    documentClass: 'Operacional',
+    documentClass: "Operacional",
   });
 
   drawExecutiveSummaryStrip(ctx, {
-    title: 'Síntese executiva',
+    title: "Síntese executiva",
     summary:
-      'Registro enxuto para formalizar uma análise rápida de risco, a condição observada em campo e o tratamento imediato definido pela equipe.',
+      "Registro enxuto para formalizar uma análise rápida de risco, a condição observada em campo e o tratamento imediato definido pela equipe.",
     metrics: [
       {
-        label: 'Atividade principal',
+        label: "Atividade principal",
         value: sanitize(arr.atividade_principal),
-        tone: 'info',
+        tone: "info",
       },
       {
-        label: 'Nível de risco',
+        label: "Nível de risco",
         value: sanitize(arr.nivel_risco),
-        tone: arr.nivel_risco === 'critico' || arr.nivel_risco === 'alto'
-          ? 'warning'
-          : 'default',
+        tone:
+          arr.nivel_risco === "critico" || arr.nivel_risco === "alto"
+            ? "warning"
+            : "default",
       },
       {
-        label: 'Probabilidade',
+        label: "Probabilidade",
         value: sanitize(arr.probabilidade),
-        tone: 'default',
+        tone: "default",
       },
       {
-        label: 'Severidade',
+        label: "Severidade",
         value: sanitize(arr.severidade),
-        tone: 'default',
+        tone: "default",
       },
       {
-        label: 'Status',
+        label: "Status",
         value: sanitize(arr.status),
         tone: buildStatusTone(arr.status),
       },
       {
-        label: 'Participantes',
+        label: "Participantes",
         value: participantCount,
-        tone: participantCount > 0 ? 'success' : 'warning',
+        tone: participantCount > 0 ? "success" : "warning",
       },
     ],
   });
 
   drawMetadataGrid(ctx, {
-    title: 'Contexto documental',
+    title: "Contexto documental",
     columns: 2,
     fields: [
-      { label: 'Título', value: arr.titulo },
-      { label: 'Empresa', value: arr.company?.razao_social || arr.company_id },
-      { label: 'Data', value: formatDate(arr.data) },
-      { label: 'Site / Obra', value: arr.site?.nome || arr.site_id },
-      { label: 'Frente de trabalho', value: arr.frente_trabalho },
-      { label: 'Responsável', value: arr.responsavel?.nome || arr.responsavel_id },
-      { label: 'Criado em', value: formatDateTime(arr.created_at) },
-      { label: 'Última atualização', value: formatDateTime(arr.updated_at) },
+      { label: "Título", value: arr.titulo },
+      { label: "Empresa", value: arr.company?.razao_social || arr.company_id },
+      { label: "Data", value: formatDate(arr.data) },
+      { label: "Site / Obra", value: arr.site?.nome || arr.site_id },
+      { label: "Frente de trabalho", value: arr.frente_trabalho },
+      {
+        label: "Responsável",
+        value: arr.responsavel?.nome || arr.responsavel_id,
+      },
+      { label: "Criado em", value: formatDateTime(arr.created_at) },
+      { label: "Última atualização", value: formatDateTime(arr.updated_at) },
     ],
   });
 
   if (hasFinalPdfMetadata) {
     drawMetadataGrid(ctx, {
-      title: 'Rastreabilidade do PDF final',
+      title: "Rastreabilidade do PDF final",
       columns: 2,
       fields: [
-        { label: 'Código documental', value: code },
+        { label: "Código documental", value: code },
         {
-          label: 'Hash SHA-256 do PDF',
+          label: "Hash SHA-256 do PDF",
           value: arr.final_pdf_hash_sha256
             ? `${arr.final_pdf_hash_sha256.slice(0, 32)}...`
-            : 'Gerado no registro governado após emissão',
+            : "Gerado no registro governado após emissão",
         },
-        { label: 'PDF gerado em', value: formatDateTime(arr.pdf_generated_at) },
-        { label: 'Emitido por', value: arr.emitted_by?.nome },
+        { label: "PDF gerado em", value: formatDateTime(arr.pdf_generated_at) },
+        { label: "Emitido por", value: arr.emitted_by?.nome },
       ],
     });
   }
 
   drawNarrativeSection(ctx, {
-    title: 'Descrição / contexto',
+    title: "Descrição / contexto",
     content: arr.descricao,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Condição observada',
+    title: "Condição observada",
     content: arr.condicao_observada,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Risco identificado',
+    title: "Risco identificado",
     content: arr.risco_identificado,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Controles imediatos',
+    title: "Controles imediatos",
     content: arr.controles_imediatos,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Ação recomendada',
+    title: "Ação recomendada",
     content: arr.acao_recomendada,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'EPIs e EPCs aplicáveis',
+    title: "EPIs e EPCs aplicáveis",
     content: arr.epi_epc_aplicaveis,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Observações',
+    title: "Observações",
     content: arr.observacoes,
   });
 
@@ -162,6 +166,7 @@ export async function drawArrBlueprint(
     `Participantes (${participantCount})`,
     (arr.participants || []).map((participant: ArrParticipantLike) => ({
       name: participant.nome,
+      role: participant.funcao,
     })),
   );
 
@@ -170,7 +175,7 @@ export async function drawArrBlueprint(
     code,
     url: validationUrl,
     hash: arr.final_pdf_hash_sha256 || undefined,
-    title: 'Governança e autenticidade',
-    subtitle: 'Valide o documento pelo QR Code ou pelo código público.',
+    title: "Governança e autenticidade",
+    subtitle: "Valide o documento pelo QR Code ou pelo código público.",
   });
 }
