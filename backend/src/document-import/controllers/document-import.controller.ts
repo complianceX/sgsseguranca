@@ -224,16 +224,7 @@ export class DocumentImportController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() req: RequestWithUser,
   ): Promise<DocumentImportStatusResponseDto> {
-    const tenantId =
-      req.user.company_id ||
-      req.user.companyId ||
-      this.tenantService.getTenantId();
-
-    if (!tenantId) {
-      throw new BadRequestException(
-        'Contexto de empresa não identificado. Se você for Administrador Geral, informe x-company-id.',
-      );
-    }
+    const tenantId = this.resolveTenantId(req);
 
     const result = await this.documentImportService.getDocumentStatusResponse(
       id,
@@ -311,8 +302,8 @@ export class DocumentImportController {
 
   private resolveTenantId(req: RequestWithUser): string {
     const tenantId =
-      req.user.company_id ||
-      req.user.companyId ||
+      req.user?.company_id ||
+      req.user?.companyId ||
       this.tenantService.getTenantId();
 
     if (!tenantId) {
