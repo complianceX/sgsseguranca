@@ -11,6 +11,7 @@
     "^uuid$": "<rootDir>/uuid-cjs.js"
   },
   "globalSetup": "<rootDir>/setup/e2e-infra-check.ts",
+  "openHandlesTimeout": 10000,
   "maxWorkers": 1,
   "workerThreads": false
 }
