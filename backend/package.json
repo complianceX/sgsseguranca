@@ -145,7 +145,7 @@
     "recovery:rbac:dry": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register scripts/recover-rbac-production.ts --dry-run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.74.0",
+    "@anthropic-ai/sdk": "^0.95.2",
     "@aws-sdk/client-s3": "^3.997.0",
     "@aws-sdk/s3-request-presigner": "^3.997.0",
     "@bull-board/api": "^6.20.3",
