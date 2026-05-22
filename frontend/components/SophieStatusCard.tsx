@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { sophieService } from '@/services/sophieService';
 import { isAiEnabled } from '@/lib/featureFlags';
+import { useAiConsent } from '@/hooks/useAiConsent';
+import { Button } from '@/components/ui/button';
 
 type SophieStatus = {
   agent: {
@@ -69,12 +71,13 @@ function formatCapabilityLabel(key: string) {
 export function SophieStatusCard() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<SophieStatus | null>(null);
+  const { consentGiven, requestConsent, ConsentGate } = useAiConsent();
 
   useEffect(() => {
     let active = true;
 
     async function load() {
-      if (!isAiEnabled()) {
+      if (!isAiEnabled() || !consentGiven) {
         setLoading(false);
         return;
       }
@@ -94,7 +97,7 @@ export function SophieStatusCard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [consentGiven]);
 
   if (!isAiEnabled()) return null;
 
@@ -118,7 +121,17 @@ export function SophieStatusCard() {
         </span>
       </div>
 
-      {loading ? (
+      {!consentGiven && !loading ? (
+        <div className="mt-5 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-6 text-center">
+          <BrainCircuit className="mx-auto mb-3 h-8 w-8 text-[var(--ds-color-text-muted)]" />
+          <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
+            Para visualizar o status detalhado da SOPHIE, é necessário aceitar os termos de processamento por IA (LGPD).
+          </p>
+          <Button variant="primary" onClick={requestConsent}>
+            Aceitar termos de IA
+          </Button>
+        </div>
+      ) : loading ? (
         <div className="mt-5 flex min-h-40 items-center justify-center">
           <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-muted)]">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -200,6 +213,7 @@ export function SophieStatusCard() {
           Nao foi possivel consultar o status da SOPHIE neste momento.
         </div>
       )}
+      <ConsentGate />
     </div>
   );
 }

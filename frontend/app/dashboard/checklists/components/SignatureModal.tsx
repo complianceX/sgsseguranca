@@ -141,35 +141,37 @@ useEffect(() => {
     const canvasHandle = sigCanvas.current;
     if (!canvasHandle) return '';
 
+    // Tentar obter o canvas recortado (sem espaços em branco)
     try {
-      const trimmedCanvas =
-        typeof canvasHandle.getTrimmedCanvas === 'function'
-          ? canvasHandle.getTrimmedCanvas()
-          : null;
-
-      if (trimmedCanvas && typeof trimmedCanvas.toDataURL === 'function') {
-        return trimmedCanvas.toDataURL('image/png');
+      if (canvasHandle && typeof canvasHandle.getTrimmedCanvas === 'function') {
+        const trimmedCanvas = canvasHandle.getTrimmedCanvas();
+        if (trimmedCanvas && typeof trimmedCanvas.toDataURL === 'function') {
+          return trimmedCanvas.toDataURL('image/png');
+        }
       }
     } catch (error) {
-      logger.error('Falha ao gerar assinatura recortada, aplicando fallback:', error);
+      // Logar como aviso para não poluir o console de erro se o fallback funcionar
+      logger.warn('Falha ao recortar assinatura (getTrimmedCanvas), usando fallback:', error);
     }
 
+    // Fallback 1: Canvas bruto da biblioteca
     try {
-      if (typeof canvasHandle.toDataURL === 'function') {
+      if (canvasHandle && typeof canvasHandle.toDataURL === 'function') {
         return canvasHandle.toDataURL('image/png');
       }
     } catch (error) {
-      logger.error('Falha ao gerar assinatura via SignatureCanvas.toDataURL:', error);
+      logger.error('Falha ao gerar assinatura via toDataURL:', error);
     }
 
+    // Fallback 2: Canvas nativo subjacente
     try {
       const rawCanvas =
-        typeof canvasHandle.getCanvas === 'function' ? canvasHandle.getCanvas() : null;
+        canvasHandle && typeof canvasHandle.getCanvas === 'function' ? canvasHandle.getCanvas() : null;
       if (rawCanvas && typeof rawCanvas.toDataURL === 'function') {
         return rawCanvas.toDataURL('image/png');
       }
     } catch (error) {
-      logger.error('Falha ao gerar assinatura via canvas nativo:', error);
+      logger.error('Falha crítica ao acessar canvas nativo:', error);
     }
 
     return '';
