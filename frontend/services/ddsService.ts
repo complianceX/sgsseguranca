@@ -153,6 +153,10 @@ export interface DdsSignatureInviteIssueResult {
   invites: DdsSignatureInviteLink[];
 }
 
+export interface DdsSignatureInviteRequestOptions {
+  companyId?: string | null;
+}
+
 export interface DdsPerson {
   id: string;
   nome: string;
@@ -581,10 +585,19 @@ export const ddsService = {
 
   listSignatureInvites: async (
     id: string,
+    options?: DdsSignatureInviteRequestOptions,
   ): Promise<DdsSignatureInviteLink[]> => {
-    const response = await api.get<DdsSignatureInviteLink[]>(
-      `/dds/${id}/signature-invites`,
-    );
+    const config = tenantConfigFromPayload({
+      company_id: options?.companyId,
+    });
+    const response = config
+      ? await api.get<DdsSignatureInviteLink[]>(
+          `/dds/${id}/signature-invites`,
+          config,
+        )
+      : await api.get<DdsSignatureInviteLink[]>(
+          `/dds/${id}/signature-invites`,
+        );
     return response.data;
   },
 
@@ -594,11 +607,22 @@ export const ddsService = {
       participant_user_ids?: string[];
       expires_in_days?: number;
     },
+    options?: DdsSignatureInviteRequestOptions,
   ): Promise<DdsSignatureInviteIssueResult> => {
-    const response = await api.post<DdsSignatureInviteIssueResult>(
-      `/dds/${id}/signature-invites`,
-      payload || {},
-    );
+    const config = tenantConfigFromPayload({
+      company_id: options?.companyId,
+    });
+    const body = payload || {};
+    const response = config
+      ? await api.post<DdsSignatureInviteIssueResult>(
+          `/dds/${id}/signature-invites`,
+          body,
+          config,
+        )
+      : await api.post<DdsSignatureInviteIssueResult>(
+          `/dds/${id}/signature-invites`,
+          body,
+        );
     return response.data;
   },
 

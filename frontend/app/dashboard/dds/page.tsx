@@ -152,6 +152,10 @@ function resolveSignatureInviteUrl(invite: {
   return null;
 }
 
+function getDdsParticipantCount(dds: Dds) {
+  return dds.participant_count ?? dds.participants?.length ?? 0;
+}
+
 export default function DdsPage() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
@@ -807,10 +811,34 @@ export default function DdsPage() {
       toast.error("Você não tem permissão para gerar links de assinatura.");
       return;
     }
+    if (dds.is_modelo) {
+      toast.error("Modelos de DDS não recebem link público de assinatura.");
+      return;
+    }
+    if (dds.pdf_file_key) {
+      toast.error(
+        "DDS com PDF final emitido está bloqueado para novas assinaturas.",
+      );
+      return;
+    }
+    if (getEffectiveStatus(dds) === "arquivado") {
+      toast.error("DDS arquivado não recebe link público de assinatura.");
+      return;
+    }
+    if (getDdsParticipantCount(dds) === 0) {
+      toast.error(
+        "Adicione participantes ao DDS antes de gerar links de assinatura.",
+      );
+      return;
+    }
 
     try {
       setIssuingSignatureLinksId(dds.id);
-      const result = await ddsService.issueSignatureInvites(dds.id);
+      const result = await ddsService.issueSignatureInvites(
+        dds.id,
+        undefined,
+        { companyId: dds.company_id },
+      );
       const pendingInvites = result.invites.filter(
         (invite) => invite.status === "pending",
       );
@@ -1768,6 +1796,7 @@ export default function DdsPage() {
                 {ddsList.map((dds) => {
                   const currentStatus = getEffectiveStatus(dds);
                   const transitions = getAllowedStatusTransitions(dds);
+                  const participantCount = getDdsParticipantCount(dds);
                   const isLockedByFinalPdf = Boolean(dds.pdf_file_key);
                   const isWorkflowLocked =
                     isLockedByFinalPdf ||
@@ -1795,11 +1824,7 @@ export default function DdsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
-                          <span>
-                            {dds.participant_count ??
-                              dds.participants?.length ??
-                              0}
-                          </span>
+                          <span>{participantCount}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1868,12 +1893,18 @@ export default function DdsPage() {
                                 ? "Modelos não recebem link público de assinatura"
                                 : dds.pdf_file_key
                                   ? "DDS com PDF final emitido não recebe novas assinaturas"
-                                  : "Gerar e copiar links públicos de assinatura"
+                                  : currentStatus === "arquivado"
+                                    ? "DDS arquivado não recebe link público de assinatura"
+                                    : participantCount === 0
+                                      ? "Adicione participantes antes de gerar links"
+                                      : "Gerar e copiar links públicos de assinatura"
                             }
                             disabled={
                               !canManageDds ||
                               Boolean(dds.is_modelo) ||
                               Boolean(dds.pdf_file_key) ||
+                              currentStatus === "arquivado" ||
+                              participantCount === 0 ||
                               issuingSignatureLinksId === dds.id
                             }
                           >
