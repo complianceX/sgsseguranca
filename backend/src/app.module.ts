@@ -3,6 +3,7 @@ import {
   MiddlewareConsumer,
   Logger,
   OnModuleInit,
+  RequestMethod,
 } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -1693,7 +1694,20 @@ export class AppModule implements OnModuleInit {
    * Configuração de middlewares
    */
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CsrfMiddleware).exclude('auth/csrf').forRoutes('*');
+    consumer
+      .apply(CsrfMiddleware)
+      .exclude(
+        'auth/csrf',
+        {
+          path: 'public/dds/signature/:token',
+          method: RequestMethod.POST,
+        },
+        {
+          path: 'tenant-lifecycle/onboarding/:token/complete',
+          method: RequestMethod.POST,
+        },
+      )
+      .forRoutes('*');
 
     consumer
       // CSRF clássico para access token não se aplica (Bearer no header).
