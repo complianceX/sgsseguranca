@@ -33,6 +33,7 @@ import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAiConsent } from "@/hooks/useAiConsent";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import { DdsApprovalPanel } from "@/components/dds/DdsApprovalPanel";
@@ -362,11 +363,19 @@ export function DdsForm({ id }: DdsFormProps) {
     },
   });
 
+  const { consentGiven, requestConsent, ConsentGate } = useAiConsent();
+
   const handleAiSuggestion = async () => {
     if (!isAiEnabled()) {
       toast.error("IA desativada neste ambiente.");
       return;
     }
+
+    if (!consentGiven) {
+      requestConsent();
+      return;
+    }
+
     try {
       setSuggesting(true);
       const result = await aiService.generateDds(undefined, selectedCompanyId);
@@ -1714,6 +1723,7 @@ export function DdsForm({ id }: DdsFormProps) {
           danger={true}
         />
       )}
+      <ConsentGate />
     </div>
   );
 }

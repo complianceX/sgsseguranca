@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
-import { getFormErrorMessage } from "@/lib/error-handler";
+import { extractApiErrorMessage, getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
@@ -840,7 +840,7 @@ useEffect(() => {
       );
       return;
     }
-    if (getEffectiveStatus(dds) === "arquivado") {
+    if (getEffectiveStatus(dds) === "arquivado" || dds.status === "arquivado") {
       toast.error("DDS arquivado não recebe link público de assinatura.");
       return;
     }
@@ -858,6 +858,7 @@ useEffect(() => {
         undefined,
         { companyId: dds.company_id },
       );
+
       const pendingInvites = result.invites.filter(
         (invite) => invite.status === "pending",
       );
@@ -886,12 +887,13 @@ useEffect(() => {
           ? "Link de assinatura copiado."
           : "Links de assinatura copiados.",
       );
-    } catch (error) {
-      logger.error("Erro ao gerar links de assinatura DDS:", error);
-      toast.error(
-        getApiErrorMessage(error) ||
-          "Não foi possível gerar os links de assinatura.",
+    } catch (err) {
+      logger.error("Erro ao gerar links de assinatura DDS:", err);
+      const message = await extractApiErrorMessage(
+        err,
+        "Não foi possível gerar os links de assinatura no momento.",
       );
+      toast.error(message);
     } finally {
       setIssuingSignatureLinksId(null);
     }

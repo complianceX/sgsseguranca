@@ -91,18 +91,25 @@ export default function PublicDdsSignaturePage() {
     if (!signatureCanvas) return "";
 
     try {
-      const trimmedCanvas =
-        typeof signatureCanvas.getTrimmedCanvas === "function"
-          ? signatureCanvas.getTrimmedCanvas()
-          : null;
-      if (trimmedCanvas) {
-        return trimmedCanvas.toDataURL("image/png");
+      if (typeof signatureCanvas.getTrimmedCanvas === "function") {
+        const trimmedCanvas = signatureCanvas.getTrimmedCanvas();
+        if (trimmedCanvas && typeof trimmedCanvas.toDataURL === "function") {
+          return trimmedCanvas.toDataURL("image/png");
+        }
       }
-    } catch {
-      return signatureCanvas.toDataURL("image/png");
+    } catch (error) {
+      console.warn("Falha ao recortar assinatura (getTrimmedCanvas), usando fallback:", error);
     }
 
-    return signatureCanvas.toDataURL("image/png");
+    try {
+      if (typeof signatureCanvas.toDataURL === "function") {
+        return signatureCanvas.toDataURL("image/png");
+      }
+    } catch (error) {
+      console.error("Falha ao gerar assinatura via toDataURL:", error);
+    }
+
+    return "";
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
