@@ -10,6 +10,11 @@ import {
   drawNarrativeSection,
   drawSemanticTable,
 } from "../components";
+import {
+  resolveSignatureSignerName,
+  resolveSignatureSignerRole,
+  resolveSignatureTypeLabel,
+} from "../signaturePresentation";
 
 export async function drawTrainingBlueprint(
   ctx: PdfContext,
@@ -19,11 +24,16 @@ export async function drawTrainingBlueprint(
   code: string,
   validationUrl: string,
 ) {
-  const expiryDate = training.data_vencimento ? new Date(training.data_vencimento) : null;
+  const expiryDate = training.data_vencimento
+    ? new Date(training.data_vencimento)
+    : null;
   const now = new Date();
-  const remainingDays = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / 86400000) : null;
+  const remainingDays = expiryDate
+    ? Math.ceil((expiryDate.getTime() - now.getTime()) / 86400000)
+    : null;
   const isExpired = remainingDays !== null && remainingDays < 0;
-  const isExpiringSoon = remainingDays !== null && remainingDays >= 0 && remainingDays <= 30;
+  const isExpiringSoon =
+    remainingDays !== null && remainingDays >= 0 && remainingDays <= 30;
   const statusLabel = isExpired
     ? "Vencido"
     : isExpiringSoon
@@ -42,11 +52,27 @@ export async function drawTrainingBlueprint(
     summary:
       "Leitura objetiva da validade do treinamento, colaborador impactado e potencial bloqueio operacional associado.",
     metrics: [
-      { label: "Status", value: statusLabel, tone: isExpired ? "danger" : isExpiringSoon ? "warning" : "success" },
-      { label: "Colaborador", value: sanitize(training.user?.nome), tone: "default" },
+      {
+        label: "Status",
+        value: statusLabel,
+        tone: isExpired ? "danger" : isExpiringSoon ? "warning" : "success",
+      },
+      {
+        label: "Colaborador",
+        value: sanitize(training.user?.nome),
+        tone: "default",
+      },
       { label: "NR/Codigo", value: sanitize(training.nr_codigo), tone: "info" },
-      { label: "Carga horaria", value: training.carga_horaria ? `${training.carga_horaria}h` : "-", tone: "default" },
-      { label: "Obrigatorio", value: training.obrigatorio_para_funcao ? "Sim" : "Nao", tone: training.obrigatorio_para_funcao ? "warning" : "default" },
+      {
+        label: "Carga horaria",
+        value: training.carga_horaria ? `${training.carga_horaria}h` : "-",
+        tone: "default",
+      },
+      {
+        label: "Obrigatorio",
+        value: training.obrigatorio_para_funcao ? "Sim" : "Nao",
+        tone: training.obrigatorio_para_funcao ? "warning" : "default",
+      },
       {
         label: "Bloqueia operacao",
         value: training.bloqueia_operacao_quando_vencido ? "Sim" : "Nao",
@@ -65,10 +91,16 @@ export async function drawTrainingBlueprint(
       { label: "Empresa", value: training.company_id },
       { label: "Conclusao", value: formatDate(training.data_conclusao) },
       { label: "Vencimento", value: formatDate(training.data_vencimento) },
-      { label: "Carga horaria", value: training.carga_horaria ? `${training.carga_horaria}h` : "-" },
+      {
+        label: "Carga horaria",
+        value: training.carga_horaria ? `${training.carga_horaria}h` : "-",
+      },
       { label: "Auditor", value: training.auditado_por?.nome || "-" },
       { label: "Data auditoria", value: formatDate(training.data_auditoria) },
-      { label: "Obrigatorio para funcao", value: training.obrigatorio_para_funcao ? "Sim" : "Nao" },
+      {
+        label: "Obrigatorio para funcao",
+        value: training.obrigatorio_para_funcao ? "Sim" : "Nao",
+      },
     ],
   });
 
@@ -76,14 +108,18 @@ export async function drawTrainingBlueprint(
     title: "Controle de validade e bloqueio",
     tone: "attendance",
     autoTable,
-    head: [["Status", "Conclusao", "Vencimento", "Bloqueio operacional", "Restante"]],
-    body: [[
-      statusLabel,
-      formatDate(training.data_conclusao),
-      formatDate(training.data_vencimento),
-      training.bloqueia_operacao_quando_vencido ? "Sim" : "Nao",
-      remainingDays === null ? "-" : `${remainingDays} dias`,
-    ]],
+    head: [
+      ["Status", "Conclusao", "Vencimento", "Bloqueio operacional", "Restante"],
+    ],
+    body: [
+      [
+        statusLabel,
+        formatDate(training.data_conclusao),
+        formatDate(training.data_vencimento),
+        training.bloqueia_operacao_quando_vencido ? "Sim" : "Nao",
+        remainingDays === null ? "-" : `${remainingDays} dias`,
+      ],
+    ],
     semanticRules: { profile: "audit", columns: [0, 2, 3, 4] },
   });
 
@@ -101,11 +137,11 @@ export async function drawTrainingBlueprint(
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
-      label: sanitize(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
+      label: resolveSignatureTypeLabel(signature.type),
+      name: resolveSignatureSignerName(signature),
+      role: resolveSignatureSignerRole(signature),
       date: formatDate(signature.signed_at || signature.created_at),
-      image: signature.signature_data,
+      image: signature.signature_data ?? null,
     })),
     code,
     url: validationUrl,

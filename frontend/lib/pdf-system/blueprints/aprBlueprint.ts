@@ -4,11 +4,13 @@ import type { CellHookData, HookData } from "jspdf-autotable";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import { ensureSpace, moveY } from "../core/grid";
-import {
-  drawEvidenceGallery,
-  drawGovernanceClosingBlock,
-} from "../components";
+import { drawEvidenceGallery, drawGovernanceClosingBlock } from "../components";
 import { drawRiskTable } from "../tables";
+import {
+  resolveSignatureSignerName,
+  resolveSignatureSignerRole,
+  resolveSignatureTypeLabel,
+} from "../signaturePresentation";
 
 type AprPdfEvidence = {
   id: string;
@@ -64,7 +66,7 @@ type AprStructuredRiskRow = {
   status_acao?: string | null;
 };
 
-type AprParticipantLike = { nome?: string };
+type AprParticipantLike = { nome?: string; funcao?: string | null };
 
 const APR_TEAL: [number, number, number] = [0, 128, 128];
 const APR_TEAL_SOFT: [number, number, number] = [255, 255, 255];
@@ -98,10 +100,7 @@ function drawAprOperationalHeader(
   const tableWidth = contentWidth - 4;
   const title = "APR - ANÁLISE PRELIMINAR DE RISCOS";
   const responsible =
-    apr.aprovado_por?.nome ||
-    apr.elaborador?.nome ||
-    apr.elaborador_id ||
-    "-";
+    apr.aprovado_por?.nome || apr.elaborador?.nome || apr.elaborador_id || "-";
   const activityDescription = [
     apr.titulo,
     apr.descricao ? `- ${apr.descricao}` : "",
@@ -109,10 +108,15 @@ function drawAprOperationalHeader(
     .filter(Boolean)
     .join(" ");
 
-  const responsavelTecnico = [
-    apr.responsavel_tecnico_nome,
-    apr.responsavel_tecnico_registro ? `(${apr.responsavel_tecnico_registro})` : "",
-  ].filter(Boolean).join(" ") || responsible;
+  const responsavelTecnico =
+    [
+      apr.responsavel_tecnico_nome,
+      apr.responsavel_tecnico_registro
+        ? `(${apr.responsavel_tecnico_registro})`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ") || responsible;
 
   ensureSpace(ctx, 34);
   doc.setDrawColor(0, 0, 0);
@@ -128,7 +132,10 @@ function drawAprOperationalHeader(
   const rows: string[][] = [
     [
       "Nº / Título:",
-      sanitize([apr.numero, apr.titulo].filter(Boolean).join(" — ") || activityDescription),
+      sanitize(
+        [apr.numero, apr.titulo].filter(Boolean).join(" — ") ||
+          activityDescription,
+      ),
       "Empresa:",
       sanitize(apr.company?.razao_social || apr.company_id),
     ],
@@ -194,9 +201,19 @@ function drawAprOperationalHeader(
     },
     body: rows,
     columnStyles: {
-      0: { cellWidth: 40, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
+      0: {
+        cellWidth: 40,
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+      },
       1: { cellWidth: 111 },
-      2: { cellWidth: 38, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
+      2: {
+        cellWidth: 38,
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+      },
       3: { cellWidth: tableWidth + 4 - 40 - 111 - 38 },
     },
     didDrawPage: (hookData: HookData) => {
@@ -229,9 +246,13 @@ function drawAprComplementaryInfo(
 
   // ── Campos complementares globais ────────────────────────────────────────
   const notes = [
-    apr.control_description ? `Controles globais: ${apr.control_description}` : "",
+    apr.control_description
+      ? `Controles globais: ${apr.control_description}`
+      : "",
     apr.residual_risk ? `Risco residual: ${apr.residual_risk}` : "",
-    apr.evidence_document ? `Evidência documental: ${apr.evidence_document}` : "",
+    apr.evidence_document
+      ? `Evidência documental: ${apr.evidence_document}`
+      : "",
     apr.evidence_photo ? `Evidência fotográfica: ${apr.evidence_photo}` : "",
   ]
     .filter(Boolean)
@@ -260,7 +281,7 @@ function drawAprComplementaryInfo(
     });
   }
 
-  // ── Participantes (lista de nomes) ────────────────────────────────────────
+  // ── Participantes ─────────────────────────────────────────────────────────
   const participants = Array.isArray(apr.participants) ? apr.participants : [];
   if (participants.length > 0) {
     drawSectionBanner(ctx, `Participantes (${participants.length})`);
@@ -277,15 +298,22 @@ function drawAprComplementaryInfo(
         textColor: [20, 20, 20],
         overflow: "linebreak",
       },
-      head: [["#", "Nome do participante"]],
+      head: [["#", "Nome do participante", "Função"]],
       body: participants.map((p: AprParticipantLike, i: number) => [
         String(i + 1),
         sanitize(p.nome || "-"),
+        sanitize(p.funcao),
       ]),
-      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      headStyles: {
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+        fontSize: 7.6,
+      },
       columnStyles: {
         0: { cellWidth: 12 },
-        1: { cellWidth: contentWidth - 12 },
+        1: { cellWidth: contentWidth - 62 },
+        2: { cellWidth: 50 },
       },
       didDrawPage: (hookData: HookData) => {
         ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
@@ -311,12 +339,19 @@ function drawAprComplementaryInfo(
         overflow: "linebreak",
       },
       head: [["#", "Atividade", "Descrição"]],
-      body: activities.map((a: { nome?: string; descricao?: string }, i: number) => [
-        String(i + 1),
-        sanitize(a.nome || "-"),
-        sanitize(a.descricao || "-"),
-      ]),
-      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      body: activities.map(
+        (a: { nome?: string; descricao?: string }, i: number) => [
+          String(i + 1),
+          sanitize(a.nome || "-"),
+          sanitize(a.descricao || "-"),
+        ],
+      ),
+      headStyles: {
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+        fontSize: 7.6,
+      },
       columnStyles: {
         0: { cellWidth: 12 },
         1: { cellWidth: 70 },
@@ -331,7 +366,10 @@ function drawAprComplementaryInfo(
   // ── EPIs ──────────────────────────────────────────────────────────────────
   const epis = Array.isArray(apr.epis) ? apr.epis : [];
   if (epis.length > 0) {
-    drawSectionBanner(ctx, `Equipamentos de Proteção Individual — EPIs (${epis.length})`);
+    drawSectionBanner(
+      ctx,
+      `Equipamentos de Proteção Individual — EPIs (${epis.length})`,
+    );
     autoTable(doc, {
       startY: ctx.y,
       margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
@@ -353,7 +391,12 @@ function drawAprComplementaryInfo(
         sanitize(e.validade_ca ? formatDate(e.validade_ca) : "-"),
         sanitize(e.descricao || "-"),
       ]),
-      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      headStyles: {
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+        fontSize: 7.6,
+      },
       columnStyles: {
         0: { cellWidth: 12 },
         1: { cellWidth: 55 },
@@ -385,13 +428,23 @@ function drawAprComplementaryInfo(
         overflow: "linebreak",
       },
       head: [["#", "Ferramenta", "Nº de série", "Descrição"]],
-      body: tools.map((t: { nome?: string; numero_serie?: string; descricao?: string }, i: number) => [
-        String(i + 1),
-        sanitize(t.nome || "-"),
-        sanitize(t.numero_serie || "-"),
-        sanitize(t.descricao || "-"),
-      ]),
-      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      body: tools.map(
+        (
+          t: { nome?: string; numero_serie?: string; descricao?: string },
+          i: number,
+        ) => [
+          String(i + 1),
+          sanitize(t.nome || "-"),
+          sanitize(t.numero_serie || "-"),
+          sanitize(t.descricao || "-"),
+        ],
+      ),
+      headStyles: {
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+        fontSize: 7.6,
+      },
       columnStyles: {
         0: { cellWidth: 12 },
         1: { cellWidth: 60 },
@@ -422,13 +475,23 @@ function drawAprComplementaryInfo(
         overflow: "linebreak",
       },
       head: [["#", "Máquina", "Placa / ID", "Requisitos de segurança"]],
-      body: machines.map((m: { nome?: string; placa?: string; requisitos_seguranca?: string }, i: number) => [
-        String(i + 1),
-        sanitize(m.nome || "-"),
-        sanitize(m.placa || "-"),
-        sanitize(m.requisitos_seguranca || "-"),
-      ]),
-      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      body: machines.map(
+        (
+          m: { nome?: string; placa?: string; requisitos_seguranca?: string },
+          i: number,
+        ) => [
+          String(i + 1),
+          sanitize(m.nome || "-"),
+          sanitize(m.placa || "-"),
+          sanitize(m.requisitos_seguranca || "-"),
+        ],
+      ),
+      headStyles: {
+        fillColor: APR_TEAL,
+        textColor: APR_WHITE,
+        fontStyle: "bold",
+        fontSize: 7.6,
+      },
       columnStyles: {
         0: { cellWidth: 12 },
         1: { cellWidth: 60 },
@@ -471,29 +534,49 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
       halign: "center",
       valign: "middle",
     },
-    head: [[
-      "",
-      "1\nInsignificante\nSem lesão relevante.",
-      "2\nMenor\nPrimeiros socorros.",
-      "3\nModerada\nAfastamento reversível.",
-      "4\nGrave\nLesão permanente parcial.",
-      "5\nCatastrófica\nMorte ou múltiplas vítimas.",
-    ]],
-    body: [[
-      "Severidade",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-    ]],
+    head: [
+      [
+        "",
+        "1\nInsignificante\nSem lesão relevante.",
+        "2\nMenor\nPrimeiros socorros.",
+        "3\nModerada\nAfastamento reversível.",
+        "4\nGrave\nLesão permanente parcial.",
+        "5\nCatastrófica\nMorte ou múltiplas vítimas.",
+      ],
+    ],
+    body: [["Severidade", "1", "2", "3", "4", "5"]],
     columnStyles: {
       0: { cellWidth: 28, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
-      1: { cellWidth: 31, fillColor: [44, 184, 162], textColor: APR_DARK, fontStyle: "bold" },
-      2: { cellWidth: 31, fillColor: [39, 183, 163], textColor: APR_DARK, fontStyle: "bold" },
-      3: { cellWidth: 31, fillColor: [35, 182, 164], textColor: APR_DARK, fontStyle: "bold" },
-      4: { cellWidth: 31, fillColor: [31, 179, 162], textColor: APR_DARK, fontStyle: "bold" },
-      5: { cellWidth: 31, fillColor: [26, 176, 160], textColor: APR_DARK, fontStyle: "bold" },
+      1: {
+        cellWidth: 31,
+        fillColor: [44, 184, 162],
+        textColor: APR_DARK,
+        fontStyle: "bold",
+      },
+      2: {
+        cellWidth: 31,
+        fillColor: [39, 183, 163],
+        textColor: APR_DARK,
+        fontStyle: "bold",
+      },
+      3: {
+        cellWidth: 31,
+        fillColor: [35, 182, 164],
+        textColor: APR_DARK,
+        fontStyle: "bold",
+      },
+      4: {
+        cellWidth: 31,
+        fillColor: [31, 179, 162],
+        textColor: APR_DARK,
+        fontStyle: "bold",
+      },
+      5: {
+        cellWidth: 31,
+        fillColor: [26, 176, 160],
+        textColor: APR_DARK,
+        fontStyle: "bold",
+      },
     },
     didDrawPage: (hookData: HookData) => {
       ctx.y = hookData.cursor?.y ? hookData.cursor.y + 3 : ctx.y + 3;
@@ -514,21 +597,53 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
       halign: "center",
       valign: "middle",
     },
-    head: [[
-      "Probabilidade",
-      "Descrição",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-    ]],
+    head: [["Probabilidade", "Descrição", "1", "2", "3", "4", "5"]],
     body: [
-      ["1", "Improvável\nRaramente esperada", "Aceitável", "Aceitável", "Aceitável", "Aceitável", "Atenção"],
-      ["2", "Remota\nSituação excepcional", "Aceitável", "Aceitável", "Atenção", "Atenção", "Substancial"],
-      ["3", "Ocasional\nPode ocorrer", "Aceitável", "Atenção", "Atenção", "Substancial", "Substancial"],
-      ["4", "Provável\nTendência de ocorrência", "Aceitável", "Atenção", "Substancial", "Substancial", "Crítico"],
-      ["5", "Frequente\nOcorrência repetida", "Atenção", "Substancial", "Substancial", "Crítico", "Crítico"],
+      [
+        "1",
+        "Improvável\nRaramente esperada",
+        "Aceitável",
+        "Aceitável",
+        "Aceitável",
+        "Aceitável",
+        "Atenção",
+      ],
+      [
+        "2",
+        "Remota\nSituação excepcional",
+        "Aceitável",
+        "Aceitável",
+        "Atenção",
+        "Atenção",
+        "Substancial",
+      ],
+      [
+        "3",
+        "Ocasional\nPode ocorrer",
+        "Aceitável",
+        "Atenção",
+        "Atenção",
+        "Substancial",
+        "Substancial",
+      ],
+      [
+        "4",
+        "Provável\nTendência de ocorrência",
+        "Aceitável",
+        "Atenção",
+        "Substancial",
+        "Substancial",
+        "Crítico",
+      ],
+      [
+        "5",
+        "Frequente\nOcorrência repetida",
+        "Atenção",
+        "Substancial",
+        "Substancial",
+        "Crítico",
+        "Crítico",
+      ],
     ],
     columnStyles: {
       0: { cellWidth: 14, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
@@ -579,10 +694,22 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
       overflow: "linebreak",
     },
     body: [
-      ["Aceitável", "NÃO PRIORITÁRIO - Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados."],
-      ["Atenção", "PRIORIDADE BÁSICA - Reavaliar os meios de controle e, quando necessário, adotar medidas complementares."],
-      ["Substancial", "PRIORIDADE PREFERENCIAL - O trabalho não deve ser iniciado até que o risco tenha sido reduzido."],
-      ["Crítico", "PRIORIDADE MÁXIMA - Interromper o processo ou atividade e estabelecer ações imediatas de controle."],
+      [
+        "Aceitável",
+        "NÃO PRIORITÁRIO - Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados.",
+      ],
+      [
+        "Atenção",
+        "PRIORIDADE BÁSICA - Reavaliar os meios de controle e, quando necessário, adotar medidas complementares.",
+      ],
+      [
+        "Substancial",
+        "PRIORIDADE PREFERENCIAL - O trabalho não deve ser iniciado até que o risco tenha sido reduzido.",
+      ],
+      [
+        "Crítico",
+        "PRIORIDADE MÁXIMA - Interromper o processo ou atividade e estabelecer ações imediatas de controle.",
+      ],
     ],
     columnStyles: {
       0: { cellWidth: 36, fontStyle: "bold", halign: "center" },
@@ -614,7 +741,7 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
 function drawAprParticipantRoster(
   ctx: PdfContext,
   autoTable: AutoTableFn,
-  participants: Array<{ name?: string }>,
+  participants: Array<{ name?: string; role?: string | null }>,
 ) {
   if (!participants.length) return;
   const { doc, margin, contentWidth, theme } = ctx;
@@ -628,7 +755,11 @@ function drawAprParticipantRoster(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingSm);
   doc.setTextColor(...APR_DARK);
-  doc.text(`Equipe participante (${participants.length})`, margin + 4, ctx.y + 5.7);
+  doc.text(
+    `Equipe participante (${participants.length})`,
+    margin + 4,
+    ctx.y + 5.7,
+  );
   moveY(ctx, 9.8);
 
   autoTable(doc, {
@@ -649,8 +780,12 @@ function drawAprParticipantRoster(
       overflow: "linebreak",
       valign: "middle",
     },
-    head: [["#", "Nome do participante"]],
-    body: participants.map((participant, index) => [index + 1, sanitize(participant.name)]),
+    head: [["#", "Nome do participante", "Função"]],
+    body: participants.map((participant, index) => [
+      index + 1,
+      sanitize(participant.name),
+      sanitize(participant.role),
+    ]),
     headStyles: {
       fillColor: APR_ATTENTION,
       textColor: APR_WHITE,
@@ -662,7 +797,8 @@ function drawAprParticipantRoster(
     },
     columnStyles: {
       0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
-      1: { cellWidth: contentWidth - 12 },
+      1: { cellWidth: contentWidth - 64 },
+      2: { cellWidth: 52 },
     },
     didDrawPage: (hookData: HookData) => {
       ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
@@ -712,9 +848,7 @@ export function resolveAprRiskRows(apr: Apr) {
           item.permissao_trabalho
             ? `Permissão: ${item.permissao_trabalho}`
             : "",
-          item.normas_relacionadas
-            ? `Normas: ${item.normas_relacionadas}`
-            : "",
+          item.normas_relacionadas ? `Normas: ${item.normas_relacionadas}` : "",
         ]
           .filter(Boolean)
           .join("\n"),
@@ -789,12 +923,9 @@ export async function drawAprBlueprint(
   const riskRows = resolveAprRiskRows(apr);
   drawAprOperationalHeader(ctx, autoTable, apr);
 
-  drawRiskTable(
-    ctx,
-    autoTable,
-    riskRows,
-    { semanticRules: { profile: "apr" } },
-  );
+  drawRiskTable(ctx, autoTable, riskRows, {
+    semanticRules: { profile: "apr" },
+  });
 
   drawAprComplementaryInfo(ctx, autoTable, apr);
   drawAprRiskMatrixReference(ctx, autoTable);
@@ -803,20 +934,26 @@ export async function drawAprBlueprint(
     autoTable,
     (apr.participants ?? []).map((participant) => ({
       name: participant.nome,
+      role: participant.funcao,
     })),
   );
 
   await drawEvidenceGallery(ctx, {
     title: "Evidências visuais",
     items: evidences.map((item) => ({
-      title: item.original_name || `Evidência ${item.risk_item_ordem ?? ""}`.trim(),
+      title:
+        item.original_name || `Evidência ${item.risk_item_ordem ?? ""}`.trim(),
       description:
         item.risk_item_ordem !== undefined
           ? `Registro associado ao item de risco #${item.risk_item_ordem + 1}.`
           : "Registro visual anexado à APR.",
       meta: [
-        item.captured_at ? `Capturada em: ${formatDate(item.captured_at)}` : undefined,
-        item.uploaded_at ? `Upload: ${formatDate(item.uploaded_at)}` : undefined,
+        item.captured_at
+          ? `Capturada em: ${formatDate(item.captured_at)}`
+          : undefined,
+        item.uploaded_at
+          ? `Upload: ${formatDate(item.uploaded_at)}`
+          : undefined,
       ]
         .filter(Boolean)
         .join(" | "),
@@ -830,11 +967,11 @@ export async function drawAprBlueprint(
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
-      label: sanitize(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
+      label: resolveSignatureTypeLabel(signature.type),
+      name: resolveSignatureSignerName(signature),
+      role: resolveSignatureSignerRole(signature),
       date: formatDate(signature.signed_at || signature.created_at),
-      image: signature.signature_data,
+      image: signature.signature_data ?? null,
     })),
     code,
     url: validationUrl,

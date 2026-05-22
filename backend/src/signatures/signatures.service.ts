@@ -450,10 +450,33 @@ export class SignaturesService {
           company_id: tenantId,
         }
       : { document_id, document_type: normalizedDocumentType };
-    return this.signaturesRepository.find({
+    const signatures = await this.signaturesRepository.find({
       where,
       relations: ['user', 'user.profile'],
     });
+    return this.hydrateSignaturesData(signatures);
+  }
+
+  private async hydrateSignaturesData(
+    signatures: Signature[],
+  ): Promise<Signature[]> {
+    await Promise.all(
+      signatures.map(async (signature) => {
+        if (
+          signature.signature_data !== null &&
+          signature.signature_data !== undefined
+        ) {
+          return;
+        }
+        if (!signature.signature_data_key) {
+          return;
+        }
+
+        signature.signature_data = await this.resolveSignatureData(signature);
+      }),
+    );
+
+    return signatures;
   }
 
   async remove(
@@ -1304,7 +1327,10 @@ export class SignaturesService {
    * Resolves the raw signature_data, downloading from S3 if offloaded.
    */
   async resolveSignatureData(signature: Signature): Promise<string | null> {
-    if (signature.signature_data !== null) {
+    if (
+      signature.signature_data !== null &&
+      signature.signature_data !== undefined
+    ) {
       return signature.signature_data;
     }
     if (!signature.signature_data_key) {

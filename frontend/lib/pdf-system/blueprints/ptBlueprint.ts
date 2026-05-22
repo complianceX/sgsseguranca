@@ -10,6 +10,11 @@ import {
   drawNarrativeSection,
 } from "../components";
 import { drawChecklistTable, drawParticipantTable } from "../tables";
+import {
+  resolveSignatureSignerName,
+  resolveSignatureSignerRole,
+  resolveSignatureTypeLabel,
+} from "../signaturePresentation";
 
 type ChecklistItem = {
   pergunta?: string;
@@ -23,7 +28,7 @@ type PtChecklistGroup = {
   items?: ChecklistItem[];
 };
 
-type PtExecutorLike = { nome?: string };
+type PtExecutorLike = { nome?: string; funcao?: string | null };
 
 function hasMeaningfulChecklistContent(items?: ChecklistItem[]) {
   return (
@@ -172,6 +177,7 @@ export async function drawPtBlueprint(
     `Equipe executante (${pt.executantes?.length || 0})`,
     (pt.executantes || []).map((executor: PtExecutorLike) => ({
       name: executor.nome,
+      role: executor.funcao,
     })),
   );
 
@@ -192,11 +198,11 @@ export async function drawPtBlueprint(
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
-      label: sanitize(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
+      label: resolveSignatureTypeLabel(signature.type),
+      name: resolveSignatureSignerName(signature),
+      role: resolveSignatureSignerRole(signature),
       date: formatDate(signature.signed_at || signature.created_at),
-      image: signature.signature_data,
+      image: signature.signature_data ?? null,
     })),
     code,
     url: validationUrl,

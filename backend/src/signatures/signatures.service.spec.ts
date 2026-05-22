@@ -20,6 +20,11 @@ import {
 
 describe('SignaturesService', () => {
   let service: SignaturesService;
+  let storageService: {
+    uploadFile: jest.Mock;
+    downloadFileBuffer: jest.Mock;
+    deleteFile: jest.Mock;
+  };
   const savedEntities: Signature[] = [];
 
   const transactionalRepository = {
@@ -154,7 +159,7 @@ describe('SignaturesService', () => {
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
     });
 
-    const storageService = {
+    storageService = {
       uploadFile: jest.fn().mockResolvedValue(undefined),
       downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('')),
       deleteFile: jest.fn().mockResolvedValue(undefined),
@@ -273,6 +278,44 @@ describe('SignaturesService', () => {
       SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
     );
     expect(appendOptions.manager).toBeDefined();
+  });
+
+  it('hidrata signature_data externalizado ao listar assinaturas do documento', async () => {
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-1',
+        company_id: 'company-1',
+        document_id: 'dds-1',
+        document_type: 'DDS',
+        user_id: 'user-1',
+        type: 'digital',
+        signature_data: null,
+        signature_data_key: 'signatures/dds-1/digital.dat',
+        user: { id: 'user-1', nome: 'Ana', funcao: 'TST' },
+      } as unknown as Signature,
+    ]);
+    storageService.downloadFileBuffer.mockResolvedValue(
+      Buffer.from('data:image/png;base64,ASSINATURA', 'utf8'),
+    );
+
+    const result = await service.findByDocument('dds-1', 'DDS');
+
+    expect(repository.find).toHaveBeenCalledWith({
+      where: {
+        document_id: 'dds-1',
+        document_type: 'DDS',
+        company_id: 'company-1',
+      },
+      relations: ['user', 'user.profile'],
+    });
+    expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
+      'signatures/dds-1/digital.dat',
+    );
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        signature_data: 'data:image/png;base64,ASSINATURA',
+      }),
+    );
   });
 
   it('incorpora o integrity_context ao envelope canônico da assinatura HMAC', async () => {
