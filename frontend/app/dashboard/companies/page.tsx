@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import Link from 'next/link';
-import { Building2, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Building2, Mail, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { CompanyInviteModal } from '@/components/CompanyInviteModal';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -29,6 +30,7 @@ export default function CompaniesPage() {
   const [lastPage, setLastPage] = useState(1);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const requestSeqRef = useRef(0);
 
   const handlePrevPage = useCallback(() => {
@@ -118,10 +120,19 @@ export default function CompaniesPage() {
       description="Gerencie as empresas vinculadas ao ambiente multi-tenant do sistema."
       icon={<Building2 className="h-5 w-5" />}
       actions={
-        <Link href="/dashboard/companies/new" className={buttonVariants()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova empresa
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsInviteModalOpen(true)}
+            leftIcon={<Mail className="h-4 w-4" />}
+          >
+            Convidar empresa
+          </Button>
+          <Link href="/dashboard/companies/new" className={buttonVariants()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova empresa
+          </Link>
+        </div>
       }
       metrics={
         loading && companies.length === 0
@@ -258,6 +269,11 @@ export default function CompaniesPage() {
       description="Esta acao e irreversivel. A empresa e todos os vinculos associados serao removidos permanentemente."
       confirmLabel="Excluir"
       loading={deleteLoading}
+    />
+
+    <CompanyInviteModal
+      isOpen={isInviteModalOpen}
+      onClose={() => setIsInviteModalOpen(false)}
     />
     </>
   );
