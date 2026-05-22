@@ -228,6 +228,67 @@ describe("ddsService", () => {
     expect(api.get).toHaveBeenCalledWith("/dds/dds-1/signatures");
   });
 
+  it("busca convites de assinatura publica do DDS", async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          inviteId: "invite-1",
+          participantUserId: "user-1",
+          participantName: "Ana TST",
+          participantRole: "Tecnica",
+          status: "pending",
+          expiresAt: "2026-05-29T00:00:00.000Z",
+          signedAt: null,
+          signingPath: "/assinar/dds/token-1",
+          signingUrl: "https://sgs.example/assinar/dds/token-1",
+        },
+      ],
+    });
+
+    await expect(ddsService.listSignatureInvites("dds-1")).resolves.toHaveLength(
+      1,
+    );
+
+    expect(api.get).toHaveBeenCalledWith("/dds/dds-1/signature-invites");
+  });
+
+  it("gera convites de assinatura publica do DDS com escopo de participantes", async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: {
+        ddsId: "dds-1",
+        expiresAt: "2026-05-29T00:00:00.000Z",
+        invites: [
+          {
+            inviteId: "invite-1",
+            participantUserId: "user-1",
+            participantName: "Ana TST",
+            participantRole: "Tecnica",
+            status: "pending",
+            expiresAt: "2026-05-29T00:00:00.000Z",
+            signedAt: null,
+            signingPath: "/assinar/dds/token-1",
+            signingUrl: "https://sgs.example/assinar/dds/token-1",
+          },
+        ],
+      },
+    });
+
+    await expect(
+      ddsService.issueSignatureInvites("dds-1", {
+        participant_user_ids: ["user-1"],
+        expires_in_days: 7,
+      }),
+    ).resolves.toMatchObject({
+      ddsId: "dds-1",
+      invites: [expect.objectContaining({ participantUserId: "user-1" })],
+    });
+
+    expect(api.post).toHaveBeenCalledWith("/dds/dds-1/signature-invites", {
+      participant_user_ids: ["user-1"],
+      expires_in_days: 7,
+    });
+  });
+
   it("envia filtro de status na listagem paginada do DDS", async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: { data: [], total: 0, page: 1, limit: 10, lastPage: 1 },

@@ -17,6 +17,7 @@ import { DdsController } from './dds.controller';
 import { DdsApprovalService } from './dds-approval.service';
 import { DdsObservabilityAlertsService } from './dds-observability-alerts.service';
 import { DdsObservabilityService } from './dds-observability.service';
+import { DdsSignatureInviteService } from './dds-signature-invite.service';
 import { DdsService } from './dds.service';
 
 jest.setTimeout(15000);
@@ -51,6 +52,10 @@ describe('DdsController (http)', () => {
     getPreview: jest.fn(),
     dispatch: jest.fn(),
   };
+  const ddsSignatureInviteService = {
+    listInvites: jest.fn(),
+    issueInvites: jest.fn(),
+  };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
   };
@@ -70,6 +75,10 @@ describe('DdsController (http)', () => {
         {
           provide: DdsObservabilityAlertsService,
           useValue: ddsObservabilityAlertsService,
+        },
+        {
+          provide: DdsSignatureInviteService,
+          useValue: ddsSignatureInviteService,
         },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         { provide: FileInspectionService, useValue: { inspect: jest.fn() } },

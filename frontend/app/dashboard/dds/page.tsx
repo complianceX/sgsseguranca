@@ -139,6 +139,19 @@ function formatObservabilityOutcome(outcome: string) {
   }
 }
 
+function resolveSignatureInviteUrl(invite: {
+  signingUrl: string | null;
+  signingPath: string | null;
+}) {
+  if (invite.signingUrl) {
+    return invite.signingUrl;
+  }
+  if (invite.signingPath && typeof window !== "undefined") {
+    return `${window.location.origin}${invite.signingPath}`;
+  }
+  return null;
+}
+
 export default function DdsPage() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
@@ -175,6 +188,9 @@ export default function DdsPage() {
     useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [issuingSignatureLinksId, setIssuingSignatureLinksId] = useState<
+    string | null
+  >(null);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -783,6 +799,54 @@ export default function DdsPage() {
     } catch (error) {
       console.error("Erro ao copiar link do PDF:", error);
       toast.error("Não foi possível copiar o link do PDF.");
+    }
+  };
+
+  const handleCopySignatureLinks = async (dds: Dds) => {
+    if (!canManageDds) {
+      toast.error("Você não tem permissão para gerar links de assinatura.");
+      return;
+    }
+
+    try {
+      setIssuingSignatureLinksId(dds.id);
+      const result = await ddsService.issueSignatureInvites(dds.id);
+      const pendingInvites = result.invites.filter(
+        (invite) => invite.status === "pending",
+      );
+      if (pendingInvites.length === 0) {
+        toast.info("Todos os participantes deste DDS já assinaram.");
+        return;
+      }
+
+      const lines = pendingInvites
+        .map((invite) => {
+          const url = resolveSignatureInviteUrl(invite);
+          return url ? `${invite.participantName}: ${url}` : null;
+        })
+        .filter((line): line is string => Boolean(line));
+
+      if (lines.length === 0) {
+        toast.error(
+          "Não foi possível montar URLs públicas. Verifique NEXT_PUBLIC_APP_URL/FRONTEND_URL.",
+        );
+        return;
+      }
+
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast.success(
+        lines.length === 1
+          ? "Link de assinatura copiado."
+          : "Links de assinatura copiados.",
+      );
+    } catch (error) {
+      console.error("Erro ao gerar links de assinatura DDS:", error);
+      toast.error(
+        getApiErrorMessage(error) ||
+          "Não foi possível gerar os links de assinatura.",
+      );
+    } finally {
+      setIssuingSignatureLinksId(null);
     }
   };
 
@@ -1793,6 +1857,27 @@ export default function DdsPage() {
                             }
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleCopySignatureLinks(dds)}
+                            title={
+                              dds.is_modelo
+                                ? "Modelos não recebem link público de assinatura"
+                                : dds.pdf_file_key
+                                  ? "DDS com PDF final emitido não recebe novas assinaturas"
+                                  : "Gerar e copiar links públicos de assinatura"
+                            }
+                            disabled={
+                              !canManageDds ||
+                              Boolean(dds.is_modelo) ||
+                              Boolean(dds.pdf_file_key) ||
+                              issuingSignatureLinksId === dds.id
+                            }
+                          >
+                            <Link2 className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"

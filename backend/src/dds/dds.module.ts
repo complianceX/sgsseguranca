@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DdsController } from './dds.controller';
 import { Dds } from './entities/dds.entity';
 import { DdsApprovalRecord } from './entities/dds-approval-record.entity';
+import { DdsSignatureInvite } from './entities/dds-signature-invite.entity';
 import { ForensicTrailEvent } from '../forensic-trail/entities/forensic-trail-event.entity';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
@@ -19,12 +20,15 @@ import { DdsApprovalService } from './dds-approval.service';
 import { DdsObservabilityService } from './dds-observability.service';
 import { DdsObservabilityAlertsService } from './dds-observability-alerts.service';
 import { PublicDdsValidationController } from './public-dds-validation.controller';
+import { PublicDdsSignatureController } from './public-dds-signature.controller';
+import { DdsSignatureInviteService } from './dds-signature-invite.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Dds,
       DdsApprovalRecord,
+      DdsSignatureInvite,
       Company,
       User,
       ForensicTrailEvent,
@@ -37,9 +41,14 @@ import { PublicDdsValidationController } from './public-dds-validation.controlle
     NotificationsModule,
     SignaturesModule,
   ],
-  controllers: [DdsController, PublicDdsValidationController],
+  controllers: [
+    DdsController,
+    PublicDdsValidationController,
+    PublicDdsSignatureController,
+  ],
   providers: [
     DdsService,
+    DdsSignatureInviteService,
     DdsApprovalService,
     DdsObservabilityService,
     DdsObservabilityAlertsService,
@@ -56,6 +65,6 @@ import { PublicDdsValidationController } from './public-dds-validation.controlle
         ]),
     },
   ],
-  exports: [DdsService, DdsApprovalService],
+  exports: [DdsService, DdsApprovalService, DdsSignatureInviteService],
 })
 export class DdsModule {}

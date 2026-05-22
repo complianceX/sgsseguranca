@@ -129,6 +129,30 @@ export interface DdsValidationContext {
   token: string | null;
 }
 
+export type DdsSignatureInviteStatus =
+  | "pending"
+  | "signed"
+  | "expired"
+  | "revoked";
+
+export interface DdsSignatureInviteLink {
+  inviteId: string | null;
+  participantUserId: string;
+  participantName: string;
+  participantRole: string | null;
+  status: DdsSignatureInviteStatus;
+  expiresAt: string | null;
+  signedAt: string | null;
+  signingPath: string | null;
+  signingUrl: string | null;
+}
+
+export interface DdsSignatureInviteIssueResult {
+  ddsId: string;
+  expiresAt: string | null;
+  invites: DdsSignatureInviteLink[];
+}
+
 export interface DdsPerson {
   id: string;
   nome: string;
@@ -552,6 +576,29 @@ export const ddsService = {
 
   listSignatures: async (id: string): Promise<Signature[]> => {
     const response = await api.get<Signature[]>(`/dds/${id}/signatures`);
+    return response.data;
+  },
+
+  listSignatureInvites: async (
+    id: string,
+  ): Promise<DdsSignatureInviteLink[]> => {
+    const response = await api.get<DdsSignatureInviteLink[]>(
+      `/dds/${id}/signature-invites`,
+    );
+    return response.data;
+  },
+
+  issueSignatureInvites: async (
+    id: string,
+    payload?: {
+      participant_user_ids?: string[];
+      expires_in_days?: number;
+    },
+  ): Promise<DdsSignatureInviteIssueResult> => {
+    const response = await api.post<DdsSignatureInviteIssueResult>(
+      `/dds/${id}/signature-invites`,
+      payload || {},
+    );
     return response.data;
   },
 

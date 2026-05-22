@@ -45,6 +45,8 @@ import {
   InitializeDdsApprovalFlowDto,
   ReopenDdsApprovalFlowDto,
 } from './dto/dds-approval.dto';
+import { IssueDdsSignatureInvitesDto } from './dto/dds-signature-invite.dto';
+import { DdsSignatureInviteService } from './dds-signature-invite.service';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
@@ -213,6 +215,7 @@ export class DdsController {
     private readonly ddsApprovalService: DdsApprovalService,
     private readonly ddsObservabilityService: DdsObservabilityService,
     private readonly ddsObservabilityAlertsService: DdsObservabilityAlertsService,
+    private readonly ddsSignatureInviteService: DdsSignatureInviteService,
     private readonly pdfRateLimitService: PdfRateLimitService,
     private readonly fileInspectionService: FileInspectionService,
   ) {}
@@ -631,6 +634,34 @@ export class DdsController {
   @Authorize('can_view_dds')
   listSignatures(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ddsService.listSignatures(id);
+  }
+
+  @Get(':id/signature-invites')
+  @Authorize('can_view_dds')
+  listSignatureInvites(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsSignatureInviteService.listInvites(id);
+  }
+
+  @Post(':id/signature-invites')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_SIGNATURES_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_SIGNATURES_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  issueSignatureInvites(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: IssueDdsSignatureInvitesDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsSignatureInviteService.issueInvites(
+      id,
+      dto,
+      this.getAuthenticatedUserIdOrThrow(req),
+    );
   }
 
   /** Anexa PDF a um DDS existente */
