@@ -26,8 +26,8 @@ const ENABLE_PDF_SCENARIO = String(
 let cachedCsrfToken = '';
 let cachedCsrfCookie = '';
 
-// Explicit path so this script works when executed from the backend root.
-const uploadFixture = open('./test/load/fixtures/sample-upload.txt', 'b');
+// k6 resolve `open()` relativo ao próprio arquivo do script.
+const uploadFixture = open('./fixtures/sample-upload.txt', 'b');
 
 const authLoginDuration = new Trend('auth_login_duration');
 const dashboardSummaryDuration = new Trend('dashboard_summary_duration');
