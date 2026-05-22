@@ -5,14 +5,17 @@ import { CsrfMiddleware, isCsrfExemptPath } from './csrf.middleware';
 function makeRequest(input: {
   method: string;
   path: string;
+  reqPath?: string;
+  originalUrl?: string;
+  url?: string;
   csrfCookie?: string;
   csrfHeader?: string;
 }): Request {
   const request = {
     method: input.method,
-    path: input.path,
-    originalUrl: input.path,
-    url: input.path,
+    path: input.reqPath ?? input.path,
+    originalUrl: input.originalUrl ?? input.path,
+    url: input.url ?? input.path,
     headers: input.csrfHeader ? { 'x-csrf-token': input.csrfHeader } : {},
   } as Partial<Request>;
 
@@ -67,6 +70,20 @@ describe('CsrfMiddleware', () => {
     '/v1/tenant-lifecycle/onboarding/token-1/complete',
   ])('permite POST publico por link sem cookie CSRF: %s', (path) => {
     middleware.use(makeRequest({ method: 'POST', path }), {} as Response, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('usa originalUrl quando req.path chega como root no middleware', () => {
+    middleware.use(
+      makeRequest({
+        method: 'POST',
+        path: '/public/dds/signature/token-1',
+        reqPath: '/',
+      }),
+      {} as Response,
+      next,
+    );
 
     expect(next).toHaveBeenCalledTimes(1);
   });
