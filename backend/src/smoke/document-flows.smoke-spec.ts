@@ -138,6 +138,7 @@ describe('Document flows smoke', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       pdfRateLimitService as never,
       fileInspectionService as never,
     );
