@@ -410,30 +410,29 @@ async function requestDownload(
   url: string,
   headers?: Record<string, string>,
 ) {
+  const mergedHeaders: Record<string, string> = {
+    Connection: 'close',
+    ...(headers || {}),
+  };
+
   if (url.startsWith('http')) {
     const parsed = new URL(url);
     if (parsed.pathname.startsWith('/storage/')) {
       let req = request(httpServer as Parameters<typeof request>[0]).get(
         `${parsed.pathname}${parsed.search}`,
       );
-      if (headers) {
-        req = req.set(headers);
-      }
+      req = req.set(mergedHeaders);
       return req;
     }
 
     let req = request(`${parsed.protocol}//${parsed.host}`).get(
       `${parsed.pathname}${parsed.search}`,
     );
-    if (headers) {
-      req = req.set(headers);
-    }
+    req = req.set(mergedHeaders);
     return req;
   }
 
   let req = request(httpServer as Parameters<typeof request>[0]).get(url);
-  if (headers) {
-    req = req.set(headers);
-  }
+  req = req.set(mergedHeaders);
   return req;
 }

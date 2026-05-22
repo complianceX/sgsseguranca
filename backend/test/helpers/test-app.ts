@@ -154,6 +154,7 @@ export class TestApp {
       if (this.dataSource?.isInitialized) {
         await this.dataSource.destroy().catch(() => undefined);
       }
+      await this.waitForSocketDrain();
     }
   }
 
@@ -221,6 +222,41 @@ export class TestApp {
       }
     } catch {
       client.disconnect();
+    }
+  }
+
+  /**
+   * Em E2E, algumas conexões (Redis/PG/HTTP keep-alive) podem levar ~1-2s para
+   * fechar após app.close(). O Jest alerta se o processo não drenar em 1s.
+   * Este wait curto evita falso-positivo sem mascarar leaks persistentes.
+   */
+  private async waitForSocketDrain(maxWaitMs = 2500): Promise<void> {
+    const proc = process as NodeJS.Process & {
+      _getActiveHandles?: () => unknown[];
+    };
+
+    if (typeof proc._getActiveHandles !== 'function') {
+      return;
+    }
+
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      const activeSockets = proc
+        ._getActiveHandles()
+        .filter(
+          (handle) =>
+            typeof handle === 'object' &&
+            handle !== null &&
+            (handle as { constructor?: { name?: string } }).constructor
+              ?.name === 'Socket',
+        ).length;
+
+      // stdout/stderr normalmente permanecem como sockets ativos.
+      if (activeSockets <= 2) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 
