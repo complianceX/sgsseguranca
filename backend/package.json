@@ -219,7 +219,7 @@
     "pdf-parse": "^2.4.5",
     "pg": "^8.18.0",
     "puppeteer": "^24.37.3",
-    "redis": "^5.10.0",
+    "redis": "^5.12.1",
     "reflect-metadata": "^0.2.2",
     "resend": "^4.1.2",
     "rxjs": "^7.8.1",
