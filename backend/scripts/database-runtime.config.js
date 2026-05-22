@@ -241,6 +241,9 @@ function resolveDatabaseConfig() {
 
 function resolveRuntimeDatabaseConfig() {
   const databaseUrlCandidate = firstNonEmptyEnvCandidate([
+    // Runtime deve preferir role de aplicação (sem BYPASSRLS).
+    // Em alguns ambientes legados, DATABASE_URL pode apontar para owner.
+    { source: 'DATABASE_DIRECT_URL' },
     { source: 'DATABASE_URL' },
     { source: 'DATABASE_PRIVATE_URL' },
     { source: 'DATABASE_PUBLIC_URL' },
