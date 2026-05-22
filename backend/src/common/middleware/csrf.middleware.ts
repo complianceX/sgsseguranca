@@ -27,6 +27,16 @@ export function isCsrfExemptPath(path: string): boolean {
   );
 }
 
+function resolveRequestPath(req: Request): string {
+  const candidates = [req.originalUrl, req.url, req.path];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+  return '';
+}
+
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction) {
@@ -35,7 +45,7 @@ export class CsrfMiddleware implements NestMiddleware {
       return next();
     }
 
-    const requestPath = req.path || req.originalUrl || req.url || '';
+    const requestPath = resolveRequestPath(req);
     if (isCsrfExemptPath(requestPath)) {
       return next();
     }
