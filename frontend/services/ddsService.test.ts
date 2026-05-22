@@ -289,6 +289,26 @@ describe("ddsService", () => {
     });
   });
 
+  it("gera convites de assinatura publica do DDS com tenant explicito", async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: {
+        ddsId: "dds-1",
+        expiresAt: "2026-05-29T00:00:00.000Z",
+        invites: [],
+      },
+    });
+
+    await ddsService.issueSignatureInvites("dds-1", undefined, {
+      companyId: "company-1",
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/dds/dds-1/signature-invites",
+      {},
+      { headers: { "x-company-id": "company-1" } },
+    );
+  });
+
   it("envia filtro de status na listagem paginada do DDS", async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: { data: [], total: 0, page: 1, limit: 10, lastPage: 1 },
