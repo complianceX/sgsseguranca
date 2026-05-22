@@ -260,7 +260,7 @@ export default function PublicDdsSignaturePage() {
                     <div className="h-56 overflow-hidden rounded-[var(--ds-radius-lg)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)]">
                       <SignatureCanvas
                         ref={signatureRef}
-                        penColor="#1D5B8D"
+                        penColor="var(--ds-color-action-primary)"
                         canvasProps={{
                           className: "h-full w-full cursor-crosshair",
                         }}

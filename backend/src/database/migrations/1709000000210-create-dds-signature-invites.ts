@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateDdsSignatureInvites1709000000210
-  implements MigrationInterface
-{
+export class CreateDdsSignatureInvites1709000000210 implements MigrationInterface {
   name = 'CreateDdsSignatureInvites1709000000210';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

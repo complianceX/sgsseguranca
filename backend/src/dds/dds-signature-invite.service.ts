@@ -29,11 +29,7 @@ const DEFAULT_INVITE_TTL_DAYS = 7;
 const MAX_INVITE_TTL_DAYS = 30;
 const SIGNATURE_DATA_MAX_LENGTH = 300_000;
 
-type DdsSignatureInviteStatus =
-  | 'pending'
-  | 'signed'
-  | 'expired'
-  | 'revoked';
+type DdsSignatureInviteStatus = 'pending' | 'signed' | 'expired' | 'revoked';
 
 export type DdsSignatureInviteLink = {
   inviteId: string | null;
@@ -168,7 +164,9 @@ export class DdsSignatureInviteService {
           signed_ip_hash: null,
           signed_user_agent_hash: null,
         });
-        const saved = await manager.getRepository(DdsSignatureInvite).save(invite);
+        const saved = await manager
+          .getRepository(DdsSignatureInvite)
+          .save(invite);
         createdInvites.set(
           participant.id,
           this.toInviteLink({
@@ -628,7 +626,7 @@ export class DdsSignatureInviteService {
     invite: DdsSignatureInvite,
     manager: EntityManager,
   ): Promise<void> {
-    const rows = (await manager.query(
+    const rows = await manager.query<Array<Record<string, unknown>>>(
       `
       SELECT 1
       FROM "dds_participants" participant
@@ -640,7 +638,7 @@ export class DdsSignatureInviteService {
       LIMIT 1
       `,
       [invite.dds_id, invite.participant_user_id, invite.company_id],
-    )) as Array<Record<string, unknown>>;
+    );
 
     if (rows.length === 0) {
       throw new GoneException(
@@ -778,7 +776,9 @@ export class DdsSignatureInviteService {
       expiresAt: input.invite?.expires_at.toISOString() ?? null,
       signedAt: input.signedAt?.toISOString() ?? null,
       signingPath,
-      signingUrl: signingPath ? this.resolvePublicSigningUrl(signingPath) : null,
+      signingUrl: signingPath
+        ? this.resolvePublicSigningUrl(signingPath)
+        : null,
     };
   }
 
@@ -791,7 +791,8 @@ export class DdsSignatureInviteService {
       inviteId: invite.id,
       status,
       expiresAt: invite.expires_at.toISOString(),
-      signedAt: signedAt?.toISOString() ?? invite.used_at?.toISOString() ?? null,
+      signedAt:
+        signedAt?.toISOString() ?? invite.used_at?.toISOString() ?? null,
       signer: {
         name: invite.participant.nome,
         role: invite.participant.funcao ?? null,
@@ -826,8 +827,7 @@ export class DdsSignatureInviteService {
 
   private isDdsTeamPhotoSignature(type: string): boolean {
     return (
-      type.startsWith('team_photo') ||
-      type === 'team_photo_reuse_justification'
+      type.startsWith('team_photo') || type === 'team_photo_reuse_justification'
     );
   }
 
