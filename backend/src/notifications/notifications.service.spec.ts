@@ -61,4 +61,18 @@ describe('NotificationsService', () => {
     expect(repo.save).toHaveBeenCalled();
     expect(gateway.sendToUser).toHaveBeenCalled();
   });
+
+  it('normaliza paginação inválida para valores seguros', async () => {
+    repo.findAndCount = jest.fn().mockResolvedValue([[], 0]);
+
+    await service.findAll('user-1', 'company-1', Number.NaN, Number.NaN);
+
+    expect(repo.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 20,
+        where: { userId: 'user-1', company_id: 'company-1' },
+      }),
+    );
+  });
 });

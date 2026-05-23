@@ -91,6 +91,12 @@ describe('CsrfMiddleware', () => {
   it('reconhece paths publicos mesmo com query string', () => {
     expect(isCsrfExemptPath('/public/dds/signature/token-1?x=1')).toBe(true);
     expect(isCsrfExemptPath('/v1/public/dds/signature/token-1?x=1')).toBe(true);
+    expect(
+      isCsrfExemptPath('/tenant-lifecycle/onboarding/token-1/validate'),
+    ).toBe(false);
+    expect(
+      isCsrfExemptPath('/v1/tenant-lifecycle/onboarding/token-1/validate'),
+    ).toBe(false);
     expect(isCsrfExemptPath('/tenant-lifecycle/invites')).toBe(false);
     expect(isCsrfExemptPath('/public/signature/verify')).toBe(false);
   });

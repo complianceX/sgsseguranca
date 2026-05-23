@@ -33,11 +33,32 @@ describe('cors-origins', () => {
       expect(allowed).toBe(false);
     });
 
-    it('permite localhost em ambiente não produtivo', () => {
+    it('permite localhost quando origem está explicitamente autorizada', () => {
       const allowed = isCorsOriginAllowed({
         origin: 'http://localhost:3000',
-        allowedOrigins: ['https://app.sgsseguranca.com.br'],
+        allowedOrigins: ['http://localhost:3000'],
         isProduction: false,
+      });
+
+      expect(allowed).toBe(true);
+    });
+
+    it('bloqueia origem de rede privada em não-produção por padrão', () => {
+      const allowed = isCorsOriginAllowed({
+        origin: 'http://192.168.0.15:3000',
+        allowedOrigins: ['http://localhost:3000'],
+        isProduction: false,
+      });
+
+      expect(allowed).toBe(false);
+    });
+
+    it('permite origem de rede privada em não-produção com opt-in explícito', () => {
+      const allowed = isCorsOriginAllowed({
+        origin: 'http://192.168.0.15:3000',
+        allowedOrigins: ['http://localhost:3000'],
+        isProduction: false,
+        allowPrivateNetworkDevOrigins: true,
       });
 
       expect(allowed).toBe(true);

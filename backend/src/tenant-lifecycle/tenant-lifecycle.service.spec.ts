@@ -128,7 +128,7 @@ describe('TenantLifecycleService', () => {
     };
     const savedEntities: Record<string, unknown>[] = [];
     const manager: TestTransactionManager = {
-      query: jest.fn(() => Promise.resolve(undefined)),
+      query: jest.fn((_sql: string) => Promise.resolve(undefined)),
       findOne: jest.fn((entity: unknown) => {
         if (entity === TenantOnboardingInvite) {
           return Promise.resolve(invite);

@@ -24,6 +24,7 @@ import {
   SecuritySeverity,
 } from '../common/security/security-audit.service';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 type SuspiciousReason =
@@ -141,11 +142,15 @@ export class PublicDdsValidationController {
       this.recordSuspiciousSignals(['legacy_without_token'], resolvedCompanyId);
       throw new BadRequestException('Token de validação ausente.');
     }
+    const normalizedToken = assertValidSignedToken(
+      token,
+      'Token de validação inválido.',
+    );
 
     let payload: { jti: string; code: string; companyId: string };
     try {
       payload = await this.publicValidationGrantService.assertActiveToken(
-        token.trim(),
+        normalizedToken,
         normalizedCode,
         'dds_public_validation',
       );

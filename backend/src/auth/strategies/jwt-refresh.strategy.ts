@@ -32,14 +32,27 @@ export class JwtRefreshStrategy extends PassportStrategy(
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([cookieExtractor]),
       ignoreExpiration: false,
+      algorithms: ['HS256'],
+      passReqToCallback: true,
       secretOrKey: jwtSecret,
     });
   }
 
-  async validate(payload: Record<string, unknown>, token: string) {
+  async validate(
+    request: RefreshCookieRequest,
+    payload: Record<string, unknown>,
+  ) {
+    const refreshToken = cookieExtractor(request);
+    if (!refreshToken) {
+      throw new UnauthorizedException();
+    }
+
     const normalized = normalizeAccessTokenClaims(payload);
     const client = this.redisService.getClient();
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const key = this.redisService.getRefreshTokenKey(
       normalized.userId,
       tokenHash,

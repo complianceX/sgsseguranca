@@ -4,6 +4,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 import { DossiersService } from './dossiers.service';
 
 @Controller('public/dossiers')
@@ -29,10 +30,14 @@ export class PublicDossiersController {
     if (!token || !token.trim()) {
       throw new BadRequestException('Token de validação ausente.');
     }
+    const normalizedToken = assertValidSignedToken(
+      token,
+      'Token de validação inválido.',
+    );
 
     try {
       const payload = await this.publicValidationGrantService.assertActiveToken(
-        token.trim(),
+        normalizedToken,
         normalizedCode,
         'dossier_public_validation',
       );

@@ -1,9 +1,17 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { SubmitPublicDdsSignatureDto } from './dto/dds-signature-invite.dto';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 import {
   DdsSignatureInviteService,
   PublicDdsSignatureContext,
@@ -35,7 +43,9 @@ export class PublicDdsSignatureController {
   getContext(
     @Param('token') token: string,
   ): Promise<PublicDdsSignatureContext> {
-    return this.signatureInviteService.getPublicContext(token);
+    return this.signatureInviteService.getPublicContext(
+      this.assertValidPublicToken(token),
+    );
   }
 
   @Post(':token')
@@ -50,16 +60,23 @@ export class PublicDdsSignatureController {
     @Body() dto: SubmitPublicDdsSignatureDto,
     @Req() req: Request,
   ): Promise<PublicDdsSignatureSubmitResult> {
-    return this.signatureInviteService.submitPublicSignature(token, {
+    return this.signatureInviteService.submitPublicSignature(
+      this.assertValidPublicToken(token),
+      {
       acceptedTerms: dto.accepted_terms,
       signatureData: dto.signature_data,
       ip: req.ip || req.socket.remoteAddress || null,
       userAgent: this.getRequestUserAgent(req),
-    });
+      },
+    );
   }
 
   private getRequestUserAgent(req: Request): string | null {
     const userAgent = req.get('user-agent');
     return typeof userAgent === 'string' && userAgent.trim() ? userAgent : null;
+  }
+
+  private assertValidPublicToken(rawToken: string): string {
+    return assertValidSignedToken(rawToken, 'Token de assinatura inválido.');
   }
 }
