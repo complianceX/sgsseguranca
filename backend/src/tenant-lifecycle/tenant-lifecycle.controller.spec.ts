@@ -7,35 +7,42 @@ import type { TenantLifecycleService } from './tenant-lifecycle.service';
 import type { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 describe('TenantLifecycleController security metadata', () => {
-  const getMetadata = <T = unknown>(
-    target: object,
-    propertyKey: string | symbol,
-  ): T | undefined =>
-    Reflect.getMetadata(GUARDS_METADATA, target, propertyKey) as T | undefined;
+  const getGuardsMetadata = (
+    propertyKey: keyof TenantLifecycleController,
+  ): unknown[] => {
+    const fromProperty = Reflect.getMetadata(
+      GUARDS_METADATA,
+      TenantLifecycleController.prototype,
+      propertyKey as string,
+    ) as unknown[] | undefined;
+    if (Array.isArray(fromProperty)) {
+      return fromProperty;
+    }
+
+    const method = (
+      TenantLifecycleController.prototype as unknown as Record<string, unknown>
+    )[propertyKey as string];
+    const fromMethod = Reflect.getMetadata(
+      GUARDS_METADATA,
+      method as object,
+    ) as unknown[] | undefined;
+
+    return Array.isArray(fromMethod) ? fromMethod : [];
+  };
 
   it('enforces RolesGuard on createInvite', () => {
-    const guards = getMetadata<unknown[]>(
-      TenantLifecycleController.prototype,
-      'createInvite',
-    );
+    const guards = getGuardsMetadata('createInvite');
 
-    expect(Array.isArray(guards)).toBe(true);
     expect(guards).toContain(PermissionsGuard);
     expect(guards).toContain(RolesGuard);
   });
 
   it('does not require RolesGuard on public onboarding routes', () => {
-    const getInviteGuards = getMetadata<unknown[]>(
-      TenantLifecycleController.prototype,
-      'getInvite',
-    );
-    const completeOnboardingGuards = getMetadata<unknown[]>(
-      TenantLifecycleController.prototype,
-      'completeOnboarding',
-    );
+    const getInviteGuards = getGuardsMetadata('getInvite');
+    const completeOnboardingGuards = getGuardsMetadata('completeOnboarding');
 
-    expect(getInviteGuards ?? []).not.toContain(RolesGuard);
-    expect(completeOnboardingGuards ?? []).not.toContain(RolesGuard);
+    expect(getInviteGuards).not.toContain(RolesGuard);
+    expect(completeOnboardingGuards).not.toContain(RolesGuard);
   });
 });
 
