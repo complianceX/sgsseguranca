@@ -80,6 +80,8 @@ describe('PublicDossiersController', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(publicValidationGrantService.assertActiveToken).not.toHaveBeenCalled();
+    expect(
+      publicValidationGrantService.assertActiveToken,
+    ).not.toHaveBeenCalled();
   });
 });

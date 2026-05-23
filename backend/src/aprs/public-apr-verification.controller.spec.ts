@@ -54,6 +54,8 @@ describe('PublicAprVerificationController', () => {
       controller.verify({ code: 'APR-AB12CD34', token: 'token-bruto' }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(publicValidationGrantService.assertActiveToken).not.toHaveBeenCalled();
+    expect(
+      publicValidationGrantService.assertActiveToken,
+    ).not.toHaveBeenCalled();
   });
 });

@@ -178,11 +178,14 @@ export class AprWorkflowConfigsController {
     const tenantId = this.getTenantIdOrThrow();
     await this.findOneScopedOrFail(id, tenantId);
 
-    await this.configRepo.update({ id, tenantId }, {
-      ...(dto.name !== undefined ? { name: dto.name } : {}),
-      ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
-      ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
-    });
+    await this.configRepo.update(
+      { id, tenantId },
+      {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+    );
 
     return this.findOneScopedOrFail(id, tenantId);
   }

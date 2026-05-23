@@ -74,7 +74,10 @@ export class AuthorizationContractGuard implements CanActivate {
     );
   }
 
-  private matchesGuard(guardRef: unknown, guardClass: Function): boolean {
+  private matchesGuard(
+    guardRef: unknown,
+    guardClass: abstract new (...args: never[]) => object,
+  ): boolean {
     if (guardRef === guardClass) {
       return true;
     }
@@ -84,7 +87,7 @@ export class AuthorizationContractGuard implements CanActivate {
       guardRef !== null &&
       'constructor' in guardRef
     ) {
-      return (guardRef as { constructor?: Function }).constructor === guardClass;
+      return (guardRef as { constructor?: object }).constructor === guardClass;
     }
 
     return false;

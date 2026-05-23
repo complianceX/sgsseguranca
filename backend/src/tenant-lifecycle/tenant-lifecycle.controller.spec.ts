@@ -7,11 +7,17 @@ import type { TenantLifecycleService } from './tenant-lifecycle.service';
 import type { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 describe('TenantLifecycleController security metadata', () => {
+  const getMetadata = <T = unknown>(
+    target: object,
+    propertyKey: string | symbol,
+  ): T | undefined =>
+    Reflect.getMetadata(GUARDS_METADATA, target, propertyKey) as T | undefined;
+
   it('enforces RolesGuard on createInvite', () => {
-    const guards = Reflect.getMetadata(
-      GUARDS_METADATA,
-      TenantLifecycleController.prototype.createInvite,
-    ) as unknown[] | undefined;
+    const guards = getMetadata<unknown[]>(
+      TenantLifecycleController.prototype,
+      'createInvite',
+    );
 
     expect(Array.isArray(guards)).toBe(true);
     expect(guards).toContain(PermissionsGuard);
@@ -19,14 +25,14 @@ describe('TenantLifecycleController security metadata', () => {
   });
 
   it('does not require RolesGuard on public onboarding routes', () => {
-    const getInviteGuards = Reflect.getMetadata(
-      GUARDS_METADATA,
-      TenantLifecycleController.prototype.getInvite,
-    ) as unknown[] | undefined;
-    const completeOnboardingGuards = Reflect.getMetadata(
-      GUARDS_METADATA,
-      TenantLifecycleController.prototype.completeOnboarding,
-    ) as unknown[] | undefined;
+    const getInviteGuards = getMetadata<unknown[]>(
+      TenantLifecycleController.prototype,
+      'getInvite',
+    );
+    const completeOnboardingGuards = getMetadata<unknown[]>(
+      TenantLifecycleController.prototype,
+      'completeOnboarding',
+    );
 
     expect(getInviteGuards ?? []).not.toContain(RolesGuard);
     expect(completeOnboardingGuards ?? []).not.toContain(RolesGuard);
@@ -50,12 +56,12 @@ describe('TenantLifecycleController token hardening', () => {
     );
   });
 
-  it('bloqueia token de onboarding malformado no GET público', async () => {
+  it('bloqueia token de onboarding malformado no GET público', () => {
     expect(() => controller.getInvite('token@@@')).toThrow(BadRequestException);
     expect(service.getInvitePublicView).not.toHaveBeenCalled();
   });
 
-  it('bloqueia token de onboarding malformado no POST público', async () => {
+  it('bloqueia token de onboarding malformado no POST público', () => {
     const payload = {} as CompleteOnboardingDto;
     expect(() => controller.completeOnboarding('token@@@', payload)).toThrow(
       BadRequestException,
@@ -82,7 +88,9 @@ describe('TenantLifecycleController token hardening', () => {
         email: 'admin@empresa.com',
       }),
     );
-    await expect(controller.completeOnboarding(token, payload)).resolves.toEqual(
+    await expect(
+      controller.completeOnboarding(token, payload),
+    ).resolves.toEqual(
       expect.objectContaining({
         company_id: 'company-1',
       }),

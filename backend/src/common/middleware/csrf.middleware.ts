@@ -22,8 +22,7 @@ export function isCsrfExemptPath(path: string): boolean {
   const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
   const versionlessPath = normalizedPath.replace(/^\/v\d+(?=\/)/, '');
   return CSRF_EXEMPT_PATH_PATTERNS.some(
-    (pattern) =>
-      pattern.test(normalizedPath) || pattern.test(versionlessPath),
+    (pattern) => pattern.test(normalizedPath) || pattern.test(versionlessPath),
   );
 }
 

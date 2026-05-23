@@ -39,14 +39,14 @@ describe('PublicDdsSignatureController', () => {
   });
 
   it('submete assinatura pública com token válido', async () => {
-    (signatureInviteService.submitPublicSignature as jest.Mock).mockResolvedValue(
-      {
-        signed: true,
-        signatureId: 'sig-1',
-        signatureHash: 'a'.repeat(64),
-        signedAt: new Date().toISOString(),
-      } as PublicDdsSignatureSubmitResult,
-    );
+    (
+      signatureInviteService.submitPublicSignature as jest.Mock
+    ).mockResolvedValue({
+      signed: true,
+      signatureId: 'sig-1',
+      signatureHash: 'a'.repeat(64),
+      signedAt: new Date().toISOString(),
+    } as PublicDdsSignatureSubmitResult);
     const req = {
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' },
@@ -70,7 +70,7 @@ describe('PublicDdsSignatureController', () => {
     );
   });
 
-  it('bloqueia token inválido antes de chamar o serviço', async () => {
+  it('bloqueia token inválido antes de chamar o serviço', () => {
     expect(() => controller.getContext('token-invalido')).toThrow(
       BadRequestException,
     );

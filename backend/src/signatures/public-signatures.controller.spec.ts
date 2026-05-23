@@ -52,7 +52,7 @@ describe('PublicSignaturesController', () => {
     });
   });
 
-  it('bloqueia hash inválido antes de consultar o serviço', async () => {
+  it('bloqueia hash inválido antes de consultar o serviço', () => {
     expect(() => controller.verify('abc')).toThrow(BadRequestException);
     expect(signaturesService.verifyByHashPublic).not.toHaveBeenCalled();
   });

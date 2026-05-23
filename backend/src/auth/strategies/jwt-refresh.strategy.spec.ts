@@ -40,9 +40,9 @@ describe('JwtRefreshStrategy', () => {
   it('bloqueia refresh quando cookie refresh_token está ausente', async () => {
     const { strategy, redisClient } = buildStrategy();
 
-    await expect(strategy.validate({}, { sub: 'user-1' })).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      strategy.validate({}, { sub: 'user-1' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(redisClient.get).not.toHaveBeenCalled();
   });
 

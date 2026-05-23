@@ -1,4 +1,10 @@
-import { BadRequestException, Controller, Get, Query, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  Logger,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { SignaturesService } from './signatures.service';
