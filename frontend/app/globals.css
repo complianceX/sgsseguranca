@@ -1364,7 +1364,7 @@ html[data-theme="light"] {
 
   /* APR/PT print tables — manter fundo branco para impressão */
   .apr-sheet thead th {
-    border: 1px solid #0F1923 !important;
+    border: 1px solid var(--brand-title) !important;
     font-size: 0.78rem;
     letter-spacing: 0.02em;
     padding-top: 0.55rem !important;
@@ -1372,19 +1372,19 @@ html[data-theme="light"] {
   }
 
   .apr-sheet tbody td {
-    border: 1px solid #1f2937 !important;
-    background: #ffffff !important;
+    border: 1px solid var(--brand-text-secondary) !important;
+    background: var(--brand-card) !important;
     vertical-align: top;
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
   }
 
   .apr-sheet tbody tr:nth-child(even) td {
-    background: #f8fafc !important;
+    background: color-mix(in srgb, var(--brand-card) 94%, var(--brand-background) 6%) !important;
   }
 
   .apr-sheet tbody tr:hover td {
-    background: #e2e8f0 !important;
+    background: color-mix(in srgb, var(--brand-card) 72%, var(--brand-border-default) 28%) !important;
   }
 
   .apr-tech-table thead th {
