@@ -157,8 +157,14 @@ export class NotificationsService {
   }
 
   async findAll(userId: string, companyId: string, page = 1, limit = 20) {
-    const { page: safePage, limit: safeLimit, skip } =
-      normalizeOffsetPagination({ page, limit }, { defaultLimit: 20, maxLimit: 100 });
+    const {
+      page: safePage,
+      limit: safeLimit,
+      skip,
+    } = normalizeOffsetPagination(
+      { page, limit },
+      { defaultLimit: 20, maxLimit: 100 },
+    );
     const [items, total] = await this.tenantService.run(
       { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
       () =>

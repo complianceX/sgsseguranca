@@ -11,9 +11,7 @@ describe('token-shape.util', () => {
   });
 
   it('rejeita token base64url curto', () => {
-    expect(() => assertValidBase64UrlToken('abc')).toThrow(
-      BadRequestException,
-    );
+    expect(() => assertValidBase64UrlToken('abc')).toThrow(BadRequestException);
   });
 
   it('rejeita token base64url com caracteres inválidos', () => {

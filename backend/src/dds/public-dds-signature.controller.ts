@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
@@ -63,10 +56,10 @@ export class PublicDdsSignatureController {
     return this.signatureInviteService.submitPublicSignature(
       this.assertValidPublicToken(token),
       {
-      acceptedTerms: dto.accepted_terms,
-      signatureData: dto.signature_data,
-      ip: req.ip || req.socket.remoteAddress || null,
-      userAgent: this.getRequestUserAgent(req),
+        acceptedTerms: dto.accepted_terms,
+        signatureData: dto.signature_data,
+        ip: req.ip || req.socket.remoteAddress || null,
+        userAgent: this.getRequestUserAgent(req),
       },
     );
   }

@@ -11,24 +11,47 @@ describe('AprWorkflowConfigsController', () => {
 
   function buildController(siteExists = true) {
     const siteRepo = {
-      exist: jest.fn().mockResolvedValue(siteExists),
+      exist: jest.fn<
+        Promise<boolean>,
+        [{ where: { id: string; company_id: string } }]
+      >(),
     };
+    siteRepo.exist.mockResolvedValue(siteExists);
+
     const configScopedRepo = {
-      create: jest.fn((input) => input),
-      save: jest.fn(async (input) => ({ id: configId, ...input })),
-      findOne: jest.fn().mockResolvedValue(null),
-      findOneOrFail: jest.fn().mockResolvedValue({
-        id: configId,
-        tenantId,
-        siteId,
-        name: 'Workflow APR',
-        steps: [],
-      }),
+      create: jest.fn<AprWorkflowConfig, [Partial<AprWorkflowConfig>]>(
+        (input) => ({ ...input }) as AprWorkflowConfig,
+      ),
+      save: jest.fn<Promise<AprWorkflowConfig>, [Partial<AprWorkflowConfig>]>(
+        (input) =>
+          Promise.resolve({ id: configId, ...input } as AprWorkflowConfig),
+      ),
+      findOne: jest.fn<Promise<AprWorkflowConfig | null>, [unknown]>(),
+      findOneOrFail: jest.fn<Promise<AprWorkflowConfig>, [unknown]>(),
     };
+    configScopedRepo.findOne.mockResolvedValue(null);
+    configScopedRepo.findOneOrFail.mockResolvedValue({
+      id: configId,
+      tenantId,
+      siteId,
+      activityType: 'APR',
+      criticality: 'ALTA',
+      name: 'Workflow APR',
+      isDefault: true,
+      isActive: true,
+      createdAt: new Date('2026-05-23T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-23T00:00:00.000Z'),
+      steps: [],
+    } as AprWorkflowConfig);
+
     const stepRepo = {
-      create: jest.fn((input) => input),
-      save: jest.fn(async (input) => input),
-      delete: jest.fn(async () => undefined),
+      create: jest.fn<AprWorkflowStep, [Partial<AprWorkflowStep>]>(
+        (input) => ({ ...input }) as AprWorkflowStep,
+      ),
+      save: jest.fn<Promise<AprWorkflowStep[]>, [AprWorkflowStep[]]>((input) =>
+        Promise.resolve(input),
+      ),
+      delete: jest.fn<Promise<void>, [unknown]>(() => Promise.resolve()),
     };
     const manager = {
       getRepository: jest.fn((entity: { name?: string }) => {
@@ -41,14 +64,18 @@ describe('AprWorkflowConfigsController', () => {
     const entityManager = {
       getRepository: manager.getRepository,
       transaction: jest.fn(
-        async (callback: (manager: typeof manager) => unknown) =>
-          callback(manager),
+        (callback: (repoManager: typeof manager) => unknown) =>
+          Promise.resolve(callback(manager)),
       ),
     };
     const configRepo = {
       manager: entityManager,
-      update: jest.fn(async () => undefined),
-      find: jest.fn().mockResolvedValue([]),
+      update: jest.fn<Promise<void>, [unknown, unknown]>(() =>
+        Promise.resolve(),
+      ),
+      find: jest
+        .fn<Promise<AprWorkflowConfig[]>, [unknown]>()
+        .mockResolvedValue([]),
     };
     const tenantService = {
       getTenantId: jest.fn(() => tenantId),
@@ -67,7 +94,8 @@ describe('AprWorkflowConfigsController', () => {
   }
 
   it('usa o tenant autenticado e ignora tenantId enviado pelo cliente', async () => {
-    const { controller, configScopedRepo, siteRepo, stepRepo } = buildController();
+    const { controller, configScopedRepo, siteRepo, stepRepo } =
+      buildController();
 
     const result = await controller.create({
       tenantId: '99999999-9999-4999-8999-999999999999',
@@ -128,6 +156,14 @@ describe('AprWorkflowConfigsController', () => {
     configScopedRepo.findOne.mockResolvedValue({
       id: configId,
       tenantId,
+      siteId,
+      activityType: 'APR',
+      criticality: 'ALTA',
+      name: 'Workflow APR',
+      isDefault: true,
+      isActive: true,
+      createdAt: new Date('2026-05-23T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-23T00:00:00.000Z'),
       steps: [],
     });
 

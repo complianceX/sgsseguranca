@@ -66,11 +66,13 @@ describe('DocumentDownloadController', () => {
   });
 
   it('bloqueia token inválido ou já consumido', async () => {
-    const consumeToken = jest.fn().mockRejectedValue(
-      new ForbiddenException(
-        'Token de download inválido, expirado ou já consumido.',
-      ),
-    );
+    const consumeToken = jest
+      .fn()
+      .mockRejectedValue(
+        new ForbiddenException(
+          'Token de download inválido, expirado ou já consumido.',
+        ),
+      );
     const moduleRef = await Test.createTestingModule({
       controllers: [DocumentDownloadController],
       providers: [
@@ -94,7 +96,9 @@ describe('DocumentDownloadController', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const response = await httpRequest(app).get('/storage/download/aaa.bbb.ccc');
+    const response = await httpRequest(app).get(
+      '/storage/download/aaa.bbb.ccc',
+    );
 
     expect(response.status).toBe(403);
     expect(mockSecurityAudit.bruteForceBlocked).toHaveBeenCalled();
@@ -128,7 +132,9 @@ describe('DocumentDownloadController', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const response = await httpRequest(app).get('/storage/download/token-bruto');
+    const response = await httpRequest(app).get(
+      '/storage/download/token-bruto',
+    );
 
     expect(response.status).toBe(403);
     expect(consumeToken).not.toHaveBeenCalled();
