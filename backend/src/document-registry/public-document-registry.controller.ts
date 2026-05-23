@@ -5,6 +5,7 @@ import { DocumentRegistryService } from './document-registry.service';
 import { Throttle } from '@nestjs/throttler';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 
 const DOCUMENT_REGISTRY_VALIDATION_PORTALS = [
   'document_public_validation',
@@ -35,10 +36,14 @@ export class PublicDocumentRegistryController {
     if (!token || !token.trim()) {
       throw new BadRequestException('Token de validação ausente.');
     }
+    const normalizedToken = assertValidSignedToken(
+      token,
+      'Token de validação inválido.',
+    );
 
     try {
       const payload = await this.publicValidationGrantService.assertActiveToken(
-        token.trim(),
+        normalizedToken,
         normalizedCode,
         DOCUMENT_REGISTRY_VALIDATION_PORTALS,
       );

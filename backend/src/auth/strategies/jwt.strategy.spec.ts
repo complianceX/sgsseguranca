@@ -91,4 +91,12 @@ describe('JwtStrategy', () => {
 
     expect(authPrincipalService.resolveAccessPrincipal).not.toHaveBeenCalled();
   });
+
+  it('restringe a verificação JWT ao algoritmo HS256', () => {
+    const { strategy } = buildStrategy();
+    const verifyOptions = (strategy as unknown as { _verifOpts?: unknown })
+      ._verifOpts as { algorithms?: string[] } | undefined;
+
+    expect(verifyOptions?.algorithms).toEqual(['HS256']);
+  });
 });

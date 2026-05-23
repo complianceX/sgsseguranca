@@ -40,7 +40,8 @@ export class User {
   @Column({ type: 'text', nullable: true, select: false })
   cpf_ciphertext?: string | null;
 
-  @Column({ unique: true, nullable: true })
+  // A unicidade real é garantida por índice parcial por empresa na migration.
+  @Column({ nullable: true })
   email: string;
 
   @Column({ type: 'varchar', nullable: true })

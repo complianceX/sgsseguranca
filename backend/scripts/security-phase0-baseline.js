@@ -20,13 +20,16 @@ const sensitiveRoutes = [
   'GET /health',
 ];
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const flags = {
   PUBLIC_VALIDATION_LEGACY_COMPAT:
     process.env.PUBLIC_VALIDATION_LEGACY_COMPAT || 'false',
   PUBLIC_VALIDATION_LOG_CONTRACT_USAGE:
     process.env.PUBLIC_VALIDATION_LOG_CONTRACT_USAGE || 'true',
-  REFRESH_CSRF_ENFORCED: process.env.REFRESH_CSRF_ENFORCED || 'false',
-  REFRESH_CSRF_REPORT_ONLY: process.env.REFRESH_CSRF_REPORT_ONLY || 'true',
+  REFRESH_CSRF_ENFORCED:
+    process.env.REFRESH_CSRF_ENFORCED || (isProduction ? 'true' : 'false'),
+  REFRESH_CSRF_REPORT_ONLY: process.env.REFRESH_CSRF_REPORT_ONLY || 'false',
   REFRESH_THROTTLE_LIMIT: process.env.REFRESH_THROTTLE_LIMIT || 'default(5/20)',
   REFRESH_THROTTLE_TTL: process.env.REFRESH_THROTTLE_TTL || 'default(60000)',
   SECURITY_HARDENING_PHASE: process.env.SECURITY_HARDENING_PHASE || 'unset',

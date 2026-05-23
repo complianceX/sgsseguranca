@@ -16,21 +16,25 @@ const httpRequest = (app: INestApplication) =>
   request(app.getHttpServer() as unknown as Server);
 
 describe('DocumentDownloadController', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('entrega o documento como attachment e sem cache', async () => {
+    const consumeToken = jest.fn().mockResolvedValue({
+      id: 'grant-1',
+      file_key: 'documents/company-1/apr/final.pdf',
+      original_name: 'APR Final.pdf',
+      content_type: 'application/pdf',
+      issued_for_user_id: 'user-123',
+    });
+
     const moduleRef = await Test.createTestingModule({
       controllers: [DocumentDownloadController],
       providers: [
         {
           provide: DocumentDownloadGrantService,
-          useValue: {
-            consumeToken: jest.fn().mockResolvedValue({
-              id: 'grant-1',
-              file_key: 'documents/company-1/apr/final.pdf',
-              original_name: 'APR Final.pdf',
-              content_type: 'application/pdf',
-              issued_for_user_id: 'user-123',
-            }),
-          },
+          useValue: { consumeToken },
         },
         {
           provide: DocumentStorageService,
@@ -50,7 +54,7 @@ describe('DocumentDownloadController', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const response = await httpRequest(app).get('/storage/download/token-abc');
+    const response = await httpRequest(app).get('/storage/download/a.b.c');
 
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toContain('no-store');
@@ -62,20 +66,19 @@ describe('DocumentDownloadController', () => {
   });
 
   it('bloqueia token inválido ou já consumido', async () => {
+    const consumeToken = jest
+      .fn()
+      .mockRejectedValue(
+        new ForbiddenException(
+          'Token de download inválido, expirado ou já consumido.',
+        ),
+      );
     const moduleRef = await Test.createTestingModule({
       controllers: [DocumentDownloadController],
       providers: [
         {
           provide: DocumentDownloadGrantService,
-          useValue: {
-            consumeToken: jest
-              .fn()
-              .mockRejectedValue(
-                new ForbiddenException(
-                  'Token de download inválido, expirado ou já consumido.',
-                ),
-              ),
-          },
+          useValue: { consumeToken },
         },
         {
           provide: DocumentStorageService,
@@ -94,11 +97,51 @@ describe('DocumentDownloadController', () => {
     await app.init();
 
     const response = await httpRequest(app).get(
-      '/storage/download/token-invalido',
+      '/storage/download/aaa.bbb.ccc',
     );
 
     expect(response.status).toBe(403);
     expect(mockSecurityAudit.bruteForceBlocked).toHaveBeenCalled();
+    expect(consumeToken).toHaveBeenCalledTimes(1);
+
+    await app.close();
+  });
+
+  it('bloqueia token com formato inválido antes de consumir grant', async () => {
+    const consumeToken = jest.fn();
+    const moduleRef = await Test.createTestingModule({
+      controllers: [DocumentDownloadController],
+      providers: [
+        {
+          provide: DocumentDownloadGrantService,
+          useValue: { consumeToken },
+        },
+        {
+          provide: DocumentStorageService,
+          useValue: {
+            downloadFileBuffer: jest.fn(),
+          },
+        },
+        {
+          provide: SecurityAuditService,
+          useValue: mockSecurityAudit,
+        },
+      ],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    const response = await httpRequest(app).get(
+      '/storage/download/token-bruto',
+    );
+
+    expect(response.status).toBe(403);
+    expect(consumeToken).not.toHaveBeenCalled();
+    expect(mockSecurityAudit.bruteForceBlocked).toHaveBeenCalledWith(
+      expect.anything(),
+      'token_format:invalid',
+    );
 
     await app.close();
   });

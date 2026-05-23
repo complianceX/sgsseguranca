@@ -208,23 +208,23 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       aria-label="Painel do chat da SOPHIE"
       className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(40rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--component-chat-shell-bg)] shadow-[var(--ds-shadow-lg)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-auto sm:right-6 sm:w-[430px]"
     >
-      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-strong)] bg-[var(--component-chat-header-bg)] px-4 py-3 text-white">
+      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-strong)] bg-[var(--component-chat-header-bg)] px-4 py-3 text-[var(--ds-color-action-primary-foreground)]">
         <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/16 bg-white/12 text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-surface-base)]/12 text-[var(--ds-color-action-primary-foreground)]">
             <ContextIcon className="h-4.5 w-4.5" />
           </div>
           <div>
             <h3 className="text-sm font-bold">{context.title}</h3>
             <div className="flex items-center space-x-1">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--ds-color-accent)] animate-pulse"></span>
-              <span className="text-[10px] text-white/88">{context.subtitle}</span>
+              <span className="text-[10px] text-[color:var(--ds-color-action-primary-foreground)]/88">{context.subtitle}</span>
             </div>
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-1 transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--component-chat-header-bg)]"
+          className="rounded-full p-1 transition-colors hover:bg-[color:var(--ds-color-surface-base)]/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary-foreground)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--component-chat-header-bg)]"
           title="Fechar chat"
           aria-label="Fechar chat"
         >

@@ -330,7 +330,7 @@ describe('RolesGuard', () => {
       expect(loggerWarnSpy).not.toHaveBeenCalled();
     });
 
-    it('allows TST when route requires Admin Empresa', async () => {
+    it('blocks TST when route requires Admin Empresa', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
         Role.ADMIN_EMPRESA,
       ]);
@@ -344,13 +344,17 @@ describe('RolesGuard', () => {
         },
       });
 
-      const result = await guard.canActivate(mockExecutionContext);
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.TST],
+        permissions: ['can_view_dashboard'],
+      });
 
-      expect(result).toBe(true);
-      expect(loggerWarnSpy).not.toHaveBeenCalled();
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        new ForbiddenException('Função insuficiente para esta operação'),
+      );
     });
 
-    it('allows legacy Técnico profile as TST for company-scoped routes', async () => {
+    it('blocks legacy Técnico profile when route requires Admin Empresa', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
         Role.ADMIN_EMPRESA,
       ]);
@@ -364,13 +368,17 @@ describe('RolesGuard', () => {
         },
       });
 
-      const result = await guard.canActivate(mockExecutionContext);
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.TST],
+        permissions: ['can_view_dashboard'],
+      });
 
-      expect(result).toBe(true);
-      expect(loggerWarnSpy).not.toHaveBeenCalled();
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        new ForbiddenException('Função insuficiente para esta operação'),
+      );
     });
 
-    it('allows Supervisor when route requires TST', async () => {
+    it('blocks Supervisor when route requires TST', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.TST]);
 
       (
@@ -382,10 +390,14 @@ describe('RolesGuard', () => {
         },
       });
 
-      const result = await guard.canActivate(mockExecutionContext);
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.SUPERVISOR],
+        permissions: ['can_view_dashboard'],
+      });
 
-      expect(result).toBe(true);
-      expect(loggerWarnSpy).not.toHaveBeenCalled();
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        new ForbiddenException('Função insuficiente para esta operação'),
+      );
     });
 
     it('keeps Admin Geral routes exclusive', async () => {

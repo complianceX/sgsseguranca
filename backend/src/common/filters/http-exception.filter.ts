@@ -80,21 +80,33 @@ export class AllExceptionsFilter implements ExceptionFilter {
         details = undefined;
       }
     } else if (exception instanceof QueryFailedError) {
-      status = HttpStatus.BAD_REQUEST;
-      code = 'DATABASE_ERROR';
+      const dbError = exception as Error & { code?: string };
+
+      if (dbError.code === '23505') {
+        status = HttpStatus.CONFLICT;
+        code = 'DUPLICATE_ENTRY';
+      } else if (dbError.code === '23503' || dbError.code === '23514') {
+        status = HttpStatus.UNPROCESSABLE_ENTITY;
+        code =
+          dbError.code === '23503'
+            ? 'FOREIGN_KEY_VIOLATION'
+            : 'CHECK_CONSTRAINT_VIOLATION';
+      } else {
+        status = HttpStatus.BAD_REQUEST;
+        code = 'DATABASE_ERROR';
+      }
 
       // Em produção: mensagem genérica para não revelar estrutura do banco.
       // Em desenvolvimento: mensagem específica para facilitar depuração.
       if (isProduction) {
         message = 'Erro ao processar dados. Tente novamente.';
       } else {
-        const dbError = exception as Error & { code?: string };
         if (dbError.code === '23505') {
           message = 'Registro duplicado';
-          code = 'DUPLICATE_ENTRY';
         } else if (dbError.code === '23503') {
           message = 'Violação de chave estrangeira';
-          code = 'FOREIGN_KEY_VIOLATION';
+        } else if (dbError.code === '23514') {
+          message = 'Violação de regra de negócio';
         } else {
           message = 'Erro ao processar consulta no banco de dados';
         }
@@ -196,6 +208,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (status === 403) return 'FORBIDDEN';
     if (status === 404) return 'NOT_FOUND';
     if (status === 409) return 'CONFLICT';
+    if (status === 422) return 'UNPROCESSABLE_ENTITY';
     if (status === 429) return 'TOO_MANY_REQUESTS';
     if (status >= 500) {
       return 'INTERNAL_SERVER_ERROR';

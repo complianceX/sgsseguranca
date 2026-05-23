@@ -67,6 +67,7 @@ export function isCorsOriginAllowed(options: {
   origin?: string;
   allowedOrigins: string[];
   isProduction: boolean;
+  allowPrivateNetworkDevOrigins?: boolean;
 }): boolean {
   const origin = options.origin?.trim();
   if (!origin || origin === 'null') {
@@ -77,5 +78,13 @@ export function isCorsOriginAllowed(options: {
     return true;
   }
 
-  return !options.isProduction && isDevNetworkOrigin(origin);
+  if (options.isProduction) {
+    return false;
+  }
+
+  if (!options.allowPrivateNetworkDevOrigins) {
+    return false;
+  }
+
+  return isDevNetworkOrigin(origin);
 }
