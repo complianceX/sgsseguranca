@@ -286,6 +286,18 @@ async function bootstrap() {
   app.use(securityHeadersMiddleware);
   app.use(cookieParser());
 
+  // robots.txt explícito para o domínio da API.
+  // Evita fallback/404 gerenciado por edge sem headers de hardening e reduz
+  // superfície de indexação indevida do subdomínio de API.
+  httpAdapterInstance.get?.('/robots.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=86400, stale-while-revalidate=3600',
+    );
+    res.send('User-agent: *\nDisallow: /\n');
+  });
+
   app.use(json({ limit: '2mb' }));
   app.use(urlencoded({ extended: true, limit: '2mb' }));
 

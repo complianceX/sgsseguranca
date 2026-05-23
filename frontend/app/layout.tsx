@@ -1,15 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import { DevCacheReset } from "@/components/DevCacheReset";
-
-type CSSVariableProperties = CSSProperties & Record<`--${string}`, string>;
-
-const FONT_VARIABLES: CSSVariableProperties = {
-  "--font-dm-sans": "var(--font-sans)",
-  "--font-syne": "var(--font-sans)",
-};
 
 /**
  * Inline script para inicialização do tema antes do hydration do React.
@@ -120,7 +113,6 @@ export default async function RootLayout({
       lang="pt-BR"
       data-theme="light"
       className="theme-light"
-      style={FONT_VARIABLES}
       suppressHydrationWarning
     >
       <body
