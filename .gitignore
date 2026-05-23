@@ -92,3 +92,14 @@ backend/test/load/fixtures/*.generated*.json
 osv-scan.json
 .vercel
 .aider*
+
+# Arquivos locais do agente (não versionar)
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+
+# Artefatos locais de segurança
+output/security/
