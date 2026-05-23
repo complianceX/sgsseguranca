@@ -3,6 +3,7 @@ import { AprWorkflowConfigsController } from './apr-workflow-configs.controller'
 import { AprWorkflowConfig } from '../entities/apr-workflow-config.entity';
 import { AprWorkflowStep } from '../entities/apr-workflow-step.entity';
 import { Site } from '../../sites/entities/site.entity';
+import { WorkflowCriticality } from '../entities/apr-workflow-config.entity';
 
 describe('AprWorkflowConfigsController', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -35,7 +36,7 @@ describe('AprWorkflowConfigsController', () => {
       tenantId,
       siteId,
       activityType: 'APR',
-      criticality: 'ALTA',
+      criticality: WorkflowCriticality.ALTA,
       name: 'Workflow APR',
       isDefault: true,
       isActive: true,
@@ -101,7 +102,7 @@ describe('AprWorkflowConfigsController', () => {
       tenantId: '99999999-9999-4999-8999-999999999999',
       siteId,
       activityType: 'APR',
-      criticality: 'ALTA',
+      criticality: WorkflowCriticality.ALTA,
       name: 'Workflow APR',
       isDefault: true,
       steps: [
@@ -123,7 +124,7 @@ describe('AprWorkflowConfigsController', () => {
         tenantId,
         siteId,
         activityType: 'APR',
-        criticality: 'ALTA',
+        criticality: WorkflowCriticality.ALTA,
         name: 'Workflow APR',
         isDefault: true,
         isActive: true,
@@ -158,7 +159,7 @@ describe('AprWorkflowConfigsController', () => {
       tenantId,
       siteId,
       activityType: 'APR',
-      criticality: 'ALTA',
+      criticality: WorkflowCriticality.ALTA,
       name: 'Workflow APR',
       isDefault: true,
       isActive: true,
