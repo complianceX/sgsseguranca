@@ -265,7 +265,7 @@ export default function SitesPage() {
       </ListPageLayout>
 
       {qrSiteId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--component-overlay)] p-4">
           <Card tone="elevated" padding="lg" className="w-full max-w-md">
             <CardHeader className="flex-row items-center justify-between">
               <div className="space-y-1">
@@ -290,7 +290,6 @@ export default function SitesPage() {
     </>
   );
 }
-
 
 
 

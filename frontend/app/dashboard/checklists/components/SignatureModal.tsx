@@ -32,7 +32,7 @@ const timerRef = useRef<number | undefined>(undefined);
   const [newPin, setNewPin] = useState('');
   const [settingPin, setSettingPin] = useState(false);
   const [pinPassword, setPinPassword] = useState('');
-  const signatureInk = readThemeVar('--ds-accent-primary', '#1D5B8D');
+  const signatureInk = readThemeVar('--ds-accent-primary', 'CanvasText');
 
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);

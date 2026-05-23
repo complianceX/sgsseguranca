@@ -540,7 +540,7 @@ export const ExecutionItem = React.memo(
                 <button
                   type="button"
                   onClick={() => handleRemovePhoto(photoIndex)}
-                  className="absolute right-1 top-1 rounded-full bg-black/70 px-1 text-[10px] font-semibold text-white"
+                  className="absolute right-1 top-1 rounded-full bg-[color:var(--component-overlay)] px-1 text-[10px] font-semibold text-[var(--ds-color-text-inverse)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)]"
                   aria-label={`Remover foto ${photoIndex + 1}`}
                 >
                   ×
