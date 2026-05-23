@@ -1,0 +1,80 @@
+name: Incident report
+description: Reporte incidente de producao com severidade, impacto e timeline
+labels: ["incident", "triage", "needs-investigation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este template para incidentes em producao.
+        Nao inclua PII bruta. Redija logs e payloads sensiveis.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severidade
+      options:
+        - S0 - indisponibilidade total / risco critico
+        - S1 - degradacao severa com impacto alto
+        - S2 - impacto moderado / workaround disponivel
+        - S3 - baixo impacto
+    validations:
+      required: true
+  - type: dropdown
+    id: affected_surface
+    attributes:
+      label: Superficie afetada
+      options:
+        - Backend web (Render)
+        - Backend worker (Render)
+        - Frontend (Vercel)
+        - Banco (Neon/Postgres)
+        - Redis/Filas
+        - Storage/Assinaturas
+        - Integracoes externas
+    validations:
+      required: true
+  - type: input
+    id: started_at
+    attributes:
+      label: Inicio do incidente (America/Sao_Paulo)
+      placeholder: "2026-05-23 08:15"
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impacto de negocio
+      description: Quem foi impactado e como (tenant/site/modulo/funcionalidade)
+    validations:
+      required: true
+  - type: textarea
+    id: symptoms
+    attributes:
+      label: Sintomas observados
+      placeholder: |
+        - Erro visto pelo usuario
+        - Endpoint(s) afetado(s)
+        - Status code
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencias tecnicas
+      description: requestId, traceId, deploy IDs (Render/Vercel), timestamps, links de dashboard
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigacao aplicada
+      description: O que foi feito para conter o impacto
+    validations:
+      required: false
+  - type: textarea
+    id: next_steps
+    attributes:
+      label: Proximos passos
+      description: acao corretiva definitiva e prevencao de recorrencia
+    validations:
+      required: true
+
