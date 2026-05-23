@@ -34,6 +34,8 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { DispatchAlertsDto } from './dto/dispatch-alerts.dto';
 import { UpdateAlertSettingsDto } from './dto/update-alert-settings.dto';
+import { SendStoredDocumentDto } from './dto/send-stored-document.dto';
+import { SendUploadedDocumentDto } from './dto/send-uploaded-document.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -222,7 +224,7 @@ export class MailController {
   @Authorize('can_manage_mail')
   @RequestTimeout(resolveMailRequestTimeoutMs())
   async sendStoredDocument(
-    @Body() body: { documentId: string; documentType: string; email: string },
+    @Body() body: SendStoredDocumentDto,
     @Request() req: RequestWithUser,
   ): Promise<DocumentMailDispatchResponseDto> {
     const { documentId, documentType, email } = body;
@@ -313,7 +315,7 @@ export class MailController {
   )
   async sendUploadedDocument(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { email: string; subject?: string; docName?: string },
+    @Body() body: SendUploadedDocumentDto,
     @Request() req: RequestWithUser,
   ): Promise<DocumentMailDispatchResponseDto> {
     const email = body.email?.trim();

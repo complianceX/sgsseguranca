@@ -214,10 +214,6 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const companyScopedRoles = [Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR];
-    return (
-      companyScopedRoles.includes(userRole) &&
-      requiredRoles.some((role) => companyScopedRoles.includes(role))
-    );
+    return false;
   }
 }

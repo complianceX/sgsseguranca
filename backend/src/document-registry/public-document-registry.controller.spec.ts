@@ -46,7 +46,7 @@ describe('PublicDocumentRegistryController', () => {
     await expect(
       controller.validateByCode({
         code: 'PT-2026-11-ABCD1234',
-        token: 'token-valido',
+        token: 'aaa.bbb.ccc',
       }),
     ).resolves.toEqual({
       valid: true,
@@ -68,12 +68,23 @@ describe('PublicDocumentRegistryController', () => {
     await expect(
       controller.validateByCode({
         code: 'PT-2026-11-ABCD1234',
-        token: 'token-invalido',
+        token: 'aaa.bbb.ccc',
       }),
     ).resolves.toEqual({
       valid: false,
       code: 'PT-2026-11-ABCD1234',
       message: 'Código inválido ou expirado.',
     });
+  });
+
+  it('rejeita token malformado antes de consultar grant', async () => {
+    await expect(
+      controller.validateByCode({
+        code: 'PT-2026-11-ABCD1234',
+        token: 'token-bruto',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(publicValidationGrantService.assertActiveToken).not.toHaveBeenCalled();
   });
 });

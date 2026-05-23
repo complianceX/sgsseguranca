@@ -344,6 +344,9 @@ async function bootstrap() {
   });
 
   const isProduction = isProductionEnv;
+  const allowPrivateNetworkDevOrigins = /^true$/i.test(
+    process.env.CORS_ALLOW_PRIVATE_NETWORK_DEV || '',
+  );
   const allowedOrigins = resolveAllowedCorsOrigins({
     isProduction,
     configuredOriginsRaw: process.env.CORS_ALLOWED_ORIGINS,
@@ -358,6 +361,7 @@ async function bootstrap() {
         origin,
         allowedOrigins,
         isProduction,
+        allowPrivateNetworkDevOrigins,
       });
       if (isAllowed) {
         return callback(null, true);

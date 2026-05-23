@@ -60,6 +60,11 @@ import {
   normalizeOriginValue,
   resolveAllowedCorsOrigins,
 } from '../common/security/cors-origins';
+import {
+  isLikelySignedToken,
+  normalizeSignedToken,
+} from '../common/security/signed-token.util';
+import { assertValidHexToken } from '../common/security/token-shape.util';
 import { profileStage } from '../common/observability/perf-stage.util';
 import { AuthzOptional } from './authz-optional.decorator';
 import { MfaService } from './services/mfa.service';
@@ -320,12 +325,16 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token não encontrado');
     }
+    const normalizedRefreshToken = normalizeSignedToken(refreshToken);
+    if (!isLikelySignedToken(normalizedRefreshToken)) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
     const result = await profileStage({
       logger: this.logger,
       route: '/auth/refresh',
       stage: 'refresh_session',
       run: () =>
-        this.authService.refresh(refreshToken, {
+        this.authService.refresh(normalizedRefreshToken, {
           userAgent: String(req.headers['user-agent'] || ''),
           ip: getRequestIp(req) ?? undefined,
         }),
@@ -360,14 +369,18 @@ export class AuthController {
     const refreshToken = (req.cookies as Record<string, string>)[
       'refresh_token'
     ];
+    const candidateRefreshToken = normalizeSignedToken(refreshToken);
+    const normalizedRefreshToken = isLikelySignedToken(candidateRefreshToken)
+      ? candidateRefreshToken
+      : undefined;
     // Extrair o access token do header Authorization para adicioná-lo à blacklist.
     const authHeader = req.headers['authorization'] ?? '';
     const accessToken = authHeader.startsWith('Bearer ')
       ? authHeader.slice(7)
       : undefined;
 
-    if (refreshToken || accessToken) {
-      await this.authService.logout(refreshToken ?? '', accessToken);
+    if (normalizedRefreshToken || accessToken) {
+      await this.authService.logout(normalizedRefreshToken ?? '', accessToken);
     }
     this.securityAudit.logout(
       (req as AuthenticatedRequest).user?.userId,
@@ -531,7 +544,14 @@ export class AuthController {
   })
   @Post('reset-password')
   async resetPassword(@Body() body: ResetPasswordDto) {
-    return await this.authService.resetPassword(body.token, body.newPassword);
+    return await this.authService.resetPassword(
+      assertValidHexToken(
+        body.token,
+        64,
+        'Token de redefinição inválido ou expirado.',
+      ),
+      body.newPassword,
+    );
   }
 
   @TenantOptional()

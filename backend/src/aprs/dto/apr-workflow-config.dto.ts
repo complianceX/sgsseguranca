@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -38,10 +39,6 @@ export class CreateWorkflowStepDto {
 export class CreateWorkflowConfigDto {
   @IsUUID()
   @IsOptional()
-  tenantId?: string | null;
-
-  @IsUUID()
-  @IsOptional()
   siteId?: string | null;
 
   @IsString()
@@ -54,6 +51,7 @@ export class CreateWorkflowConfigDto {
   criticality?: WorkflowCriticality | null;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   name: string;
 

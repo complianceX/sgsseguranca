@@ -90,7 +90,7 @@ describe('PublicDdsValidationController', () => {
 
     await expect(
       controller.validateByCode(
-        { code: 'DDS-2026-ABCD1234', token: 'token-valido' },
+        { code: 'DDS-2026-ABCD1234', token: 'aaa.bbb.ccc' },
         makeRequest(),
       ),
     ).resolves.toEqual({
@@ -136,7 +136,7 @@ describe('PublicDdsValidationController', () => {
 
     await expect(
       controller.validateByCode(
-        { code: 'DDS-2026-ABCD1234', token: 'token-invalido' },
+        { code: 'DDS-2026-ABCD1234', token: 'aaa.bbb.ccc' },
         makeRequest({ headers: { 'user-agent': 'PostmanRuntime/7.0' } }),
       ),
     ).resolves.toEqual({
@@ -189,7 +189,7 @@ describe('PublicDdsValidationController', () => {
 
     await expect(
       newController.validateByCode(
-        { code: 'DDS-2026-ABCD1234', token: 'token-ok' },
+        { code: 'DDS-2026-ABCD1234', token: 'aaa.bbb.ccc' },
         makeRequest({
           headers: { 'user-agent': 'curl/7.0' },
           ip: '10.0.0.1',
@@ -240,7 +240,7 @@ describe('PublicDdsValidationController', () => {
     });
 
     await controller.validateByCode(
-      { code: 'DDS-2026-ABCD1234', token: 'token' },
+      { code: 'DDS-2026-ABCD1234', token: 'aaa.bbb.ccc' },
       request,
     );
 
@@ -268,7 +268,7 @@ describe('PublicDdsValidationController', () => {
     });
 
     await controller.validateByCode(
-      { code: 'DDS-OK', token: 'token' },
+      { code: 'DDS-OK', token: 'aaa.bbb.ccc' },
       makeRequest(),
     );
 

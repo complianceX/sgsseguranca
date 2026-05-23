@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   INestApplication,
+  ValidationPipe,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
@@ -123,6 +124,13 @@ describe('MailController (http)', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
   });
 
@@ -146,6 +154,21 @@ describe('MailController (http)', () => {
         email: 'destinatario@example.com',
       })
       .expect(503);
+
+    expect(mailQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('rejeita payload inválido no envio de documento armazenado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/mail/send-stored-document')
+      .send({
+        documentId: 'arr-1',
+        documentType: 'ARR',
+        email: 'email-invalido',
+      })
+      .expect(400);
 
     expect(mailQueue.add).not.toHaveBeenCalled();
   });
