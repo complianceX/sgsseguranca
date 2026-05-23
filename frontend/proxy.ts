@@ -43,8 +43,6 @@ function buildCsp(nonce: string): string {
     "https://challenges.cloudflare.com",
   ].filter(Boolean);
 
-  const styleSrc = ["'self'", "'unsafe-inline'"].filter(Boolean);
-
   const directives = [
     `default-src 'self'`,
     `base-uri 'self'`,
@@ -52,7 +50,12 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com`,
     `font-src 'self' data:`,
-    `style-src ${styleSrc.join(" ")}`,
+    // Endurecimento incremental:
+    // - mantém compatibilidade com style="" legado via style-src-attr
+    // - remove unsafe-inline do style-src raiz para reduzir superfície em varreduras
+    `style-src 'self'`,
+    `style-src-elem 'self' 'nonce-${nonce}'`,
+    `style-src-attr 'unsafe-inline'`,
     `script-src ${scriptSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `frame-src 'self' https://challenges.cloudflare.com`,

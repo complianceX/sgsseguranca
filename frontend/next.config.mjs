@@ -140,6 +140,14 @@ const nextConfig = {
         value:
           "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
       },
+      {
+        key: "Cross-Origin-Opener-Policy",
+        value: "same-origin",
+      },
+      {
+        key: "Cross-Origin-Resource-Policy",
+        value: "same-site",
+      },
     ];
 
     if (isProd) {
@@ -158,7 +166,7 @@ const nextConfig = {
       // Favicons e assets públicos estáticos — cachear por 24h
       {
         source:
-          "/(favicon.ico|favicon.png|robots.txt|sitemap.xml|manifest.json)",
+          "/(favicon.ico|favicon.png|robots.txt|sitemap.xml|manifest.json|manifest.webmanifest)",
         headers: [
           {
             key: "Cache-Control",

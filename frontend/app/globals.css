@@ -3,6 +3,11 @@
 @import "../styles/theme-light.css";
 @import "../styles/theme-dark.css";
 
+:root {
+  --font-dm-sans: var(--font-sans);
+  --font-syne: var(--font-sans);
+}
+
 * {
   border-color: var(--border);
   /* Scrollbar Firefox */
