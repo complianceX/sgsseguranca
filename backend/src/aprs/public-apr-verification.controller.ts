@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 import { AprsService } from './aprs.service';
 
 const VERIFICATION_CODE_RE = /^[A-Z0-9-]{6,24}$/;
@@ -33,10 +34,14 @@ export class PublicAprVerificationController {
     if (!token?.trim()) {
       throw new BadRequestException('Token de validação ausente.');
     }
+    const normalizedToken = assertValidSignedToken(
+      token,
+      'Token de validação inválido.',
+    );
 
     try {
       const payload = await this.publicValidationGrantService.assertActiveToken(
-        token.trim(),
+        normalizedToken,
         normalizedCode,
         APR_PUBLIC_VALIDATION_PORTAL,
       );

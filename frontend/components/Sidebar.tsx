@@ -435,7 +435,7 @@ export function Sidebar({
         <div className="border-t border-[color:var(--chrome-sidebar-divider)] px-3.5 py-3.5">
           <div className="rounded-[1rem] border border-[var(--chrome-sidebar-user-card-border)] bg-[var(--chrome-sidebar-user-card-bg)] p-3">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/8 text-[12px] font-bold text-[var(--ds-color-sidebar-text)] ring-1 ring-white/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--chrome-sidebar-item-active-bg)] text-[12px] font-bold text-[var(--ds-color-sidebar-text)] ring-1 ring-[var(--chrome-sidebar-item-hover-border)]">
                 {user?.nome?.trim()?.slice(0, 2).toUpperCase() || 'SG'}
               </div>
               <div className="min-w-0">

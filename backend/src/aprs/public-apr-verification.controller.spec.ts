@@ -28,12 +28,12 @@ describe('PublicAprVerificationController', () => {
     });
 
     await expect(
-      controller.verify({ code: 'apr-ab12cd34', token: 'token-1' }),
+      controller.verify({ code: 'apr-ab12cd34', token: 'aaa.bbb.ccc' }),
     ).resolves.toEqual({
       valid: true,
     });
     expect(publicValidationGrantService.assertActiveToken).toHaveBeenCalledWith(
-      'token-1',
+      'aaa.bbb.ccc',
       'APR-AB12CD34',
       'apr_public_validation',
     );
@@ -45,7 +45,17 @@ describe('PublicAprVerificationController', () => {
 
   it('rejeita código inválido', async () => {
     await expect(
-      controller.verify({ code: '***', token: 'token-1' }),
+      controller.verify({ code: '***', token: 'aaa.bbb.ccc' }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejeita token malformado antes de consultar grant', async () => {
+    await expect(
+      controller.verify({ code: 'APR-AB12CD34', token: 'token-bruto' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(
+      publicValidationGrantService.assertActiveToken,
+    ).not.toHaveBeenCalled();
   });
 });

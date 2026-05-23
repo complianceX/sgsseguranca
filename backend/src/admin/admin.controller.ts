@@ -6,6 +6,7 @@ import {
   Query,
   Logger,
   BadRequestException,
+  NotFoundException,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -153,7 +154,7 @@ export class AdminController {
       await this.gdprDeletionService.getDeleteRequestStatus(requestId);
 
     if (!status) {
-      throw new BadRequestException('Request not found');
+      throw new NotFoundException('Request not found');
     }
 
     return status;

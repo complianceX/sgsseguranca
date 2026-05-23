@@ -1,5 +1,6 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
   Header,
   Logger,
@@ -14,6 +15,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { DocumentDownloadGrantService } from '../common/services/document-download-grant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { SecurityAuditService } from '../common/security/security-audit.service';
+import { isLikelySignedToken } from '../common/security/signed-token.util';
 
 @Controller('storage')
 export class DocumentDownloadController {
@@ -39,18 +41,27 @@ export class DocumentDownloadController {
     @Res() res: Response,
   ): Promise<void> {
     const ip = req.ip ?? req.socket?.remoteAddress;
+    const normalizedToken = String(token || '').trim();
+
+    if (!this.isLikelyDownloadToken(normalizedToken)) {
+      this.securityAudit.bruteForceBlocked(ip, 'token_format:invalid');
+      throw new ForbiddenException(
+        'Token de download inválido, expirado ou já consumido.',
+      );
+    }
 
     let grant: Awaited<
       ReturnType<DocumentDownloadGrantService['consumeToken']>
     >;
     try {
-      grant = await this.documentDownloadGrantService.consumeToken(token);
+      grant =
+        await this.documentDownloadGrantService.consumeToken(normalizedToken);
     } catch (err) {
       // Token inválido, expirado ou já consumido — registra tentativa suspeita.
       // Token de apenas 20 chars para evitar log de tokens válidos acidentalmente.
       this.securityAudit.bruteForceBlocked(
         ip,
-        `token_prefix:${token.substring(0, 20)}`,
+        `token_prefix:${normalizedToken.substring(0, 20)}`,
       );
       throw err;
     }
@@ -94,5 +105,9 @@ export class DocumentDownloadController {
     }
 
     return normalized.replace(/[^\w.\- ]+/g, '_');
+  }
+
+  private isLikelyDownloadToken(token: string): boolean {
+    return isLikelySignedToken(token);
   }
 }

@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import type { AuthService } from './auth.service';
 import type { UsersService } from '../users/users.service';
@@ -36,7 +36,12 @@ describe('AuthController security hardening', () => {
   let controller: AuthController;
   let authService: Pick<
     AuthService,
-    'refresh' | 'validateUser' | 'login' | 'logout' | 'verifyUserPassword'
+    | 'refresh'
+    | 'validateUser'
+    | 'login'
+    | 'logout'
+    | 'verifyUserPassword'
+    | 'resetPassword'
   >;
   let bruteForceService: Pick<
     BruteForceService,
@@ -108,6 +113,7 @@ describe('AuthController security hardening', () => {
       login: jest.fn(),
       logout: jest.fn(),
       verifyUserPassword: jest.fn(),
+      resetPassword: jest.fn(),
     };
     bruteForceService = {
       assertAllowed: jest.fn(),
@@ -188,7 +194,7 @@ describe('AuthController security hardening', () => {
   it('refresh exige CSRF válido quando enforcement está ativo', async () => {
     const req = buildRefreshRequest({
       cookies: {
-        refresh_token: 'refresh-token',
+        refresh_token: 'aaa.bbb.ccc',
         refresh_csrf: 'cookie-token',
       },
       headers: {
@@ -209,7 +215,7 @@ describe('AuthController security hardening', () => {
   it('refresh rejeita origem não permitida', async () => {
     const req = buildRefreshRequest({
       cookies: {
-        refresh_token: 'refresh-token',
+        refresh_token: 'aaa.bbb.ccc',
         refresh_csrf: 'token',
       },
       headers: {
@@ -229,7 +235,7 @@ describe('AuthController security hardening', () => {
   it('refresh rejeita origem com prefix spoofing', async () => {
     const req = buildRefreshRequest({
       cookies: {
-        refresh_token: 'refresh-token',
+        refresh_token: 'aaa.bbb.ccc',
         refresh_csrf: 'token',
       },
       headers: {
@@ -253,7 +259,7 @@ describe('AuthController security hardening', () => {
     });
     const req = buildRefreshRequest({
       cookies: {
-        refresh_token: 'refresh-token',
+        refresh_token: 'aaa.bbb.ccc',
         refresh_csrf: 'csrf-token',
       },
       headers: {
@@ -283,6 +289,37 @@ describe('AuthController security hardening', () => {
       expect.any(String),
       expect.any(Object),
     );
+  });
+
+  it('refresh rejeita token malformado', async () => {
+    const req = buildRefreshRequest({
+      cookies: {
+        refresh_token: 'refresh-token-bruto',
+        refresh_csrf: 'csrf-token',
+      },
+      headers: {
+        origin: 'https://app.example.com',
+        'x-refresh-csrf': 'csrf-token',
+      },
+      originalUrl: '/auth/refresh',
+      url: '/auth/refresh',
+    });
+    const res = createResponse();
+
+    await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(authService.refresh).not.toHaveBeenCalled();
+  });
+
+  it('reset-password bloqueia token malformado antes de chamar o service', async () => {
+    await expect(
+      controller.resetPassword({
+        token: 'token-invalido',
+        newPassword: 'SenhaNova@123',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(authService.resetPassword).not.toHaveBeenCalled();
   });
 
   it('login limpa cookie CSRF legado e emite o novo cookie amplo para o frontend', async () => {

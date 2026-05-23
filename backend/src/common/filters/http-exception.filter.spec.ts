@@ -1,4 +1,5 @@
 import { ArgumentsHost, HttpStatus, NotFoundException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { captureException } from '../monitoring/sentry';
 
@@ -15,6 +16,7 @@ interface TestErrorResponsePayload {
     message: string | string[];
     requestId?: string;
     path: string;
+    code?: string;
   };
 }
 
@@ -182,5 +184,61 @@ describe('AllExceptionsFilter', () => {
       '/public/validate?token=***REDACTED***&email=t***%40example.com',
     );
     expect(String(logPayload.message)).not.toContain('123.456.789-00');
+  });
+
+  it('mapeia violação de unicidade como 409 Conflict', () => {
+    const status = jest.fn().mockReturnThis();
+    const json = jest.fn();
+    const request = {
+      url: '/companies',
+      method: 'POST',
+      requestId: 'req-dup',
+    };
+    const host = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => ({ status, json }),
+      }),
+    } as ArgumentsHost;
+
+    filter.catch(
+      new QueryFailedError('INSERT INTO companies', [], {
+        code: '23505',
+      } as never),
+      host,
+    );
+
+    const jsonPayload = getFirstMockArg<TestErrorResponsePayload>(json);
+    expect(status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(jsonPayload.errorCode).toBe('CONFLICT');
+    expect(jsonPayload.error.code).toBe('DUPLICATE_ENTRY');
+  });
+
+  it('mapeia violação de CHECK como 422 Unprocessable Entity', () => {
+    const status = jest.fn().mockReturnThis();
+    const json = jest.fn();
+    const request = {
+      url: '/users',
+      method: 'POST',
+      requestId: 'req-check',
+    };
+    const host = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => ({ status, json }),
+      }),
+    } as ArgumentsHost;
+
+    filter.catch(
+      new QueryFailedError('INSERT INTO users', [], {
+        code: '23514',
+      } as never),
+      host,
+    );
+
+    const jsonPayload = getFirstMockArg<TestErrorResponsePayload>(json);
+    expect(status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+    expect(jsonPayload.errorCode).toBe('UNPROCESSABLE_ENTITY');
+    expect(jsonPayload.error.code).toBe('CHECK_CONSTRAINT_VIOLATION');
   });
 });

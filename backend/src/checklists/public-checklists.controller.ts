@@ -5,6 +5,7 @@ import { ChecklistsService } from './checklists.service';
 import { Throttle } from '@nestjs/throttler';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { assertValidSignedToken } from '../common/security/signed-token.util';
 
 @Controller('public/checklists')
 export class PublicChecklistsController {
@@ -27,10 +28,14 @@ export class PublicChecklistsController {
     if (!token || !token.trim()) {
       throw new BadRequestException('Token de validação ausente.');
     }
+    const normalizedToken = assertValidSignedToken(
+      token,
+      'Token de validação inválido.',
+    );
 
     try {
       const payload = await this.publicValidationGrantService.assertActiveToken(
-        token.trim(),
+        normalizedToken,
         normalizedCode,
         'checklist_public_validation',
       );

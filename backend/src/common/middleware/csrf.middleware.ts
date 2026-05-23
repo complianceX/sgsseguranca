@@ -1,10 +1,10 @@
 import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
-const CSRF_EXEMPT_PATH_PREFIXES = [
-  '/auth/csrf',
-  '/public/dds/signature/',
-  '/tenant-lifecycle/onboarding/',
+const CSRF_EXEMPT_PATH_PATTERNS: RegExp[] = [
+  /^\/auth\/csrf\/?$/i,
+  /^\/public\/dds\/signature\/[^/]+\/?$/i,
+  /^\/tenant-lifecycle\/onboarding\/[^/]+\/complete\/?$/i,
 ];
 
 function getCookieValue(request: Request, key: string): string {
@@ -21,9 +21,8 @@ export function isCsrfExemptPath(path: string): boolean {
   const pathname = path.split('?')[0] || '';
   const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
   const versionlessPath = normalizedPath.replace(/^\/v\d+(?=\/)/, '');
-  return CSRF_EXEMPT_PATH_PREFIXES.some(
-    (prefix) =>
-      normalizedPath.startsWith(prefix) || versionlessPath.startsWith(prefix),
+  return CSRF_EXEMPT_PATH_PATTERNS.some(
+    (pattern) => pattern.test(normalizedPath) || pattern.test(versionlessPath),
   );
 }
 

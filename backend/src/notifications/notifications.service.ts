@@ -4,6 +4,7 @@ import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { TenantService } from '../common/tenant/tenant.service';
+import { normalizeOffsetPagination } from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class NotificationsService {
@@ -156,14 +157,21 @@ export class NotificationsService {
   }
 
   async findAll(userId: string, companyId: string, page = 1, limit = 20) {
-    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const {
+      page: safePage,
+      limit: safeLimit,
+      skip,
+    } = normalizeOffsetPagination(
+      { page, limit },
+      { defaultLimit: 20, maxLimit: 100 },
+    );
     const [items, total] = await this.tenantService.run(
       { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
       () =>
         this.repo.findAndCount({
           where: { userId, company_id: companyId },
           order: { createdAt: 'DESC' },
-          skip: (page - 1) * safeLimit,
+          skip,
           take: safeLimit,
         }),
     );
@@ -171,7 +179,7 @@ export class NotificationsService {
     return {
       items,
       total,
-      page,
+      page: safePage,
       limit: safeLimit,
       totalPages: Math.ceil(total / safeLimit),
     };
