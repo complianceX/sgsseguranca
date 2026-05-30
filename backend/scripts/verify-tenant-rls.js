@@ -142,6 +142,62 @@ function hasSuperAdminCondition(policyText) {
   );
 }
 
+function getPolicyCommandCoverage(policies, tenantColumns) {
+  const commands = Array.from(
+    new Set(
+      policies
+        .map((policy) => String(policy.cmd || '').trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+
+  return commands.map((command) => {
+    const applicablePolicies = policies.filter((policy) => {
+      const policyCommand = String(policy.cmd || '').trim().toUpperCase();
+      return policyCommand === command || policyCommand === 'ALL';
+    });
+    const policySignals = applicablePolicies.map((policy) => {
+      const hasTenantUsing = hasTenantCondition(policy.qual, tenantColumns);
+      const hasTenantWithCheck = hasTenantCondition(
+        policy.with_check,
+        tenantColumns,
+      );
+      const hasSuperAdminUsing = hasSuperAdminCondition(policy.qual);
+      const hasSuperAdminWithCheck = hasSuperAdminCondition(policy.with_check);
+
+      return {
+        hasTenantUsing,
+        hasTenantWithCheck,
+        hasSuperAdminUsing,
+        hasSuperAdminWithCheck,
+      };
+    });
+
+    const hasCombinedPolicy = policySignals.some(
+      (signal) =>
+        signal.hasTenantUsing &&
+        signal.hasTenantWithCheck &&
+        signal.hasSuperAdminUsing &&
+        signal.hasSuperAdminWithCheck,
+    );
+    const hasTenantScopedPolicy = policySignals.some(
+      (signal) => signal.hasTenantUsing && signal.hasTenantWithCheck,
+    );
+    const hasSuperAdminScopedPolicy = policySignals.some(
+      (signal) => signal.hasSuperAdminUsing && signal.hasSuperAdminWithCheck,
+    );
+
+    return {
+      command,
+      hasCombinedPolicy,
+      hasTenantScopedPolicy,
+      hasSuperAdminScopedPolicy,
+      hasCoverage:
+        hasCombinedPolicy || (hasTenantScopedPolicy && hasSuperAdminScopedPolicy),
+    };
+  });
+}
+
 function createTimestampLabel(date) {
   return date.toISOString().replace(/[:.]/g, '-');
 }
@@ -264,43 +320,12 @@ async function verifyTenantRls(options = {}) {
       if (policiesResult.rows.length === 0) {
         issues.push('Nenhuma policy encontrada');
       } else {
-        const policySignals = policiesResult.rows.map((policy) => {
-          const hasTenantUsing = hasTenantCondition(policy.qual, tenantColumns);
-          const hasTenantWithCheck = hasTenantCondition(
-            policy.with_check,
-            tenantColumns,
-          );
-          const hasSuperAdminUsing = hasSuperAdminCondition(policy.qual);
-          const hasSuperAdminWithCheck = hasSuperAdminCondition(
-            policy.with_check,
-          );
-          return {
-            hasTenantUsing,
-            hasTenantWithCheck,
-            hasSuperAdminUsing,
-            hasSuperAdminWithCheck,
-          };
-        });
-
-        const hasCombinedPolicy = policySignals.some(
-          (signal) =>
-            signal.hasTenantUsing &&
-            signal.hasTenantWithCheck &&
-            signal.hasSuperAdminUsing &&
-            signal.hasSuperAdminWithCheck,
-        );
-        const hasTenantScopedPolicy = policySignals.some(
-          (signal) => signal.hasTenantUsing && signal.hasTenantWithCheck,
-        );
-        const hasSuperAdminScopedPolicy = policySignals.some(
-          (signal) =>
-            signal.hasSuperAdminUsing && signal.hasSuperAdminWithCheck,
+        const policyCommandCoverage = getPolicyCommandCoverage(
+          policiesResult.rows,
+          tenantColumns,
         );
 
-        if (
-          !hasCombinedPolicy &&
-          !(hasTenantScopedPolicy && hasSuperAdminScopedPolicy)
-        ) {
+        if (!policyCommandCoverage.some((coverage) => coverage.hasCoverage)) {
           issues.push(
             'Policy tenant-aware com USING + WITH CHECK + is_super_admin() não encontrada',
           );
@@ -318,6 +343,10 @@ async function verifyTenantRls(options = {}) {
             cmd: policy.cmd,
             permissive: policy.permissive,
           })),
+          policyCommandCoverage: getPolicyCommandCoverage(
+            policiesResult.rows,
+            tenantColumns,
+          ),
         });
       }
     }

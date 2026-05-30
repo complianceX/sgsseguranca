@@ -78,7 +78,9 @@ export class DocumentRegistryService {
   ) {}
 
   async upsert(input: UpsertRegistryInput): Promise<DocumentRegistryEntry> {
-    return this.upsertWithManager(this.registryRepository.manager, input);
+    return this.dataSource.transaction((manager) =>
+      this.upsertWithManager(manager, input),
+    );
   }
 
   async upsertWithManager(

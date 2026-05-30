@@ -18,18 +18,26 @@ describe('DocumentRegistryService versioning', () => {
     Promise<DocumentRegistryVersionEntry>,
     [unknown]
   >;
+  let saveRegistryMock: jest.Mock<Promise<DocumentRegistryEntry>, [unknown]>;
+  let transactionMock: jest.Mock<
+    Promise<DocumentRegistryEntry>,
+    [(manager: DataSource['manager']) => Promise<DocumentRegistryEntry>]
+  >;
   let manager: {
     getRepository: jest.Mock;
+    query: jest.Mock;
   };
 
   beforeEach(() => {
+    saveRegistryMock = jest.fn((payload: unknown) =>
+      Promise.resolve(payload as DocumentRegistryEntry),
+    );
+
     registryRepository = {
       manager: {} as Repository<DocumentRegistryEntry>['manager'],
       findOne: jest.fn(),
-      create: jest.fn((payload) => payload as DocumentRegistryEntry),
-      save: jest.fn((payload) =>
-        Promise.resolve(payload as DocumentRegistryEntry),
-      ),
+      create: jest.fn((payload = {}) => payload as DocumentRegistryEntry),
+      save: saveRegistryMock,
     } as unknown as jest.Mocked<Repository<DocumentRegistryEntry>>;
 
     saveVersionFromManagerMock = jest.fn((payload: unknown) =>
@@ -49,7 +57,12 @@ describe('DocumentRegistryService versioning', () => {
         if (entity === DocumentRegistryEntry) return registryRepository;
         return registryVersionRepositoryFromManager;
       }),
+      query: jest.fn().mockResolvedValue([]),
     };
+
+    transactionMock = jest.fn((callback) =>
+      callback(manager as unknown as DataSource['manager']),
+    );
 
     versionRepository = {
       findOne: jest.fn(),
@@ -62,7 +75,7 @@ describe('DocumentRegistryService versioning', () => {
     service = new DocumentRegistryService(
       registryRepository,
       versionRepository,
-      {} as DataSource,
+      { transaction: transactionMock } as unknown as DataSource,
       {
         getTenantId: jest.fn(),
         getContext: jest.fn().mockReturnValue(undefined),
@@ -74,6 +87,25 @@ describe('DocumentRegistryService versioning', () => {
         getSignedUrl: jest.fn(),
       } as unknown as DocumentStorageService,
     );
+  });
+
+  it('executa upsert público em transação única', async () => {
+    registryRepository.findOne.mockResolvedValue(null);
+    registryVersionRepositoryFromManager.findOne.mockResolvedValue(null);
+
+    await service.upsert({
+      companyId: '11111111-1111-4111-8111-111111111111',
+      module: 'apr',
+      entityId: '22222222-2222-4222-8222-222222222222',
+      title: 'APR Final',
+      fileKey: 'documents/company/apr/final.pdf',
+      documentType: 'pdf',
+      createdBy: '33333333-3333-4333-8333-333333333333',
+    });
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(saveRegistryMock).toHaveBeenCalledTimes(1);
+    expect(saveVersionFromManagerMock).toHaveBeenCalledTimes(1);
   });
 
   it('bloqueia overwrite silencioso de documento finalizado', async () => {

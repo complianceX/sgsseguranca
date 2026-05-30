@@ -20,6 +20,7 @@ describe('DdsObservabilityAlertsService', () => {
   });
 
   it('gera preview com alertas ativos e fila de investigação', async () => {
+    let inTenantScope = false;
     const observabilityService = {
       getOverview: jest.fn().mockResolvedValue({
         tenantScope: 'tenant',
@@ -41,27 +42,38 @@ describe('DdsObservabilityAlertsService', () => {
     } as unknown as DdsObservabilityService;
 
     const companyRepository = {
-      findOne: jest.fn().mockResolvedValue({
-        id: 'company-1',
-        email_contato: 'compliance@example.com',
-        alert_settings: { recipients: ['sst@example.com'] },
+      findOne: jest.fn(() => {
+        expect(inTenantScope).toBe(true);
+        return Promise.resolve({
+          id: 'company-1',
+          email_contato: 'compliance@example.com',
+          alert_settings: { recipients: ['sst@example.com'] },
+        });
       }),
     } as unknown as Repository<Company>;
 
+    const getMany = jest.fn(() => {
+      expect(inTenantScope).toBe(true);
+      return Promise.resolve([{ id: 'user-1' }, { id: 'user-2' }]);
+    });
     const userRepository = {
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoin: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'user-1' }, { id: 'user-2' }]),
+        getMany,
       }),
     } as unknown as Repository<User>;
     const run = jest.fn(
-      (_context: unknown, callback: () => Promise<unknown>): Promise<unknown> =>
-        callback(),
+      async (_context: unknown, callback: () => Promise<unknown>) => {
+        inTenantScope = true;
+        try {
+          return await callback();
+        } finally {
+          inTenantScope = false;
+        }
+      },
     );
     const tenantService = { run } as unknown as TenantService;
 
