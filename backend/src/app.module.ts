@@ -110,6 +110,11 @@ import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
 } from './queue/redis-disabled-queue';
+import {
+  getAccessTokenTtl,
+  getAccessTokenTtlMs,
+  isInfiniteTtl,
+} from './auth/auth-security.config';
 
 const IS_PRODUCTION_ENV = process.env.NODE_ENV === 'production';
 const REDIS_FAIL_OPEN_REQUESTED = /^true$/i.test(
@@ -814,11 +819,15 @@ export const validationSchema = Joi.object({
     DR_STORAGE_REPLICA_ACCESS_KEY_ID?: string;
     DR_STORAGE_REPLICA_SECRET_ACCESS_KEY?: string;
     DR_STORAGE_REPLICA_FORCE_PATH_STYLE?: boolean;
+    REFRESH_CSRF_ENFORCED?: boolean;
+    REFRESH_CSRF_REPORT_ONLY?: boolean;
   };
 
   const bypassEnabled = env.DEV_LOGIN_BYPASS === true;
   const explicitlyAllowed = env.ALLOW_DEV_LOGIN_BYPASS === true;
   const isLocalDev = env.NODE_ENV === 'development';
+  const isTestEnv = env.NODE_ENV === 'test';
+  const isNonLocalRuntime = !isLocalDev && !isTestEnv;
   const hasDatabaseUrl = Boolean(
     firstNonEmpty([
       env.DATABASE_URL,
@@ -849,6 +858,20 @@ export const validationSchema = Joi.object({
     return helpers.error('any.invalid', {
       message:
         'DEV_LOGIN_BYPASS só é permitido em NODE_ENV=development com ALLOW_DEV_LOGIN_BYPASS=true',
+    });
+  }
+
+  if (isNonLocalRuntime && env.REFRESH_CSRF_ENFORCED !== true) {
+    return helpers.error('any.invalid', {
+      message:
+        'REFRESH_CSRF_ENFORCED deve permanecer true fora do ambiente local (development/test).',
+    });
+  }
+
+  if (isNonLocalRuntime && env.REFRESH_CSRF_REPORT_ONLY === true) {
+    return helpers.error('any.invalid', {
+      message:
+        'REFRESH_CSRF_REPORT_ONLY=true só é permitido em ambiente local (development/test).',
     });
   }
 
@@ -1349,6 +1372,7 @@ export class AppModule implements OnModuleInit {
     this.logger.log('🚀 Inicializando AppModule...');
     this.logger.log(`📍 Ambiente: ${this.configService.get('NODE_ENV')}`);
     this.logger.log(`🛡️ Security hardening phase: ${securityHardeningPhase}`);
+    this.logRefreshCsrfSecurityState();
 
     if (isProduction) {
       this.logger.log('🔒 Validando configurações de PRODUÇÃO...');
@@ -1364,6 +1388,30 @@ export class AppModule implements OnModuleInit {
     }
 
     this.logger.log('✅ AppModule inicializado com sucesso');
+  }
+
+  private logRefreshCsrfSecurityState() {
+    const refreshCsrfEnforced = this.configService.get<boolean>(
+      'REFRESH_CSRF_ENFORCED',
+      false,
+    );
+    const refreshCsrfReportOnly = this.configService.get<boolean>(
+      'REFRESH_CSRF_REPORT_ONLY',
+      false,
+    );
+
+    let mode = 'disabled';
+    if (refreshCsrfEnforced && refreshCsrfReportOnly) {
+      mode = 'enforced+report_only';
+    } else if (refreshCsrfEnforced) {
+      mode = 'enforced';
+    } else if (refreshCsrfReportOnly) {
+      mode = 'report_only';
+    }
+
+    this.logger.log(
+      `🛡️ Refresh CSRF state: enforced=${refreshCsrfEnforced} reportOnly=${refreshCsrfReportOnly} mode=${mode}`,
+    );
   }
 
   /**
@@ -1424,6 +1472,9 @@ export class AppModule implements OnModuleInit {
     const refreshCsrfEnforced = this.configService.get<boolean>(
       'REFRESH_CSRF_ENFORCED',
     );
+    const refreshCsrfReportOnly = this.configService.get<boolean>(
+      'REFRESH_CSRF_REPORT_ONLY',
+    );
     const mfaEnabled = this.configService.get<boolean>('MFA_ENABLED');
     const mfaEncryptionKey = this.configService.get<string>(
       'MFA_TOTP_ENCRYPTION_KEY',
@@ -1457,12 +1508,25 @@ export class AppModule implements OnModuleInit {
       'DATABASE_POOLER_ALLOW_SESSION_RLS',
       false,
     );
+    const accessTokenTtl = getAccessTokenTtl();
+    const accessTokenTtlMs = getAccessTokenTtlMs();
+    const maxAccessTokenTtlMs = 60 * 60 * 1000;
 
     const checks = [
       {
         name: 'JWT_SECRET',
         valid: jwtSecret && jwtSecret.length >= 32,
         message: 'JWT_SECRET deve ter no mínimo 32 caracteres',
+      },
+      {
+        name: 'ACCESS_TOKEN_TTL',
+        valid:
+          !isInfiniteTtl(accessTokenTtl) &&
+          accessTokenTtlMs !== null &&
+          accessTokenTtlMs > 0 &&
+          accessTokenTtlMs <= maxAccessTokenTtlMs,
+        message:
+          'ACCESS_TOKEN_TTL/JWT_EXPIRES_IN deve ser finito e no máximo 1h em produção. Use refresh token rotacionado para sessões longas.',
       },
       {
         name: 'DATABASE_SSL_POLICY',
@@ -1531,6 +1595,12 @@ export class AppModule implements OnModuleInit {
         valid: refreshCsrfEnforced === true,
         message:
           'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
+      },
+      {
+        name: 'REFRESH_CSRF_REPORT_ONLY',
+        valid: refreshCsrfReportOnly === false,
+        message:
+          'REFRESH_CSRF_REPORT_ONLY=true é proibido em produção, pois desabilita a validação ativa de CSRF no /auth/refresh.',
       },
       {
         name: 'MFA_TOTP_ENCRYPTION_KEY',

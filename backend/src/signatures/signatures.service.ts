@@ -6,15 +6,29 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, DataSource, In, Repository } from 'typeorm';
+import { randomUUID } from 'node:crypto';
+import {
+  type EntityManager,
+  type EntityTarget,
+  type FindOptionsWhere,
+  DataSource,
+  In,
+  Repository,
+} from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  isSiteVisibleToScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { resolveRegistryModuleForSignatureDocumentType } from '../document-registry/document-governance.service';
 import { UsersService } from '../users/users.service';
+import { User } from '../users/entities/user.entity';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 import { StorageService } from '../common/services/storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -26,6 +40,8 @@ import { Cat } from '../cats/entities/cat.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
+import { Arr } from '../arrs/entities/arr.entity';
+import { Did } from '../dids/entities/did.entity';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,
@@ -73,6 +89,34 @@ type SignatureVerificationDetails = {
   documentBindingHash: string | null;
 };
 
+type SiteScopedSignatureDocument = {
+  id: string;
+  company_id: string;
+  site_id?: string | null;
+};
+
+type SignatureDocumentScope = {
+  companyId: string;
+  siteId: string | null;
+};
+
+const SITE_SCOPED_SIGNATURE_DOCUMENT_ENTITIES: Record<
+  string,
+  EntityTarget<SiteScopedSignatureDocument>
+> = {
+  apr: Apr,
+  pt: Pt,
+  dds: Dds,
+  arr: Arr,
+  did: Did,
+  checklist: Checklist,
+  inspection: Inspection,
+  cat: Cat,
+  nonconformity: NonConformity,
+  audit: Audit,
+  rdo: Rdo,
+};
+
 /** Base64 payload larger than this threshold (in bytes) is offloaded to S3. */
 const SIGNATURE_DATA_S3_THRESHOLD_BYTES = 4096;
 const DEPRECATED_SIGNATURE_DOCUMENT_TYPES = new Set(['inspection', 'inspecao']);
@@ -112,6 +156,10 @@ export class SignaturesService {
       createSignatureDto.document_type,
     );
     this.assertDocumentTypeAllowedForNewSignatures(documentType);
+    const documentScope = await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: createSignatureDto.document_id,
+      documentType,
+    });
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
       documentType,
@@ -123,6 +171,7 @@ export class SignaturesService {
         authenticatedUserId,
         authenticatedUserId,
         manager,
+        documentScope,
       ),
     );
   }
@@ -139,6 +188,10 @@ export class SignaturesService {
       createSignatureDto.document_type,
     );
     this.assertDocumentTypeAllowedForNewSignatures(documentType);
+    const documentScope = await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: createSignatureDto.document_id,
+      documentType,
+    });
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
       documentType,
@@ -150,6 +203,7 @@ export class SignaturesService {
       authenticatedUserId,
       signerUserId,
       manager,
+      documentScope,
     );
   }
 
@@ -167,38 +221,56 @@ export class SignaturesService {
     );
     this.assertDocumentTypeAllowedForNewSignatures(documentType);
 
+    const documentScope = await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: input.document_id,
+      documentType,
+    });
     await this.assertDocumentSignatureMutable({
       documentId: input.document_id,
       documentType,
       companyId: effectiveCompanyId || null,
     });
-    return this.signaturesRepository.manager.transaction(async (manager) => {
-      await manager.getRepository(Signature).delete({
-        document_id: input.document_id,
-        document_type: documentType,
-        ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
+    const { created, replacedSignatures } =
+      await this.signaturesRepository.manager.transaction(async (manager) => {
+        const signatureRepository = manager.getRepository(Signature);
+        const where = {
+          document_id: input.document_id,
+          document_type: documentType,
+          ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
+        };
+        const replacedSignatures = await signatureRepository.find({
+          where,
+          select: ['id', 'signature_data_key'],
+        });
+        await signatureRepository.delete(where);
+
+        const created: Signature[] = [];
+        for (const signatureInput of input.signatures) {
+          created.push(
+            await this.persistSignature(
+              {
+                ...signatureInput,
+                document_id: input.document_id,
+                document_type: documentType,
+                company_id:
+                  tenantId || signatureInput.company_id || input.company_id,
+              },
+              input.authenticated_user_id,
+              signatureInput.signer_user_id || signatureInput.user_id,
+              manager,
+              documentScope,
+            ),
+          );
+        }
+
+        return { created, replacedSignatures };
       });
 
-      const created: Signature[] = [];
-      for (const signatureInput of input.signatures) {
-        created.push(
-          await this.persistSignature(
-            {
-              ...signatureInput,
-              document_id: input.document_id,
-              document_type: documentType,
-              company_id:
-                tenantId || signatureInput.company_id || input.company_id,
-            },
-            input.authenticated_user_id,
-            signatureInput.signer_user_id || signatureInput.user_id,
-            manager,
-          ),
-        );
-      }
-
-      return created;
-    });
+    await this.cleanupSignatureEvidenceFiles(
+      replacedSignatures,
+      `signatures:replace:${input.document_id}`,
+    );
+    return created;
   }
 
   async findManyByDocuments(
@@ -233,6 +305,21 @@ export class SignaturesService {
       });
     }
 
+    const hasTenantContext = Boolean(
+      this.tenantService.getContext?.() || tenantId,
+    );
+    if (hasTenantContext) {
+      const scope = resolveSiteAccessScopeFromTenantService(
+        this.tenantService,
+        'assinaturas',
+      );
+      if (!scope.hasCompanyWideAccess) {
+        query.andWhere('signature.site_id IN (:...siteIds)', {
+          siteIds: scope.siteIds,
+        });
+      }
+    }
+
     return query.getMany();
   }
 
@@ -241,10 +328,13 @@ export class SignaturesService {
     authenticatedUserId: string,
     signerUserId = authenticatedUserId,
     manager?: EntityManager,
+    documentScope?: SignatureDocumentScope,
   ): Promise<Signature> {
     const tenantId = this.tenantService.getTenantId();
     let payload = { ...createSignatureDto };
-    const effectiveCompanyId = tenantId || payload.company_id || null;
+    const effectiveCompanyId =
+      tenantId || payload.company_id || documentScope?.companyId || null;
+    const effectiveSiteId = documentScope?.siteId ?? null;
     const signedAtIso = new Date().toISOString();
 
     if (payload.type === 'hmac') {
@@ -263,6 +353,7 @@ export class SignaturesService {
         payload.document_type,
         signerUserId,
         effectiveCompanyId || '',
+        effectiveSiteId || '',
         payload.type,
         signatureContextHash,
         signedAtIso,
@@ -300,6 +391,7 @@ export class SignaturesService {
         type: payload.document_type,
         module: documentBinding.module,
         company_id: effectiveCompanyId,
+        site_id: effectiveSiteId,
         reference: documentBinding.reference,
         status: documentBinding.status,
         version: documentBinding.version,
@@ -350,6 +442,7 @@ export class SignaturesService {
       type: payload.type,
       user_id: signerUserId,
       company_id: effectiveCompanyId || undefined,
+      site_id: effectiveSiteId,
       signature_hash: generatedStamp.signature_hash,
       timestamp_token: generatedStamp.timestamp_token,
       timestamp_authority: generatedStamp.timestamp_authority,
@@ -382,6 +475,7 @@ export class SignaturesService {
         hmac_verified: payload.type === 'hmac' ? true : undefined,
         document_binding: {
           module: documentBinding.module,
+          site_id: effectiveSiteId,
           reference: documentBinding.reference,
           status: documentBinding.status,
           version: documentBinding.version,
@@ -442,6 +536,10 @@ export class SignaturesService {
   ): Promise<Signature[]> {
     const normalizedDocumentType =
       this.normalizeLegacyReadDocumentType(document_type);
+    await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: document_id,
+      documentType: normalizedDocumentType,
+    });
     const tenantId = this.tenantService.getTenantId();
     const where = tenantId
       ? {
@@ -449,12 +547,25 @@ export class SignaturesService {
           document_type: normalizedDocumentType,
           company_id: tenantId,
         }
-      : { document_id, document_type: normalizedDocumentType };
+      : {
+          document_id,
+          document_type: normalizedDocumentType,
+        };
     const signatures = await this.signaturesRepository.find({
       where,
-      relations: ['user', 'user.profile'],
+      relations: { user: true },
+      select: {
+        user: {
+          id: true,
+          nome: true,
+          funcao: true,
+        },
+      },
     });
-    return this.hydrateSignaturesData(signatures);
+    const hydratedSignatures = await this.hydrateSignaturesData(signatures);
+    return hydratedSignatures.map((signature) =>
+      this.minimizeSignatureUser(signature),
+    );
   }
 
   private async hydrateSignaturesData(
@@ -495,6 +606,11 @@ export class SignaturesService {
       throw new NotFoundException('Assinatura não encontrada.');
     }
 
+    await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: signature.document_id,
+      documentType: signature.document_type,
+    });
+
     const isOwner = signature.user_id === requesterId;
     const isPrivileged = this.isPrivilegedRole(requesterRole);
 
@@ -511,6 +627,10 @@ export class SignaturesService {
     });
 
     await this.signaturesRepository.delete({ id: signature.id });
+    await this.cleanupSignatureEvidenceFiles(
+      [signature],
+      `signatures:remove:${signature.id}`,
+    );
   }
 
   async removeByDocument(
@@ -520,9 +640,20 @@ export class SignaturesService {
     requesterRole?: string | null,
   ): Promise<void> {
     const tenantId = this.tenantService.getTenantId();
+    await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: document_id,
+      documentType: document_type,
+    });
     const where = tenantId
-      ? { document_id, document_type, company_id: tenantId }
-      : { document_id, document_type };
+      ? {
+          document_id,
+          document_type,
+          company_id: tenantId,
+        }
+      : {
+          document_id,
+          document_type,
+        };
     const signatures = await this.signaturesRepository.find({ where });
 
     if (signatures.length === 0) {
@@ -550,17 +681,47 @@ export class SignaturesService {
     await this.signaturesRepository.delete({
       id: In(signatures.map((signature) => signature.id)),
     });
+    await this.cleanupSignatureEvidenceFiles(
+      signatures,
+      `signatures:remove-document:${document_id}`,
+    );
   }
 
   async removeByDocumentSystem(
     document_id: string,
     document_type: string,
+    knownDocumentScope?: {
+      companyId: string;
+      siteId?: string | null;
+    },
   ): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
-    const deleteResult = await this.signaturesRepository.delete(
-      tenantId
-        ? { document_id, document_type, company_id: tenantId }
-        : { document_id, document_type },
+    if (knownDocumentScope) {
+      this.assertKnownDocumentScopeVisibleForCurrentScope(knownDocumentScope);
+    } else {
+      await this.assertDocumentSiteVisibleForCurrentScope({
+        documentId: document_id,
+        documentType: document_type,
+      });
+    }
+    const where = tenantId
+      ? {
+          document_id,
+          document_type,
+          company_id: tenantId,
+        }
+      : {
+          document_id,
+          document_type,
+        };
+    const signatures = await this.signaturesRepository.find({
+      where,
+      select: ['id', 'signature_data_key'],
+    });
+    const deleteResult = await this.signaturesRepository.delete(where);
+    await this.cleanupSignatureEvidenceFiles(
+      signatures,
+      `signatures:remove-document-system:${document_id}`,
     );
 
     return deleteResult.affected ?? 0;
@@ -588,6 +749,11 @@ export class SignaturesService {
     if (!signature) {
       throw new NotFoundException('Assinatura não encontrada.');
     }
+
+    await this.assertDocumentSiteVisibleForCurrentScope({
+      documentId: signature.document_id,
+      documentType: signature.document_type,
+    });
 
     const hasFields = Boolean(
       signature.signature_hash && signature.timestamp_token,
@@ -621,8 +787,6 @@ export class SignaturesService {
       hash: string;
       signed_at?: string;
       timestamp_authority?: string;
-      document_id?: string;
-      document_type?: string;
       type?: string;
       verification_mode?: SignatureVerificationMode;
       legal_assurance?: SignatureLegalAssurance;
@@ -669,8 +833,6 @@ export class SignaturesService {
         hash: signature.signature_hash || normalizedHash,
         signed_at: signature.signed_at?.toISOString(),
         timestamp_authority: signature.timestamp_authority || undefined,
-        document_id: signature.document_id,
-        document_type: signature.document_type,
         type: signature.type,
         verification_mode: verificationDetails.verificationMode,
         legal_assurance: verificationDetails.legalAssurance,
@@ -969,12 +1131,114 @@ export class SignaturesService {
         });
         return;
       }
-      case 'rdo':
-        // O RDO já possui fluxo próprio e verificável de assinatura operacional.
+      case 'rdo': {
+        const rdo = await this.dataSource.getRepository(Rdo).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'pdf_file_key'],
+        });
+
+        if (!rdo) {
+          throw new NotFoundException('RDO não encontrado para assinatura.');
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'RDO',
+          hasLegacyPdf: Boolean(rdo.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
         return;
+      }
       default:
         return;
     }
+  }
+
+  private async assertDocumentSiteVisibleForCurrentScope(input: {
+    documentId: string;
+    documentType: string;
+  }): Promise<SignatureDocumentScope> {
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'assinaturas',
+    );
+
+    const module =
+      resolveRegistryModuleForSignatureDocumentType(input.documentType) ||
+      normalizeModuleFromDocumentType(input.documentType);
+    const entity = SITE_SCOPED_SIGNATURE_DOCUMENT_ENTITIES[module];
+    if (!entity) {
+      throw new NotFoundException('Documento não encontrado para assinaturas.');
+    }
+
+    const document = await this.dataSource
+      .getRepository<SiteScopedSignatureDocument>(entity)
+      .findOne({
+        where: {
+          id: input.documentId,
+          company_id: scope.companyId,
+        } as FindOptionsWhere<SiteScopedSignatureDocument>,
+        select: ['id', 'company_id', 'site_id'],
+      });
+
+    if (!document || !isSiteVisibleToScope(document.site_id, scope)) {
+      throw new NotFoundException('Documento não encontrado para assinaturas.');
+    }
+
+    return {
+      companyId: document.company_id,
+      siteId: document.site_id ?? null,
+    };
+  }
+
+  private assertKnownDocumentScopeVisibleForCurrentScope(input: {
+    companyId: string;
+    siteId?: string | null;
+  }): void {
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'assinaturas',
+    );
+    if (
+      input.companyId !== scope.companyId ||
+      !isSiteVisibleToScope(input.siteId, scope)
+    ) {
+      throw new NotFoundException('Documento não encontrado para assinaturas.');
+    }
+  }
+
+  private minimizeSignatureUser(signature: Signature): Signature {
+    if (!signature.user) {
+      return signature;
+    }
+
+    signature.user = {
+      id: signature.user.id,
+      nome: signature.user.nome,
+      funcao: signature.user.funcao,
+    } as User;
+    return signature;
+  }
+
+  private async cleanupSignatureEvidenceFiles(
+    signatures: Array<Pick<Signature, 'id' | 'signature_data_key'>>,
+    context: string,
+  ): Promise<void> {
+    await Promise.all(
+      signatures.map(async (signature) => {
+        if (!signature.signature_data_key) {
+          return;
+        }
+
+        await cleanupUploadedFile(
+          this.logger,
+          `${context}:${signature.id}`,
+          signature.signature_data_key,
+          (key) => this.storageService.deleteFile(key),
+        );
+      }),
+    );
   }
 
   private async loadEntityBindingContext(
@@ -1303,7 +1567,7 @@ export class SignaturesService {
       return { inlineData: signatureData, dataKey: null };
     }
 
-    const key = `signatures/${documentId}/${type}-${Date.now()}.dat`;
+    const key = `signatures/${documentId}/${type}-${Date.now()}-${randomUUID()}.dat`;
     try {
       await this.storageService.uploadFile(
         key,

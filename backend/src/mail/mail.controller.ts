@@ -39,12 +39,14 @@ import { SendUploadedDocumentDto } from './dto/send-uploaded-document.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { Authorize } from '../auth/authorize.decorator';
 import { DocumentMailDispatchResponseDto } from './dto/document-mail-dispatch-response.dto';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
 import { FileInspectionService } from '../common/security/file-inspection.service';
+import { maskEmail } from '../common/logging/log-sanitizer.util';
 
 const resolveMailRequestTimeoutMs = (): number => {
   const raw = process.env.MAIL_REQUEST_TIMEOUT_MS;
@@ -229,6 +231,10 @@ export class MailController {
   ): Promise<DocumentMailDispatchResponseDto> {
     const { documentId, documentType, email } = body;
     const companyId = getRequiredCompanyId(req);
+    const siteScope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'envio de documento governado por e-mail',
+    );
 
     if (!documentId || !documentType || !email) {
       throw new BadRequestException(
@@ -238,8 +244,21 @@ export class MailController {
 
     this.mailService.assertDispatchAvailable();
 
+    const workerTenantContext = {
+      companyId: siteScope.companyId,
+      isSuperAdmin: siteScope.isSuperAdmin,
+      siteScope: siteScope.hasCompanyWideAccess
+        ? ('all' as const)
+        : ('single' as const),
+      ...(!siteScope.hasCompanyWideAccess
+        ? {
+            siteIds: siteScope.siteIds,
+            userId: siteScope.userId,
+          }
+        : {}),
+    };
+
     try {
-      // Tenta enfileirar para processamento assíncrono.
       await this.mailQueue.add(
         'send-document',
         {
@@ -247,6 +266,7 @@ export class MailController {
           documentType,
           email,
           companyId,
+          tenantContext: workerTenantContext,
         },
         defaultJobOptions,
       );
@@ -259,7 +279,7 @@ export class MailController {
         artifactType: 'governed_final_pdf',
         fallbackUsed: false,
         isOfficial: true,
-        recipient: email,
+        recipient: maskEmail(email),
       });
 
       return this.mailService.buildDocumentDispatchResponse({
@@ -273,8 +293,6 @@ export class MailController {
         documentId,
       });
     } catch (error) {
-      // Fallback: se Redis/fila estiver indisponível, envia no fluxo síncrono
-      // para evitar erro 500 no front.
       this.logger.warn(
         `Fila de e-mail indisponível, aplicando fallback síncrono: ${
           error instanceof Error ? error.message : String(error)
@@ -381,8 +399,7 @@ export class MailController {
           artifactType: 'local_uploaded_pdf',
           fallbackUsed: true,
           isOfficial: false,
-          recipient: email,
-          fileKey,
+          recipient: maskEmail(email),
         });
 
         return this.mailService.buildDocumentDispatchResponse({

@@ -90,6 +90,12 @@ export class DocumentRegistryEntry {
   @Column({ type: 'timestamp', nullable: true })
   expires_at: Date | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  finalized_at: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  signed_at: Date | null;
+
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 

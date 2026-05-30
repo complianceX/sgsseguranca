@@ -5,6 +5,7 @@ import { GdprDeletionRequest } from '../entities/gdpr-deletion-request.entity';
 import { GdprRetentionCleanupRun } from '../entities/gdpr-retention-cleanup-run.entity';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
+import { TenantService } from '../../common/tenant/tenant.service';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440001';
@@ -24,6 +25,9 @@ describe('GDPRDeletionService', () => {
     create: jest.Mock<unknown, [Record<string, unknown>]>;
     save: jest.Mock<Promise<unknown>, [Record<string, unknown>]>;
     find: jest.Mock;
+  };
+  let mockTenantService: {
+    run: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -46,6 +50,9 @@ describe('GDPRDeletionService', () => {
       ),
       find: jest.fn(),
     };
+    mockTenantService = {
+      run: jest.fn((_context, callback: () => unknown) => callback()),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +65,10 @@ describe('GDPRDeletionService', () => {
         {
           provide: getRepositoryToken(GdprRetentionCleanupRun),
           useValue: mockRetentionRunRepo,
+        },
+        {
+          provide: TenantService,
+          useValue: mockTenantService,
         },
       ],
     }).compile();
@@ -157,6 +168,10 @@ describe('GDPRDeletionService', () => {
 
       expect(result.tables_cleaned[0].table).toBe('mail_logs');
       expect(result.tables_cleaned[0].rows_deleted).toBe(100);
+      expect(mockTenantService.run).toHaveBeenCalledWith(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        expect.any(Function),
+      );
     });
 
     it('inclui duração da execução', async () => {

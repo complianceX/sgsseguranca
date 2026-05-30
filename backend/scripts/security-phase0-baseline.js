@@ -3,6 +3,14 @@ const dotenv = require('dotenv');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+function parseBooleanFlag(value, fallback = false) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return fallback;
+}
+
 const publicValidationRoutes = [
   'GET /public/documents/validate',
   'GET /public/checklists/validate',
@@ -20,9 +28,12 @@ const sensitiveRoutes = [
   'GET /health',
 ];
 
-const isProduction = process.env.NODE_ENV === 'production';
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProduction = nodeEnv === 'production';
+const isLocalRuntime = nodeEnv === 'development' || nodeEnv === 'test';
 
 const flags = {
+  NODE_ENV: nodeEnv,
   PUBLIC_VALIDATION_LEGACY_COMPAT:
     process.env.PUBLIC_VALIDATION_LEGACY_COMPAT || 'false',
   PUBLIC_VALIDATION_LOG_CONTRACT_USAGE:
@@ -48,6 +59,41 @@ for (const route of sensitiveRoutes) {
 console.log('\n[security:phase0] Feature flags e controles de rollout:');
 for (const [key, value] of Object.entries(flags)) {
   console.log(` - ${key}=${value}`);
+}
+
+const refreshCsrfEnforced = parseBooleanFlag(
+  String(flags.REFRESH_CSRF_ENFORCED),
+  isProduction,
+);
+const refreshCsrfReportOnly = parseBooleanFlag(
+  String(flags.REFRESH_CSRF_REPORT_ONLY),
+  false,
+);
+
+const securityFailures = [];
+if (!isLocalRuntime) {
+  if (!refreshCsrfEnforced) {
+    securityFailures.push(
+      'REFRESH_CSRF_ENFORCED=false fora de development/test desprotege /auth/refresh.',
+    );
+  }
+  if (refreshCsrfReportOnly) {
+    securityFailures.push(
+      'REFRESH_CSRF_REPORT_ONLY=true fora de development/test mantém /auth/refresh em modo report-only.',
+    );
+  }
+}
+
+if (securityFailures.length > 0) {
+  console.error('\n[security:phase0] FALHAS CRITICAS DE CSRF DETECTADAS:');
+  for (const failure of securityFailures) {
+    console.error(` - ${failure}`);
+  }
+  process.exitCode = 1;
+} else {
+  console.log(
+    '\n[security:phase0] Gate CSRF refresh: OK (enforced ativo e report-only desativado para ambiente não local).',
+  );
 }
 
 console.log('\n[security:phase0] Checklist de preflight:');

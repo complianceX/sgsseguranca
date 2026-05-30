@@ -7,6 +7,7 @@ import {
   GdprRetentionCleanupRun,
   GdprRetentionCleanupTrigger,
 } from '../entities/gdpr-retention-cleanup-run.entity';
+import { TenantService } from '../../common/tenant/tenant.service';
 
 export type { GdprDeletionRequest as GDPRDeleteRequest };
 
@@ -40,6 +41,7 @@ export class GDPRDeletionService {
     private deletionRequestRepo: Repository<GdprDeletionRequest>,
     @InjectRepository(GdprRetentionCleanupRun)
     private retentionCleanupRunRepo: Repository<GdprRetentionCleanupRun>,
+    private readonly tenantService: TenantService,
   ) {}
 
   private async queryRows<T>(
@@ -167,78 +169,80 @@ export class GDPRDeletionService {
         : 'admin:gdpr-cleanup-expired');
     this.logger.log('[TTL] Starting expired data cleanup...');
 
-    try {
-      const result = await this.queryRows<GDPRDeletionCountRow>(
-        `SELECT * FROM cleanup_expired_data()`,
-      );
+    return this.runAsGlobalSuperAdmin(async () => {
+      try {
+        const result = await this.queryRows<GDPRDeletionCountRow>(
+          `SELECT * FROM cleanup_expired_data()`,
+        );
 
-      let totalRows = 0;
-      const tables_cleaned: { table: string; rows_deleted: number }[] = [];
+        let totalRows = 0;
+        const tables_cleaned: { table: string; rows_deleted: number }[] = [];
 
-      for (const row of result) {
-        const tableName = row.table_name ?? 'unknown';
-        const deletedCount = this.toInt(row.deleted_count);
-        tables_cleaned.push({ table: tableName, rows_deleted: deletedCount });
-        totalRows += deletedCount;
-        this.logger.log(`  ✓ ${tableName}: ${deletedCount} rows deleted`);
-      }
+        for (const row of result) {
+          const tableName = row.table_name ?? 'unknown';
+          const deletedCount = this.toInt(row.deleted_count);
+          tables_cleaned.push({ table: tableName, rows_deleted: deletedCount });
+          totalRows += deletedCount;
+          this.logger.log(`  ✓ ${tableName}: ${deletedCount} rows deleted`);
+        }
 
-      const duration = Date.now() - startTime;
-      const completedAt = new Date();
-      const run = await this.retentionCleanupRunRepo.save(
-        this.retentionCleanupRunRepo.create({
+        const duration = Date.now() - startTime;
+        const completedAt = new Date();
+        const run = await this.retentionCleanupRunRepo.save(
+          this.retentionCleanupRunRepo.create({
+            status: 'success',
+            triggered_by: triggeredBy,
+            trigger_source: triggerSource,
+            tables_cleaned,
+            total_rows_deleted: totalRows,
+            duration_ms: duration,
+            error_message: null,
+            started_at: startedAt,
+            completed_at: completedAt,
+          }),
+        );
+        this.logger.log(
+          `[TTL] Cleanup completed. Run ${run.id}. Total rows deleted: ${totalRows} in ${duration}ms`,
+        );
+
+        return {
           status: 'success',
-          triggered_by: triggeredBy,
-          trigger_source: triggerSource,
+          run_id: run.id,
           tables_cleaned,
           total_rows_deleted: totalRows,
           duration_ms: duration,
-          error_message: null,
-          started_at: startedAt,
-          completed_at: completedAt,
-        }),
-      );
-      this.logger.log(
-        `[TTL] Cleanup completed. Run ${run.id}. Total rows deleted: ${totalRows} in ${duration}ms`,
-      );
+          timestamp: completedAt.toISOString(),
+        };
+      } catch (error: unknown) {
+        const message = this.getErrorMessage(error);
+        const completedAt = new Date();
+        const duration = Date.now() - startTime;
+        const run = await this.retentionCleanupRunRepo.save(
+          this.retentionCleanupRunRepo.create({
+            status: 'error',
+            triggered_by: triggeredBy,
+            trigger_source: triggerSource,
+            tables_cleaned: [],
+            total_rows_deleted: 0,
+            duration_ms: duration,
+            error_message: message,
+            started_at: startedAt,
+            completed_at: completedAt,
+          }),
+        );
+        this.logger.error(`[TTL] Cleanup failed: ${message}`);
 
-      return {
-        status: 'success',
-        run_id: run.id,
-        tables_cleaned,
-        total_rows_deleted: totalRows,
-        duration_ms: duration,
-        timestamp: completedAt.toISOString(),
-      };
-    } catch (error: unknown) {
-      const message = this.getErrorMessage(error);
-      const completedAt = new Date();
-      const duration = Date.now() - startTime;
-      const run = await this.retentionCleanupRunRepo.save(
-        this.retentionCleanupRunRepo.create({
+        return {
           status: 'error',
-          triggered_by: triggeredBy,
-          trigger_source: triggerSource,
+          run_id: run.id,
           tables_cleaned: [],
           total_rows_deleted: 0,
           duration_ms: duration,
-          error_message: message,
-          started_at: startedAt,
-          completed_at: completedAt,
-        }),
-      );
-      this.logger.error(`[TTL] Cleanup failed: ${message}`);
-
-      return {
-        status: 'error',
-        run_id: run.id,
-        tables_cleaned: [],
-        total_rows_deleted: 0,
-        duration_ms: duration,
-        error: message,
-        timestamp: completedAt.toISOString(),
-      };
-    }
+          error: message,
+          timestamp: completedAt.toISOString(),
+        };
+      }
+    });
   }
 
   async getDeleteRequestStatus(
@@ -364,5 +368,14 @@ export class GDPRDeletionService {
     }
 
     return { can_delete: true };
+  }
+
+  private runAsGlobalSuperAdmin<T>(callback: () => Promise<T>): Promise<T> {
+    return Promise.resolve(
+      this.tenantService.run(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        callback,
+      ),
+    );
   }
 }

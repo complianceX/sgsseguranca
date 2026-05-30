@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { TenantService } from '../tenant/tenant.service';
 import { ForensicTrailService } from '../../forensic-trail/forensic-trail.service';
 import { RequestContext } from '../middleware/request-context.middleware';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 export enum SecurityEventType {
   // Authentication lifecycle
@@ -81,9 +82,15 @@ export class SecurityAuditService implements OnModuleDestroy {
   ) {}
 
   emit(event: Omit<SecurityEvent, 'timestamp'>): void {
+    const normalizedPath =
+      typeof event.path === 'string' && event.path.trim().length > 0
+        ? sanitizeLogUrl(event.path).split('?')[0]
+        : null;
+
     const entry: SecurityEvent = {
       ...event,
       companyId: event.companyId ?? this.tenantService.getTenantId() ?? null,
+      path: normalizedPath,
       timestamp: new Date().toISOString(),
     };
 
@@ -362,11 +369,17 @@ export class SecurityAuditService implements OnModuleDestroy {
     });
   }
 
-  adminAction(userId: string, action: string, entityId?: string): void {
+  adminAction(
+    userId: string,
+    action: string,
+    entityId?: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.ADMIN_ACTION,
       severity: SecuritySeverity.HIGH,
       userId,
+      companyId,
       metadata: { action, entityId },
     });
   }

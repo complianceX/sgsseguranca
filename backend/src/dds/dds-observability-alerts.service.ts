@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Company } from '../companies/entities/company.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailService } from '../mail/mail.service';
@@ -71,6 +72,7 @@ export class DdsObservabilityAlertsService {
 
   constructor(
     private readonly observabilityService: DdsObservabilityService,
+    private readonly tenantService: TenantService,
     private readonly notificationsService: NotificationsService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
@@ -88,7 +90,16 @@ export class DdsObservabilityAlertsService {
     companyId?: string | null,
   ): Promise<DdsObservabilityAlertsPreview> {
     const effectiveCompanyId = companyId ?? null;
-    const overview = await this.observabilityService.getOverview();
+    const overview = effectiveCompanyId
+      ? await this.tenantService.run(
+          {
+            companyId: effectiveCompanyId,
+            isSuperAdmin: false,
+            siteScope: 'all',
+          },
+          () => this.observabilityService.getOverview(),
+        )
+      : await this.observabilityService.getOverview();
     const company = effectiveCompanyId
       ? await this.companyRepository.findOne({
           where: { id: effectiveCompanyId },

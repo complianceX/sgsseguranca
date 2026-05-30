@@ -4,7 +4,7 @@ import { CompaniesService } from './companies.service';
 import { Company } from './entities/company.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { TestHelper } from '../../test/helpers/test.helper';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Cache } from 'cache-manager';
 import { StorageService } from '../common/services/storage.service';
@@ -85,6 +85,25 @@ describe('CompaniesService', () => {
       // As propriedades retornadas podem não estar vindo corretamente devido ao plainToClass
       // ou a configuração do mock do TypeORM. Vamos verificar se o objeto retornado contém o ID esperado pelo menos.
       expect(result.id).toBe(company.id);
+    });
+
+    it('rejects SVG logo data URLs to prevent active content upload', async () => {
+      const svgLogo = Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+      ).toString('base64');
+      const save = jest.spyOn(repo, 'save');
+
+      await expect(
+        service.create({
+          razao_social: 'Company X',
+          cnpj: '12.345.678/0001-90',
+          endereco: 'Rua Teste, 100',
+          responsavel: 'Responsavel Teste',
+          logo_url: `data:image/svg+xml;base64,${svgLogo}`,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(save).not.toHaveBeenCalled();
     });
   });
 

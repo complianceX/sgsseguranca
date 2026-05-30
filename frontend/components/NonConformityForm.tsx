@@ -133,6 +133,7 @@ function resolveRiskLevelClass(riskLevel?: string) {
   }
 }
 
+// TODO(security-phase-2): dividir em blocos menores (dados, evidências, fluxo) após fechamento do hardening emergencial.
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();

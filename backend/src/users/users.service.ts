@@ -32,7 +32,7 @@ import {
 import { Profile } from '../profiles/entities/profile.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Role } from '../auth/enums/roles.enum';
-import { RbacService } from '../rbac/rbac.service';
+import { RbacService, type RoleScope } from '../rbac/rbac.service';
 import { AuthRedisService } from '../common/redis/redis.service';
 import { escapeLikePattern } from '../common/utils/sql.util';
 import {
@@ -1603,6 +1603,25 @@ export class UsersService {
   ): Promise<void> {
     const actorAccess = await this.rbacService.getUserAccess(actorId);
     const actorRoles = actorAccess.roles.map(String);
+    const actorScope = this.rbacService.getEffectiveRoleScope(actorRoles);
+    const targetScope = this.rbacService.getRoleScope(targetProfileName);
+
+    if (targetScope === 'SUPER_ADMIN') {
+      throw new ForbiddenException(
+        `Somente o super admin pode atribuir o perfil "${targetProfileName}".`,
+      );
+    }
+
+    if (
+      actorScope &&
+      targetScope &&
+      this.getRoleScopePriority(targetScope) <=
+        this.getRoleScopePriority(actorScope)
+    ) {
+      throw new ForbiddenException(
+        `${this.getRoleScopeLabel(actorScope)} não pode atribuir o perfil "${targetProfileName}".`,
+      );
+    }
 
     if (
       actorRoles.includes(ROLE_ADMIN_EMPRESA) &&
@@ -1635,6 +1654,32 @@ export class UsersService {
         );
       }
     }
+  }
+
+  private getRoleScopePriority(scope: RoleScope): number {
+    const priorities: Record<RoleScope, number> = {
+      SUPER_ADMIN: 0,
+      ADMIN_EMPRESA: 1,
+      GERENTE: 2,
+      SUPERVISOR: 3,
+      TECNICO: 4,
+      VISUALIZADOR: 5,
+    };
+
+    return priorities[scope];
+  }
+
+  private getRoleScopeLabel(scope: RoleScope): string {
+    const labels: Record<RoleScope, string> = {
+      SUPER_ADMIN: 'Super admin',
+      ADMIN_EMPRESA: 'Administrador da empresa',
+      GERENTE: 'Gerente',
+      SUPERVISOR: 'Supervisor',
+      TECNICO: 'Técnico',
+      VISUALIZADOR: 'Visualizador',
+    };
+
+    return labels[scope];
   }
 
   // ---------------------------------------------------------------------------

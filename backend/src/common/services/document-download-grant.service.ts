@@ -23,6 +23,7 @@ type DownloadTokenPayload = {
   gid: string;
   companyId: string;
   key: string;
+  uid?: string;
 };
 
 @Injectable()
@@ -101,6 +102,7 @@ export class DocumentDownloadGrantService {
         gid: grantId,
         companyId,
         key: fileKey,
+        uid: issuedForUserId || undefined,
       } satisfies DownloadTokenPayload,
       this.getSecret(),
       {
@@ -128,7 +130,10 @@ export class DocumentDownloadGrantService {
     return `${baseUrl.replace(/\/+$/, '')}${path}`;
   }
 
-  async consumeToken(token: string): Promise<DocumentDownloadGrant> {
+  async consumeToken(
+    token: string,
+    options?: { consumerUserId?: string | null },
+  ): Promise<DocumentDownloadGrant> {
     const decoded = this.verifyToken(token);
 
     return this.tenantService.run(
@@ -169,6 +174,24 @@ export class DocumentDownloadGrantService {
             );
           }
 
+          if (grant.issued_for_user_id) {
+            if (!decoded.uid || decoded.uid !== grant.issued_for_user_id) {
+              throw new ForbiddenException(
+                'Token de download inválido, expirado ou já consumido.',
+              );
+            }
+
+            const consumerUserId = options?.consumerUserId?.trim();
+            if (
+              !consumerUserId ||
+              consumerUserId !== grant.issued_for_user_id
+            ) {
+              throw new ForbiddenException(
+                'Token de download inválido, expirado ou já consumido.',
+              );
+            }
+          }
+
           grant.consumed_at = new Date();
           await repository.save(grant);
 
@@ -188,12 +211,26 @@ export class DocumentDownloadGrantService {
     try {
       const decoded = jwt.verify(token, this.getSecret(), {
         algorithms: ['HS256'],
-      }) as jwt.JwtPayload;
+      }) as jwt.JwtPayload & {
+        typ?: unknown;
+        gid?: unknown;
+        companyId?: unknown;
+        key?: unknown;
+        uid?: unknown;
+      };
 
-      const typ = String(decoded.typ || '').trim();
-      const gid = String(decoded.gid || '').trim();
-      const companyId = String(decoded.companyId || '').trim();
-      const key = String(decoded.key || '').trim();
+      const readStringClaim = (value: unknown): string =>
+        typeof value === 'string' ? value.trim() : '';
+
+      const typ = readStringClaim(decoded.typ);
+      const gid = readStringClaim(decoded.gid);
+      const companyId = readStringClaim(decoded.companyId);
+      const key = readStringClaim(decoded.key);
+      const uidRaw = decoded.uid;
+      const uid =
+        typeof uidRaw === 'string' && uidRaw.trim().length > 0
+          ? uidRaw.trim()
+          : undefined;
 
       if (
         typ !== 'document_download' ||
@@ -209,6 +246,7 @@ export class DocumentDownloadGrantService {
         gid,
         companyId,
         key,
+        uid,
       };
     } catch (error) {
       this.logger.warn({

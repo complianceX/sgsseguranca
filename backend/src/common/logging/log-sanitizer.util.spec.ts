@@ -15,6 +15,20 @@ describe('log-sanitizer.util', () => {
     );
   });
 
+  it('redacts sensitive capability tokens embedded in known URL paths', () => {
+    expect(
+      sanitizeLogUrl('/storage/download/eyJhbGciOiJIUzI1NiJ9.abc.def?trace=1'),
+    ).toBe('/storage/download/***REDACTED***?trace=1');
+
+    expect(
+      sanitizeLogUrl('/public/dds/signature/opaque-token-1234567890'),
+    ).toBe('/public/dds/signature/***REDACTED***');
+
+    expect(
+      sanitizeLogUrl('/v1/tenant-lifecycle/onboarding/token123/complete'),
+    ).toBe('/v1/tenant-lifecycle/onboarding/***REDACTED***/complete');
+  });
+
   it('masks sensitive values inside nested objects', () => {
     expect(
       sanitizeLogObject({

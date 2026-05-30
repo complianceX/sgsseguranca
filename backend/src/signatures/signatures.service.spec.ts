@@ -13,6 +13,7 @@ import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { Inspection } from '../common/entities/inspection.entity';
+import { Rdo } from '../rdos/entities/rdo.entity';
 import {
   SIGNATURE_PROOF_SCOPES,
   SIGNATURE_VERIFICATION_MODES,
@@ -33,7 +34,15 @@ describe('SignaturesService', () => {
       savedEntities.push(input);
       return Promise.resolve(input);
     }),
+    find: jest.fn(() => Promise.resolve([] as Signature[])),
     delete: jest.fn(() => Promise.resolve(undefined)),
+  };
+
+  const queryBuilder = {
+    where: jest.fn(),
+    andWhere: jest.fn(),
+    orderBy: jest.fn(),
+    getMany: jest.fn<Promise<Signature[]>, []>(),
   };
 
   const repository = {
@@ -42,6 +51,7 @@ describe('SignaturesService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     delete: jest.fn(() => Promise.resolve({ affected: 1 })),
+    createQueryBuilder: jest.fn(() => queryBuilder),
     manager: {
       transaction: jest.fn((callback: (manager: unknown) => unknown) =>
         Promise.resolve(
@@ -94,6 +104,11 @@ describe('SignaturesService', () => {
       .fn()
       .mockResolvedValue(null as Record<string, unknown> | null),
   };
+  const rdoRepository = {
+    findOne: jest
+      .fn()
+      .mockResolvedValue(null as Record<string, unknown> | null),
+  };
 
   const dataSource = {
     query: jest.fn(() => Promise.resolve([{ count: '0' }])),
@@ -108,6 +123,7 @@ describe('SignaturesService', () => {
             Promise.resolve({
               id: 'dds-1',
               company_id: 'company-1',
+              site_id: 'site-1',
               tema: 'DDS diário',
               status: 'publicado',
               updated_at: new Date('2026-03-16T11:55:00.000Z'),
@@ -124,6 +140,10 @@ describe('SignaturesService', () => {
         return inspectionRepository;
       }
 
+      if (entity === Rdo) {
+        return rdoRepository;
+      }
+
       return {
         findOne: jest.fn(() => Promise.resolve(null)),
       };
@@ -133,10 +153,16 @@ describe('SignaturesService', () => {
   beforeEach(() => {
     savedEntities.length = 0;
     jest.clearAllMocks();
+    queryBuilder.where.mockReturnValue(queryBuilder);
+    queryBuilder.andWhere.mockReturnValue(queryBuilder);
+    queryBuilder.orderBy.mockReturnValue(queryBuilder);
+    queryBuilder.getMany.mockResolvedValue([]);
+    transactionalRepository.find.mockResolvedValue([]);
     dataSource.query.mockResolvedValue([{ count: '0' }]);
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       numero: 'APR-001',
       versao: 1,
       status: AprStatus.PENDENTE,
@@ -146,6 +172,7 @@ describe('SignaturesService', () => {
     catRepository.findOne.mockResolvedValue({
       id: 'cat-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       numero: 'CAT-001',
       status: 'aberta',
       pdf_file_key: null,
@@ -154,8 +181,18 @@ describe('SignaturesService', () => {
     inspectionRepository.findOne.mockResolvedValue({
       id: 'inspection-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       tipo_inspecao: 'Rotina',
       setor_area: 'Caldeiraria',
+      updated_at: new Date('2026-03-16T11:55:00.000Z'),
+    });
+    rdoRepository.findOne.mockResolvedValue({
+      id: 'rdo-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      numero: 'RDO-001',
+      status: 'enviado',
+      pdf_file_key: null,
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
     });
 
@@ -176,6 +213,29 @@ describe('SignaturesService', () => {
       storageService as never,
     );
   });
+
+  const useSiteScopedTenant = (siteIds = ['site-a']) => {
+    service = new SignaturesService(
+      repository as unknown as Repository<Signature>,
+      dataSource as unknown as DataSource,
+      {
+        getTenantId: jest.fn(() => 'company-1'),
+        getContext: jest.fn(() => ({
+          companyId: 'company-1',
+          userId: 'user-obra-a',
+          siteId: siteIds[0],
+          siteIds,
+          siteScope: 'single',
+          isSuperAdmin: false,
+        })),
+      } as unknown as TenantService,
+      signatureTimestampService as unknown as SignatureTimestampService,
+      documentGovernanceService as unknown as DocumentGovernanceService,
+      usersService as unknown as UsersService,
+      forensicTrailService as unknown as ForensicTrailService,
+      storageService as never,
+    );
+  };
 
   it('usa o participante como signatario efetivo ao substituir assinaturas do DDS', async () => {
     await service.replaceDocumentSignatures({
@@ -217,6 +277,7 @@ describe('SignaturesService', () => {
         user_id: 'participante-1',
         document_id: 'dds-1',
         document_type: 'DDS',
+        site_id: 'site-1',
         signature_data: 'computed-hmac',
         type: 'hmac',
         signature_hash: 'hash-1',
@@ -291,7 +352,14 @@ describe('SignaturesService', () => {
         type: 'digital',
         signature_data: null,
         signature_data_key: 'signatures/dds-1/digital.dat',
-        user: { id: 'user-1', nome: 'Ana', funcao: 'TST' },
+        user: {
+          id: 'user-1',
+          nome: 'Ana',
+          funcao: 'TST',
+          cpf: '12345678901',
+          email: 'ana@example.test',
+          profile: { id: 'profile-1', nome: 'TST' },
+        },
       } as unknown as Signature,
     ]);
     storageService.downloadFileBuffer.mockResolvedValue(
@@ -306,7 +374,14 @@ describe('SignaturesService', () => {
         document_type: 'DDS',
         company_id: 'company-1',
       },
-      relations: ['user', 'user.profile'],
+      relations: { user: true },
+      select: {
+        user: {
+          id: true,
+          nome: true,
+          funcao: true,
+        },
+      },
     });
     expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
       'signatures/dds-1/digital.dat',
@@ -314,7 +389,341 @@ describe('SignaturesService', () => {
     expect(result[0]).toEqual(
       expect.objectContaining({
         signature_data: 'data:image/png;base64,ASSINATURA',
+        user: {
+          id: 'user-1',
+          nome: 'Ana',
+          funcao: 'TST',
+        },
       }),
+    );
+  });
+
+  it('usa chave S3 não colisível ao externalizar evidência grande', async () => {
+    const signatureData = `data:image/png;base64,${'A'.repeat(5000)}`;
+
+    await service.create(
+      {
+        document_id: 'apr-1',
+        document_type: 'APR',
+        user_id: 'user-1',
+        signature_data: signatureData,
+        type: 'digital',
+      },
+      'user-1',
+    );
+
+    expect(storageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^signatures\/apr-1\/digital-\d+-[0-9a-f-]{36}\.dat$/,
+      ),
+      Buffer.from(signatureData, 'utf8'),
+      'application/octet-stream',
+    );
+  });
+
+  it('persiste site_id resolvido do documento assinado', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-a',
+      company_id: 'company-1',
+      site_id: 'site-a',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      updated_at: new Date('2026-03-16T11:55:00.000Z'),
+    } as unknown as Partial<Apr>);
+    useSiteScopedTenant();
+
+    await service.create(
+      {
+        document_id: 'apr-obra-a',
+        document_type: 'APR',
+        user_id: 'user-obra-a',
+        signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
+        type: 'digital',
+      },
+      'user-obra-a',
+    );
+
+    const createdSignature = savedEntities[savedEntities.length - 1];
+    const canonicalPayload = createdSignature?.integrity_payload
+      ?.canonical_payload as Record<string, unknown> | undefined;
+    const canonicalDocument = canonicalPayload?.document as
+      | Record<string, unknown>
+      | undefined;
+    const documentBinding = createdSignature?.integrity_payload
+      ?.document_binding as Record<string, unknown> | undefined;
+
+    expect(createdSignature).toEqual(
+      expect.objectContaining({
+        company_id: 'company-1',
+        site_id: 'site-a',
+      }),
+    );
+    expect(canonicalDocument?.site_id).toBe('site-a');
+    expect(documentBinding?.site_id).toBe('site-a');
+  });
+
+  it('filtra busca em lote pelo escopo de obras do usuario', async () => {
+    useSiteScopedTenant(['site-a', 'site-c']);
+
+    await expect(
+      service.findManyByDocuments(['dds-a', 'dds-c'], 'DDS'),
+    ).resolves.toEqual([]);
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'signature.site_id IN (:...siteIds)',
+      { siteIds: ['site-a', 'site-c'] },
+    );
+  });
+
+  it('bloqueia leitura de assinaturas quando o documento pertence a outra obra', async () => {
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-obra-b',
+        company_id: 'company-1',
+        document_id: 'apr-obra-b',
+        document_type: 'APR',
+        user_id: 'user-obra-b',
+        type: 'digital',
+        signature_data: 'data:image/png;base64,ASSINATURA_OBRA_B',
+      } as unknown as Signature,
+    ]);
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-b',
+      company_id: 'company-1',
+      site_id: 'site-b',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Partial<Apr>);
+    useSiteScopedTenant();
+
+    await expect(service.findByDocument('apr-obra-b', 'APR')).rejects.toThrow(
+      'Documento não encontrado para assinaturas.',
+    );
+    expect(repository.find).not.toHaveBeenCalled();
+    expect(storageService.downloadFileBuffer).not.toHaveBeenCalled();
+  });
+
+  it('permite leitura de assinatura da mesma obra sem retornar PII excessiva', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-a',
+      company_id: 'company-1',
+      site_id: 'site-a',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Partial<Apr>);
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-obra-a',
+        company_id: 'company-1',
+        document_id: 'apr-obra-a',
+        document_type: 'APR',
+        user_id: 'user-obra-a',
+        type: 'digital',
+        signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
+        user: {
+          id: 'user-obra-a',
+          nome: 'Ana',
+          funcao: 'TST',
+          cpf: '12345678901',
+          email: 'ana@example.test',
+        },
+      } as unknown as Signature,
+    ]);
+    useSiteScopedTenant();
+
+    const result = await service.findByDocument('apr-obra-a', 'APR');
+
+    expect(result[0]?.user).toEqual({
+      id: 'user-obra-a',
+      nome: 'Ana',
+      funcao: 'TST',
+    });
+  });
+
+  it('bloqueia criação de assinatura quando o documento pertence a outra obra', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-b',
+      company_id: 'company-1',
+      site_id: 'site-b',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Partial<Apr>);
+    useSiteScopedTenant();
+
+    await expect(
+      service.create(
+        {
+          document_id: 'apr-obra-b',
+          document_type: 'APR',
+          signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
+          type: 'digital',
+          user_id: 'user-obra-a',
+        },
+        'user-obra-a',
+      ),
+    ).rejects.toThrow('Documento não encontrado para assinaturas.');
+    expect(repository.manager.transaction).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia criação de assinatura vinculada a RDO inexistente', async () => {
+    rdoRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.create(
+        {
+          document_id: 'rdo-inexistente',
+          document_type: 'RDO',
+          signature_data: 'data:image/png;base64,ASSINATURA',
+          type: 'digital',
+          user_id: 'user-1',
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow('Documento não encontrado para assinaturas.');
+    expect(repository.manager.transaction).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia verificação autenticada quando a assinatura pertence a outra obra', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'signature-obra-b',
+      company_id: 'company-1',
+      document_id: 'apr-obra-b',
+      document_type: 'APR',
+      user_id: 'user-obra-b',
+      signature_hash: 'hash-obra-b',
+      timestamp_token: 'token-obra-b',
+    } as unknown as Signature);
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-b',
+      company_id: 'company-1',
+      site_id: 'site-b',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Partial<Apr>);
+    useSiteScopedTenant();
+
+    await expect(service.verifyById('signature-obra-b')).rejects.toThrow(
+      'Documento não encontrado para assinaturas.',
+    );
+    expect(signatureTimestampService.verify).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia remoção de assinaturas quando o documento pertence a outra obra', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-obra-b',
+      company_id: 'company-1',
+      site_id: 'site-b',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Partial<Apr>);
+    useSiteScopedTenant();
+
+    await expect(
+      service.removeByDocument('apr-obra-b', 'APR', 'user-obra-a'),
+    ).rejects.toThrow('Documento não encontrado para assinaturas.');
+    expect(repository.find).not.toHaveBeenCalled();
+    expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it('remove evidência externalizada do storage após excluir assinatura', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'signature-1',
+      company_id: 'company-1',
+      document_id: 'apr-1',
+      document_type: 'APR',
+      user_id: 'user-1',
+      signature_data: null,
+      signature_data_key: 'signatures/apr-1/digital.dat',
+    } as unknown as Signature);
+
+    await service.remove('signature-1', 'user-1');
+
+    expect(repository.delete).toHaveBeenCalledWith({ id: 'signature-1' });
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      'signatures/apr-1/digital.dat',
+    );
+  });
+
+  it('remove evidências externalizadas do storage após excluir por documento', async () => {
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-1',
+        company_id: 'company-1',
+        document_id: 'apr-1',
+        document_type: 'APR',
+        user_id: 'user-1',
+        signature_data: null,
+        signature_data_key: 'signatures/apr-1/digital.dat',
+      } as unknown as Signature,
+    ]);
+
+    await service.removeByDocument('apr-1', 'APR', 'user-1');
+
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      'signatures/apr-1/digital.dat',
+    );
+  });
+
+  it('remove evidências externalizadas do storage após exclusão interna', async () => {
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-1',
+        signature_data_key: 'signatures/apr-1/digital.dat',
+      } as unknown as Signature,
+    ]);
+
+    await expect(service.removeByDocumentSystem('apr-1', 'APR')).resolves.toBe(
+      1,
+    );
+
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      'signatures/apr-1/digital.dat',
+    );
+  });
+
+  it('permite exclusão interna após soft delete quando o escopo conhecido pertence à obra', async () => {
+    repository.find.mockResolvedValue([]);
+    useSiteScopedTenant();
+
+    await expect(
+      service.removeByDocumentSystem('checklist-removido', 'CHECKLIST', {
+        companyId: 'company-1',
+        siteId: 'site-a',
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('bloqueia exclusão interna quando o escopo conhecido pertence a outra obra', async () => {
+    useSiteScopedTenant();
+
+    await expect(
+      service.removeByDocumentSystem('checklist-obra-b', 'CHECKLIST', {
+        companyId: 'company-1',
+        siteId: 'site-b',
+      }),
+    ).rejects.toThrow('Documento não encontrado para assinaturas.');
+    expect(repository.find).not.toHaveBeenCalled();
+    expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it('remove evidências externalizadas substituídas no fluxo em lote', async () => {
+    transactionalRepository.find.mockResolvedValue([
+      {
+        id: 'signature-antiga',
+        signature_data_key: 'signatures/dds-1/team-photo.dat',
+      } as unknown as Signature,
+    ]);
+
+    await service.replaceDocumentSignatures({
+      document_id: 'dds-1',
+      document_type: 'DDS',
+      company_id: 'company-1',
+      authenticated_user_id: 'operador-1',
+      signatures: [],
+    });
+
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      'signatures/dds-1/team-photo.dat',
     );
   });
 
@@ -447,12 +856,13 @@ describe('SignaturesService', () => {
     const createdSignature = savedEntities[savedEntities.length - 1];
 
     expect(createdSignature.company_id).toBe('company-1');
+    expect(createdSignature.site_id).toBe('site-1');
     expect(
       documentGovernanceService.findRegistryContextForSignature,
     ).toHaveBeenCalledWith('apr-1', 'APR', 'company-1');
   });
 
-  it('expõe metadados públicos ricos na validação por hash', async () => {
+  it('não expõe metadados documentais sensíveis na validação pública por hash', async () => {
     repository.findOne.mockResolvedValue({
       id: 'sig-1',
       signature_hash: 'a'.repeat(64),
@@ -481,8 +891,6 @@ describe('SignaturesService', () => {
         hash: 'a'.repeat(64),
         signed_at: '2026-03-16T12:00:00.000Z',
         timestamp_authority: 'authority-1',
-        document_id: 'dds-1',
-        document_type: 'DDS',
         type: 'hmac',
         verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
         legal_assurance: 'not_legal_strong',
@@ -565,6 +973,31 @@ describe('SignaturesService', () => {
       ),
     ).rejects.toThrow(
       /CAT com PDF final emitido está bloqueado para alterações de assinatura\./,
+    );
+  });
+
+  it('bloqueia criacao de assinatura quando o RDO ja possui PDF final emitido', async () => {
+    rdoRepository.findOne.mockResolvedValue({
+      id: 'rdo-1',
+      company_id: 'company-1',
+      numero: 'RDO-001',
+      status: 'aprovado',
+      pdf_file_key: 'documents/company-1/rdos/rdo-1/final.pdf',
+    });
+
+    await expect(
+      service.create(
+        {
+          document_id: 'rdo-1',
+          document_type: 'RDO',
+          user_id: 'user-1',
+          signature_data: 'data:image/png;base64,RRRR',
+          type: 'digital',
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(
+      /RDO com PDF final emitido está bloqueado para alterações de assinatura\./,
     );
   });
 });

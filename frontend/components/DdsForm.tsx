@@ -198,6 +198,7 @@ function buildDdsSignatureResetReasons(
   return reasons;
 }
 
+// TODO(security-phase-2): quebrar este componente em submódulos menores após estabilização dos patches emergenciais.
 export function DdsForm({ id }: DdsFormProps) {
   const { hasPermission } = usePermissions();
   const canViewDds = hasPermission("can_view_dds");

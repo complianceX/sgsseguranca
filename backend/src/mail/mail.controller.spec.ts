@@ -173,6 +173,91 @@ describe('MailController (http)', () => {
     expect(mailQueue.add).not.toHaveBeenCalled();
   });
 
+  it('enfileira envio de documento armazenado com contexto tenant do request', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    mailService.buildDocumentDispatchResponse.mockReturnValue({
+      success: true,
+      message: 'Solicitação recebida.',
+      deliveryMode: 'queued',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      documentId: 'cat-1',
+      documentType: 'CAT',
+    });
+
+    await request(httpServer)
+      .post('/mail/send-stored-document')
+      .send({
+        documentId: 'cat-1',
+        documentType: 'CAT',
+        email: 'destinatario@example.com',
+      })
+      .expect(201);
+
+    expect(mailQueue.add).toHaveBeenCalledWith(
+      'send-document',
+      expect.any(Object),
+      expect.any(Object),
+    );
+    const [, queuedPayload] = mailQueue.add.mock.calls[0] as [
+      string,
+      {
+        documentId: string;
+        documentType: string;
+        email: string;
+        companyId: string;
+        tenantContext?: {
+          companyId: string;
+          siteScope: 'single' | 'all';
+        };
+      },
+    ];
+    expect(queuedPayload).toMatchObject({
+      documentId: 'cat-1',
+      documentType: 'CAT',
+      email: 'destinatario@example.com',
+      companyId: 'company-1',
+    });
+    expect(queuedPayload.tenantContext).toMatchObject({
+      companyId: 'company-1',
+      siteScope: 'all',
+    });
+    expect(mailService.sendStoredDocument).not.toHaveBeenCalled();
+  });
+
+  it('degrada para envio síncrono quando a fila de envio oficial está indisponível', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    mailQueue.add.mockRejectedValue(new Error('Redis offline'));
+    mailService.sendStoredDocument.mockResolvedValue({
+      success: true,
+      message: 'Documento enviado.',
+      deliveryMode: 'sent',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      documentId: 'cat-1',
+      documentType: 'CAT',
+    });
+
+    await request(httpServer)
+      .post('/mail/send-stored-document')
+      .send({
+        documentId: 'cat-1',
+        documentType: 'CAT',
+        email: 'destinatario@example.com',
+      })
+      .expect(201);
+
+    expect(mailQueue.add).toHaveBeenCalledTimes(1);
+    expect(mailService.sendStoredDocument).toHaveBeenCalledWith(
+      'cat-1',
+      'CAT',
+      'destinatario@example.com',
+      'company-1',
+    );
+  });
+
   it('degrada para envio síncrono por buffer quando o storage falha', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     documentStorageService.uploadFile.mockRejectedValue(

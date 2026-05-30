@@ -35,6 +35,7 @@ import type { TenantService } from '../common/tenant/tenant.service';
 import { Dds, DdsStatus } from '../dds/entities/dds.entity';
 import { DdsService } from '../dds/dds.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import { DocumentRegistryVersionEntry } from './entities/document-registry-version.entity';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentGovernanceService } from './document-governance.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
@@ -235,6 +236,7 @@ async function createIntegrationDataSource(schema: string) {
       Pt,
       AuditLog,
       DocumentRegistryEntry,
+      DocumentRegistryVersionEntry,
       PdfIntegrityRecord,
     ],
   });
@@ -285,6 +287,7 @@ describe('Document governance integration', () => {
     );
     const documentRegistryService = new DocumentRegistryService(
       dataSource.getRepository(DocumentRegistryEntry),
+      dataSource.getRepository(DocumentRegistryVersionEntry),
       dataSource,
       buildTenantService(null),
       buildBundleService(),

@@ -848,6 +848,176 @@ describe('UsersService.create identity classification', () => {
   });
 });
 
+describe('UsersService.create role assignment hardening', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+  let repoCreateMock: jest.Mock<User, [DeepPartial<User>]>;
+  let repoSaveMock: jest.Mock<Promise<User>, [User]>;
+
+  const resolveScope = (roleName?: string | null) => {
+    const normalized = String(roleName || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+
+    const aliases: Record<string, string> = {
+      'ADMINISTRADOR GERAL': 'SUPER_ADMIN',
+      SUPER_ADMIN: 'SUPER_ADMIN',
+      ADMIN_GERAL: 'SUPER_ADMIN',
+      'ADMINISTRADOR DA EMPRESA': 'ADMIN_EMPRESA',
+      ADMIN_EMPRESA: 'ADMIN_EMPRESA',
+      GERENTE: 'GERENTE',
+      'SUPERVISOR / ENCARREGADO': 'SUPERVISOR',
+      SUPERVISOR: 'SUPERVISOR',
+      'TECNICO DE SEGURANCA DO TRABALHO (TST)': 'TECNICO',
+      'TECNICO DE SEGURANCA DO TRABALHO': 'TECNICO',
+      TECNICO: 'TECNICO',
+      'TECNICO SST': 'TECNICO',
+      VISUALIZADOR: 'VISUALIZADOR',
+      TRABALHADOR: 'VISUALIZADOR',
+      COLABORADOR: 'VISUALIZADOR',
+      'OPERADOR / COLABORADOR': 'VISUALIZADOR',
+    };
+
+    return aliases[normalized] || null;
+  };
+
+  beforeEach(() => {
+    process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+    process.env.FIELD_ENCRYPTION_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.FIELD_ENCRYPTION_HASH_KEY = 'users-service-test-hash-key';
+
+    repoCreateMock = jest.fn((entity: DeepPartial<User>) => entity as User);
+    repoSaveMock = jest.fn((entity: User) =>
+      Promise.resolve({
+        ...entity,
+        created_at: new Date('2026-04-30T00:00:00.000Z'),
+        updated_at: new Date('2026-04-30T00:00:00.000Z'),
+      } as User),
+    );
+
+    repo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: repoCreateMock,
+      save: repoSaveMock,
+      manager: {
+        getRepository: jest.fn(),
+      },
+    } as unknown as jest.Mocked<Repository<User>>;
+
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(false),
+    };
+
+    passwordService = {
+      hash: jest.fn().mockResolvedValue('hashed-password'),
+    };
+
+    auditService = {
+      log: jest.fn(),
+    };
+
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+      getUserAccess: jest.fn().mockResolvedValue({
+        roles: ['GERENTE'],
+        permissions: ['can_manage_users'],
+      }),
+      getEffectiveRoleScope: jest.fn((roles: string[]) => {
+        for (const role of roles) {
+          const resolved = resolveScope(role);
+          if (resolved) {
+            return resolved;
+          }
+        }
+        return null;
+      }),
+      getRoleScope: jest.fn((roleName?: string | null) =>
+        resolveScope(roleName),
+      ),
+    } as Partial<RbacService>;
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+    );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('bloqueia GERENTE atribuindo Administrador da Empresa', async () => {
+    profilesRepo.findOne.mockResolvedValue({
+      id: 'profile-admin-empresa',
+      nome: 'Administrador da Empresa',
+    } as Profile);
+    jest.spyOn(RequestContext, 'getUserId').mockReturnValue('actor-gerente');
+
+    await expect(
+      service.create({
+        nome: 'Novo Admin Empresa',
+        cpf: '09878058433',
+        funcao: 'Coordenador',
+        profile_id: 'profile-admin-empresa',
+      }),
+    ).rejects.toThrow(
+      'Gerente não pode atribuir o perfil "Administrador da Empresa".',
+    );
+
+    expect(repoSaveMock).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia Tecnico atribuindo Supervisor por comparação de escopo', async () => {
+    profilesRepo.findOne.mockResolvedValue({
+      id: 'profile-supervisor',
+      nome: 'Supervisor / Encarregado',
+    } as Profile);
+    (
+      rbacService.getUserAccess as jest.MockedFunction<
+        NonNullable<Partial<RbacService>['getUserAccess']>
+      >
+    ).mockResolvedValue({
+      roles: ['Técnico'],
+      permissions: ['can_manage_users'],
+    });
+    jest.spyOn(RequestContext, 'getUserId').mockReturnValue('actor-tecnico');
+
+    await expect(
+      service.create({
+        nome: 'Novo Supervisor',
+        cpf: '17146619802',
+        funcao: 'Lider',
+        profile_id: 'profile-supervisor',
+      }),
+    ).rejects.toThrow(
+      'Técnico não pode atribuir o perfil "Supervisor / Encarregado".',
+    );
+
+    expect(repoSaveMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('UsersService.update site binding', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;
