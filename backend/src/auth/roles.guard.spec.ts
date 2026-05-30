@@ -330,6 +330,23 @@ describe('RolesGuard', () => {
       expect(loggerWarnSpy).not.toHaveBeenCalled();
     });
 
+    it('normaliza alias GERENTE como supervisor operacional', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+        Role.SUPERVISOR,
+      ]);
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue({
+        user: {
+          userId: 'user-gerente',
+          profile: { nome: 'GERENTE' },
+        },
+      });
+
+      await expect(guard.canActivate(mockExecutionContext)).resolves.toBe(true);
+    });
+
     it('blocks TST when route requires Admin Empresa', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
         Role.ADMIN_EMPRESA,

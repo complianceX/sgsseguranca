@@ -200,7 +200,15 @@ describeE2E('E2E — APR batch final PDF emission', () => {
         })()
       : sampleDownloadUrl;
 
-    const downloadRes = await testApp.request().get(sampleDownloadPath);
+    const anonymousDownloadRes = await testApp
+      .request()
+      .get(sampleDownloadPath);
+    expect(anonymousDownloadRes.status).toBe(403);
+
+    const downloadRes = await testApp
+      .request()
+      .get(sampleDownloadPath)
+      .set(testApp.authHeaders(approverSession));
     expect(downloadRes.status).toBe(200);
     expect(String(downloadRes.headers['content-type'] || '')).toContain(
       'application/pdf',

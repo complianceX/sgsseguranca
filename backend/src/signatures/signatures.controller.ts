@@ -13,6 +13,10 @@ import {
 import { SignaturesService } from './signatures.service';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 import { FindSignaturesQueryDto } from './dto/find-signatures-query.dto';
+import {
+  RemoveSignaturesByDocumentParamDto,
+  RemoveSignaturesByDocumentQueryDto,
+} from './dto/remove-signatures-by-document.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
@@ -71,13 +75,13 @@ export class SignaturesController {
   @Authorize('can_manage_signatures')
   @ForensicAuditAction('delete', 'signature')
   removeByDocument(
-    @Param('document_id') document_id: string,
-    @Query('document_type') document_type: string,
+    @Param() params: RemoveSignaturesByDocumentParamDto,
+    @Query() query: RemoveSignaturesByDocumentQueryDto,
     @Request() req: RequestWithUser,
   ) {
     return this.signaturesService.removeByDocument(
-      document_id,
-      document_type,
+      params.document_id,
+      query.document_type,
       req.user.userId,
       req.user.profile?.nome,
     );

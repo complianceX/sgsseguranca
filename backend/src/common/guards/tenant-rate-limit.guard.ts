@@ -21,6 +21,7 @@ import {
   TENANT_THROTTLE_KEY,
   TenantThrottleOptions,
 } from '../decorators/tenant-throttle.decorator';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 type TenantRateLimitRequest = TenantRequest & {
   method?: string;
@@ -38,6 +39,16 @@ export const getTenantPlan = (
   return normalizeTenantRateLimitPlan(request.tenant?.plan);
 };
 
+const normalizeRequestPath = (rawPath: string | undefined): string => {
+  if (!rawPath) {
+    return '/';
+  }
+
+  const sanitized = sanitizeLogUrl(rawPath);
+  const pathOnly = sanitized.split('?')[0]?.trim();
+  return pathOnly || '/';
+};
+
 export const getTenantRateLimitRoute = (
   request: TenantRateLimitRequest,
 ): string => {
@@ -48,7 +59,7 @@ export const getTenantRateLimitRoute = (
     typeof routeValue?.path === 'string'
       ? `${request.baseUrl || ''}${routeValue.path}`
       : request.path || request.originalUrl || request.url || '/';
-  return `${method}:${routePath}`;
+  return `${method}:${normalizeRequestPath(routePath)}`;
 };
 
 /**
@@ -87,6 +98,9 @@ export class TenantRateLimitGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<TenantRateLimitRequest>();
     const plan = getTenantPlan(request);
+    const sanitizedPath = normalizeRequestPath(
+      request.originalUrl || request.url || request.path || '/',
+    );
 
     // Verificar se a rota define limites customizados (@TenantThrottle)
     const routeOverrideRaw = this.reflector.getAllAndOverride<
@@ -115,7 +129,7 @@ export class TenantRateLimitGuard implements CanActivate {
         companyId,
         plan,
         method: request.method,
-        path: request.originalUrl || request.url,
+        path: sanitizedPath,
         ip: request.ip,
         errorName:
           error instanceof Error ? error.name : 'RateLimitStorageError',
@@ -141,7 +155,7 @@ export class TenantRateLimitGuard implements CanActivate {
         companyId,
         plan,
         method: request.method,
-        path: request.originalUrl || request.url,
+        path: sanitizedPath,
         ip: request.ip,
         retryAfter: result.retryAfter ?? null,
         remaining: result.remaining,

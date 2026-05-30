@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import { DocumentRegistryVersionEntry } from './entities/document-registry-version.entity';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentRegistryController } from './document-registry.controller';
 import { PublicDocumentRegistryController } from './public-document-registry.controller';
@@ -13,7 +14,10 @@ import { SecurityAuditModule } from '../common/security/security-audit.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DocumentRegistryEntry]),
+    TypeOrmModule.forFeature([
+      DocumentRegistryEntry,
+      DocumentRegistryVersionEntry,
+    ]),
     CommonModule,
     forwardRef(() => AuthModule),
     ForensicTrailModule,

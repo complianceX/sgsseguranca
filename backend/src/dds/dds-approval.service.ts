@@ -503,7 +503,27 @@ export class DdsApprovalService {
       return role as Role;
     }
 
-    const normalizedRole = String(role).trim().toUpperCase();
+    const normalizedRole = String(role)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    const aliases: Record<string, Role> = {
+      SUPER_ADMIN: Role.ADMIN_GERAL,
+      GERENTE: Role.SUPERVISOR,
+      VISUALIZADOR: Role.TRABALHADOR,
+      TECNICO: Role.TST,
+      'TECNICO SST': Role.TST,
+      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
+      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
+    };
+
+    const aliasRole = aliases[normalizedRole];
+    if (aliasRole) {
+      return aliasRole;
+    }
+
     const matchedEntry = Object.entries(Role).find(
       ([key, value]) =>
         key === normalizedRole || value.toUpperCase() === normalizedRole,

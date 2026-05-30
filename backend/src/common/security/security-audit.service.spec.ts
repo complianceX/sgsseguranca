@@ -1,5 +1,6 @@
 import {
   SecurityAuditService,
+  SecuritySeverity,
   SecurityEventType,
 } from './security-audit.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -43,5 +44,34 @@ describe('SecurityAuditService', () => {
     await Promise.resolve();
 
     expect(append).not.toHaveBeenCalled();
+  });
+
+  it('sanitiza path de evento antes de registrar log estruturado', () => {
+    const tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+    } as unknown as jest.Mocked<TenantService>;
+    const append = jest.fn().mockResolvedValue({});
+    const forensicTrail = {
+      append,
+    } as unknown as jest.Mocked<ForensicTrailService>;
+    const service = new SecurityAuditService(tenantService, forensicTrail);
+    const loggerWarn = jest
+      .spyOn(
+        (service as unknown as { logger: { warn: jest.Mock } }).logger,
+        'warn',
+      )
+      .mockImplementation(() => undefined);
+
+    service.emit({
+      event: SecurityEventType.CROSS_TENANT_SPOOF,
+      severity: SecuritySeverity.HIGH,
+      path: '/public/dds/signature/token-secreto?token=abc123&trace=1',
+    });
+
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/public/dds/signature/***REDACTED***',
+      }),
+    );
   });
 });

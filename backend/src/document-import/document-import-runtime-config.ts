@@ -20,3 +20,21 @@ export function getDocumentImportJobAttempts(): number {
 export function getDocumentImportQueueConcurrency(): number {
   return readPositiveIntEnv('DOCUMENT_IMPORT_QUEUE_CONCURRENCY', 2);
 }
+
+export function getDocumentImportOfficeArchiveMaxEntries(): number {
+  return readPositiveIntEnv('DOCUMENT_IMPORT_OFFICE_MAX_ENTRIES', 512);
+}
+
+export function getDocumentImportOfficeArchiveMaxUncompressedBytes(): number {
+  return readPositiveIntEnv(
+    'DOCUMENT_IMPORT_OFFICE_MAX_UNCOMPRESSED_BYTES',
+    32 * 1024 * 1024,
+  );
+}
+
+export function getDocumentImportExtractedTextMaxBytes(): number {
+  return readPositiveIntEnv(
+    'DOCUMENT_IMPORT_EXTRACTED_TEXT_MAX_BYTES',
+    2 * 1024 * 1024,
+  );
+}

@@ -2,6 +2,7 @@ import type { Repository } from 'typeorm';
 import type { NotificationsService } from '../notifications/notifications.service';
 import type { MailService } from '../mail/mail.service';
 import type { DistributedLockService } from '../common/redis/distributed-lock.service';
+import type { TenantService } from '../common/tenant/tenant.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import type { Company } from '../companies/entities/company.entity';
 import type { User } from '../users/entities/user.entity';
@@ -58,9 +59,15 @@ describe('DdsObservabilityAlertsService', () => {
           .mockResolvedValue([{ id: 'user-1' }, { id: 'user-2' }]),
       }),
     } as unknown as Repository<User>;
+    const run = jest.fn(
+      (_context: unknown, callback: () => Promise<unknown>): Promise<unknown> =>
+        callback(),
+    );
+    const tenantService = { run } as unknown as TenantService;
 
     const service = new DdsObservabilityAlertsService(
       observabilityService,
+      tenantService,
       { createDeduped: jest.fn() } as unknown as NotificationsService,
       { sendMailSimple: jest.fn() } as unknown as MailService,
       {
@@ -77,6 +84,14 @@ describe('DdsObservabilityAlertsService', () => {
 
     const preview = await service.getPreview('company-1');
 
+    expect(run).toHaveBeenCalledWith(
+      {
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      expect.any(Function),
+    );
     expect(preview.recipients).toEqual({
       notificationUsers: 2,
       emailRecipients: ['sst@example.com', 'compliance@example.com'],
@@ -117,9 +132,18 @@ describe('DdsObservabilityAlertsService', () => {
     const forensicTrail = {
       append: jest.fn().mockResolvedValue({}),
     };
+    const tenantService = {
+      run: jest.fn(
+        (
+          _context: unknown,
+          callback: () => Promise<unknown>,
+        ): Promise<unknown> => callback(),
+      ),
+    } as unknown as TenantService;
 
     const service = new DdsObservabilityAlertsService(
       observabilityService,
+      tenantService,
       notificationsService as unknown as NotificationsService,
       mailService as unknown as MailService,
       {

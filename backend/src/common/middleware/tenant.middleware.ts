@@ -17,6 +17,7 @@ import { AuthPrincipalService } from '../../auth/auth-principal.service';
 import type { AuthenticatedPrincipal } from '../../auth/auth-principal.service';
 import { TenantValidationService } from '../tenant/tenant-validation.service';
 import { SecurityAuditService } from '../security/security-audit.service';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 type TenantInfo = {
   companyId?: string;
@@ -69,6 +70,10 @@ export class TenantMiddleware implements NestMiddleware {
     const token = this.extractToken(req);
     const requireExplicitForSuperAdmin =
       process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
+    const sanitizedRequestPath =
+      sanitizeLogUrl(req.originalUrl || req.url || req.path || '').split(
+        '?',
+      )[0] || '/';
 
     let companyId: string | undefined;
     let isSuperAdmin = false;
@@ -120,12 +125,14 @@ export class TenantMiddleware implements NestMiddleware {
               userId: principal.userId,
               tenantId: headerCompanyId,
               ip: req.ip,
-              path: req.originalUrl || req.url,
+              path: sanitizedRequestPath,
             });
             // Registra acesso cross-tenant na forensic trail para auditoria
             this.securityAudit.adminAction(
               principal.userId,
               `tenant_switch:${headerCompanyId}`,
+              undefined,
+              headerCompanyId,
             );
             companyId = headerCompanyId;
           } else {
@@ -137,7 +144,7 @@ export class TenantMiddleware implements NestMiddleware {
                 event: 'super_admin_missing_explicit_tenant',
                 userId: principal.userId,
                 ip: req.ip,
-                path: req.originalUrl || req.url,
+                path: sanitizedRequestPath,
               });
               throw new UnauthorizedException(
                 'Administrador Geral deve informar o tenant via header x-company-id.',
@@ -159,7 +166,7 @@ export class TenantMiddleware implements NestMiddleware {
               tokenCompanyId: null,
               ip: req.ip,
               method: req.method,
-              path: req.originalUrl || req.url,
+              path: sanitizedRequestPath,
               userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
               timestamp: new Date().toISOString(),
             });
@@ -175,7 +182,7 @@ export class TenantMiddleware implements NestMiddleware {
               headerCompanyId,
               ip: req.ip,
               method: req.method,
-              path: req.originalUrl || req.url,
+              path: sanitizedRequestPath,
               userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
               timestamp: new Date().toISOString(),
             });

@@ -38,6 +38,12 @@ type ParsedDataUrl = {
 };
 
 const COMPANY_LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const COMPANY_LOGO_ALLOWED_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
 
 const isInlineDataUrl = (value: unknown): value is string =>
   typeof value === 'string' && /^data:/i.test(value.trim());
@@ -440,8 +446,8 @@ export class CompaniesService {
     }
 
     const contentType = match[1].toLowerCase();
-    if (!contentType.startsWith('image/')) {
-      throw new BadRequestException('Logo deve ser uma imagem.');
+    if (!COMPANY_LOGO_ALLOWED_CONTENT_TYPES.has(contentType)) {
+      throw new BadRequestException('Logo deve ser PNG, JPG ou WebP.');
     }
 
     const buffer = Buffer.from(match[2], 'base64');
@@ -478,8 +484,6 @@ export class CompaniesService {
         return 'png';
       case 'image/webp':
         return 'webp';
-      case 'image/svg+xml':
-        return 'svg';
       default:
         return 'bin';
     }

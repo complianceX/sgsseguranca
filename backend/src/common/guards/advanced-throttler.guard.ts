@@ -8,6 +8,7 @@ import type {
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { getRequestIp } from '../utils/request-ip.util';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 interface ThrottledRequestUser {
   id?: string;
@@ -25,6 +26,11 @@ const getRoutePath = (route: unknown): string | null => {
 
   const path = route.path;
   return typeof path === 'string' && path.length > 0 ? path : null;
+};
+
+const normalizeEndpointPath = (value: string | undefined): string => {
+  const sanitized = sanitizeLogUrl(value || '');
+  return sanitized.split('?')[0] || '/';
 };
 
 /**
@@ -54,7 +60,9 @@ export class AdvancedThrottlerGuard extends ThrottlerGuard {
     const ip = this.getRequestIP(request);
     const userId = request.user?.id ?? request.user?.userId ?? 'anonymous';
     const routePath = getRoutePath(request.route);
-    const endpoint = `${request.method}:${routePath ?? request.url}`;
+    const endpoint = `${request.method}:${normalizeEndpointPath(
+      routePath ?? request.url,
+    )}`;
 
     // Rate limiting por IP (mais permissivo)
     const ipKey = `throttle:ip:${ip}`;

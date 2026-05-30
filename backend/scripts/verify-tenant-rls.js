@@ -3,7 +3,15 @@ const path = require('path');
 const dotenv = require('dotenv');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
-const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id', 'companyId'];
+const TENANT_COLUMNS = [
+  'company_id',
+  'companyId',
+  'created_company_id',
+  'empresa_id',
+  'tenant_id',
+  'tenantId',
+  'tenant_uuid',
+];
 const IGNORED_TABLES = new Set(['migrations', 'typeorm_metadata']);
 const UNPROTECTED_OBSERVABILITY_OBJECTS = [
   'pg_stat_statements',
@@ -256,7 +264,7 @@ async function verifyTenantRls(options = {}) {
       if (policiesResult.rows.length === 0) {
         issues.push('Nenhuma policy encontrada');
       } else {
-        const matchingPolicy = policiesResult.rows.find((policy) => {
+        const policySignals = policiesResult.rows.map((policy) => {
           const hasTenantUsing = hasTenantCondition(policy.qual, tenantColumns);
           const hasTenantWithCheck = hasTenantCondition(
             policy.with_check,
@@ -266,15 +274,33 @@ async function verifyTenantRls(options = {}) {
           const hasSuperAdminWithCheck = hasSuperAdminCondition(
             policy.with_check,
           );
-          return (
-            hasTenantUsing &&
-            hasTenantWithCheck &&
-            hasSuperAdminUsing &&
-            hasSuperAdminWithCheck
-          );
+          return {
+            hasTenantUsing,
+            hasTenantWithCheck,
+            hasSuperAdminUsing,
+            hasSuperAdminWithCheck,
+          };
         });
 
-        if (!matchingPolicy) {
+        const hasCombinedPolicy = policySignals.some(
+          (signal) =>
+            signal.hasTenantUsing &&
+            signal.hasTenantWithCheck &&
+            signal.hasSuperAdminUsing &&
+            signal.hasSuperAdminWithCheck,
+        );
+        const hasTenantScopedPolicy = policySignals.some(
+          (signal) => signal.hasTenantUsing && signal.hasTenantWithCheck,
+        );
+        const hasSuperAdminScopedPolicy = policySignals.some(
+          (signal) =>
+            signal.hasSuperAdminUsing && signal.hasSuperAdminWithCheck,
+        );
+
+        if (
+          !hasCombinedPolicy &&
+          !(hasTenantScopedPolicy && hasSuperAdminScopedPolicy)
+        ) {
           issues.push(
             'Policy tenant-aware com USING + WITH CHECK + is_super_admin() não encontrada',
           );

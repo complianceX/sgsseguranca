@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TENANT_OPTIONAL_KEY } from '../decorators/tenant-optional.decorator';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 /**
  * TenantGuard (request-level):
@@ -54,6 +55,8 @@ export class TenantGuard implements CanActivate {
         | string
         | undefined;
       const userAgent = req?.headers?.['user-agent'] as string | undefined;
+      const sanitizedPath =
+        sanitizeLogUrl(req?.originalUrl || req?.url || '').split('?')[0] || '/';
 
       // Forensic audit trail: log enough context for incident investigation
       // without leaking sensitive data (no tokens, no passwords).
@@ -67,7 +70,7 @@ export class TenantGuard implements CanActivate {
         headerCompanyId: headerCompanyId || null,
         ip: req?.ip,
         method: req?.method,
-        path: req?.originalUrl || req?.url,
+        path: sanitizedPath,
         userAgent: userAgent?.slice(0, 200),
         timestamp: new Date().toISOString(),
       });

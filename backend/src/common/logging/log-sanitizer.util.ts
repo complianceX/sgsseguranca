@@ -20,8 +20,63 @@ const SENSITIVE_QUERY_KEYS = new Set([
   'x-refresh-csrf',
 ]);
 
+const SENSITIVE_PATH_TOKEN_PREFIXES: string[][] = [
+  ['storage', 'download'],
+  ['public', 'dds', 'signature'],
+  ['tenant-lifecycle', 'onboarding'],
+];
+
 function normalizeKey(key: string): string {
   return key.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function isVersionPathSegment(segment: string): boolean {
+  return /^v\d+$/i.test(segment);
+}
+
+function startsWithPathPrefix(
+  segments: string[],
+  offset: number,
+  prefix: string[],
+): boolean {
+  if (segments.length < offset + prefix.length + 1) {
+    return false;
+  }
+
+  return prefix.every((part, index) => segments[offset + index] === part);
+}
+
+function redactSensitivePathSegments(pathname: string): string {
+  const hasTrailingSlash = pathname.endsWith('/') && pathname.length > 1;
+  const originalSegments = pathname.split('/').filter(Boolean);
+
+  if (originalSegments.length === 0) {
+    return pathname;
+  }
+
+  const redactedSegments = [...originalSegments];
+  const candidateOffsets = isVersionPathSegment(redactedSegments[0])
+    ? [1, 0]
+    : [0];
+
+  for (const prefix of SENSITIVE_PATH_TOKEN_PREFIXES) {
+    for (const offset of candidateOffsets) {
+      if (!startsWithPathPrefix(redactedSegments, offset, prefix)) {
+        continue;
+      }
+
+      const tokenIndex = offset + prefix.length;
+      redactedSegments[tokenIndex] = REDACTED;
+      break;
+    }
+  }
+
+  const rebuiltPath = `/${redactedSegments.join('/')}`;
+  if (hasTrailingSlash && !rebuiltPath.endsWith('/')) {
+    return `${rebuiltPath}/`;
+  }
+
+  return rebuiltPath;
 }
 
 function isSensitiveKey(key: string): boolean {
@@ -105,7 +160,8 @@ export function sanitizeLogUrl(rawUrl: string | undefined): string {
     }
 
     const query = parsed.searchParams.toString();
-    return `${parsed.pathname}${query ? `?${query}` : ''}`;
+    const sanitizedPath = redactSensitivePathSegments(parsed.pathname);
+    return `${sanitizedPath}${query ? `?${query}` : ''}`;
   } catch {
     return maskSensitiveText(rawUrl).slice(0, 500);
   }

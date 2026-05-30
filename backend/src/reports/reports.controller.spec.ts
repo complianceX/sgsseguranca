@@ -1,5 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import { Role } from '../auth/enums/roles.enum';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { ReportsController } from './reports.controller';
 import type { ReportsService } from './reports.service';
 
@@ -292,5 +294,17 @@ describe('ReportsController - tenant queue isolation', () => {
     expect(stats.total).toBe(2);
     expect(typeof stats.scannedMaxPerState).toBe('number');
     expect(typeof stats.warning).toBe('string');
+  });
+
+  it('restringe exclusao de relatorio aos perfis administradores', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      // Metadata is attached to the handler reference; it is not invoked here.
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      ReportsController.prototype.remove,
+    ) as Role[];
+
+    expect(roles).toEqual([Role.ADMIN_GERAL, Role.ADMIN_EMPRESA]);
+    expect(roles).not.toContain(Role.TST);
   });
 });

@@ -16,6 +16,13 @@ import { DocumentDownloadGrantService } from '../common/services/document-downlo
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { SecurityAuditService } from '../common/security/security-audit.service';
 import { isLikelySignedToken } from '../common/security/signed-token.util';
+import { DownloadTokenParamDto } from './dto/download-token-param.dto';
+
+type DownloadRequest = Request & {
+  tenant?: {
+    userId?: string | null;
+  };
+};
 
 @Controller('storage')
 export class DocumentDownloadController {
@@ -36,11 +43,12 @@ export class DocumentDownloadController {
   @Header('Pragma', 'no-cache')
   @Header('X-Content-Type-Options', 'nosniff')
   async downloadDocument(
-    @Param('token') token: string,
-    @Req() req: Request,
+    @Param() params: DownloadTokenParamDto,
+    @Req() req: DownloadRequest,
     @Res() res: Response,
   ): Promise<void> {
     const ip = req.ip ?? req.socket?.remoteAddress;
+    const token = params.token;
     const normalizedToken = String(token || '').trim();
 
     if (!this.isLikelyDownloadToken(normalizedToken)) {
@@ -54,8 +62,12 @@ export class DocumentDownloadController {
       ReturnType<DocumentDownloadGrantService['consumeToken']>
     >;
     try {
-      grant =
-        await this.documentDownloadGrantService.consumeToken(normalizedToken);
+      grant = await this.documentDownloadGrantService.consumeToken(
+        normalizedToken,
+        {
+          consumerUserId: req.tenant?.userId ?? null,
+        },
+      );
     } catch (err) {
       // Token inválido, expirado ou já consumido — registra tentativa suspeita.
       // Token de apenas 20 chars para evitar log de tokens válidos acidentalmente.

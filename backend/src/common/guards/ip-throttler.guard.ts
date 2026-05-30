@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 const authFallbackBuckets = new Map<
   string,
@@ -21,6 +22,11 @@ type GuardRequest = Record<string, unknown> & {
   headers?: Record<string, unknown>;
 };
 
+const normalizeGuardPath = (value: string | undefined): string => {
+  const sanitized = sanitizeLogUrl(value || '');
+  return sanitized.split('?')[0] || '';
+};
+
 @Injectable()
 export class IpThrottlerGuard extends ThrottlerGuard {
   private readonly logger = new Logger(IpThrottlerGuard.name);
@@ -28,7 +34,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   async canActivate(context: Parameters<ThrottlerGuard['canActivate']>[0]) {
     const http = context.switchToHttp();
     const req = http.getRequest<GuardRequest>();
-    const path = String(req?.path || req?.url || '');
+    const path = normalizeGuardPath(String(req?.path || req?.url || ''));
     const isDev = process.env.NODE_ENV !== 'production';
     const disableLoginThrottleInDev =
       process.env.DISABLE_LOGIN_THROTTLE_IN_DEV === 'true';
@@ -94,7 +100,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
 
   protected getTracker(req: GuardRequest): Promise<string> {
     const ip = String(req.ip || '');
-    const path = String(req.path || req.url || '');
+    const path = normalizeGuardPath(String(req.path || req.url || ''));
     const userAgentHeader = req.headers?.['user-agent'];
     const fingerprintHeader = req.headers?.['x-client-fingerprint'];
     const userAgent = (
