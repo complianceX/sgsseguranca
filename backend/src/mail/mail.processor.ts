@@ -5,12 +5,18 @@ import { MailService } from './mail.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { TenantQuotaService } from '../common/queue/tenant-quota.service';
 import { captureException } from '../common/monitoring/sentry';
+import { maskEmail } from '../common/logging/log-sanitizer.util';
+import {
+  TenantService,
+  type TenantContext,
+} from '../common/tenant/tenant.service';
 
 interface MailSendDocumentJobData {
   documentId: string;
   documentType: string;
   email: string;
   companyId?: string;
+  tenantContext?: TenantContext;
 }
 
 interface MailSendFileKeyJobData {
@@ -40,6 +46,9 @@ interface MailDeadLetterPayload {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
 const getOptionalString = (
   record: Record<string, unknown>,
   key: string,
@@ -67,9 +76,50 @@ const parseSendDocumentJobData = (
   const documentType = getOptionalString(data, 'documentType');
   const email = getOptionalString(data, 'email');
   const companyId = getOptionalString(data, 'companyId');
+  const rawTenantContext = data.tenantContext;
+  let tenantContext: TenantContext | undefined;
 
   if (!documentId || !documentType || !email || !companyId) {
     return null;
+  }
+
+  if (rawTenantContext !== undefined) {
+    if (!isRecord(rawTenantContext)) {
+      return null;
+    }
+
+    const contextCompanyId = getOptionalString(rawTenantContext, 'companyId');
+    const contextUserId = getOptionalString(rawTenantContext, 'userId');
+    const rawSiteScope = getOptionalString(rawTenantContext, 'siteScope');
+    const rawIsSuperAdmin = rawTenantContext.isSuperAdmin;
+    const rawSiteIds = rawTenantContext.siteIds;
+
+    if (
+      !contextCompanyId ||
+      contextCompanyId !== companyId ||
+      typeof rawIsSuperAdmin !== 'boolean' ||
+      (rawSiteScope !== 'single' && rawSiteScope !== 'all')
+    ) {
+      return null;
+    }
+
+    let siteIds: string[] | undefined;
+    if (rawSiteIds !== undefined) {
+      if (!isStringArray(rawSiteIds)) {
+        return null;
+      }
+      siteIds = rawSiteIds
+        .map((siteId) => siteId.trim())
+        .filter((siteId) => siteId.length > 0);
+    }
+
+    tenantContext = {
+      companyId: contextCompanyId,
+      isSuperAdmin: rawIsSuperAdmin,
+      siteScope: rawSiteScope,
+      ...(contextUserId ? { userId: contextUserId } : {}),
+      ...(siteIds ? { siteIds } : {}),
+    };
   }
 
   return {
@@ -77,6 +127,7 @@ const parseSendDocumentJobData = (
     documentType,
     email,
     companyId,
+    tenantContext,
   };
 };
 
@@ -119,6 +170,7 @@ export class MailProcessor extends WorkerHost {
 
   constructor(
     private readonly mailService: MailService,
+    private readonly tenantService: TenantService,
     private readonly metricsService: MetricsService,
     private readonly tenantQuota: TenantQuotaService,
     @InjectQueue('mail-dlq') private readonly mailDlq: Queue,
@@ -211,18 +263,26 @@ export class MailProcessor extends WorkerHost {
     job: Job<unknown, unknown, string>,
     data: MailSendDocumentJobData,
   ): Promise<{ status: 'sent' }> {
-    const { documentId, documentType, email, companyId } = data;
+    const { documentId, documentType, email, companyId, tenantContext } = data;
     this.logger.log(
-      `[Job ${job.id}] Processando envio de documento: ${documentType} para ${email}`,
+      `[Job ${job.id}] Processando envio de documento: ${documentType} para ${maskEmail(email)}`,
     );
 
     try {
-      await this.mailService.sendStoredDocument(
-        documentId,
-        documentType,
-        email,
-        companyId,
-      );
+      const dispatch = async () =>
+        this.mailService.sendStoredDocument(
+          documentId,
+          documentType,
+          email,
+          companyId,
+        );
+
+      if (tenantContext) {
+        await this.tenantService.run(tenantContext, dispatch);
+      } else {
+        await dispatch();
+      }
+
       this.logger.log(`[Job ${job.id}] E-mail enviado com sucesso.`);
       return { status: 'sent' };
     } catch (error) {
@@ -248,7 +308,7 @@ export class MailProcessor extends WorkerHost {
       userId,
     } = data;
     this.logger.log(
-      `[Job ${job.id}] Processando envio de arquivo: ${fileKey} para ${email}`,
+      `[Job ${job.id}] Processando envio de arquivo para ${maskEmail(email)}`,
     );
 
     try {

@@ -9,6 +9,7 @@ import {
 describe("aprDraftStorage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("remove campos transientes e nunca persiste material de assinatura", () => {
@@ -76,23 +77,23 @@ describe("aprDraftStorage", () => {
       }),
     );
     expect(window.localStorage.getItem("legacy-key")).toBeNull();
-    expect(window.localStorage.getItem("primary-key")).not.toContain(
+    expect(window.sessionStorage.getItem("primary-key")).not.toContain(
       "base64-assinatura",
     );
   });
 
   it("descarta rascunho corrompido para evitar restauracao insegura", () => {
-    window.localStorage.setItem("primary-key", "{json invalido");
+    window.sessionStorage.setItem("primary-key", "{json invalido");
 
     const result = readAprDraft("primary-key");
 
     expect(result.corrupted).toBe(true);
     expect(result.draft).toBeNull();
-    expect(window.localStorage.getItem("primary-key")).toBeNull();
+    expect(window.sessionStorage.getItem("primary-key")).toBeNull();
   });
 
   it("migra formato versionado antigo para o schema atual com draftId estavel", () => {
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       "primary-key",
       JSON.stringify({
         version: 2,
@@ -106,7 +107,7 @@ describe("aprDraftStorage", () => {
     );
 
     const result = readAprDraft("primary-key");
-    const stored = window.localStorage.getItem("primary-key");
+    const stored = window.sessionStorage.getItem("primary-key");
 
     expect(result.corrupted).toBe(false);
     expect(result.migratedFromLegacy).toBe(true);
@@ -141,18 +142,18 @@ describe("aprDraftStorage", () => {
       },
     });
 
-    const stored = window.localStorage.getItem("primary-key");
+    const stored = window.sessionStorage.getItem("primary-key");
     expect(stored).toContain('"version":3');
     expect(stored).toContain('"draftId":"draft-1"');
     expect(stored).toContain('"tenantId":"company-1"');
     expect(stored).not.toContain("signatures");
 
     clearAprDraft("primary-key");
-    expect(window.localStorage.getItem("primary-key")).toBeNull();
+    expect(window.sessionStorage.getItem("primary-key")).toBeNull();
   });
 
   it("descarta rascunho expirado pelo TTL curto", () => {
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       "primary-key",
       JSON.stringify({
         version: 3,
@@ -170,24 +171,29 @@ describe("aprDraftStorage", () => {
 
     expect(result.expired).toBe(true);
     expect(result.draft).toBeNull();
-    expect(window.localStorage.getItem("primary-key")).toBeNull();
+    expect(window.sessionStorage.getItem("primary-key")).toBeNull();
   });
 
   it("limpa rascunhos de outros tenants ao trocar de empresa", () => {
-    window.localStorage.setItem("gst.apr.wizard.draft.company-1", "{}");
-    window.localStorage.setItem("gst.apr.wizard.draft.company-2", "{}");
-    window.localStorage.setItem("compliancex.apr.wizard.draft.company-3", "{}");
+    window.sessionStorage.setItem("gst.apr.wizard.draft.company-1", "{}");
+    window.sessionStorage.setItem("gst.apr.wizard.draft.company-2", "{}");
+    window.sessionStorage.setItem(
+      "compliancex.apr.wizard.draft.company-3",
+      "{}",
+    );
 
     clearAprDraftsForOtherTenants("company-2");
 
     expect(
-      window.localStorage.getItem("gst.apr.wizard.draft.company-1"),
+      window.sessionStorage.getItem("gst.apr.wizard.draft.company-1"),
     ).toBeNull();
-    expect(window.localStorage.getItem("gst.apr.wizard.draft.company-2")).toBe(
+    expect(
+      window.sessionStorage.getItem("gst.apr.wizard.draft.company-2"),
+    ).toBe(
       "{}",
     );
     expect(
-      window.localStorage.getItem("compliancex.apr.wizard.draft.company-3"),
+      window.sessionStorage.getItem("compliancex.apr.wizard.draft.company-3"),
     ).toBeNull();
   });
 });

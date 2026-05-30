@@ -11,10 +11,14 @@ import { SignaturesService } from './signatures.service';
 
 describe('SignaturesController (http)', () => {
   let app: INestApplication;
+  const DOCUMENT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
   const signaturesService = {
     create: jest.fn(),
     findByDocument: jest.fn(),
+    verifyById: jest.fn(),
+    remove: jest.fn(),
+    removeByDocument: jest.fn(),
   };
 
   beforeEach(() => {
@@ -71,7 +75,7 @@ describe('SignaturesController (http)', () => {
     await request(httpServer)
       .post('/signatures')
       .send({
-        document_id: 'apr-1',
+        document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
         type: 'digital',
@@ -88,7 +92,7 @@ describe('SignaturesController (http)', () => {
     await request(httpServer)
       .post('/signatures')
       .send({
-        document_id: 'apr-1',
+        document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
         type: 'digital',
@@ -97,7 +101,7 @@ describe('SignaturesController (http)', () => {
 
     expect(signaturesService.create).toHaveBeenCalledWith(
       {
-        document_id: 'apr-1',
+        document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
         type: 'digital',
@@ -114,7 +118,7 @@ describe('SignaturesController (http)', () => {
 
     await request(httpServer)
       .get(
-        '/signatures?document_id=apr-1&document_type=APR&company_id=tenant-forjado',
+        `/signatures?document_id=${DOCUMENT_ID}&document_type=APR&company_id=tenant-forjado`,
       )
       .expect(400);
 
@@ -125,12 +129,34 @@ describe('SignaturesController (http)', () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
     await request(httpServer)
-      .get('/signatures?document_id=apr-1&document_type=APR')
+      .get(`/signatures?document_id=${DOCUMENT_ID}&document_type=APR`)
       .expect(200);
 
     expect(signaturesService.findByDocument).toHaveBeenCalledWith(
-      'apr-1',
+      DOCUMENT_ID,
       'APR',
     );
+  });
+
+  it('bloqueia delete por documento com UUID inválido', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .delete('/signatures/document/not-a-uuid?document_type=APR')
+      .expect(400);
+
+    expect(signaturesService.removeByDocument).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia delete por documento com campo extra inesperado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .delete(
+        `/signatures/document/${DOCUMENT_ID}?document_type=APR&forged=true`,
+      )
+      .expect(400);
+
+    expect(signaturesService.removeByDocument).not.toHaveBeenCalled();
   });
 });

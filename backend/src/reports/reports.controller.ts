@@ -125,7 +125,7 @@ export class ReportsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_view_dashboard')
   @ForensicAuditAction('delete', 'report')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {

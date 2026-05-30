@@ -34,6 +34,9 @@ function parsePositiveInt(
 
 function durationToMs(duration: string): number | null {
   const normalized = duration.trim().toLowerCase();
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized) * 1000;
+  }
   const match = normalized.match(/^(\d+)(s|m|h|d)$/);
   if (!match) {
     return null;
@@ -118,6 +121,17 @@ export function getAccessTokenCookieMaxAgeMs(): number {
 
   const parsed = durationToMs(ttl);
   return parsed || 15 * 60 * 1000;
+}
+
+export function getAccessTokenTtlMs(): number | null {
+  const ttl = getAccessTokenTtl();
+  if (isInfiniteTtl(ttl)) {
+    return null;
+  }
+  if (typeof ttl === 'number') {
+    return ttl * 1000;
+  }
+  return durationToMs(ttl);
 }
 
 export function getRefreshTokenTtlDays(): number {

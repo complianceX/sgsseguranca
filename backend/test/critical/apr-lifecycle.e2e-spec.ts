@@ -270,7 +270,13 @@ describeE2E('E2E Critical - APR lifecycle', () => {
           })()
         : downloadUrl;
 
-      const downloadRes = await testApp.request().get(downloadPath);
+      const anonymousDownloadRes = await testApp.request().get(downloadPath);
+      expect(anonymousDownloadRes.status).toBe(403);
+
+      const downloadRes = await testApp
+        .request()
+        .get(downloadPath)
+        .set(testApp.authHeaders(adminSession));
 
       expect(downloadRes.status).toBe(200);
       expect(String(downloadRes.headers['content-type'] || '')).toContain(
@@ -282,7 +288,10 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(downloadRes.body).toBeInstanceOf(Buffer);
       expect((downloadRes.body as Buffer).byteLength).toBeGreaterThan(32);
 
-      const replayRes = await testApp.request().get(downloadPath);
+      const replayRes = await testApp
+        .request()
+        .get(downloadPath)
+        .set(testApp.authHeaders(adminSession));
       expect(replayRes.status).toBe(403);
 
       const finalizeRes = await testApp

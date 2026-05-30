@@ -7,6 +7,7 @@ import {
 describe("sophie-draft-storage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("persiste rascunhos de APR/PT sem assinaturas, CPF, anexos ou URLs privadas", () => {
@@ -35,10 +36,10 @@ describe("sophie-draft-storage", () => {
     storeSophieAprDraft("company-1", draft);
     storeSophiePtDraft("company-1", draft);
 
-    const aprDraft = window.localStorage.getItem(
+    const aprDraft = window.sessionStorage.getItem(
       "gst.apr.wizard.draft.company-1",
     );
-    const ptDraft = window.localStorage.getItem(
+    const ptDraft = window.sessionStorage.getItem(
       "gst.pt.wizard.draft.company-1",
     );
 
@@ -64,7 +65,7 @@ describe("sophie-draft-storage", () => {
       ],
     });
 
-    const preview = window.localStorage.getItem("gst.nc.sophie.preview.nc-1");
+    const preview = window.sessionStorage.getItem("gst.nc.sophie.preview.nc-1");
 
     expect(preview).not.toContain("https://storage.local/private");
     expect(preview).toContain('"evidenceAttachments":[]');

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
+import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('signatures')
@@ -25,6 +26,13 @@ export class Signature {
 
   @Column({ type: 'uuid' })
   company_id: string;
+
+  @ManyToOne(() => Site, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'site_id' })
+  site?: Site | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  site_id: string | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })

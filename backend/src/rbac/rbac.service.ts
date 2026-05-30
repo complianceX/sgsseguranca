@@ -13,35 +13,47 @@ import {
 } from '../users/user-module-access.config';
 import { Role } from '../auth/enums/roles.enum';
 
-const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
+const VISUALIZADOR_FALLBACK_PERMISSIONS = [
+  'can_view_dashboard',
+  'can_view_apr',
+  'can_view_pt',
+  'can_view_checklists',
+  'can_view_signatures',
+  'can_manage_signatures',
+  'can_view_dds',
+  'can_view_dids',
+  'can_view_arrs',
+  'can_view_trainings',
+  'can_view_rdos',
+  'can_view_expenses',
+  'can_view_epi_assignments',
+  'can_view_documents_registry',
+  'can_view_sites',
+  'can_view_notifications',
+  'can_view_calendar',
+] as const;
+
+const TECNICO_FALLBACK_PERMISSIONS = [
+  ...VISUALIZADOR_FALLBACK_PERMISSIONS,
   'can_view_risks',
   'can_edit_risks',
   'can_create_apr',
   'can_update_apr',
-  'can_approve_apr',
-  'can_reject_apr',
-  'can_finalize_apr',
-  'can_generate_apr_pdf',
   'can_delete_apr',
-  'can_view_apr',
+  'can_generate_apr_pdf',
   'can_view_pt',
   'can_manage_pt',
   'can_approve_pt',
   'can_manage_nc',
-  'can_view_dashboard',
-  'can_view_checklists',
   'can_manage_checklists',
   'can_manage_catalogs',
   'can_view_audits',
-  'can_manage_audits',
   'can_view_medical_exams',
   'can_manage_medical_exams',
   'can_view_service_orders',
   'can_manage_service_orders',
   'can_view_mail',
   'can_manage_mail',
-  'can_view_signatures',
-  'can_manage_signatures',
   'can_import_documents',
   'can_view_cats',
   'can_manage_cats',
@@ -49,39 +61,45 @@ const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_manage_activities',
   'can_view_corrective_actions',
   'can_manage_corrective_actions',
-  'can_view_dds',
   'can_manage_dds',
-  'can_view_dids',
   'can_manage_dids',
-  'can_view_arrs',
   'can_manage_arrs',
-  'can_view_trainings',
   'can_manage_trainings',
-  'can_view_rdos',
   'can_manage_rdos',
-  'can_view_expenses',
   'can_manage_expenses',
-  'can_view_epi_assignments',
   'can_manage_epi_assignments',
-  'can_view_users',
-  'can_manage_users',
-  'can_view_companies',
-  'can_view_profiles',
-  'can_view_notifications',
-  'can_manage_notifications',
-  'can_manage_push_subscriptions',
-  'can_view_calendar',
   'can_use_ai',
-  'can_view_sites',
-  'can_manage_sites',
-  'can_view_dossiers',
-  'can_view_documents_registry',
   'can_view_photographic_reports',
   'can_manage_photographic_reports',
   'can_generate_photographic_report_ai',
   'can_export_photographic_report_pdf',
   'can_export_photographic_report_word',
   'can_finalize_photographic_report',
+] as const;
+
+const SUPERVISOR_FALLBACK_PERMISSIONS = [
+  ...TECNICO_FALLBACK_PERMISSIONS,
+  'can_approve_apr',
+  'can_reject_apr',
+  'can_finalize_apr',
+  'can_manage_audits',
+] as const;
+
+const GERENTE_FALLBACK_PERMISSIONS = [
+  ...SUPERVISOR_FALLBACK_PERMISSIONS,
+  'can_view_users',
+  'can_manage_users',
+  'can_manage_notifications',
+  'can_manage_push_subscriptions',
+] as const;
+
+const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
+  ...GERENTE_FALLBACK_PERMISSIONS,
+  'can_close_expenses',
+  'can_view_companies',
+  'can_view_profiles',
+  'can_manage_sites',
+  'can_view_dossiers',
 ] as const;
 
 const ADMIN_GERAL_ONLY_PERMISSIONS = [
@@ -93,141 +111,35 @@ const ADMIN_GERAL_ONLY_PERMISSIONS = [
 
 export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
   'Administrador Geral': [
-    'can_view_risks',
-    'can_edit_risks',
-    'can_create_apr',
-    'can_update_apr',
-    'can_approve_apr',
-    'can_reject_apr',
-    'can_finalize_apr',
-    'can_generate_apr_pdf',
-    'can_delete_apr',
-    'can_import_apr_pdf',
-    'can_view_apr',
-    'can_view_pt',
-    'can_manage_pt',
-    'can_approve_pt',
-    'can_manage_nc',
-    'can_view_dashboard',
-    'can_view_checklists',
-    'can_manage_checklists',
-    'can_manage_catalogs',
-    'can_view_audits',
-    'can_manage_audits',
-    'can_view_medical_exams',
-    'can_manage_medical_exams',
-    'can_view_service_orders',
-    'can_manage_service_orders',
-    'can_view_mail',
-    'can_manage_mail',
-    'can_view_signatures',
-    'can_manage_signatures',
-    'can_import_documents',
-    'can_view_cats',
-    'can_manage_cats',
-    'can_view_activities',
-    'can_manage_activities',
-    'can_view_corrective_actions',
-    'can_manage_corrective_actions',
-    'can_view_dds',
-    'can_manage_dds',
-    'can_view_dids',
-    'can_manage_dids',
-    'can_view_arrs',
-    'can_manage_arrs',
-    'can_view_trainings',
-    'can_manage_trainings',
-    'can_view_rdos',
-    'can_manage_rdos',
-    'can_view_expenses',
-    'can_manage_expenses',
-    'can_close_expenses',
-    'can_view_epi_assignments',
-    'can_manage_epi_assignments',
-    'can_view_users',
-    'can_manage_users',
-    'can_view_companies',
-    'can_manage_companies',
-    'can_view_profiles',
-    'can_manage_profiles',
-    'can_view_notifications',
-    'can_manage_notifications',
-    'can_manage_push_subscriptions',
-    'can_view_calendar',
-    'can_use_ai',
-    'can_view_system_health',
-    'can_manage_disaster_recovery',
-    'can_view_sites',
-    'can_manage_sites',
-    'can_view_dossiers',
-    'can_view_documents_registry',
-    'can_view_photographic_reports',
-    'can_manage_photographic_reports',
-    'can_generate_photographic_report_ai',
-    'can_export_photographic_report_pdf',
-    'can_export_photographic_report_word',
-    'can_finalize_photographic_report',
-  ],
-  'Administrador da Empresa': [
     ...ADMIN_EMPRESA_FALLBACK_PERMISSIONS,
-    'can_close_expenses',
+    ...ADMIN_GERAL_ONLY_PERMISSIONS,
   ],
-  'Técnico de Segurança do Trabalho (TST)': [
+  SUPER_ADMIN: [
     ...ADMIN_EMPRESA_FALLBACK_PERMISSIONS,
+    ...ADMIN_GERAL_ONLY_PERMISSIONS,
   ],
-  Técnico: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  Tecnico: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Técnico SST': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Tecnico SST': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Técnico de Segurança do Trabalho': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Tecnico de Seguranca do Trabalho': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  TST: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Supervisor / Encarregado': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  Supervisor: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
-  'Operador / Colaborador': [
-    'can_create_apr',
-    'can_view_apr',
-    'can_view_pt',
-    'can_manage_pt',
-    'can_view_dashboard',
-    'can_view_signatures',
-    'can_manage_signatures',
-    'can_view_dds',
-    'can_manage_dds',
-    'can_view_dids',
-    'can_manage_dids',
-    'can_view_arrs',
-    'can_manage_arrs',
-    'can_view_rdos',
-    'can_manage_rdos',
-    'can_view_expenses',
-    'can_manage_expenses',
-    'can_view_epi_assignments',
-    'can_manage_epi_assignments',
-    'can_view_notifications',
-    'can_manage_notifications',
-    'can_manage_push_subscriptions',
-    'can_view_sites',
-    'can_view_photographic_reports',
-    'can_manage_photographic_reports',
-    'can_generate_photographic_report_ai',
-    'can_export_photographic_report_pdf',
-    'can_export_photographic_report_word',
-    'can_finalize_photographic_report',
-  ],
-  Trabalhador: [
-    'can_view_dashboard',
-    'can_view_checklists',
-    'can_view_signatures',
-    'can_manage_signatures',
-    'can_view_dds',
-    'can_view_dids',
-    'can_view_arrs',
-    'can_view_notifications',
-    'can_manage_notifications',
-    'can_manage_push_subscriptions',
-    'can_view_sites',
-  ],
+  'Administrador da Empresa': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  ADMIN_EMPRESA: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  Gerente: [...GERENTE_FALLBACK_PERMISSIONS],
+  GERENTE: [...GERENTE_FALLBACK_PERMISSIONS],
+  'Supervisor / Encarregado': [...SUPERVISOR_FALLBACK_PERMISSIONS],
+  Supervisor: [...SUPERVISOR_FALLBACK_PERMISSIONS],
+  SUPERVISOR: [...SUPERVISOR_FALLBACK_PERMISSIONS],
+  'Técnico de Segurança do Trabalho (TST)': [...TECNICO_FALLBACK_PERMISSIONS],
+  Técnico: [...TECNICO_FALLBACK_PERMISSIONS],
+  Tecnico: [...TECNICO_FALLBACK_PERMISSIONS],
+  'Técnico SST': [...TECNICO_FALLBACK_PERMISSIONS],
+  'Tecnico SST': [...TECNICO_FALLBACK_PERMISSIONS],
+  'Técnico de Segurança do Trabalho': [...TECNICO_FALLBACK_PERMISSIONS],
+  'Tecnico de Seguranca do Trabalho': [...TECNICO_FALLBACK_PERMISSIONS],
+  TST: [...TECNICO_FALLBACK_PERMISSIONS],
+  TECNICO: [...TECNICO_FALLBACK_PERMISSIONS],
+  'Operador / Colaborador': [...VISUALIZADOR_FALLBACK_PERMISSIONS],
+  COLABORADOR: [...VISUALIZADOR_FALLBACK_PERMISSIONS],
+  Trabalhador: [...VISUALIZADOR_FALLBACK_PERMISSIONS],
+  TRABALHADOR: [...VISUALIZADOR_FALLBACK_PERMISSIONS],
+  Visualizador: [...VISUALIZADOR_FALLBACK_PERMISSIONS],
+  VISUALIZADOR: [...VISUALIZADOR_FALLBACK_PERMISSIONS],
 };
 
 type AccessBundle = {
@@ -251,6 +163,34 @@ type ModuleAccessRow = {
 };
 
 const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 120;
+
+export type RoleScope =
+  | 'SUPER_ADMIN'
+  | 'ADMIN_EMPRESA'
+  | 'GERENTE'
+  | 'SUPERVISOR'
+  | 'TECNICO'
+  | 'VISUALIZADOR';
+
+const ROLE_SCOPE_PRIORITY: RoleScope[] = [
+  'SUPER_ADMIN',
+  'ADMIN_EMPRESA',
+  'GERENTE',
+  'SUPERVISOR',
+  'TECNICO',
+  'VISUALIZADOR',
+];
+
+const ROLE_SCOPE_ALLOWED_PERMISSIONS: Record<
+  Exclude<RoleScope, 'SUPER_ADMIN'>,
+  readonly string[]
+> = {
+  ADMIN_EMPRESA: ADMIN_EMPRESA_FALLBACK_PERMISSIONS,
+  GERENTE: GERENTE_FALLBACK_PERMISSIONS,
+  SUPERVISOR: SUPERVISOR_FALLBACK_PERMISSIONS,
+  TECNICO: TECNICO_FALLBACK_PERMISSIONS,
+  VISUALIZADOR: VISUALIZADOR_FALLBACK_PERMISSIONS,
+};
 
 @Injectable()
 export class RbacService {
@@ -561,10 +501,21 @@ export class RbacService {
       .toUpperCase()
       .replace(/\s+/g, ' ');
 
+    // GERENTE é um papel funcional mais amplo do que SUPERVISOR no fallback
+    // do produto. Rebaixar automaticamente para supervisor em user_roles
+    // faz o usuário perder permissões válidas quando o banco ainda não tiver
+    // um role canônico "Gerente". Nessa fase preferimos preservar o nome do
+    // profile e deixar o fallback legado resolver o escopo correto.
+    if (normalized === 'GERENTE') {
+      return profileName.trim();
+    }
+
     const roleAliases: Record<string, Role> = {
+      SUPER_ADMIN: Role.ADMIN_GERAL,
       ADMIN_GERAL: Role.ADMIN_GERAL,
       'ADMINISTRADOR GERAL': Role.ADMIN_GERAL,
       ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
+      'ADMIN EMPRESA': Role.ADMIN_EMPRESA,
       'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
       'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
       TECNICO: Role.TST,
@@ -574,6 +525,7 @@ export class RbacService {
       TST: Role.TST,
       SUPERVISOR: Role.SUPERVISOR,
       'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
+      VISUALIZADOR: Role.TRABALHADOR,
       COLABORADOR: Role.COLABORADOR,
       'OPERADOR / COLABORADOR': Role.COLABORADOR,
       TRABALHADOR: Role.TRABALHADOR,
@@ -600,20 +552,96 @@ export class RbacService {
   }
 
   private normalizeAccessBundle(bundle: AccessBundle): AccessBundle {
-    const isAdminGeral = bundle.roles.includes('Administrador Geral');
-    const permissions = isAdminGeral
-      ? bundle.permissions
-      : bundle.permissions.filter(
-          (permission) =>
-            !ADMIN_GERAL_ONLY_PERMISSIONS.includes(
-              permission as (typeof ADMIN_GERAL_ONLY_PERMISSIONS)[number],
-            ),
+    const normalizedRoles = [...new Set(bundle.roles.filter(Boolean))].sort();
+    const effectiveScope = this.resolveEffectiveRoleScope(normalizedRoles);
+    const isSuperAdmin = effectiveScope === 'SUPER_ADMIN';
+
+    let permissions = bundle.permissions.filter(Boolean);
+    if (!isSuperAdmin) {
+      permissions = permissions.filter(
+        (permission) =>
+          !ADMIN_GERAL_ONLY_PERMISSIONS.includes(
+            permission as (typeof ADMIN_GERAL_ONLY_PERMISSIONS)[number],
+          ),
+      );
+
+      if (effectiveScope) {
+        const allowed = new Set(
+          ROLE_SCOPE_ALLOWED_PERMISSIONS[effectiveScope] || [],
         );
+        permissions = permissions.filter((permission) =>
+          allowed.has(permission),
+        );
+      }
+    }
 
     return {
-      roles: [...new Set(bundle.roles.filter(Boolean))].sort(),
+      roles: normalizedRoles,
       permissions: [...new Set(permissions.filter(Boolean))].sort(),
     };
+  }
+
+  private resolveEffectiveRoleScope(roles: string[]): RoleScope | null {
+    const scopes = roles
+      .map((role) => this.resolveRoleScope(role))
+      .filter((scope): scope is RoleScope => scope !== null);
+
+    if (scopes.length === 0) {
+      return null;
+    }
+
+    for (const prioritizedScope of ROLE_SCOPE_PRIORITY) {
+      if (scopes.includes(prioritizedScope)) {
+        return prioritizedScope;
+      }
+    }
+
+    return null;
+  }
+
+  private resolveRoleScope(roleName: string): RoleScope | null {
+    const normalized = roleName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, ' ');
+
+    const aliases: Record<string, RoleScope> = {
+      SUPER_ADMIN: 'SUPER_ADMIN',
+      ADMIN_GERAL: 'SUPER_ADMIN',
+      'ADMINISTRADOR GERAL': 'SUPER_ADMIN',
+      ADMIN_EMPRESA: 'ADMIN_EMPRESA',
+      'ADMIN EMPRESA': 'ADMIN_EMPRESA',
+      'ADMINISTRADOR DA EMPRESA': 'ADMIN_EMPRESA',
+      'ADMINISTRADOR EMPRESA': 'ADMIN_EMPRESA',
+      GERENTE: 'GERENTE',
+      SUPERVISOR: 'SUPERVISOR',
+      'SUPERVISOR / ENCARREGADO': 'SUPERVISOR',
+      TECNICO: 'TECNICO',
+      'TECNICO SST': 'TECNICO',
+      'TECNICO DE SEGURANCA DO TRABALHO': 'TECNICO',
+      'TECNICO DE SEGURANCA DO TRABALHO (TST)': 'TECNICO',
+      TST: 'TECNICO',
+      VISUALIZADOR: 'VISUALIZADOR',
+      TRABALHADOR: 'VISUALIZADOR',
+      COLABORADOR: 'VISUALIZADOR',
+      'OPERADOR / COLABORADOR': 'VISUALIZADOR',
+    };
+
+    return aliases[normalized] || null;
+  }
+
+  getRoleScope(roleName?: string | null): RoleScope | null {
+    if (!roleName) {
+      return null;
+    }
+
+    return this.resolveRoleScope(roleName);
+  }
+
+  getEffectiveRoleScope(roleNames: string[]): RoleScope | null {
+    return this.resolveEffectiveRoleScope(roleNames);
   }
 
   private isAccessBundle(value: unknown): value is AccessBundle {

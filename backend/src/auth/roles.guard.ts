@@ -173,14 +173,23 @@ export class RolesGuard implements CanActivate {
     }
 
     const roleAliases: Record<string, Role> = {
+      SUPER_ADMIN: Role.ADMIN_GERAL,
+      'ADMINISTRADOR GERAL': Role.ADMIN_GERAL,
       'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
       'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
+      'ADMIN EMPRESA': Role.ADMIN_EMPRESA,
       ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
+      GERENTE: Role.SUPERVISOR,
       TECNICO: Role.TST,
       'TECNICO SST': Role.TST,
       'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
+      'TECNICO DE SEGURANCA DO TRABALHO (TST)': Role.TST,
       TST: Role.TST,
       SUPERVISOR: Role.SUPERVISOR,
+      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
+      VISUALIZADOR: Role.TRABALHADOR,
+      COLABORADOR: Role.COLABORADOR,
+      TRABALHADOR: Role.TRABALHADOR,
     };
 
     if (Object.values(Role).includes(role as Role)) {

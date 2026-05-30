@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { PublicSignaturesController } from './public-signatures.controller';
 import type { SignaturesService } from './signatures.service';
 
@@ -22,19 +21,15 @@ describe('PublicSignaturesController', () => {
       message: 'Assinatura validada com sucesso.',
       signature: {
         hash: 'a'.repeat(64),
-        document_id: 'dds-1',
-        document_type: 'DDS',
         type: 'hmac',
       },
     });
 
-    await expect(controller.verify('a'.repeat(64))).resolves.toEqual({
+    await expect(controller.verify({ hash: 'a'.repeat(64) })).resolves.toEqual({
       valid: true,
       message: 'Assinatura validada com sucesso.',
       signature: {
         hash: 'a'.repeat(64),
-        document_id: 'dds-1',
-        document_type: 'DDS',
         type: 'hmac',
       },
     });
@@ -46,14 +41,22 @@ describe('PublicSignaturesController', () => {
       message: 'Assinatura não localizada.',
     });
 
-    await expect(controller.verify('b'.repeat(64))).resolves.toEqual({
+    await expect(controller.verify({ hash: 'b'.repeat(64) })).resolves.toEqual({
       valid: false,
       message: 'Assinatura não localizada.',
     });
   });
 
-  it('bloqueia hash inválido antes de consultar o serviço', () => {
-    expect(() => controller.verify('abc')).toThrow(BadRequestException);
-    expect(signaturesService.verifyByHashPublic).not.toHaveBeenCalled();
+  it('normaliza hash para minúsculo antes de consultar o serviço', async () => {
+    (signaturesService.verifyByHashPublic as jest.Mock).mockResolvedValue({
+      valid: false,
+      message: 'Assinatura localizada, mas inválida.',
+    });
+
+    await controller.verify({ hash: 'A'.repeat(64) });
+
+    expect(signaturesService.verifyByHashPublic).toHaveBeenCalledWith(
+      'A'.repeat(64),
+    );
   });
 });

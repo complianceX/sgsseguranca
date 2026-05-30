@@ -2,6 +2,7 @@ import type { Repository } from 'typeorm';
 import type { NotificationsService } from '../notifications/notifications.service';
 import type { MailService } from '../mail/mail.service';
 import type { DistributedLockService } from '../common/redis/distributed-lock.service';
+import type { TenantService } from '../common/tenant/tenant.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import type { Company } from '../companies/entities/company.entity';
 import type { User } from '../users/entities/user.entity';
@@ -19,6 +20,7 @@ describe('DdsObservabilityAlertsService', () => {
   });
 
   it('gera preview com alertas ativos e fila de investigação', async () => {
+    let inTenantScope = false;
     const observabilityService = {
       getOverview: jest.fn().mockResolvedValue({
         tenantScope: 'tenant',
@@ -40,27 +42,44 @@ describe('DdsObservabilityAlertsService', () => {
     } as unknown as DdsObservabilityService;
 
     const companyRepository = {
-      findOne: jest.fn().mockResolvedValue({
-        id: 'company-1',
-        email_contato: 'compliance@example.com',
-        alert_settings: { recipients: ['sst@example.com'] },
+      findOne: jest.fn(() => {
+        expect(inTenantScope).toBe(true);
+        return Promise.resolve({
+          id: 'company-1',
+          email_contato: 'compliance@example.com',
+          alert_settings: { recipients: ['sst@example.com'] },
+        });
       }),
     } as unknown as Repository<Company>;
 
+    const getMany = jest.fn(() => {
+      expect(inTenantScope).toBe(true);
+      return Promise.resolve([{ id: 'user-1' }, { id: 'user-2' }]);
+    });
     const userRepository = {
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoin: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'user-1' }, { id: 'user-2' }]),
+        getMany,
       }),
     } as unknown as Repository<User>;
+    const run = jest.fn(
+      async (_context: unknown, callback: () => Promise<unknown>) => {
+        inTenantScope = true;
+        try {
+          return await callback();
+        } finally {
+          inTenantScope = false;
+        }
+      },
+    );
+    const tenantService = { run } as unknown as TenantService;
 
     const service = new DdsObservabilityAlertsService(
       observabilityService,
+      tenantService,
       { createDeduped: jest.fn() } as unknown as NotificationsService,
       { sendMailSimple: jest.fn() } as unknown as MailService,
       {
@@ -77,6 +96,14 @@ describe('DdsObservabilityAlertsService', () => {
 
     const preview = await service.getPreview('company-1');
 
+    expect(run).toHaveBeenCalledWith(
+      {
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      expect.any(Function),
+    );
     expect(preview.recipients).toEqual({
       notificationUsers: 2,
       emailRecipients: ['sst@example.com', 'compliance@example.com'],
@@ -117,9 +144,18 @@ describe('DdsObservabilityAlertsService', () => {
     const forensicTrail = {
       append: jest.fn().mockResolvedValue({}),
     };
+    const tenantService = {
+      run: jest.fn(
+        (
+          _context: unknown,
+          callback: () => Promise<unknown>,
+        ): Promise<unknown> => callback(),
+      ),
+    } as unknown as TenantService;
 
     const service = new DdsObservabilityAlertsService(
       observabilityService,
+      tenantService,
       notificationsService as unknown as NotificationsService,
       mailService as unknown as MailService,
       {

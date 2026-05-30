@@ -142,6 +142,73 @@ describeE2E(
 
         expect(apr.id).toBeTruthy();
       });
+
+      it('VISUALIZADOR (Trabalhador): PATCH /aprs/:id -> 403', async () => {
+        const tenantA = testApp.getTenant('tenantA');
+        const tecnico = testApp.getUser('tenantA', Role.TST);
+        const apr = await createApr(testApp, tecnicoSession, {
+          numero: 'APR-VIEWER-EDIT-001',
+          titulo: 'APR para validar bloqueio de edição do visualizador',
+          siteId: tenantA.siteId,
+          elaboradorId: tecnico.id,
+        });
+
+        const response = await testApp
+          .request()
+          .patch(`/aprs/${apr.id}`)
+          .set(testApp.authHeaders(trabalhadorSession))
+          .set(csrfHeaders)
+          .send({
+            titulo: 'Tentativa indevida de edição por visualizador',
+          });
+
+        expect(response.status).toBe(403);
+      });
+
+      it('VISUALIZADOR (Trabalhador): DELETE /aprs/:id -> 403', async () => {
+        const tenantA = testApp.getTenant('tenantA');
+        const tecnico = testApp.getUser('tenantA', Role.TST);
+        const apr = await createApr(testApp, tecnicoSession, {
+          numero: 'APR-VIEWER-DELETE-001',
+          titulo: 'APR para validar bloqueio de exclusão do visualizador',
+          siteId: tenantA.siteId,
+          elaboradorId: tecnico.id,
+        });
+
+        const response = await testApp
+          .request()
+          .delete(`/aprs/${apr.id}`)
+          .set(testApp.authHeaders(trabalhadorSession))
+          .set(csrfHeaders);
+
+        expect(response.status).toBe(403);
+      });
+
+      it('VISUALIZADOR (Trabalhador): POST /signatures -> 201 quando permitido', async () => {
+        const tenantA = testApp.getTenant('tenantA');
+        const tecnico = testApp.getUser('tenantA', Role.TST);
+        const apr = await createApr(testApp, tecnicoSession, {
+          numero: 'APR-VIEWER-SIGN-001',
+          titulo: 'APR para validar assinatura do visualizador',
+          siteId: tenantA.siteId,
+          elaboradorId: tecnico.id,
+        });
+
+        const response = await testApp
+          .request()
+          .post('/signatures')
+          .set(testApp.authHeaders(trabalhadorSession))
+          .set(csrfHeaders)
+          .send({
+            document_id: apr.id,
+            document_type: 'APR',
+            type: 'digital',
+            signature_data:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+XxNcAAAAASUVORK5CYII=',
+          });
+
+        expect(response.status).toBe(201);
+      });
     });
 
     describe('Usuários', () => {
@@ -184,6 +251,48 @@ describeE2E(
     });
 
     describe('Cross-tenant', () => {
+      it('SUPER_ADMIN consegue navegar tenant B com auditoria de troca de tenant', async () => {
+        const tenantB = testApp.getTenant('tenantB');
+        const tecnicoTenantB = testApp.getUser('tenantB', Role.TST);
+        const aprTenantB = await createApr(
+          testApp,
+          adminEmpresaTenantBSession,
+          {
+            numero: 'APR-SUPER-ADMIN-TENANT-B-001',
+            titulo:
+              'APR do tenant B para navegação cross-tenant do super admin',
+            siteId: tenantB.siteId,
+            elaboradorId: tecnicoTenantB.id,
+          },
+        );
+
+        const response = await testApp
+          .request()
+          .get(`/aprs/${aprTenantB.id}`)
+          .set(
+            testApp.authHeaders(adminGeralSession, {
+              companyIdOverride: tenantB.companyId,
+            }),
+          );
+
+        expect(response.status).toBe(200);
+
+        const auditRows = await testApp.dataSource.query<Array<{ ok: number }>>(
+          `
+            SELECT 1 AS ok
+            FROM forensic_trail_events
+            WHERE module = 'security'
+              AND event_type = 'ADMIN_ACTION'
+              AND company_id = $1
+              AND metadata ->> 'action' = $2
+            LIMIT 1
+          `,
+          [tenantB.companyId, `tenant_switch:${tenantB.companyId}`],
+        );
+
+        expect(auditRows.length).toBeGreaterThan(0);
+      });
+
       it('Usuário do tenant A acessando recurso do tenant B -> 404 (não 403)', async () => {
         const tenantB = testApp.getTenant('tenantB');
         const tecnicoTenantB = testApp.getUser('tenantB', Role.TST);

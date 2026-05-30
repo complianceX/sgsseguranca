@@ -1,7 +1,10 @@
 import { HttpException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext } from '@nestjs/common';
-import { TenantRateLimitGuard } from './tenant-rate-limit.guard';
+import {
+  TenantRateLimitGuard,
+  getTenantRateLimitRoute,
+} from './tenant-rate-limit.guard';
 import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
 import { TenantService } from '../tenant/tenant.service';
 
@@ -206,5 +209,14 @@ describe('TenantRateLimitGuard', () => {
       expect.anything(),
     );
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '60');
+  });
+
+  it('normaliza routeKey removendo query string para evitar cardinalidade por parâmetro', () => {
+    expect(
+      getTenantRateLimitRoute({
+        method: 'GET',
+        originalUrl: '/notifications/unread-count?token=abc123&cursor=100',
+      } as unknown as Parameters<typeof getTenantRateLimitRoute>[0]),
+    ).toBe('GET:/notifications/unread-count');
   });
 });

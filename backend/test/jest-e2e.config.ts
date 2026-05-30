@@ -8,6 +8,8 @@ const config: Config = {
   testMatch: [
     '<rootDir>/critical/**/*.e2e-spec.ts',
     '<rootDir>/aprs/**/*.e2e-spec.ts',
+    '<rootDir>/idor-security.e2e-spec.ts',
+    '<rootDir>/multi-tenancy.e2e-spec.ts',
   ],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',

@@ -217,6 +217,7 @@ describe('RbacService cache curto', () => {
         'can_manage_dids',
       ]),
     );
+    expect(result.permissions).not.toContain('can_manage_users');
   });
 
   it('mescla módulos liberados por usuário nas permissions efetivas', async () => {
@@ -237,9 +238,8 @@ describe('RbacService cache curto', () => {
     const result = await service.getUserAccess('worker-with-extra-module');
 
     expect(result.roles).toEqual(['Trabalhador']);
-    expect(result.permissions).toEqual(
-      expect.arrayContaining(['can_view_trainings', 'can_manage_trainings']),
-    );
+    expect(result.permissions).toContain('can_view_trainings');
+    expect(result.permissions).not.toContain('can_manage_trainings');
   });
 
   it('faz fallback para o profile quando o usuário não possui roles RBAC', async () => {
@@ -261,9 +261,8 @@ describe('RbacService cache curto', () => {
     const result = await service.getUserAccess('user-fallback');
 
     expect(result.roles).toEqual(['Trabalhador']);
-    expect(result.permissions).toEqual(
-      expect.arrayContaining(['custom_permission', 'can_view_dashboard']),
-    );
+    expect(result.permissions).toContain('can_view_dashboard');
+    expect(result.permissions).not.toContain('custom_permission');
     expect(usersQueryMock).toHaveBeenCalledTimes(2);
   });
 
@@ -290,7 +289,7 @@ describe('RbacService cache curto', () => {
 
     const result = await service.getUserAccess('legacy-tst-profile');
 
-    expect(result.permissions).toContain('can_manage_users');
+    expect(result.permissions).not.toContain('can_manage_users');
     expect(result.permissions).not.toContain('can_manage_companies');
     expect(result.permissions).not.toContain('can_manage_profiles');
     expect(result.permissions).not.toContain('can_view_system_health');
@@ -326,6 +325,18 @@ describe('RbacService cache curto', () => {
     expect(userRolesQueryMock.mock.calls[0]?.[1]).toEqual([
       'user-tst',
       'Técnico de Segurança do Trabalho (TST)',
+    ]);
+  });
+
+  it('preserva GERENTE na sincronização para não rebaixar escopo para supervisor', async () => {
+    userRolesQueryMock.mockResolvedValue([]);
+    redisDelMock.mockResolvedValue(1);
+
+    await service.syncUserRoleFromProfileName('user-gerente', 'GERENTE');
+
+    expect(userRolesQueryMock.mock.calls[0]?.[1]).toEqual([
+      'user-gerente',
+      'GERENTE',
     ]);
   });
 
@@ -379,6 +390,15 @@ describe('RbacService cache curto', () => {
     expect(first).toEqual(second);
     expect(userRolesQueryMock).toHaveBeenCalledTimes(1);
   });
+
+  it('expõe o escopo efetivo coerente para aliases do produto', () => {
+    expect(service.getRoleScope('GERENTE')).toBe('GERENTE');
+    expect(service.getRoleScope('Técnico')).toBe('TECNICO');
+    expect(service.getRoleScope('VISUALIZADOR')).toBe('VISUALIZADOR');
+    expect(service.getEffectiveRoleScope(['GERENTE', 'Trabalhador'])).toBe(
+      'GERENTE',
+    );
+  });
 });
 
 describe('PROFILE_PERMISSION_FALLBACK', () => {
@@ -393,10 +413,10 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
 
     const adminWithoutExpenseClose = new Set(adminEmpresaPermissions);
     adminWithoutExpenseClose.delete('can_close_expenses');
-    expect(tstPermissions).toEqual(adminWithoutExpenseClose);
-    expect(tstPermissions.has('can_view_companies')).toBe(true);
-    expect(tstPermissions.has('can_view_profiles')).toBe(true);
-    expect(tstPermissions.has('can_manage_users')).toBe(true);
+    expect(tstPermissions).not.toEqual(adminWithoutExpenseClose);
+    expect(tstPermissions.has('can_view_companies')).toBe(false);
+    expect(tstPermissions.has('can_view_profiles')).toBe(false);
+    expect(tstPermissions.has('can_manage_users')).toBe(false);
     expect(tstPermissions.has('can_view_expenses')).toBe(true);
     expect(tstPermissions.has('can_manage_expenses')).toBe(true);
     expect(tstPermissions.has('can_close_expenses')).toBe(false);
@@ -410,10 +430,10 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
       PROFILE_PERMISSION_FALLBACK['Técnico'] || [],
     );
 
-    expect(tecnicoPermissions.has('can_view_users')).toBe(true);
-    expect(tecnicoPermissions.has('can_manage_users')).toBe(true);
+    expect(tecnicoPermissions.has('can_view_users')).toBe(false);
+    expect(tecnicoPermissions.has('can_manage_users')).toBe(false);
     expect(tecnicoPermissions.has('can_view_sites')).toBe(true);
-    expect(tecnicoPermissions.has('can_manage_sites')).toBe(true);
+    expect(tecnicoPermissions.has('can_manage_sites')).toBe(false);
     expect(tecnicoPermissions.has('can_manage_companies')).toBe(false);
   });
 
@@ -427,8 +447,8 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
 
     const adminWithoutExpenseClose = new Set(adminEmpresaPermissions);
     adminWithoutExpenseClose.delete('can_close_expenses');
-    expect(supervisorPermissions).toEqual(adminWithoutExpenseClose);
-    expect(supervisorPermissions.has('can_manage_users')).toBe(true);
+    expect(supervisorPermissions).not.toEqual(adminWithoutExpenseClose);
+    expect(supervisorPermissions.has('can_manage_users')).toBe(false);
     expect(supervisorPermissions.has('can_view_expenses')).toBe(true);
     expect(supervisorPermissions.has('can_manage_expenses')).toBe(true);
     expect(supervisorPermissions.has('can_close_expenses')).toBe(false);

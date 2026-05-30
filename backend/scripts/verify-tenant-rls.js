@@ -3,7 +3,15 @@ const path = require('path');
 const dotenv = require('dotenv');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
-const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id', 'companyId'];
+const TENANT_COLUMNS = [
+  'company_id',
+  'companyId',
+  'created_company_id',
+  'empresa_id',
+  'tenant_id',
+  'tenantId',
+  'tenant_uuid',
+];
 const IGNORED_TABLES = new Set(['migrations', 'typeorm_metadata']);
 const UNPROTECTED_OBSERVABILITY_OBJECTS = [
   'pg_stat_statements',
@@ -134,6 +142,62 @@ function hasSuperAdminCondition(policyText) {
   );
 }
 
+function getPolicyCommandCoverage(policies, tenantColumns) {
+  const commands = Array.from(
+    new Set(
+      policies
+        .map((policy) => String(policy.cmd || '').trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+
+  return commands.map((command) => {
+    const applicablePolicies = policies.filter((policy) => {
+      const policyCommand = String(policy.cmd || '').trim().toUpperCase();
+      return policyCommand === command || policyCommand === 'ALL';
+    });
+    const policySignals = applicablePolicies.map((policy) => {
+      const hasTenantUsing = hasTenantCondition(policy.qual, tenantColumns);
+      const hasTenantWithCheck = hasTenantCondition(
+        policy.with_check,
+        tenantColumns,
+      );
+      const hasSuperAdminUsing = hasSuperAdminCondition(policy.qual);
+      const hasSuperAdminWithCheck = hasSuperAdminCondition(policy.with_check);
+
+      return {
+        hasTenantUsing,
+        hasTenantWithCheck,
+        hasSuperAdminUsing,
+        hasSuperAdminWithCheck,
+      };
+    });
+
+    const hasCombinedPolicy = policySignals.some(
+      (signal) =>
+        signal.hasTenantUsing &&
+        signal.hasTenantWithCheck &&
+        signal.hasSuperAdminUsing &&
+        signal.hasSuperAdminWithCheck,
+    );
+    const hasTenantScopedPolicy = policySignals.some(
+      (signal) => signal.hasTenantUsing && signal.hasTenantWithCheck,
+    );
+    const hasSuperAdminScopedPolicy = policySignals.some(
+      (signal) => signal.hasSuperAdminUsing && signal.hasSuperAdminWithCheck,
+    );
+
+    return {
+      command,
+      hasCombinedPolicy,
+      hasTenantScopedPolicy,
+      hasSuperAdminScopedPolicy,
+      hasCoverage:
+        hasCombinedPolicy || (hasTenantScopedPolicy && hasSuperAdminScopedPolicy),
+    };
+  });
+}
+
 function createTimestampLabel(date) {
   return date.toISOString().replace(/[:.]/g, '-');
 }
@@ -256,25 +320,12 @@ async function verifyTenantRls(options = {}) {
       if (policiesResult.rows.length === 0) {
         issues.push('Nenhuma policy encontrada');
       } else {
-        const matchingPolicy = policiesResult.rows.find((policy) => {
-          const hasTenantUsing = hasTenantCondition(policy.qual, tenantColumns);
-          const hasTenantWithCheck = hasTenantCondition(
-            policy.with_check,
-            tenantColumns,
-          );
-          const hasSuperAdminUsing = hasSuperAdminCondition(policy.qual);
-          const hasSuperAdminWithCheck = hasSuperAdminCondition(
-            policy.with_check,
-          );
-          return (
-            hasTenantUsing &&
-            hasTenantWithCheck &&
-            hasSuperAdminUsing &&
-            hasSuperAdminWithCheck
-          );
-        });
+        const policyCommandCoverage = getPolicyCommandCoverage(
+          policiesResult.rows,
+          tenantColumns,
+        );
 
-        if (!matchingPolicy) {
+        if (!policyCommandCoverage.some((coverage) => coverage.hasCoverage)) {
           issues.push(
             'Policy tenant-aware com USING + WITH CHECK + is_super_admin() não encontrada',
           );
@@ -292,6 +343,10 @@ async function verifyTenantRls(options = {}) {
             cmd: policy.cmd,
             permissive: policy.permissive,
           })),
+          policyCommandCoverage: getPolicyCommandCoverage(
+            policiesResult.rows,
+            tenantColumns,
+          ),
         });
       }
     }

@@ -87,6 +87,22 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "itens_risco",
 ];
 
+function getDraftStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.sessionStorage;
+}
+
+function getLegacyDraftStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
 function normalizeStep(step: unknown): number {
   return typeof step === "number" && step >= 1 && step <= 3 ? step : 1;
 }
@@ -231,7 +247,8 @@ function normalizeDraftRecord(raw: LegacyAprDraftRecord): AprDraftRecord {
 }
 
 export function writeAprDraft(key: string, draft: AprDraftRecord) {
-  if (typeof window === "undefined") {
+  const storage = getDraftStorage();
+  if (!storage) {
     return;
   }
 
@@ -242,22 +259,29 @@ export function writeAprDraft(key: string, draft: AprDraftRecord) {
     metadata: sanitizeMetadata(draft.metadata),
   };
 
-  window.localStorage.setItem(key, JSON.stringify(normalizedDraft));
+  storage.setItem(key, JSON.stringify(normalizedDraft));
 }
 
 export function clearAprDraftsForOtherTenants(currentTenantId?: string | null) {
-  if (typeof window === "undefined" || !currentTenantId) {
+  const storage = getDraftStorage();
+  const legacyStorage = getLegacyDraftStorage();
+  if (!currentTenantId || (!storage && !legacyStorage)) {
     return;
   }
 
-  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
-    const key = window.localStorage.key(index);
-    if (
-      key &&
-      APR_DRAFT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
-      !key.endsWith(currentTenantId)
-    ) {
-      window.localStorage.removeItem(key);
+  const storages = [storage, legacyStorage].filter(
+    (candidate): candidate is Storage => candidate !== null,
+  );
+  for (const currentStorage of storages) {
+    for (let index = currentStorage.length - 1; index >= 0; index -= 1) {
+      const key = currentStorage.key(index);
+      if (
+        key &&
+        APR_DRAFT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
+        !key.endsWith(currentTenantId)
+      ) {
+        currentStorage.removeItem(key);
+      }
     }
   }
 }
@@ -266,16 +290,20 @@ export function clearAprDraft(
   primaryKey?: string | null,
   legacyKey?: string | null,
 ) {
-  if (typeof window === "undefined") {
+  const storage = getDraftStorage();
+  const legacyStorage = getLegacyDraftStorage();
+  if (!storage && !legacyStorage) {
     return;
   }
 
   if (primaryKey) {
-    window.localStorage.removeItem(primaryKey);
+    storage?.removeItem(primaryKey);
+    legacyStorage?.removeItem(primaryKey);
   }
 
   if (legacyKey) {
-    window.localStorage.removeItem(legacyKey);
+    storage?.removeItem(legacyKey);
+    legacyStorage?.removeItem(legacyKey);
   }
 }
 
@@ -283,7 +311,9 @@ export function readAprDraft(
   primaryKey: string,
   legacyKey?: string | null,
 ): ReadAprDraftResult {
-  if (typeof window === "undefined") {
+  const storage = getDraftStorage();
+  const legacyStorage = getLegacyDraftStorage();
+  if (!storage && !legacyStorage) {
     return {
       draft: null,
       corrupted: false,
@@ -293,9 +323,9 @@ export function readAprDraft(
     };
   }
 
-  const primaryRaw = window.localStorage.getItem(primaryKey);
+  const primaryRaw = storage?.getItem(primaryKey) || null;
   const legacyRaw =
-    !primaryRaw && legacyKey ? window.localStorage.getItem(legacyKey) : null;
+    !primaryRaw && legacyKey ? legacyStorage?.getItem(legacyKey) || null : null;
   const raw = primaryRaw || legacyRaw;
 
   if (!raw) {
@@ -341,7 +371,8 @@ export function readAprDraft(
     }
 
     if (legacyRaw && legacyKey) {
-      window.localStorage.removeItem(legacyKey);
+      legacyStorage?.removeItem(legacyKey);
+      storage?.removeItem(legacyKey);
     }
 
     return {

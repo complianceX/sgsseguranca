@@ -1,104 +1,146 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { E2EHelper } from './helpers/e2e.helper';
-
-type App = Parameters<typeof request>[0];
+import { Role } from '../src/auth/enums/roles.enum';
+import { createApr } from './factories/apr.factory';
+import { TestApp, type LoginSession } from './helpers/test-app';
 
 const describeE2E =
   process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
 
-describeE2E('Multi-tenancy Isolation (e2e)', () => {
-  let app: INestApplication;
-  let company1Token: string;
-  let company2Token: string;
-  let company2UserId: string;
+describeE2E('Multi-tenancy Isolation (APR CRUD + tenant switch)', () => {
+  let testApp: TestApp;
+  let adminEmpresaTenantASession: LoginSession;
+  let adminEmpresaTenantBSession: LoginSession;
+  let superAdminSession: LoginSession;
+  let csrfHeaders: Record<string, string>;
+  let aprTenantBId: string;
 
   beforeAll(async () => {
-    app = await E2EHelper.createTestApp();
+    testApp = await TestApp.create();
+    await testApp.resetDatabase();
 
-    // Usar dados de teste já existentes do seed
-    // Para este teste, vamos assumir que temos usuários de empresas diferentes
-    // já criados no seed do E2EHelper
+    adminEmpresaTenantASession = await testApp.loginAs(
+      Role.ADMIN_EMPRESA,
+      'tenantA',
+    );
+    adminEmpresaTenantBSession = await testApp.loginAs(
+      Role.ADMIN_EMPRESA,
+      'tenantB',
+    );
+    superAdminSession = await testApp.loginAs(Role.ADMIN_GERAL, 'tenantA');
+    csrfHeaders = await testApp.csrfHeaders();
 
-    // Fazer login com usuários de empresas diferentes
-    const loginRes1 = await request(app.getHttpServer() as App)
-      .post('/auth/login')
-      .send({ cpf: '12345678900', password: 'password123' });
-    company1Token = loginRes1.headers['set-cookie'] as unknown as string;
-
-    // Criar um segundo usuário para outra empresa via API
-    const createUserRes = await request(app.getHttpServer() as App)
-      .post('/users')
-      .set('Cookie', company1Token)
-      .send({
-        nome: 'User Company 2',
-        cpf: '55566677788',
-        email: 'user2@company2.com',
-        password: 'password123',
-      });
-
-    company2UserId = (createUserRes.body as { id: string }).id;
-
-    // Fazer login com o segundo usuário
-    const loginRes2 = await request(app.getHttpServer() as App)
-      .post('/auth/login')
-      .send({ cpf: '55566677788', password: 'password123' });
-    company2Token = loginRes2.headers['set-cookie'] as unknown as string;
+    const tenantB = testApp.getTenant('tenantB');
+    const tecnicoTenantB = testApp.getUser('tenantB', Role.TST);
+    const aprTenantB = await createApr(testApp, adminEmpresaTenantBSession, {
+      numero: 'APR-MULTI-TENANT-B-001',
+      titulo: 'APR tenant B para validação cross-tenant',
+      siteId: tenantB.siteId,
+      elaboradorId: tecnicoTenantB.id,
+    });
+    aprTenantBId = aprTenantB.id;
   });
 
   afterAll(async () => {
-    await E2EHelper.cleanDatabase(app);
-    await app.close();
+    if (testApp) {
+      await testApp.close();
+    }
   });
 
-  it('should only see own company data', async () => {
-    // Company 1 user lista usuários
-    const res1 = await request(app.getHttpServer() as App)
-      .get('/users')
-      .set('Cookie', company1Token);
+  it('bloqueia SELECT cross-tenant (tenant A não vê APR do tenant B)', async () => {
+    const response = await testApp
+      .request()
+      .get(`/aprs/${aprTenantBId}`)
+      .set(testApp.authHeaders(adminEmpresaTenantASession));
 
-    expect(res1.status).toBe(200);
-    const body1 = res1.body as { items?: any[] };
-    const users1 = body1.items || (Array.isArray(body1) ? body1 : []);
-
-    // Deve conter pelo menos o usuário original
-    expect(users1.length).toBeGreaterThan(0);
-
-    // Company 2 user lista usuários
-    const res2 = await request(app.getHttpServer() as App)
-      .get('/users')
-      .set('Cookie', company2Token);
-
-    expect(res2.status).toBe(200);
-    const body2 = res2.body as { items?: any[] };
-    const users2 = body2.items || (Array.isArray(body2) ? body2 : []);
-
-    // Deve conter apenas o próprio usuário (isolamento)
-    expect(users2.length).toBe(1);
-    expect((users2[0] as { cpf: string }).cpf).toBe('55566677788');
+    expect(response.status).toBe(404);
   });
 
-  it('should not access other company data', async () => {
-    // Company 1 tenta acessar usuário da Company 2
-    return request(app.getHttpServer() as App)
-      .get(`/users/${company2UserId}`)
-      .set('Cookie', company1Token)
-      .expect(404); // Não encontrado (isolado)
+  it('bloqueia INSERT cross-tenant via spoof de x-company-id', async () => {
+    const tenantB = testApp.getTenant('tenantB');
+    const tecnicoTenantB = testApp.getUser('tenantB', Role.TST);
+
+    const response = await testApp
+      .request()
+      .post('/aprs')
+      .set(
+        testApp.authHeaders(adminEmpresaTenantASession, {
+          companyIdOverride: tenantB.companyId,
+        }),
+      )
+      .set(csrfHeaders)
+      .send({
+        numero: 'APR-SPOOF-INSERT-001',
+        titulo: 'Tentativa de inserção cross-tenant',
+        data_inicio: '2026-03-24',
+        data_fim: '2026-03-25',
+        site_id: tenantB.siteId,
+        elaborador_id: tecnicoTenantB.id,
+        participants: [tecnicoTenantB.id],
+        risk_items: [
+          {
+            atividade: 'Operação de rotina',
+            agente_ambiental: 'Ruído',
+            condicao_perigosa: 'Exposição eventual',
+            fonte_circunstancia: 'Linha de produção',
+            lesao: 'Perda auditiva',
+            probabilidade: 2,
+            severidade: 2,
+            medidas_prevencao: 'Uso de EPI e monitoramento',
+            responsavel: 'Técnico SST',
+          },
+        ],
+      });
+
+    expect(response.status).toBe(403);
   });
 
-  it('should not update other company data', async () => {
-    return request(app.getHttpServer() as App)
-      .patch(`/users/${company2UserId}`)
-      .set('Cookie', company1Token)
-      .send({ nome: 'Hacked Name' })
-      .expect(404);
+  it('bloqueia UPDATE cross-tenant (tenant A não altera APR do tenant B)', async () => {
+    const response = await testApp
+      .request()
+      .patch(`/aprs/${aprTenantBId}`)
+      .set(testApp.authHeaders(adminEmpresaTenantASession))
+      .set(csrfHeaders)
+      .send({ titulo: 'Tentativa de alteração cross-tenant' });
+
+    expect(response.status).toBe(404);
   });
 
-  it('should not delete other company data', async () => {
-    return request(app.getHttpServer() as App)
-      .delete(`/users/${company2UserId}`)
-      .set('Cookie', company1Token)
-      .expect(404);
+  it('bloqueia DELETE cross-tenant (tenant A não remove APR do tenant B)', async () => {
+    const response = await testApp
+      .request()
+      .delete(`/aprs/${aprTenantBId}`)
+      .set(testApp.authHeaders(adminEmpresaTenantASession))
+      .set(csrfHeaders);
+
+    expect(response.status).toBe(404);
+  });
+
+  it('permite SUPER_ADMIN navegar tenant B com trilha de auditoria', async () => {
+    const tenantB = testApp.getTenant('tenantB');
+
+    const response = await testApp
+      .request()
+      .get(`/aprs/${aprTenantBId}`)
+      .set(
+        testApp.authHeaders(superAdminSession, {
+          companyIdOverride: tenantB.companyId,
+        }),
+      );
+
+    expect(response.status).toBe(200);
+
+    const auditRows = await testApp.dataSource.query<Array<{ ok: number }>>(
+      `
+        SELECT 1 AS ok
+        FROM forensic_trail_events
+        WHERE module = 'security'
+          AND event_type = 'ADMIN_ACTION'
+          AND company_id = $1
+          AND metadata ->> 'action' = $2
+        LIMIT 1
+      `,
+      [tenantB.companyId, `tenant_switch:${tenantB.companyId}`],
+    );
+
+    expect(auditRows.length).toBeGreaterThan(0);
   });
 });

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Company } from '../companies/entities/company.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailService } from '../mail/mail.service';
@@ -71,6 +72,7 @@ export class DdsObservabilityAlertsService {
 
   constructor(
     private readonly observabilityService: DdsObservabilityService,
+    private readonly tenantService: TenantService,
     private readonly notificationsService: NotificationsService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
@@ -88,13 +90,20 @@ export class DdsObservabilityAlertsService {
     companyId?: string | null,
   ): Promise<DdsObservabilityAlertsPreview> {
     const effectiveCompanyId = companyId ?? null;
-    const overview = await this.observabilityService.getOverview();
-    const company = effectiveCompanyId
-      ? await this.companyRepository.findOne({
-          where: { id: effectiveCompanyId },
-        })
-      : null;
-    const recipients = await this.resolveRecipients(effectiveCompanyId);
+    const { overview, company, recipients } = await this.runInTenantScope(
+      effectiveCompanyId,
+      async () => {
+        const overview = await this.observabilityService.getOverview();
+        const company = effectiveCompanyId
+          ? await this.companyRepository.findOne({
+              where: { id: effectiveCompanyId },
+            })
+          : null;
+        const recipients = await this.resolveRecipients(effectiveCompanyId);
+
+        return { overview, company, recipients };
+      },
+    );
 
     return {
       generatedAt: new Date().toISOString(),
@@ -116,7 +125,9 @@ export class DdsObservabilityAlertsService {
   ): Promise<DdsObservabilityAlertsDispatchResult> {
     const effectiveCompanyId = companyId ?? null;
     const preview = await this.getPreview(effectiveCompanyId);
-    const recipients = await this.resolveRecipients(effectiveCompanyId);
+    const recipients = await this.runInTenantScope(effectiveCompanyId, () =>
+      this.resolveRecipients(effectiveCompanyId),
+    );
     const emailRecipients = preview.recipients.emailRecipients;
     const dedupeWindowMinutes = this.getNumberEnv(
       'DDS_ALERTS_DEDUPE_MINUTES',
@@ -352,6 +363,24 @@ export class DdsObservabilityAlertsService {
       companyId,
       notificationUserIds: users.map((item) => item.id),
     };
+  }
+
+  private runInTenantScope<T>(
+    companyId: string | null,
+    callback: () => Promise<T>,
+  ): Promise<T> {
+    if (!companyId) {
+      return callback();
+    }
+
+    return this.tenantService.run(
+      {
+        companyId,
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      callback,
+    );
   }
 
   private resolveEmailRecipients(company: Company | null): string[] {

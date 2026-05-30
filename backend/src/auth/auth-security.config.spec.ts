@@ -1,5 +1,6 @@
 import {
   getAccessTokenTtl,
+  getAccessTokenTtlMs,
   getLegacyRequestCsrfClearCookieOptions,
   getRequestCsrfCookieOptions,
   getRefreshCsrfCookieOptions,
@@ -30,6 +31,24 @@ describe('auth-security.config', () => {
     process.env.JWT_EXPIRES_IN = '10m';
 
     expect(getAccessTokenTtl()).toBe('20m');
+  });
+
+  it('calcula o TTL do access token em milissegundos para validação de produção', () => {
+    process.env.ACCESS_TOKEN_TTL = '15m';
+
+    expect(getAccessTokenTtlMs()).toBe(15 * 60 * 1000);
+  });
+
+  it('aceita TTL legado numérico em segundos', () => {
+    process.env.ACCESS_TOKEN_TTL = '900';
+
+    expect(getAccessTokenTtlMs()).toBe(15 * 60 * 1000);
+  });
+
+  it('retorna null para access token infinito', () => {
+    process.env.ACCESS_TOKEN_TTL = 'infinite';
+
+    expect(getAccessTokenTtlMs()).toBeNull();
   });
 
   it('usa REFRESH_TOKEN_TTL quando configurado', () => {

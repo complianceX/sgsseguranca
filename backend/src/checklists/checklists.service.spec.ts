@@ -665,6 +665,10 @@ describe('ChecklistsService', () => {
     expect(signaturesService.removeByDocumentSystem).toHaveBeenCalledWith(
       'checklist-1',
       'CHECKLIST',
+      {
+        companyId: 'company-1',
+        siteId: 'site-1',
+      },
     );
   });
 
@@ -1771,6 +1775,10 @@ describe('ChecklistsService', () => {
     expect(signaturesService.removeByDocumentSystem).toHaveBeenCalledWith(
       'checklist-1',
       'CHECKLIST',
+      {
+        companyId: 'company-1',
+        siteId: 'site-1',
+      },
     );
   });
 

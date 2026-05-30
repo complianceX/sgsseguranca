@@ -64,7 +64,9 @@ import {
   isLikelySignedToken,
   normalizeSignedToken,
 } from '../common/security/signed-token.util';
+import { constantTimeEquals } from '../common/security/constant-time.util';
 import { assertValidHexToken } from '../common/security/token-shape.util';
+import { sanitizeLogUrl } from '../common/logging/log-sanitizer.util';
 import { profileStage } from '../common/observability/perf-stage.util';
 import { AuthzOptional } from './authz-optional.decorator';
 import { MfaService } from './services/mfa.service';
@@ -911,6 +913,8 @@ export class AuthController {
       REFRESH_CSRF_COOKIE_NAME
     ];
     const headerToken = String(req.headers['x-refresh-csrf'] || '').trim();
+    const sanitizedPath =
+      sanitizeLogUrl(req.originalUrl || req.url || '').split('?')[0] || '/';
 
     if (!cookieToken || !headerToken) {
       if (isRefreshCsrfEnforced()) {
@@ -921,20 +925,20 @@ export class AuthController {
           event: 'refresh_csrf_missing',
           hasCookie: Boolean(cookieToken),
           hasHeader: Boolean(headerToken),
-          path: req.originalUrl || req.url,
+          path: sanitizedPath,
         });
       }
       return;
     }
 
-    if (cookieToken !== headerToken) {
+    if (!constantTimeEquals(cookieToken, headerToken)) {
       if (isRefreshCsrfEnforced()) {
         throw new UnauthorizedException('CSRF token inválido para refresh');
       }
       if (isRefreshCsrfReportOnly()) {
         this.logger.warn({
           event: 'refresh_csrf_mismatch',
-          path: req.originalUrl || req.url,
+          path: sanitizedPath,
         });
       }
     }

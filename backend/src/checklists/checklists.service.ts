@@ -1513,7 +1513,7 @@ export class ChecklistsService {
   }
 
   private async resetChecklistSignatures(
-    checklist: Pick<Checklist, 'id' | 'company_id' | 'is_modelo'>,
+    checklist: Pick<Checklist, 'id' | 'company_id' | 'site_id' | 'is_modelo'>,
     reason: string,
   ): Promise<boolean> {
     if (checklist.is_modelo) {
@@ -1523,6 +1523,10 @@ export class ChecklistsService {
     const removedCount = await this.signaturesService.removeByDocumentSystem(
       checklist.id,
       'CHECKLIST',
+      {
+        companyId: checklist.company_id,
+        siteId: checklist.site_id,
+      },
     );
 
     if (removedCount > 0) {

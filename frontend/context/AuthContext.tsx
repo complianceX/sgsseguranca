@@ -293,8 +293,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, logout, router]);
 
   const hasPermission = useCallback(
-    (permission: string) => isAdminGeral || permissions.includes(permission),
-    [isAdminGeral, permissions],
+    (permission: string) => {
+      if (isAdminGeral) {
+        return true;
+      }
+
+      const normalizedRoles = roles.map((role) => role.trim().toLowerCase());
+      const isViewerRole = normalizedRoles.some((role) =>
+        [
+          "visualizador",
+          "trabalhador",
+          "operador / colaborador",
+          "colaborador",
+        ].includes(role),
+      );
+
+      if (
+        isViewerRole &&
+        permission.startsWith("can_manage_") &&
+        permission !== "can_manage_signatures"
+      ) {
+        return false;
+      }
+
+      return permissions.includes(permission);
+    },
+    [isAdminGeral, permissions, roles],
   );
 
   const authStateValue = useMemo<AuthStateContextType>(
