@@ -90,22 +90,20 @@ export class DdsObservabilityAlertsService {
     companyId?: string | null,
   ): Promise<DdsObservabilityAlertsPreview> {
     const effectiveCompanyId = companyId ?? null;
-    const overview = effectiveCompanyId
-      ? await this.tenantService.run(
-          {
-            companyId: effectiveCompanyId,
-            isSuperAdmin: false,
-            siteScope: 'all',
-          },
-          () => this.observabilityService.getOverview(),
-        )
-      : await this.observabilityService.getOverview();
-    const company = effectiveCompanyId
-      ? await this.companyRepository.findOne({
-          where: { id: effectiveCompanyId },
-        })
-      : null;
-    const recipients = await this.resolveRecipients(effectiveCompanyId);
+    const { overview, company, recipients } = await this.runInTenantScope(
+      effectiveCompanyId,
+      async () => {
+        const overview = await this.observabilityService.getOverview();
+        const company = effectiveCompanyId
+          ? await this.companyRepository.findOne({
+              where: { id: effectiveCompanyId },
+            })
+          : null;
+        const recipients = await this.resolveRecipients(effectiveCompanyId);
+
+        return { overview, company, recipients };
+      },
+    );
 
     return {
       generatedAt: new Date().toISOString(),
@@ -127,7 +125,9 @@ export class DdsObservabilityAlertsService {
   ): Promise<DdsObservabilityAlertsDispatchResult> {
     const effectiveCompanyId = companyId ?? null;
     const preview = await this.getPreview(effectiveCompanyId);
-    const recipients = await this.resolveRecipients(effectiveCompanyId);
+    const recipients = await this.runInTenantScope(effectiveCompanyId, () =>
+      this.resolveRecipients(effectiveCompanyId),
+    );
     const emailRecipients = preview.recipients.emailRecipients;
     const dedupeWindowMinutes = this.getNumberEnv(
       'DDS_ALERTS_DEDUPE_MINUTES',
@@ -363,6 +363,24 @@ export class DdsObservabilityAlertsService {
       companyId,
       notificationUserIds: users.map((item) => item.id),
     };
+  }
+
+  private runInTenantScope<T>(
+    companyId: string | null,
+    callback: () => Promise<T>,
+  ): Promise<T> {
+    if (!companyId) {
+      return callback();
+    }
+
+    return this.tenantService.run(
+      {
+        companyId,
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      callback,
+    );
   }
 
   private resolveEmailRecipients(company: Company | null): string[] {

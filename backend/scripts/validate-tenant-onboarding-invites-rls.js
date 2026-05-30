@@ -89,24 +89,26 @@ async function main() {
 
     await client.query('ROLLBACK');
 
+    const visibility = {
+      sameTenant: sameTenant.rows[0].total,
+      otherTenant: otherTenant.rows[0].total,
+      superAdmin: superAdmin.rows[0].total,
+    };
+    const ok =
+      visibility.sameTenant === 1 &&
+      visibility.otherTenant === 0 &&
+      visibility.superAdmin === 1;
+
     const report = {
-      ok: true,
+      ok,
       tenantA,
       tenantB,
-      visibility: {
-        sameTenant: sameTenant.rows[0].total,
-        otherTenant: otherTenant.rows[0].total,
-        superAdmin: superAdmin.rows[0].total,
-      },
+      visibility,
     };
 
     console.log(JSON.stringify(report, null, 2));
 
-    if (
-      report.visibility.sameTenant !== 1 ||
-      report.visibility.otherTenant !== 0 ||
-      report.visibility.superAdmin !== 1
-    ) {
+    if (!ok) {
       process.exitCode = 1;
     }
   } catch (error) {
