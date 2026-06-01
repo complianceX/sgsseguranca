@@ -125,7 +125,7 @@ export default function PtsPage() {
       },
     [overviewMetrics],
   );
-  const canManagePt = hasPermission('can_manage_pt');
+  const canManagePt = hasPermission(Permission.CAN_MANAGE_PT);
 
   if (loadError) {
     return (

@@ -84,7 +84,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Planejamento operacional e atividade programada do dia',
     href: '/dashboard/dids',
     keywords: ['did', 'inicio do dia', 'atividade do dia', 'operacional'],
-    permission: 'can_view_dids',
+    permission: Permission.CAN_VIEW_DIDS,
   },
   {
     id: 'arr',
@@ -92,7 +92,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Análise de risco rápida com tratamento imediato',
     href: '/dashboard/arrs',
     keywords: ['arr', 'analise de risco rapida', 'risco rapido', 'tratamento imediato'],
-    permission: 'can_view_arrs',
+    permission: Permission.CAN_VIEW_ARRS,
   },
   {
     id: 'docs',
@@ -100,7 +100,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Pacote semanal e rastreabilidade',
     href: '/dashboard/document-registry',
     keywords: ['documentos', 'registry', 'pacote', 'semana'],
-    permission: 'can_view_documents_registry',
+    permission: Permission.CAN_VIEW_DOCUMENTS_REGISTRY,
   },
   {
     id: 'trainings',
@@ -200,7 +200,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Modelos normativos e operacionais do sistema',
     href: '/dashboard/checklist-models/operacionais',
     keywords: ['checklists', 'operacionais', 'normativos', 'nr', 'norma'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-operacionais',
@@ -208,7 +208,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Registros preenchidos e evidências de campo',
     href: '/dashboard/checklists',
     keywords: ['checklists', 'execucoes', 'campo', 'preenchidos'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-equipamentos',
@@ -216,7 +216,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Verificação e controle de ativos e ferramentas',
     href: '/dashboard/checklist-models/equipamentos',
     keywords: ['checklists', 'equipamentos', 'ferramentas'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-epis',
@@ -224,7 +224,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Controle de uso e conformidade de EPI',
     href: '/dashboard/checklist-models/epis',
     keywords: ['checklists', 'epis', 'epi'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-new',
@@ -232,7 +232,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Abrir formulário de criação',
     href: '/dashboard/checklists/new',
     keywords: ['novo checklist', 'criar checklist', 'formulario checklist'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklist-models-new',
@@ -240,7 +240,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar template de checklist',
     href: '/dashboard/checklist-models/new',
     keywords: ['novo modelo', 'template', 'criar modelo'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-normativos',
@@ -248,7 +248,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo já classificado como operacional',
     href: '/dashboard/checklist-models/new?categoria=Operacional',
     keywords: ['novo modelo operacional', 'normativo', 'operacional'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-operacionais',
@@ -256,7 +256,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Abrir formulário de execução manual de checklist',
     href: '/dashboard/checklists/new',
     keywords: ['novo checklist', 'execucao', 'preenchimento'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-equipamentos',
@@ -264,7 +264,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo para ativos, máquinas e ferramentas',
     href: '/dashboard/checklist-models/new?categoria=Equipamento',
     keywords: ['novo modelo equipamento', 'equipamentos', 'ferramentas'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-epis',
@@ -272,7 +272,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo para verificação e conformidade de EPI',
     href: '/dashboard/checklist-models/new?categoria=EPI',
     keywords: ['novo modelo epi', 'epis', 'equipamento de protecao'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
 ];
 

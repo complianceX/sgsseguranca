@@ -69,8 +69,8 @@ const TURNO_LABEL: Record<string, string> = {
 
 export default function ArrsPage() {
   const { hasPermission } = usePermissions();
-  const canViewArrs = hasPermission('can_view_arrs');
-  const canManageArrs = hasPermission('can_manage_arrs');
+  const canViewArrs = hasPermission(Permission.CAN_VIEW_ARRS);
+  const canManageArrs = hasPermission(Permission.CAN_MANAGE_ARRS);
   const [arrs, setArrs] = useState<Arr[]>([]);
 const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);

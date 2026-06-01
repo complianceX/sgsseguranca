@@ -527,7 +527,7 @@ export function PtForm({ id }: PtFormProps) {
     : currentPt?.status && currentPt.status !== 'Pendente'
       ? `A PT está com status ${currentPt.status} e não aceita mais alterações por fluxo comum.`
       : null;
-  const canManageMail = hasPermission('can_manage_mail');
+  const canManageMail = hasPermission(Permission.CAN_MANAGE_MAIL);
   const rapidRiskChecklist =
     watch('analise_risco_rapida_checklist') ?? initialChecklists.analise_risco_rapida_checklist;
   const rapidRiskObservacoes = watch('analise_risco_rapida_observacoes') ?? '';

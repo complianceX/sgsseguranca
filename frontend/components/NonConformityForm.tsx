@@ -137,7 +137,7 @@ function resolveRiskLevelClass(riskLevel?: string) {
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canManageNc = hasPermission("can_manage_nc");
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);

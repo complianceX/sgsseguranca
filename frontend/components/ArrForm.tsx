@@ -137,7 +137,7 @@ function getUserInitials(name?: string | null) {
 export function ArrForm({ id }: ArrFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canManageArrs = hasPermission('can_manage_arrs');
+  const canManageArrs = hasPermission(Permission.CAN_MANAGE_ARRS);
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);

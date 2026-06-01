@@ -18,7 +18,7 @@ type PreviewTarget = 'employee' | 'site' | null;
 
 export default function DossiersPage() {
   const { loading: authLoading, hasPermission } = useAuth();
-  const canViewDossiers = hasPermission('can_view_dossiers');
+  const canViewDossiers = hasPermission(Permission.CAN_VIEW_DOSSIERS);
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);

@@ -231,7 +231,7 @@ export default function DocumentImportPage() {
   const operationKeyRef = useRef<string | null>(null);
   const requestedDocumentType = searchParams.get("documentType") || "";
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
-  const canImportDocuments = hasPermission("can_import_documents");
+  const canImportDocuments = hasPermission(Permission.CAN_IMPORT_DOCUMENTS);
   const canManageDds = hasPermission("can_manage_dds");
 
   const currentStatus =

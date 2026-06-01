@@ -53,7 +53,7 @@ const inputClassName =
 
 export default function DidsPage() {
   const { hasPermission } = usePermissions();
-  const canManageDids = hasPermission('can_manage_dids');
+  const canManageDids = hasPermission(Permission.CAN_MANAGE_DIDS);
   const {
     dids,
     loading,

@@ -94,7 +94,7 @@ function getNcStatusTone(status: NcStatus): StatusTone {
 
 export default function NonConformitiesPage() {
   const { hasPermission } = usePermissions();
-  const canManageNc = hasPermission("can_manage_nc");
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const [items, setItems] = useState<NonConformity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);

@@ -224,7 +224,7 @@ export default function SstAgentPage() {
   const [queuedReport, setQueuedReport] = useState<QueueMonthlyReportAutomationResponse | null>(null);
   const [analyzingPendingContext, setAnalyzingPendingContext] = useState(false);
   const [pendingContextAnalysis, setPendingContextAnalysis] = useState<SophieResponse | null>(null);
-  const canUseAi = hasPermission('can_use_ai');
+  const canUseAi = hasPermission(Permission.CAN_USE_AI);
   const prefilledDocumentType = searchParams.get('documentType') || '';
   const prefilledTitle = searchParams.get('title') || '';
   const prefilledDescription = searchParams.get('description') || '';

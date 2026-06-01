@@ -60,7 +60,7 @@ export function ChecklistsPageView({
   area?: ChecklistRecordsArea;
 }) {
   const { user, hasPermission } = useAuth();
-  const canManageChecklists = hasPermission('can_manage_checklists');
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
   const {
     loading,
     loadError,

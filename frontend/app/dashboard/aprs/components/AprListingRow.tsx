@@ -89,8 +89,8 @@ export function AprListingRow({
   const canRejectApr = hasPermission("can_reject_apr");
   const canFinalizeApr = hasPermission("can_finalize_apr");
   const canDeleteApr = hasPermission("can_delete_apr");
-  const canManageSignatures = hasPermission("can_manage_signatures");
-  const canViewSignatures = hasPermission("can_view_signatures");
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
+  const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
   const cellPadding = density === "compact" ? "py-3" : "py-4";
   const criticalCount = apr.classificacao_resumo?.critico ?? 0;
   const substantialCount = apr.classificacao_resumo?.substancial ?? 0;

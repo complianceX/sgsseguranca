@@ -126,9 +126,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const { user, hasPermission } = useAuth();
   const isTemplateMode = mode === "template";
   const isAdminGeneral = user?.profile?.nome === "Administrador Geral";
-  const canManageChecklists = hasPermission("can_manage_checklists");
-  const canViewChecklists = hasPermission("can_view_checklists");
-  const canManageSignatures = hasPermission("can_manage_signatures");
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
+  const canViewChecklists = hasPermission(Permission.CAN_VIEW_CHECKLISTS);
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
   const runtimeTemplateId =
     searchParams.get("modelId") || searchParams.get("templateId");
   const isTemplateFillFlow = Boolean(

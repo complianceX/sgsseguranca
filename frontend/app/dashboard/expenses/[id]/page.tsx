@@ -72,7 +72,7 @@ export default function ExpenseReportDetailPage() {
   });
 
   const canClose =
-    isAdminGeral || hasPermission('can_close_expenses');
+    isAdminGeral || hasPermission(Permission.CAN_CLOSE_EXPENSES);
   const isClosed = report?.status !== 'aberta';
 
   const categoryRows = useMemo(() => {

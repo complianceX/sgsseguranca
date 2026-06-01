@@ -305,8 +305,8 @@ export function AprForm({ id }: AprFormProps) {
   const canApprove = hasPermission("can_approve_apr");
   const canGenerateAprPdf = hasPermission("can_generate_apr_pdf");
   const canView = hasPermission("can_view_apr");
-  const canViewSignatures = hasPermission("can_view_signatures");
-  const canManageSignatures = hasPermission("can_manage_signatures");
+  const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
   const isCreateMode = !id;
   const canWriteApr = isCreateMode ? canCreate : canUpdate;
   const lacksWritePermission = !canWriteApr;

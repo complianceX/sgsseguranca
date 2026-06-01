@@ -51,7 +51,7 @@ function getInitialCompanyId() {
 export function DidForm({ id }: DidFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canManageDids = hasPermission('can_manage_dids');
+  const canManageDids = hasPermission(Permission.CAN_MANAGE_DIDS);
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);

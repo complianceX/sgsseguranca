@@ -58,7 +58,7 @@ export function ChecklistModelsView({
   showBootstrapAction = false,
 }: ChecklistModelsViewProps) {
   const { hasPermission } = usePermissions();
-  const canManageChecklists = hasPermission("can_manage_checklists");
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
   const [models, setModels] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

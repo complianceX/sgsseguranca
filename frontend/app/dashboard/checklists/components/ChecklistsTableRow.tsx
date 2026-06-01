@@ -57,7 +57,7 @@ export const ChecklistsTableRow = React.memo(({
   onDelete
 }: ChecklistsTableRowProps) => {
   const { hasPermission } = useAuth();
-  const canManageChecklists = hasPermission('can_manage_checklists');
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
   const sophieNcHref = (() => {
     const params = new URLSearchParams();
     params.set('documentType', 'nc');
