@@ -208,7 +208,15 @@ function scheduleLoginRedirect() {
   window.setTimeout(() => {
     const currentPath = window.location.pathname;
     if (!currentPath.startsWith('/login')) {
-      window.location.assign('/login?expired=1');
+      try {
+        if (typeof window.location.assign === 'function') {
+          window.location.assign('/login?expired=1');
+        } else if (typeof window.location.href !== 'undefined') {
+          window.location.href = '/login?expired=1';
+        }
+      } catch {
+        // Navigation may be unsupported in test environments (jsdom) — ignore.
+      }
     }
     loginRedirectScheduled = false;
   }, 0);
