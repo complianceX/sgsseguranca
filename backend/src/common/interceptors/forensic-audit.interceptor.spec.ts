@@ -9,7 +9,7 @@ import { ForensicAuditInterceptor } from './forensic-audit.interceptor';
 
 describe('ForensicAuditInterceptor', () => {
   it('sanitiza a rota antes de registrar a trilha forense', async () => {
-    const append = jest.fn((_input: AppendForensicTrailEventInput) =>
+    const append = jest.fn<Promise<void>, [AppendForensicTrailEventInput]>(() =>
       Promise.resolve(undefined),
     );
     const reflector = {
