@@ -1,6 +1,8 @@
 import { Permission } from '@/lib/permissions';
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports, node/no-extraneous-require */
 const fs = require('fs');
+const path = require('path');
+const process = require('process');
 const path = require('path');
 
 function walk(dir) {

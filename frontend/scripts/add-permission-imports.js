@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-require-imports, node/no-extraneous-require */
 const fs = require('fs');
 const path = require('path');
+const process = require('process');
 
 function walk(dir) {
   const results = [];
