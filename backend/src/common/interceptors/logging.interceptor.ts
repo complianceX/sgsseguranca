@@ -46,6 +46,9 @@ export class LoggingInterceptor implements NestInterceptor {
       'unknown';
     const isAuthRoute = typeof url === 'string' && url.startsWith('/auth');
     const traceId = request.traceId || request.sentryTraceId;
+    const shouldLogRequestBody =
+      process.env.NODE_ENV !== 'production' &&
+      /^true$/i.test(process.env.HTTP_LOG_REQUEST_BODY || '');
 
     // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
@@ -74,8 +77,8 @@ export class LoggingInterceptor implements NestInterceptor {
       baseLog.traceId = traceId;
     }
 
-    // LGPD: não logar body em rotas /auth (credenciais/refresh/logout).
-    if (!isAuthRoute) {
+    // LGPD: corpos de request exigem opt-in fora de produção.
+    if (!isAuthRoute && shouldLogRequestBody) {
       baseLog.body = this.sanitizeBody(body as Record<string, unknown>);
     }
 

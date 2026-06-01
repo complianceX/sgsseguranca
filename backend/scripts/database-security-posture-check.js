@@ -384,6 +384,36 @@ async function runCheck() {
       )
     ).rows;
 
+    checks.runtimeWritableTablesWithoutRls = (
+      await client.query(
+        `
+          WITH runtime_writable_tables AS (
+            SELECT DISTINCT table_name
+            FROM information_schema.role_table_grants
+            WHERE table_schema = 'public'
+              AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE')
+              AND (
+                grantee = current_user
+                OR grantee = 'PUBLIC'
+                OR (grantee <> 'PUBLIC' AND pg_has_role(current_user, grantee, 'member'))
+              )
+          )
+          SELECT
+            t.table_name,
+            COALESCE(c.relrowsecurity, false) AS rls_enabled,
+            COALESCE(c.relforcerowsecurity, false) AS rls_forced
+          FROM runtime_writable_tables t
+          LEFT JOIN pg_class c
+            ON c.relname = t.table_name
+          LEFT JOIN pg_namespace n
+            ON n.oid = c.relnamespace
+          WHERE c.oid IS NULL
+             OR n.nspname = 'public'
+          ORDER BY t.table_name
+        `,
+      )
+    ).rows;
+
     const tablesWithCompanyId = new Set(
       checks.rlsCoverageCompanyId.map((row) => row.table_name),
     );
@@ -443,6 +473,15 @@ async function runCheck() {
         ]
           .sort()
           .join(', ')}.`,
+      );
+    }
+
+    for (const writableTable of checks.runtimeWritableTablesWithoutRls || []) {
+      if (writableTable.rls_enabled) {
+        continue;
+      }
+      findings.push(
+        `Tabela gravavel sem RLS para role runtime: public.${writableTable.table_name}.`,
       );
     }
 

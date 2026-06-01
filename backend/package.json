@@ -87,6 +87,10 @@
     "verify:rls": "node scripts/verify-tenant-rls.js",
     "verify:rls:json": "node scripts/verify-tenant-rls.js --json",
     "verify:rls:public": "node scripts/verify-tenant-rls.js --schema=public",
+    "audit:rbac:profile-role-drift": "node scripts/audit-rbac-profile-role-drift.js",
+    "verify:tenant-onboarding:rls": "node scripts/validate-tenant-onboarding-invites-rls.js",
+    "smoke:gdpr:cleanup": "node scripts/smoke-gdpr-cleanup-function.js",
+    "migration:pending:check": "node scripts/check-pending-migrations-runtime.js",
     "smoke:db:readonly": "node scripts/smoke-db-readonly.js",
     "smoke:db:readonly:json": "node scripts/smoke-db-readonly.js --json",
     "inspect:dashboard-cache": "node scripts/inspect-dashboard-cache.js",
@@ -184,7 +188,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/web-push": "^3.6.4",
     "argon2": "^0.44.0",
-    "axios": "^1.15.2",
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "bullmq": "^5.70.1",
@@ -274,6 +278,7 @@
     "uuid": ">=14.0.0",
     "basic-ftp": "^5.3.1",
     "ip-address": "^10.2.0",
-    "fast-uri": "^3.1.2"
+    "fast-uri": "^3.1.2",
+    "tmp": "^0.2.7"
   }
 }

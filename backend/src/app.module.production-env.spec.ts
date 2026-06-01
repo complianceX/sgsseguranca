@@ -122,4 +122,51 @@ describe('AppModule production environment validation', () => {
       'DR_STORAGE_REPLICA_BUCKET foi configurado',
     );
   });
+
+  it('bloqueia REFRESH_CSRF_ENFORCED=false fora de development/test', async () => {
+    const result = await validate({
+      ...productionEnv,
+      NODE_ENV: 'staging',
+      REFRESH_CSRF_ENFORCED: false,
+    });
+
+    expect(result.error).toBeDefined();
+    expect(getCustomMessage(result)).toContain(
+      'REFRESH_CSRF_ENFORCED deve permanecer true fora do ambiente local',
+    );
+  });
+
+  it('permite REFRESH_CSRF_ENFORCED=false em development local', async () => {
+    const result = await validate({
+      ...productionEnv,
+      NODE_ENV: 'development',
+      REFRESH_CSRF_ENFORCED: false,
+    });
+
+    expect(result.error).toBeUndefined();
+  });
+
+  it('bloqueia REFRESH_CSRF_REPORT_ONLY=true fora de development/test', async () => {
+    const result = await validate({
+      ...productionEnv,
+      NODE_ENV: 'staging',
+      REFRESH_CSRF_ENFORCED: true,
+      REFRESH_CSRF_REPORT_ONLY: true,
+    });
+
+    expect(result.error).toBeDefined();
+    expect(getCustomMessage(result)).toContain(
+      'REFRESH_CSRF_REPORT_ONLY=true só é permitido em ambiente local',
+    );
+  });
+
+  it('permite REFRESH_CSRF_REPORT_ONLY=true em development local', async () => {
+    const result = await validate({
+      ...productionEnv,
+      NODE_ENV: 'development',
+      REFRESH_CSRF_REPORT_ONLY: true,
+    });
+
+    expect(result.error).toBeUndefined();
+  });
 });

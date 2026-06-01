@@ -50,12 +50,21 @@ function resolveCompanyStorageKey(companyId?: string | null) {
   return companyId || 'default';
 }
 
-function persistDraft(key: string, draft: SophieWizardDraft) {
+function getDraftStorage(): Storage | null {
   if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.sessionStorage;
+}
+
+function persistDraft(key: string, draft: SophieWizardDraft) {
+  const storage = getDraftStorage();
+  if (!storage) {
     return;
   }
 
-  window.localStorage.setItem(
+  storage.setItem(
     key,
     JSON.stringify({
       step: draft.step,
@@ -95,11 +104,12 @@ export function storeSophiePtDraft(
 }
 
 export function storeSophieNcPreview(preview: SophieNcPreview) {
-  if (typeof window === 'undefined' || !preview.id) {
+  const storage = getDraftStorage();
+  if (!storage || !preview.id) {
     return;
   }
 
-  window.localStorage.setItem(
+  storage.setItem(
     `gst.nc.sophie.preview.${preview.id}`,
     JSON.stringify({
       ...preview,
@@ -109,11 +119,12 @@ export function storeSophieNcPreview(preview: SophieNcPreview) {
 }
 
 export function readSophieNcPreview(id: string): SophieNcPreview | null {
-  if (typeof window === 'undefined' || !id) {
+  const storage = getDraftStorage();
+  if (!storage || !id) {
     return null;
   }
 
-  const raw = window.localStorage.getItem(`gst.nc.sophie.preview.${id}`);
+  const raw = storage.getItem(`gst.nc.sophie.preview.${id}`);
   if (!raw) {
     return null;
   }

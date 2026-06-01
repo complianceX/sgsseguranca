@@ -14,6 +14,7 @@ import {
   AUDIT_RESOURCE_METADATA_KEY,
   type AuditableAction,
 } from '../decorators/audit-action.decorator';
+import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
 
 type RequestUserPayload = {
   id?: string;
@@ -104,6 +105,10 @@ export class ForensicAuditInterceptor implements NestInterceptor {
         this.extractResourceId(input.responseBody) ||
         this.extractResourceId(input.request.params) ||
         'unknown';
+      const sanitizedRoute =
+        sanitizeLogUrl(
+          input.request.originalUrl || input.request.url || '',
+        ).split('?')[0] || null;
 
       await this.forensicTrailService.append({
         eventType: `AUDIT_${input.action.toUpperCase()}`,
@@ -116,7 +121,7 @@ export class ForensicAuditInterceptor implements NestInterceptor {
         metadata: {
           action: input.action,
           method: input.request.method || null,
-          route: input.request.originalUrl || input.request.url || null,
+          route: sanitizedRoute,
         },
       });
     } catch (error) {

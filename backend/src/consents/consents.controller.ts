@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -114,9 +115,7 @@ export class ConsentsController {
   async revoke(@Param('type') type: string, @Req() req: AuthenticatedRequest) {
     const userId = this.requireUserId(req);
     if (!isConsentType(type)) {
-      throw new UnauthorizedException(
-        `Tipo de consentimento inválido: ${type}`,
-      );
+      throw new BadRequestException(`Tipo de consentimento inválido: ${type}`);
     }
 
     const ip = extractClientIp(req);

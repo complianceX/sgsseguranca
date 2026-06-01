@@ -43,6 +43,11 @@ import {
   DistributedLockHandle,
   DistributedLockService,
 } from '../common/redis/distributed-lock.service';
+import {
+  maskEmail,
+  maskSensitiveText,
+} from '../common/logging/log-sanitizer.util';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 
 type MailContext = { companyId?: string; userId?: string };
 
@@ -283,6 +288,37 @@ export class MailService {
     }
   }
 
+  private resolveStoredDocumentLookupScope(
+    moduleLabel: string,
+    fallbackCompanyId: string | undefined,
+  ): {
+    companyId: string;
+    siteIds: string[] | null;
+  } {
+    const tenantContext = this.tenantService.getContext();
+    if (tenantContext?.companyId) {
+      const scope = resolveSiteAccessScopeFromTenantService(
+        this.tenantService,
+        moduleLabel,
+      );
+      return {
+        companyId: scope.companyId,
+        siteIds: scope.hasCompanyWideAccess ? null : scope.siteIds,
+      };
+    }
+
+    if (!fallbackCompanyId) {
+      throw new BadRequestException(
+        'companyId é obrigatório para enviar documento sem contexto de tenant.',
+      );
+    }
+
+    return {
+      companyId: fallbackCompanyId,
+      siteIds: null,
+    };
+  }
+
   async sendStoredDocument(
     documentId: string,
     documentType: string,
@@ -357,10 +393,15 @@ export class MailService {
           break;
         }
         case 'CHECKLIST': {
+          const scope = this.resolveStoredDocumentLookupScope(
+            'envio de checklist',
+            resolvedCompanyId,
+          );
           const checklist = await this.checklistsRepository.findOne({
             where: {
               id: documentId,
-              ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
+              company_id: scope.companyId,
+              ...(scope.siteIds ? { site_id: In(scope.siteIds) } : {}),
             },
             select: ['id', 'pdf_file_key'],
           });
@@ -390,10 +431,15 @@ export class MailService {
           break;
         }
         case 'CAT': {
+          const scope = this.resolveStoredDocumentLookupScope(
+            'envio de CAT',
+            resolvedCompanyId,
+          );
           const cat = await this.catsRepository.findOne({
             where: {
               id: documentId,
-              ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
+              company_id: scope.companyId,
+              ...(scope.siteIds ? { site_id: In(scope.siteIds) } : {}),
             },
             select: ['id', 'numero', 'pdf_file_key'],
           });
@@ -529,12 +575,11 @@ export class MailService {
     this.logger.log({
       event: 'mail_document_sent',
       documentType: type,
-      documentId,
       companyId: resolvedCompanyId,
       artifactType: 'governed_final_pdf',
       fallbackUsed: false,
       isOfficial: true,
-      recipient: email,
+      recipient: maskEmail(email),
     });
 
     return this.buildDocumentDispatchResponse({
@@ -611,8 +656,7 @@ export class MailService {
       artifactType: 'local_uploaded_pdf',
       fallbackUsed: true,
       isOfficial: false,
-      recipient: email,
-      fileKey,
+      recipient: maskEmail(email),
     });
 
     return this.buildDocumentDispatchResponse({
@@ -685,7 +729,7 @@ export class MailService {
       artifactType: 'local_uploaded_pdf',
       fallbackUsed: true,
       isOfficial: false,
-      recipient: email,
+      recipient: maskEmail(email),
     });
 
     return this.buildDocumentDispatchResponse({
@@ -783,7 +827,7 @@ export class MailService {
           event: 'mail_log_persist_failed_after_send_error',
           companyId: context?.companyId,
           userId: context?.userId,
-          to,
+          to: maskSensitiveText(to),
         },
       );
 
@@ -832,7 +876,7 @@ export class MailService {
         event: 'mail_log_persist_failed_after_success',
         companyId: context?.companyId,
         userId: context?.userId,
-        to,
+        to: maskSensitiveText(to),
         provider: delivery.provider,
         messageId: delivery.messageId,
       },
@@ -1025,8 +1069,7 @@ export class MailService {
         event: 'mail_attachment_storage_failed',
         companyId: context.companyId,
         userId: context.userId,
-        fileKey,
-        artifactLabel: context.artifactLabel,
+        artifactType: 'stored_document',
         error: message,
       });
       if (
@@ -1417,7 +1460,7 @@ export class MailService {
     } catch (error) {
       const message = this.extractErrorMessage(error);
       this.logger.error(
-        `Erro ao enviar relatório mensal para ${email}: ${message}`,
+        `Erro ao enviar relatório mensal para ${maskEmail(email)}: ${message}`,
       );
       throw error;
     }

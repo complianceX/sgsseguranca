@@ -6,6 +6,7 @@ import {
   DocumentRegistryEntry,
   DocumentRegistryStatus,
 } from './entities/document-registry.entity';
+import { DocumentRegistryVersionEntry } from './entities/document-registry-version.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
@@ -68,6 +69,8 @@ export class DocumentRegistryService {
   constructor(
     @InjectRepository(DocumentRegistryEntry)
     private readonly registryRepository: Repository<DocumentRegistryEntry>,
+    @InjectRepository(DocumentRegistryVersionEntry)
+    private readonly versionRepository: Repository<DocumentRegistryVersionEntry>,
     private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
@@ -75,7 +78,9 @@ export class DocumentRegistryService {
   ) {}
 
   async upsert(input: UpsertRegistryInput): Promise<DocumentRegistryEntry> {
-    return this.upsertWithManager(this.registryRepository.manager, input);
+    return this.dataSource.transaction((manager) =>
+      this.upsertWithManager(manager, input),
+    );
   }
 
   async upsertWithManager(
@@ -83,6 +88,7 @@ export class DocumentRegistryService {
     input: UpsertRegistryInput,
   ): Promise<DocumentRegistryEntry> {
     const registryRepository = manager.getRepository(DocumentRegistryEntry);
+    const registryVersionRepository = this.getVersionRepository(manager);
     const documentDate = this.resolveDocumentDate(input.documentDate);
     const existing = await registryRepository.findOne({
       where: {
@@ -92,8 +98,27 @@ export class DocumentRegistryService {
         document_type: input.documentType || 'pdf',
       },
     });
+    if (existing?.finalized_at || existing?.signed_at) {
+      throw new BadRequestException(
+        'Documento finalizado/assinado não pode ser alterado silenciosamente. Gere nova versão de retificação.',
+      );
+    }
+
+    const latestVersion = await registryVersionRepository.findOne({
+      where: {
+        company_id: input.companyId,
+        document_id: input.entityId,
+        document_type: input.documentType || 'pdf',
+      },
+      order: { version: 'DESC', created_at: 'DESC' },
+    });
 
     const entity = existing ?? registryRepository.create();
+    const resolvedFileHash = input.fileHash
+      ? input.fileHash
+      : input.fileBuffer
+        ? createHash('sha256').update(input.fileBuffer).digest('hex')
+        : entity.file_hash || null;
     entity.company_id = input.companyId;
     entity.module = input.module;
     entity.document_type = input.documentType || 'pdf';
@@ -106,17 +131,14 @@ export class DocumentRegistryService {
     entity.folder_path = input.folderPath || null;
     entity.original_name = input.originalName || null;
     entity.mime_type = input.mimeType || 'application/pdf';
-    entity.file_hash = input.fileHash
-      ? input.fileHash
-      : input.fileBuffer
-        ? createHash('sha256').update(input.fileBuffer).digest('hex')
-        : entity.file_hash || null;
+    entity.file_hash = resolvedFileHash;
     entity.document_code =
       input.documentCode ||
       entity.document_code ||
       `${input.module.toUpperCase()}-${String(entity.iso_year)}-${String(entity.iso_week).padStart(2, '0')}-${input.entityId.slice(0, 8).toUpperCase()}`;
     entity.created_by = input.createdBy || entity.created_by || null;
     entity.status = DocumentRegistryStatus.ACTIVE;
+    entity.finalized_at = entity.finalized_at || new Date();
     entity.expires_at = await this.resolveDocumentExpiryDate(
       manager,
       input.companyId,
@@ -124,7 +146,24 @@ export class DocumentRegistryService {
       documentDate,
     );
 
-    return registryRepository.save(entity);
+    const saved = await registryRepository.save(entity);
+    const nextVersion = (latestVersion?.version || 0) + 1;
+    await registryVersionRepository.save(
+      registryVersionRepository.create({
+        document_id: input.entityId,
+        document_type: input.documentType || 'pdf',
+        version: nextVersion,
+        status: saved.status,
+        supersedes_id: latestVersion?.id || null,
+        finalized_at: saved.finalized_at || null,
+        signed_at: saved.signed_at || null,
+        hash: saved.file_hash || null,
+        company_id: input.companyId,
+        created_by: input.createdBy || saved.created_by || null,
+      }),
+    );
+
+    return saved;
   }
 
   async remove(input: RemoveRegistryInput): Promise<void> {
@@ -813,5 +852,11 @@ export class DocumentRegistryService {
     const parsed = Number(retentionDaysRaw);
 
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private getVersionRepository(manager?: EntityManager) {
+    return manager
+      ? manager.getRepository(DocumentRegistryVersionEntry)
+      : this.versionRepository;
   }
 }
