@@ -193,6 +193,28 @@ describe('DocumentDownloadGrantService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('permite download público user-bound quando uid válido vem do token', async () => {
+    const grant = buildGrant({
+      id: 'grant-public-user-bound',
+      company_id: 'company-1',
+      file_key: 'documents/company-1/checklists/public-user-bound.pdf',
+      issued_for_user_id: 'user-allowed',
+    });
+    const harness = createHarness([grant]);
+    const token = signDownloadToken({
+      secret: 'test-download-secret',
+      gid: grant.id,
+      companyId: grant.company_id,
+      key: grant.file_key,
+      uid: 'user-allowed',
+    });
+
+    const consumedGrant = await harness.service.consumeToken(token);
+
+    expect(consumedGrant.id).toBe(grant.id);
+    expect(consumedGrant.consumed_at).toBeInstanceOf(Date);
+  });
+
   it('executa consumo dentro do contexto de tenant restrito', async () => {
     const grant = buildGrant({
       id: 'grant-tenant-context',

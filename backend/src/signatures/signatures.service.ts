@@ -42,6 +42,7 @@ import { Audit } from '../audits/entities/audit.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
 import { Arr } from '../arrs/entities/arr.entity';
 import { Did } from '../dids/entities/did.entity';
+import { Training } from '../trainings/entities/training.entity';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,
@@ -98,6 +99,11 @@ type SiteScopedSignatureDocument = {
 type SignatureDocumentScope = {
   companyId: string;
   siteId: string | null;
+};
+
+type TrainingSignatureDocumentScopeRow = {
+  company_id: string;
+  site_id: string | null;
 };
 
 const SITE_SCOPED_SIGNATURE_DOCUMENT_ENTITIES: Record<
@@ -1169,6 +1175,13 @@ export class SignaturesService {
       normalizeModuleFromDocumentType(input.documentType);
     const entity = SITE_SCOPED_SIGNATURE_DOCUMENT_ENTITIES[module];
     if (!entity) {
+      if (module === 'training') {
+        return this.resolveTrainingSignatureDocumentScope({
+          documentId: input.documentId,
+          scope,
+        });
+      }
+
       throw new NotFoundException('Documento não encontrado para assinaturas.');
     }
 
@@ -1183,6 +1196,32 @@ export class SignaturesService {
       });
 
     if (!document || !isSiteVisibleToScope(document.site_id, scope)) {
+      throw new NotFoundException('Documento não encontrado para assinaturas.');
+    }
+
+    return {
+      companyId: document.company_id,
+      siteId: document.site_id ?? null,
+    };
+  }
+
+  private async resolveTrainingSignatureDocumentScope(input: {
+    documentId: string;
+    scope: ReturnType<typeof resolveSiteAccessScopeFromTenantService>;
+  }): Promise<SignatureDocumentScope> {
+    const document = await this.dataSource
+      .getRepository(Training)
+      .createQueryBuilder('training')
+      .leftJoin('training.user', 'user')
+      .select('training.company_id', 'company_id')
+      .addSelect('user.site_id', 'site_id')
+      .where('training.id = :documentId', { documentId: input.documentId })
+      .andWhere('training.company_id = :companyId', {
+        companyId: input.scope.companyId,
+      })
+      .getRawOne<TrainingSignatureDocumentScopeRow>();
+
+    if (!document || !isSiteVisibleToScope(document.site_id, input.scope)) {
       throw new NotFoundException('Documento não encontrado para assinaturas.');
     }
 

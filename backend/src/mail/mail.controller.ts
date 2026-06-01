@@ -227,14 +227,13 @@ export class MailController {
   @RequestTimeout(resolveMailRequestTimeoutMs())
   async sendStoredDocument(
     @Body() body: SendStoredDocumentDto,
-    @Request() req: RequestWithUser,
   ): Promise<DocumentMailDispatchResponseDto> {
     const { documentId, documentType, email } = body;
-    const companyId = getRequiredCompanyId(req);
     const siteScope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'envio de documento governado por e-mail',
     );
+    const companyId = siteScope.companyId;
 
     if (!documentId || !documentType || !email) {
       throw new BadRequestException(

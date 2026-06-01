@@ -11,6 +11,8 @@ const {
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+const distRoot = path.resolve(__dirname, '../dist');
+
 function buildDataSource() {
   const databaseConfig = resolveDatabaseConfig();
   const ssl = resolveSslConfig();
@@ -25,8 +27,10 @@ function buildDataSource() {
     database: databaseConfig.database,
     ssl,
     synchronize: false,
-    entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
-    migrations: ['dist/database/migrations/*.js'],
+    entities: [
+      path.join(distRoot, '!(database|seed|queue|worker)', '**', '*.entity.js'),
+    ],
+    migrations: [path.join(distRoot, 'database', 'migrations', '*.js')],
   });
 }
 

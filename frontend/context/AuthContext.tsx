@@ -21,8 +21,15 @@ import {
   AuthLoginResponse,
   AuthLoginResult,
 } from '@/services/authService';
+import { Permission, PermissionPrefix } from '@/lib/permissions';
 
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+const VIEWER_ROLE_ALIASES = [
+  'visualizador',
+  'trabalhador',
+  'operador / colaborador',
+  'colaborador',
+];
 
 function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
@@ -299,19 +306,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const normalizedRoles = roles.map((role) => role.trim().toLowerCase());
-      const isViewerRole = normalizedRoles.some((role) =>
-        [
-          "visualizador",
-          "trabalhador",
-          "operador / colaborador",
-          "colaborador",
-        ].includes(role),
-      );
+      const isViewerOnlyRole =
+        normalizedRoles.length > 0 &&
+        normalizedRoles.every((role) => VIEWER_ROLE_ALIASES.includes(role));
 
       if (
-        isViewerRole &&
-        permission.startsWith("can_manage_") &&
-        permission !== "can_manage_signatures"
+        isViewerOnlyRole &&
+        permission.startsWith(PermissionPrefix.CAN_MANAGE) &&
+        permission !== Permission.CAN_MANAGE_SIGNATURES
       ) {
         return false;
       }

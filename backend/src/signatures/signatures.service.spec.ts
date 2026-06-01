@@ -14,6 +14,7 @@ import { Dds } from '../dds/entities/dds.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { Inspection } from '../common/entities/inspection.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
+import { Training } from '../trainings/entities/training.entity';
 import {
   SIGNATURE_PROOF_SCOPES,
   SIGNATURE_VERIFICATION_MODES,
@@ -43,6 +44,17 @@ describe('SignaturesService', () => {
     andWhere: jest.fn(),
     orderBy: jest.fn(),
     getMany: jest.fn<Promise<Signature[]>, []>(),
+  };
+  const trainingScopeQueryBuilder = {
+    leftJoin: jest.fn(),
+    select: jest.fn(),
+    addSelect: jest.fn(),
+    where: jest.fn(),
+    andWhere: jest.fn(),
+    getRawOne: jest.fn<
+      Promise<{ company_id: string; site_id: string | null } | null>,
+      []
+    >(),
   };
 
   const repository = {
@@ -144,6 +156,12 @@ describe('SignaturesService', () => {
         return rdoRepository;
       }
 
+      if (entity === Training) {
+        return {
+          createQueryBuilder: jest.fn(() => trainingScopeQueryBuilder),
+        };
+      }
+
       return {
         findOne: jest.fn(() => Promise.resolve(null)),
       };
@@ -157,6 +175,18 @@ describe('SignaturesService', () => {
     queryBuilder.andWhere.mockReturnValue(queryBuilder);
     queryBuilder.orderBy.mockReturnValue(queryBuilder);
     queryBuilder.getMany.mockResolvedValue([]);
+    trainingScopeQueryBuilder.leftJoin.mockReturnValue(
+      trainingScopeQueryBuilder,
+    );
+    trainingScopeQueryBuilder.select.mockReturnValue(trainingScopeQueryBuilder);
+    trainingScopeQueryBuilder.addSelect.mockReturnValue(
+      trainingScopeQueryBuilder,
+    );
+    trainingScopeQueryBuilder.where.mockReturnValue(trainingScopeQueryBuilder);
+    trainingScopeQueryBuilder.andWhere.mockReturnValue(
+      trainingScopeQueryBuilder,
+    );
+    trainingScopeQueryBuilder.getRawOne.mockResolvedValue(null);
     transactionalRepository.find.mockResolvedValue([]);
     dataSource.query.mockResolvedValue([{ count: '0' }]);
     aprRepository.findOne.mockResolvedValue({
@@ -537,6 +567,45 @@ describe('SignaturesService', () => {
       id: 'user-obra-a',
       nome: 'Ana',
       funcao: 'TST',
+    });
+  });
+
+  it('mantem assinatura legada de treinamento roteavel pelo site do trabalhador', async () => {
+    useSiteScopedTenant(['site-a']);
+    trainingScopeQueryBuilder.getRawOne.mockResolvedValue({
+      company_id: 'company-1',
+      site_id: 'site-a',
+    });
+    repository.find.mockResolvedValue([
+      {
+        id: 'signature-training',
+        company_id: 'company-1',
+        document_id: 'training-1',
+        document_type: 'TREINAMENTO',
+        user_id: 'worker-a',
+        type: 'digital',
+        signature_data: 'data:image/png;base64,ASSINATURA_TREINAMENTO',
+        user: {
+          id: 'worker-a',
+          nome: 'Trabalhador A',
+          funcao: 'Operador',
+          cpf: '12345678901',
+          email: 'worker@example.test',
+        },
+      } as unknown as Signature,
+    ]);
+
+    const result = await service.findByDocument('training-1', 'TREINAMENTO');
+
+    expect(dataSource.getRepository).toHaveBeenCalledWith(Training);
+    expect(trainingScopeQueryBuilder.where).toHaveBeenCalledWith(
+      'training.id = :documentId',
+      { documentId: 'training-1' },
+    );
+    expect(result[0]?.user).toEqual({
+      id: 'worker-a',
+      nome: 'Trabalhador A',
+      funcao: 'Operador',
     });
   });
 

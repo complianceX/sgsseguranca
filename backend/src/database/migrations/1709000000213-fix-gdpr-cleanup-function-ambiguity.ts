@@ -100,10 +100,14 @@ export class FixGdprCleanupFunctionAmbiguity1709000000213 implements MigrationIn
           WHERE cols.table_schema = 'public'
             AND cols.table_name = 'ai_interactions'
             AND cols.column_name = 'deleted_at'
+        ) AND EXISTS (
+          SELECT 1 FROM information_schema.columns cols
+          WHERE cols.table_schema = 'public'
+            AND cols.table_name = 'ai_interactions'
+            AND cols.column_name = 'created_at'
         ) THEN
           DELETE FROM ai_interactions
-          WHERE deleted_at IS NOT NULL
-            AND deleted_at < NOW() - INTERVAL '1 year';
+          WHERE COALESCE(deleted_at, created_at) < NOW() - INTERVAL '1 year';
           GET DIAGNOSTICS v_count = ROW_COUNT;
         ELSE
           v_count := 0;
