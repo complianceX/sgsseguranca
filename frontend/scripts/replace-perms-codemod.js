@@ -1,9 +1,7 @@
-import { Permission } from '@/lib/permissions';
 /* eslint-disable */
 const fs = require('fs');
 const path = require('path');
 const process = require('process');
-const path = require('path');
 
 function walk(dir) {
   const results = [];
