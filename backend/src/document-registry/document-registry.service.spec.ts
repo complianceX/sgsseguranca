@@ -5,11 +5,13 @@ import { DocumentBundleService } from '../common/services/document-bundle.servic
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import { DocumentRegistryVersionEntry } from './entities/document-registry-version.entity';
 import { DocumentRegistryService } from './document-registry.service';
 
 describe('DocumentRegistryService', () => {
   let service: DocumentRegistryService;
   let registryRepository: jest.Mocked<Repository<DocumentRegistryEntry>>;
+  let versionRepository: jest.Mocked<Repository<DocumentRegistryVersionEntry>>;
   let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let documentBundleService: Pick<
     DocumentBundleService,
@@ -41,6 +43,12 @@ describe('DocumentRegistryService', () => {
       manager: {} as Repository<DocumentRegistryEntry>['manager'],
     } as unknown as jest.Mocked<Repository<DocumentRegistryEntry>>;
 
+    versionRepository = {
+      findOne: jest.fn(),
+      create: jest.fn((data) => data as DocumentRegistryVersionEntry),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<DocumentRegistryVersionEntry>>;
+
     tenantService = {
       getTenantId: jest.fn().mockReturnValue('company-1'),
       getContext: jest.fn().mockReturnValue({
@@ -59,6 +67,7 @@ describe('DocumentRegistryService', () => {
 
     service = new DocumentRegistryService(
       registryRepository,
+      versionRepository,
       {} as DataSource,
       tenantService as TenantService,
       documentBundleService as DocumentBundleService,

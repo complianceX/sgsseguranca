@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,13 +9,17 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
 import * as path from 'path';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
@@ -61,8 +66,63 @@ export class CatsService {
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
+  private getSiteAccessScopeOrThrow(options?: {
+    allowMissingSiteScope?: boolean;
+  }): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'CAT',
+      options,
+    );
+  }
+
+  private assertSiteAllowed(
+    siteId: string | undefined,
+    scope: ResolvedSiteAccessScope,
+  ): void {
+    if (
+      !scope.hasCompanyWideAccess &&
+      (!siteId || !scope.siteIds.includes(siteId))
+    ) {
+      throw new ForbiddenException(
+        'CAT fora do escopo de obra do usuário atual.',
+      );
+    }
+  }
+
+  private buildScopedWhere(
+    scope: ResolvedSiteAccessScope,
+    extra: FindOptionsWhere<Cat> = {},
+  ): FindOptionsWhere<Cat> {
+    return {
+      company_id: scope.companyId,
+      ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      ...extra,
+    };
+  }
+
+  private applySiteScopeToQuery(
+    query: SelectQueryBuilder<Cat>,
+    scope: ResolvedSiteAccessScope,
+  ): void {
+    if (scope.hasCompanyWideAccess) {
+      return;
+    }
+
+    if (scope.siteIds.length === 0) {
+      query.andWhere('1 = 0');
+      return;
+    }
+
+    query.andWhere('cat.site_id IN (:...currentSiteIds)', {
+      currentSiteIds: scope.siteIds,
+    });
+  }
+
   async create(createDto: CreateCatDto, actorId?: string): Promise<Cat> {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
+    this.assertSiteAllowed(createDto.site_id, scope);
     await this.validateScopedRelations(companyId, {
       site_id: createDto.site_id,
       worker_id: createDto.worker_id,
@@ -117,7 +177,10 @@ export class CatsService {
     page?: number;
     limit?: number;
   }) {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
+    const companyId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -134,6 +197,8 @@ export class CatsService {
       .orderBy('cat.created_at', 'DESC')
       .skip(skip)
       .take(limit);
+
+    this.applySiteScopeToQuery(query, scope);
 
     if (filters?.status) {
       query.andWhere('cat.status = :status', { status: filters.status });
@@ -154,9 +219,11 @@ export class CatsService {
   }
 
   async findOne(id: string): Promise<Cat> {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const cat = await this.catsRepository.findOne({
-      where: { id, company_id: companyId },
+      where: this.buildScopedWhere(scope, { id }),
       relations: [
         'company',
         'site',
@@ -191,6 +258,12 @@ export class CatsService {
       site_id: updateDto.site_id,
       worker_id: updateDto.worker_id,
     });
+    if (updateDto.site_id) {
+      this.assertSiteAllowed(
+        updateDto.site_id,
+        this.getSiteAccessScopeOrThrow(),
+      );
+    }
 
     const nextNumber = updateDto.numero
       ? this.normalizeCatNumber(updateDto.numero)
@@ -603,25 +676,29 @@ export class CatsService {
   }
 
   async getSummary() {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const [total, abertas, investigacao, fechadas] = await Promise.all([
-      this.catsRepository.count({ where: { company_id: companyId } }),
+      this.catsRepository.count({ where: this.buildScopedWhere(scope) }),
       this.catsRepository.count({
-        where: { company_id: companyId, status: 'aberta' },
+        where: this.buildScopedWhere(scope, { status: 'aberta' }),
       }),
       this.catsRepository.count({
-        where: { company_id: companyId, status: 'investigacao' },
+        where: this.buildScopedWhere(scope, { status: 'investigacao' }),
       }),
       this.catsRepository.count({
-        where: { company_id: companyId, status: 'fechada' },
+        where: this.buildScopedWhere(scope, { status: 'fechada' }),
       }),
     ]);
 
-    const bySeverityRaw = await this.catsRepository
+    const bySeverityQuery = this.catsRepository
       .createQueryBuilder('cat')
       .select('cat.gravidade', 'gravidade')
       .addSelect('COUNT(*)', 'total')
-      .where('cat.company_id = :companyId', { companyId })
+      .where('cat.company_id = :companyId', { companyId: scope.companyId });
+    this.applySiteScopeToQuery(bySeverityQuery, scope);
+    const bySeverityRaw = await bySeverityQuery
       .groupBy('cat.gravidade')
       .getRawMany<{ gravidade: string; total: string }>();
 
@@ -643,7 +720,28 @@ export class CatsService {
   }
 
   async getStatistics() {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
+    const byTipoQuery = this.catsRepository
+      .createQueryBuilder('cat')
+      .select('cat.tipo', 'tipo')
+      .addSelect('COUNT(*)', 'total')
+      .where('cat.company_id = :companyId', { companyId: scope.companyId });
+    const byGravidadeQuery = this.catsRepository
+      .createQueryBuilder('cat')
+      .select('cat.gravidade', 'gravidade')
+      .addSelect('COUNT(*)', 'total')
+      .where('cat.company_id = :companyId', { companyId: scope.companyId });
+    const byMonthQuery = this.catsRepository
+      .createQueryBuilder('cat')
+      .select("DATE_TRUNC('month', cat.data_ocorrencia)", 'month')
+      .addSelect('COUNT(*)', 'total')
+      .where('cat.company_id = :companyId', { companyId: scope.companyId })
+      .andWhere("cat.data_ocorrencia >= NOW() - INTERVAL '12 months'");
+    this.applySiteScopeToQuery(byTipoQuery, scope);
+    this.applySiteScopeToQuery(byGravidadeQuery, scope);
+    this.applySiteScopeToQuery(byMonthQuery, scope);
 
     const [
       total,
@@ -653,33 +751,20 @@ export class CatsService {
       byGravidadeRaw,
       byMonthRaw,
     ] = await Promise.all([
-      this.catsRepository.count({ where: { company_id: companyId } }),
+      this.catsRepository.count({ where: this.buildScopedWhere(scope) }),
       this.catsRepository.count({
-        where: { company_id: companyId, gravidade: 'fatal' },
+        where: this.buildScopedWhere(scope, { gravidade: 'fatal' }),
       }),
       this.catsRepository.count({
-        where: { company_id: companyId, status: 'aberta' },
+        where: this.buildScopedWhere(scope, { status: 'aberta' }),
       }),
-      this.catsRepository
-        .createQueryBuilder('cat')
-        .select('cat.tipo', 'tipo')
-        .addSelect('COUNT(*)', 'total')
-        .where('cat.company_id = :companyId', { companyId })
+      byTipoQuery
         .groupBy('cat.tipo')
         .getRawMany<{ tipo: string; total: string }>(),
-      this.catsRepository
-        .createQueryBuilder('cat')
-        .select('cat.gravidade', 'gravidade')
-        .addSelect('COUNT(*)', 'total')
-        .where('cat.company_id = :companyId', { companyId })
+      byGravidadeQuery
         .groupBy('cat.gravidade')
         .getRawMany<{ gravidade: string; total: string }>(),
-      this.catsRepository
-        .createQueryBuilder('cat')
-        .select("DATE_TRUNC('month', cat.data_ocorrencia)", 'month')
-        .addSelect('COUNT(*)', 'total')
-        .where('cat.company_id = :companyId', { companyId })
-        .andWhere("cat.data_ocorrencia >= NOW() - INTERVAL '12 months'")
+      byMonthQuery
         .groupBy("DATE_TRUNC('month', cat.data_ocorrencia)")
         .orderBy("DATE_TRUNC('month', cat.data_ocorrencia)", 'ASC')
         .getRawMany<{ month: string; total: string }>(),

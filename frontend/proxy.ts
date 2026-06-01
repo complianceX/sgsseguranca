@@ -10,6 +10,14 @@ function isDashboardRoute(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 }
 
+function isAuthRoute(pathname: string): boolean {
+  return pathname === "/login" || pathname.startsWith("/login/");
+}
+
+function isDevtoolsRoute(pathname: string): boolean {
+  return pathname === "/devtools" || pathname.startsWith("/devtools/");
+}
+
 function buildCsp(nonce: string): string {
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
   const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) => {
@@ -75,6 +83,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  if (isProduction && isDevtoolsRoute(pathname)) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   // Redireciona para login se acessar dashboard sem sessao ativa.
   // O cookie refresh_csrf (path=/,não-httpOnly) é emitido pelo backend no login
   // e limpo no logout — serve como sinal confiável de sessão sem expor o refresh token.
@@ -82,6 +94,10 @@ export function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("expired", "1");
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (isAuthRoute(pathname) && request.cookies.has(REFRESH_CSRF_COOKIE)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   const random = crypto.getRandomValues(new Uint8Array(16));
@@ -96,6 +112,13 @@ export function proxy(request: NextRequest) {
   });
 
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  );
   return response;
 }
 

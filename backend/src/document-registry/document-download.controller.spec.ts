@@ -1,4 +1,8 @@
-import { ForbiddenException, INestApplication } from '@nestjs/common';
+import {
+  ForbiddenException,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -52,6 +56,13 @@ describe('DocumentDownloadController', () => {
     }).compile();
 
     const app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
 
     const response = await httpRequest(app).get('/storage/download/a.b.c');
@@ -94,6 +105,13 @@ describe('DocumentDownloadController', () => {
     }).compile();
 
     const app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
 
     const response = await httpRequest(app).get(
@@ -130,18 +148,22 @@ describe('DocumentDownloadController', () => {
     }).compile();
 
     const app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
 
     const response = await httpRequest(app).get(
       '/storage/download/token-bruto',
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(400);
     expect(consumeToken).not.toHaveBeenCalled();
-    expect(mockSecurityAudit.bruteForceBlocked).toHaveBeenCalledWith(
-      expect.anything(),
-      'token_format:invalid',
-    );
+    expect(mockSecurityAudit.bruteForceBlocked).not.toHaveBeenCalled();
 
     await app.close();
   });

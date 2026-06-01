@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import type { AuditService } from '../audit/audit.service';
@@ -44,9 +48,22 @@ describe('CatsService', () => {
     save: jest.Mock;
     count: jest.Mock;
   };
+  let queryBuilder: {
+    leftJoinAndSelect: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    orderBy: jest.Mock;
+    skip: jest.Mock;
+    take: jest.Mock;
+    getManyAndCount: jest.Mock;
+    select: jest.Mock;
+    addSelect: jest.Mock;
+    groupBy: jest.Mock;
+    getRawMany: jest.Mock;
+  };
   let usersRepository: { exist: jest.Mock };
   let sitesRepository: { exist: jest.Mock };
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getContext' | 'getTenantId'>;
   let storageService: Pick<
     StorageService,
     'uploadFile' | 'deleteFile' | 'getPresignedDownloadUrl'
@@ -63,13 +80,22 @@ describe('CatsService', () => {
   let auditService: Pick<AuditService, 'log'>;
 
   beforeEach(() => {
+    queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
     catsRepository = {
       create: jest.fn((input: Partial<Cat>) => ({ ...input }) as Cat),
-      createQueryBuilder: jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(0),
-      })),
+      createQueryBuilder: jest.fn(() => queryBuilder),
       findOne: jest.fn(),
       save: jest.fn((input: Cat) => Promise.resolve(input)),
       count: jest.fn().mockResolvedValue(0),
@@ -81,6 +107,7 @@ describe('CatsService', () => {
       exist: jest.fn().mockResolvedValue(true),
     };
     tenantService = {
+      getContext: jest.fn(() => undefined),
       getTenantId: jest.fn(() => COMPANY_ID),
     };
     storageService = {
@@ -135,6 +162,16 @@ describe('CatsService', () => {
     jest.clearAllMocks();
   });
 
+  const useSiteScopedTenant = (siteIds = ['site-1']): void => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: COMPANY_ID,
+      userId: 'viewer-1',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds,
+    });
+  };
+
   it('bloqueia create quando o site nao pertence a empresa atual', async () => {
     sitesRepository.exist.mockResolvedValue(false);
 
@@ -151,6 +188,43 @@ describe('CatsService', () => {
       ),
     );
     expect(catsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia create em obra fora do escopo do usuario', async () => {
+    useSiteScopedTenant(['site-1']);
+
+    await expect(
+      service.create(
+        {
+          numero: 'CAT-20260319-0008',
+          data_ocorrencia: '2026-03-19T10:00:00.000Z',
+          descricao: 'Descricao da CAT',
+          site_id: 'site-2',
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(sitesRepository.exist).not.toHaveBeenCalled();
+    expect(catsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('restringe listagem e resumo ao escopo de obra do usuario', async () => {
+    useSiteScopedTenant(['site-1']);
+
+    await service.findPaginated({ page: 1, limit: 20 });
+    await service.getSummary();
+
+    const [countOptions] = catsRepository.count.mock.calls[0] as [
+      { where: { company_id: string; site_id: unknown } },
+    ];
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'cat.site_id IN (:...currentSiteIds)',
+      { currentSiteIds: ['site-1'] },
+    );
+    expect(countOptions.where.company_id).toBe(COMPANY_ID);
+    expect(countOptions.where.site_id).toBeDefined();
   });
 
   it('bloqueia update quando o colaborador nao pertence a empresa atual', async () => {
@@ -289,6 +363,21 @@ describe('CatsService', () => {
       documentCode: 'CAT-2026-11111111',
       url: null,
     });
+  });
+
+  it('nao localiza PDF de CAT fora do escopo de obra do usuario', async () => {
+    useSiteScopedTenant(['site-1']);
+    catsRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.getPdfAccess(CAT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+    const [findOptions] = catsRepository.findOne.mock.calls[0] as [
+      { where: { company_id: string; site_id: unknown } },
+    ];
+
+    expect(findOptions.where.company_id).toBe(COMPANY_ID);
+    expect(findOptions.where.site_id).toBeDefined();
   });
 
   it('anexa PDF final governado quando a CAT esta fechada', async () => {

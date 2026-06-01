@@ -27,6 +27,7 @@ import { ReportsService } from '../reports/reports.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { DistributedLockService } from '../common/redis/distributed-lock.service';
 import { Cat } from '../cats/entities/cat.entity';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 
 // Mock do Resend
 const mockResendSend = jest.fn<Promise<unknown>, [unknown]>();
@@ -120,6 +121,9 @@ describe('MailService', () => {
 
   const mockTenantService = {
     run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
+    getContext: jest.fn<ReturnType<TenantService['getContext']>, []>(
+      () => undefined,
+    ),
     getTenantId: jest.fn((): string | undefined => 'company-1'),
   };
   const mockIntegrationResilienceService = {
@@ -1101,6 +1105,80 @@ describe('MailService', () => {
         documentId: 'arr-1',
         documentType: 'ARR',
       });
+    });
+
+    it('restringe envio de CAT ao escopo de obra da requisicao', async () => {
+      const requestContextGetSpy = jest
+        .spyOn(RequestContext, 'get')
+        .mockReturnValue(undefined);
+      try {
+        mockTenantService.getContext.mockReturnValue({
+          companyId: 'company-1',
+          userId: 'user-1',
+          isSuperAdmin: false,
+          siteScope: 'single',
+          siteIds: ['site-1'],
+        });
+        mockCatsRepository.findOne.mockResolvedValue({
+          id: 'cat-1',
+          numero: 'CAT-2026-0001',
+          pdf_file_key: 'documents/company-1/cats/cat-1/final.pdf',
+        });
+        jest
+          .spyOn(documentStorageService, 'downloadFileBuffer')
+          .mockResolvedValue(Buffer.from('cat-pdf'));
+        mockResendSend.mockResolvedValue({
+          data: { id: 'msg-cat-1' },
+          error: null,
+        });
+
+        await service.sendStoredDocument(
+          'cat-1',
+          'CAT',
+          'destinatario@example.com',
+          'company-1',
+        );
+
+        const [findOptions] = mockCatsRepository.findOne.mock.calls[0] as [
+          { where: { company_id: string; site_id: unknown } },
+        ];
+
+        expect(findOptions.where.company_id).toBe('company-1');
+        expect(findOptions.where.site_id).toBeDefined();
+      } finally {
+        mockTenantService.getContext.mockReturnValue(undefined);
+        requestContextGetSpy.mockRestore();
+      }
+    });
+
+    it('usa companyId explicito quando nao ha contexto tenant para CAT', async () => {
+      mockTenantService.getContext.mockReturnValueOnce(undefined);
+      mockCatsRepository.findOne.mockResolvedValue({
+        id: 'cat-1',
+        numero: 'CAT-2026-0001',
+        pdf_file_key: 'documents/company-1/cats/cat-1/final.pdf',
+      });
+      jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('cat-pdf'));
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-cat-1' },
+        error: null,
+      });
+
+      await service.sendStoredDocument(
+        'cat-1',
+        'CAT',
+        'destinatario@example.com',
+        'company-1',
+      );
+
+      const [findOptions] = mockCatsRepository.findOne.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+
+      expect(findOptions.where.company_id).toBe('company-1');
+      expect(findOptions.where).not.toHaveProperty('site_id');
     });
 
     it('deve enviar um DID com PDF final governado', async () => {
