@@ -1016,6 +1016,25 @@ describe('UsersService.create role assignment hardening', () => {
 
     expect(repoSaveMock).not.toHaveBeenCalled();
   });
+
+  it('falha fechado quando o escopo RBAC do perfil alvo não é resolvido', async () => {
+    profilesRepo.findOne.mockResolvedValue({
+      id: 'profile-local',
+      nome: 'Perfil Local Desconhecido',
+    } as Profile);
+    jest.spyOn(RequestContext, 'getUserId').mockReturnValue('actor-gerente');
+
+    await expect(
+      service.create({
+        nome: 'Novo Usuario',
+        cpf: '98803972075',
+        funcao: 'Operador',
+        profile_id: 'profile-local',
+      }),
+    ).rejects.toThrow('escopo RBAC não foi resolvido');
+
+    expect(repoSaveMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('UsersService.update site binding', () => {

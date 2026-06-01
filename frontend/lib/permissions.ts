@@ -60,4 +60,8 @@ export const Permission = {
   CAN_USE_AI: 'can_use_ai',
 } as const;
 
+export const PermissionPrefix = {
+  CAN_MANAGE: 'can_manage_',
+} as const;
+
 export type AppPermission = (typeof Permission)[keyof typeof Permission];

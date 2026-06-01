@@ -6,6 +6,7 @@ function quoteIdent(identifier: string): string {
 
 export class EmergencyDbHardeningCriticalRlsAndGdpr1709000000211 implements MigrationInterface {
   name = 'EmergencyDbHardeningCriticalRlsAndGdpr1709000000211';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await this.ensureDdsSignatureInvitesTable(queryRunner);
@@ -173,15 +174,15 @@ export class EmergencyDbHardeningCriticalRlsAndGdpr1709000000211 implements Migr
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_dds_signature_invites_company_dds_participant"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_dds_signature_invites_company_dds_participant"
       ON "dds_signature_invites" ("company_id", "dds_id", "participant_user_id")
     `);
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_dds_signature_invites_active"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_dds_signature_invites_active"
       ON "dds_signature_invites" ("company_id", "expires_at", "revoked_at", "used_at")
     `);
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_dds_signature_invites_dds_id"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_dds_signature_invites_dds_id"
       ON "dds_signature_invites" ("dds_id")
     `);
 
@@ -283,15 +284,15 @@ export class EmergencyDbHardeningCriticalRlsAndGdpr1709000000211 implements Migr
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_tenant_onboarding_invites_email"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_tenant_onboarding_invites_email"
       ON "tenant_onboarding_invites" ("email")
     `);
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_tenant_onboarding_invites_expires"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_tenant_onboarding_invites_expires"
       ON "tenant_onboarding_invites" ("expires_at")
     `);
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_tenant_onboarding_invites_company"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_tenant_onboarding_invites_company"
       ON "tenant_onboarding_invites" ("created_company_id")
     `);
 

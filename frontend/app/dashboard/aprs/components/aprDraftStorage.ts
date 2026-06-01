@@ -323,7 +323,8 @@ export function readAprDraft(
     };
   }
 
-  const primaryRaw = storage?.getItem(primaryKey) || null;
+  const primaryRaw =
+    storage?.getItem(primaryKey) || legacyStorage?.getItem(primaryKey) || null;
   const legacyRaw =
     !primaryRaw && legacyKey ? legacyStorage?.getItem(legacyKey) || null : null;
   const raw = primaryRaw || legacyRaw;

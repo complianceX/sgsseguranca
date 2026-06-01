@@ -1612,11 +1612,15 @@ export class UsersService {
       );
     }
 
+    if (!actorScope || !targetScope) {
+      throw new ForbiddenException(
+        `Perfil "${targetProfileName}" não pode ser atribuído porque o escopo RBAC não foi resolvido.`,
+      );
+    }
+
     if (
-      actorScope &&
-      targetScope &&
       this.getRoleScopePriority(targetScope) <=
-        this.getRoleScopePriority(actorScope)
+      this.getRoleScopePriority(actorScope)
     ) {
       throw new ForbiddenException(
         `${this.getRoleScopeLabel(actorScope)} não pode atribuir o perfil "${targetProfileName}".`,

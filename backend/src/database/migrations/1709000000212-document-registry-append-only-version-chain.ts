@@ -2,6 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class DocumentRegistryAppendOnlyVersionChain1709000000212 implements MigrationInterface {
   name = 'DocumentRegistryAppendOnlyVersionChain1709000000212';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -73,12 +74,12 @@ export class DocumentRegistryAppendOnlyVersionChain1709000000212 implements Migr
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_document_registry_versions_chain"
+      CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "UQ_document_registry_versions_chain"
       ON "document_registry_versions" ("company_id", "document_id", "document_type", "version")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_document_registry_versions_company_document"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_document_registry_versions_company_document"
       ON "document_registry_versions" ("company_id", "document_id", "document_type")
     `);
 
@@ -144,13 +145,13 @@ export class DocumentRegistryAppendOnlyVersionChain1709000000212 implements Migr
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_document_registry_versions_company_document"`,
+      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_document_registry_versions_company_document"`,
     );
     await queryRunner.query(
       `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "document_registry_versions"`,
     );
     await queryRunner.query(
-      `DROP INDEX IF EXISTS "UQ_document_registry_versions_chain"`,
+      `DROP INDEX CONCURRENTLY IF EXISTS "UQ_document_registry_versions_chain"`,
     );
     await queryRunner.query(
       `DROP TABLE IF EXISTS "document_registry_versions"`,

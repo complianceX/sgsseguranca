@@ -33,6 +33,16 @@ describe('MailController (http)', () => {
     company_id: 'company-1',
     userId: 'user-1',
   };
+  let currentTenantContext:
+    | {
+        companyId: string;
+        userId?: string;
+        siteId?: string;
+        siteIds?: string[];
+        siteScope: 'single' | 'all';
+        isSuperAdmin: boolean;
+      }
+    | undefined;
 
   const mailService = {
     sendStoredDocument: jest.fn(),
@@ -56,6 +66,7 @@ describe('MailController (http)', () => {
       company_id: 'company-1',
       userId: 'user-1',
     };
+    currentTenantContext = undefined;
     mailService.sendStoredDocument.mockReset();
     mailService.sendStoredFileKey.mockReset();
     mailService.sendUploadedPdfBuffer.mockReset();
@@ -89,6 +100,7 @@ describe('MailController (http)', () => {
           useValue: {
             getTenantId: jest.fn(() => 'company-1'),
             isSuperAdmin: jest.fn(() => false),
+            getContext: jest.fn(() => currentTenantContext),
           },
         },
         {
@@ -224,6 +236,59 @@ describe('MailController (http)', () => {
       siteScope: 'all',
     });
     expect(mailService.sendStoredDocument).not.toHaveBeenCalled();
+  });
+
+  it('usa o tenant efetivo do header para super admin ao enfileirar documento', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    currentUser = {
+      company_id: 'platform-company',
+      userId: 'super-admin-1',
+    };
+    currentTenantContext = {
+      companyId: 'tenant-b',
+      userId: 'super-admin-1',
+      siteScope: 'all',
+      siteIds: [],
+      isSuperAdmin: true,
+    };
+    mailService.buildDocumentDispatchResponse.mockReturnValue({
+      success: true,
+      message: 'Solicitação recebida.',
+      deliveryMode: 'queued',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      documentId: 'cat-tenant-b',
+      documentType: 'CAT',
+    });
+
+    await request(httpServer)
+      .post('/mail/send-stored-document')
+      .send({
+        documentId: 'cat-tenant-b',
+        documentType: 'CAT',
+        email: 'destinatario@example.com',
+      })
+      .expect(201);
+
+    const [, queuedPayload] = mailQueue.add.mock.calls[0] as [
+      string,
+      {
+        companyId: string;
+        tenantContext?: {
+          companyId: string;
+          isSuperAdmin: boolean;
+          siteScope: 'single' | 'all';
+        };
+      },
+    ];
+
+    expect(queuedPayload.companyId).toBe('tenant-b');
+    expect(queuedPayload.tenantContext).toMatchObject({
+      companyId: 'tenant-b',
+      isSuperAdmin: true,
+      siteScope: 'all',
+    });
   });
 
   it('degrada para envio síncrono quando a fila de envio oficial está indisponível', async () => {

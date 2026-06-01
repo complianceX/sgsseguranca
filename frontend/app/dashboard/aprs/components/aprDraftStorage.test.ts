@@ -82,6 +82,30 @@ describe("aprDraftStorage", () => {
     );
   });
 
+  it("recupera rascunho antigo salvo no localStorage com a chave primaria", () => {
+    window.localStorage.setItem(
+      "primary-key",
+      JSON.stringify({
+        version: 3,
+        step: 2,
+        values: {
+          titulo: "APR LocalStorage",
+        },
+        metadata: {
+          draftId: "draft-local",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        },
+      }),
+    );
+
+    const result = readAprDraft("primary-key", "legacy-key");
+
+    expect(result.draft?.values.titulo).toBe("APR LocalStorage");
+    expect(result.migratedFromLegacy).toBe(false);
+  });
+
   it("descarta rascunho corrompido para evitar restauracao insegura", () => {
     window.sessionStorage.setItem("primary-key", "{json invalido");
 

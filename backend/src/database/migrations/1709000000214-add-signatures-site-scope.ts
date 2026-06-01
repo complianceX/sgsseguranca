@@ -31,6 +31,7 @@ const SITE_SCOPED_SIGNATURE_DOCUMENT_BINDINGS: SignatureDocumentBinding[] = [
 
 export class AddSignaturesSiteScope1709000000214 implements MigrationInterface {
   name = 'AddSignaturesSiteScope1709000000214';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('signatures'))) {
@@ -59,13 +60,13 @@ export class AddSignaturesSiteScope1709000000214 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_signatures_company_site_created_at"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_signatures_company_site_created_at"
       ON "signatures" ("company_id", "site_id", "created_at" DESC)
       WHERE "site_id" IS NOT NULL
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_signatures_document_company_site"
+      CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_signatures_document_company_site"
       ON "signatures" ("document_type", "document_id", "company_id", "site_id")
     `);
 
@@ -122,11 +123,11 @@ export class AddSignaturesSiteScope1709000000214 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      DROP INDEX IF EXISTS "IDX_signatures_document_company_site"
+      DROP INDEX CONCURRENTLY IF EXISTS "IDX_signatures_document_company_site"
     `);
 
     await queryRunner.query(`
-      DROP INDEX IF EXISTS "IDX_signatures_company_site_created_at"
+      DROP INDEX CONCURRENTLY IF EXISTS "IDX_signatures_company_site_created_at"
     `);
 
     await this.recreateCompanyOnlyTrigger(queryRunner);
