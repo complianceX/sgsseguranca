@@ -1,5 +1,5 @@
 import { Permission } from '@/lib/permissions';
-/* eslint-disable @typescript-eslint/no-require-imports, node/no-extraneous-require */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 const process = require('process');
