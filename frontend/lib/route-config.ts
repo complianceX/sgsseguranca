@@ -11,6 +11,8 @@
  *   3. Se temporariamente oculta: adicione em HIDDEN_ROUTES.
  */
 
+import { Permission } from './permissions';
+
 export const ADMIN_ROUTES = [
   '/dashboard/companies',
   '/dashboard/sites',
@@ -35,16 +37,16 @@ export const PERMISSION_ROUTE_EXCEPTIONS: Array<{
   route: string;
   permission: string;
 }> = [
-  { route: '/dashboard/activities', permission: 'can_view_activities' },
-  { route: '/dashboard/risks', permission: 'can_view_risks' },
-  { route: '/dashboard/trainings', permission: 'can_view_trainings' },
-  { route: '/dashboard/medical-exams', permission: 'can_view_medical_exams' },
-  { route: '/dashboard/epis', permission: 'can_manage_catalogs' },
-  { route: '/dashboard/epi-fichas', permission: 'can_view_epi_assignments' },
-  { route: '/dashboard/tools', permission: 'can_manage_catalogs' },
-  { route: '/dashboard/machines', permission: 'can_manage_catalogs' },
-  { route: '/dashboard/sites', permission: 'can_manage_sites' },
-  { route: '/dashboard/users', permission: 'can_manage_users' },
+  { route: '/dashboard/activities', permission: Permission.CAN_VIEW_ACTIVITIES },
+  { route: '/dashboard/risks', permission: Permission.CAN_VIEW_RISKS },
+  { route: '/dashboard/trainings', permission: Permission.CAN_VIEW_TRAININGS },
+  { route: '/dashboard/medical-exams', permission: Permission.CAN_VIEW_MEDICAL_EXAMS },
+  { route: '/dashboard/epis', permission: Permission.CAN_MANAGE_CATALOGS },
+  { route: '/dashboard/epi-fichas', permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS },
+  { route: '/dashboard/tools', permission: Permission.CAN_MANAGE_CATALOGS },
+  { route: '/dashboard/machines', permission: Permission.CAN_MANAGE_CATALOGS },
+  { route: '/dashboard/sites', permission: Permission.CAN_MANAGE_SITES },
+  { route: '/dashboard/users', permission: Permission.CAN_MANAGE_USERS },
 ];
 
 /**
