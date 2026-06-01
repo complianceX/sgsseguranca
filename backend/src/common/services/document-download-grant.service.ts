@@ -181,8 +181,7 @@ export class DocumentDownloadGrantService {
               );
             }
 
-            const consumerUserId =
-              options?.consumerUserId?.trim() || decoded.uid;
+            const consumerUserId = options?.consumerUserId?.trim();
             if (
               !consumerUserId ||
               consumerUserId !== grant.issued_for_user_id
