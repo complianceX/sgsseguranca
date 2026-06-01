@@ -37,6 +37,7 @@ import { signaturesService } from "@/services/signaturesService";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/hooks/usePermissions";
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then(

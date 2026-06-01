@@ -32,6 +32,7 @@ import {
 import { openPdfForPrint } from '@/lib/print-utils';
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },

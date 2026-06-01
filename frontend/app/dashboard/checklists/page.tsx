@@ -37,6 +37,7 @@ import {
   defaultChecklistColumns,
 } from './columns';
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },

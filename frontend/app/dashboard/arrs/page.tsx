@@ -43,6 +43,7 @@ import {
   type Arr,
   type ArrStatus,
 } from '@/services/arrsService';
+import { Permission } from '@/lib/permissions';
 const loadArrPdfGenerator = () => import('@/lib/pdf/arrGenerator');
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';

@@ -39,6 +39,7 @@ import {
   getToneClasses,
 } from "./aprListingUtils";
 
+import { Permission } from '@/lib/permissions';
 interface AprListingRowProps {
   apr: AprListingRecord;
   density: AprListingDensity;

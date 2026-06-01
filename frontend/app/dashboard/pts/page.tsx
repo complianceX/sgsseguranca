@@ -19,6 +19,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },

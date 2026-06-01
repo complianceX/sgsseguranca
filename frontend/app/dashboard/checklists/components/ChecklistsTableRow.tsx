@@ -11,6 +11,7 @@ import { ChecklistColumnKey } from '../columns';
 import { useAuth } from '@/context/AuthContext';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
+import { Permission } from '@/lib/permissions';
 interface ChecklistsTableRowProps {
   checklist: Checklist;
   visibleColumns: ChecklistColumnKey[];

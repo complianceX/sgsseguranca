@@ -33,6 +33,7 @@ import {
 import { buildPtEditFocusHref } from './pt-approval-focus';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
+import { Permission } from '@/lib/permissions';
 const SignatureModal = dynamic(
   () => import('@/components/SignatureModal').then((module) => module.SignatureModal),
   { ssr: false },

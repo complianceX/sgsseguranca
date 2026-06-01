@@ -46,6 +46,7 @@ import { safeToLocaleString, toIsoStringValue } from '@/lib/date/safeFormat';
 import { isSafeImagePreviewUrl } from '@/lib/security/is-safe-image-preview-url';
 import { safeExternalArtifactUrl } from '@/lib/security/safe-external-url';
 
+import { Permission } from '@/lib/permissions';
 const DEFAULT_ALERT_SETTINGS = {
   recipients: '',
   enabled: true,

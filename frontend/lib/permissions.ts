@@ -1,3 +1,4 @@
+import { Permission } from '@/lib/permissions';
 /**
  * Constantes tipadas para todas as permissões granulares do sistema.
  *

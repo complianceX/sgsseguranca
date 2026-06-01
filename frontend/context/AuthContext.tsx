@@ -23,6 +23,7 @@ import {
 } from '@/services/authService';
 import { Permission, PermissionPrefix } from '@/lib/permissions';
 
+import { Permission } from '@/lib/permissions';
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 const VIEWER_ROLE_ALIASES = [
   'visualizador',

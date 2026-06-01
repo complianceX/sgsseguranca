@@ -60,6 +60,7 @@ import { safeFormatDate } from "@/lib/date/safeFormat";
 import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 import { Permission, type AppPermission } from "@/lib/permissions";
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),

@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/layout";
 import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 
+import { Permission } from '@/lib/permissions';
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
   tipo: z.string().min(1, "O tipo é obrigatório"),

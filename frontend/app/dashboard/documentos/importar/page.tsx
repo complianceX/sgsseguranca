@@ -35,6 +35,7 @@ import {
   isAllowedImportFile,
 } from "./importFileValidation";
 
+import { Permission } from '@/lib/permissions';
 const DOCUMENT_LABELS: Record<string, string> = {
   apr: "APR",
   pt: "PT",

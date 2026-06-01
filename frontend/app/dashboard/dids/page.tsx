@@ -43,6 +43,7 @@ import { safeFormatDate } from '@/lib/date/safeFormat';
 import { getDidTurnoLabel } from './didMeta';
 import { useDids } from './hooks/useDids';
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },

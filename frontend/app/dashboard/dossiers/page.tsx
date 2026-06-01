@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { extractApiErrorMessage } from '@/lib/error-handler';
 import { Archive, FileDown, ShieldCheck, TriangleAlert } from 'lucide-react';
 
+import { Permission } from '@/lib/permissions';
 type PreviewTarget = 'employee' | 'site' | null;
 
 export default function DossiersPage() {

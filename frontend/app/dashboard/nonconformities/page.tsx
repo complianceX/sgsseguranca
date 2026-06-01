@@ -57,6 +57,7 @@ import {
   type StatusTone,
 } from "@/components/ui/status-pill";
 
+import { Permission } from '@/lib/permissions';
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),

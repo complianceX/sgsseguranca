@@ -42,6 +42,7 @@ import {
 } from '@/lib/sophie-draft-storage';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
+import { Permission } from '@/lib/permissions';
 type PendingContext = {
   active: boolean;
   module: string;
