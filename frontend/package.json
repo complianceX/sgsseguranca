@@ -7,17 +7,19 @@
   },
   "scripts": {
     "dev": "next dev",
-    "predev": "node scripts/check-node.js && node scripts/check-required-env.mjs dev",
-    "build": "node scripts/run-next-build.cjs",
-    "prebuild": "node scripts/check-node.js && node scripts/check-required-env.mjs build",
-    "prestart": "node scripts/check-required-env.mjs start",
+    "predev": "node ../ops/frontend/scripts/check-node.js && node ../ops/frontend/scripts/check-required-env.mjs dev",
+    "build": "node ../ops/frontend/scripts/run-next-build.cjs",
+    "prebuild": "node ../ops/frontend/scripts/check-node.js && node ../ops/frontend/scripts/check-required-env.mjs build",
+    "prestart": "node ../ops/frontend/scripts/check-required-env.mjs start",
     "start": "next start",
-    "api:generate:document-import": "node scripts/generate-document-import-client.mjs",
-    "api:generate:governed-contracts": "node scripts/generate-governed-contracts-client.mjs",
-    "lint": "node scripts/run-eslint.cjs && npm run lint:styles",
+    "api:generate:document-import": "node ../ops/frontend/scripts/generate-document-import-client.mjs",
+    "api:generate:governed-contracts": "node ../ops/frontend/scripts/generate-governed-contracts-client.mjs",
+    "lint": "npm run check:permission-imports && node ../ops/frontend/scripts/run-eslint.cjs && npm run lint:styles",
+    "check:permission-imports": "node ../ops/frontend/scripts/check-permission-imports.cjs",
+    "test:permission-imports": "node ../ops/frontend/scripts/test-add-permission-imports.cjs",
     "lint:styles": "stylelint \"**/*.{css,scss}\"",
-    "test": "node scripts/run-jest.cjs --config jest.config.cjs --runInBand --no-cache",
-    "test:ci": "node scripts/run-jest.cjs --ci --runInBand --config jest.config.cjs --no-cache"
+    "test": "node ../ops/frontend/scripts/run-jest.cjs --config jest.config.cjs --runInBand --no-cache",
+    "test:ci": "node ../ops/frontend/scripts/run-jest.cjs --ci --runInBand --config jest.config.cjs --no-cache"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

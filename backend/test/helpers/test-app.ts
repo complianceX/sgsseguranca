@@ -4,19 +4,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource, Repository } from 'typeorm';
 import * as cookieParserModule from 'cookie-parser';
-import { AllExceptionsFilter } from '../../src/common/filters/http-exception.filter';
+import { AllExceptionsFilter } from '../../src/shared/filters/http-exception.filter';
 import { bootstrapBackendTestEnvironment } from '../setup/test-env';
-import { Company } from '../../src/companies/entities/company.entity';
-import { Site } from '../../src/sites/entities/site.entity';
-import { Profile } from '../../src/profiles/entities/profile.entity';
-import { User } from '../../src/users/entities/user.entity';
-import { PasswordService } from '../../src/common/services/password.service';
-import { Role } from '../../src/auth/enums/roles.enum';
-import { RedisService } from '../../src/common/redis/redis.service';
+import { Company } from '../../src/modules/companies/entities/company.entity';
+import { Site } from '../../src/modules/sites/entities/site.entity';
+import { Profile } from '../../src/modules/profiles/entities/profile.entity';
+import { User } from '../../src/modules/users/entities/user.entity';
+import { PasswordService } from '../../src/shared/services/password.service';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
+import { RedisService } from '../../src/shared/redis/redis.service';
 import {
   encryptSensitiveValue,
   hashSensitiveValue,
-} from '../../src/common/security/field-encryption.util';
+} from '../../src/shared/security/field-encryption.util';
 import type { Redis } from 'ioredis';
 
 bootstrapBackendTestEnvironment();

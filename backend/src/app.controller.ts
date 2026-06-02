@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { Public } from './common/decorators/public.decorator';
-import { shouldRequireNoPendingMigrations } from './common/database/migration-startup.guard';
-import { RedisService } from './common/redis/redis.service';
+import { Public } from './shared/decorators/public.decorator';
+import { shouldRequireNoPendingMigrations } from './shared/database/migration-startup.guard';
+import { RedisService } from './shared/redis/redis.service';
 
 @Controller()
 export class AppController {

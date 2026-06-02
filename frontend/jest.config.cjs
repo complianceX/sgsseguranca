@@ -16,7 +16,8 @@ const customJestConfig = {
   coveragePathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
   watchPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
   moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/$1",
+    "^@/context/(.*)$": "<rootDir>/src/state/$1",
+    "^@/(.*)$": ["<rootDir>/src/$1", "<rootDir>/$1"],
   },
 };
 

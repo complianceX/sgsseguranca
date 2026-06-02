@@ -1,7 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const migrationsDir = path.resolve(__dirname, '..', 'src', 'database', 'migrations');
+const migrationsDir = path.resolve(
+  __dirname,
+  '..',
+  'src',
+  'infra',
+  'database',
+  'migrations',
+);
 
 if (!fs.existsSync(migrationsDir)) {
   console.error(`[CI] Migrations directory not found: ${migrationsDir}`);
@@ -15,7 +22,7 @@ const files = fs
   .sort();
 
 if (files.length === 0) {
-  console.error('[CI] No TypeORM migration files were found in src/database/migrations.');
+  console.error('[CI] No TypeORM migration files were found in src/infra/database/migrations.');
   process.exit(1);
 }
 

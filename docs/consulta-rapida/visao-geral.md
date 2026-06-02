@@ -23,7 +23,7 @@ O projeto esta dividido principalmente em 3 partes:
 
 ### Frontend
 
-- stack: Next.js 15
+- stack: Next.js 16
 - pasta principal: `frontend/`
 - responsavel por dashboard, formularios, tabelas, login e experiencia operacional
 

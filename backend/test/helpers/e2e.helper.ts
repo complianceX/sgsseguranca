@@ -8,10 +8,10 @@ import { bootstrapBackendTestEnvironment } from '../setup/test-env';
 bootstrapBackendTestEnvironment();
 
 import { AppModule } from '../../src/app.module';
-import { PasswordService } from '../../src/common/services/password.service';
-import { UsersService } from '../../src/users/users.service';
+import { PasswordService } from '../../src/shared/services/password.service';
+import { UsersService } from '../../src/modules/users/users.service';
 import { TestHelper } from './test.helper';
-import { AllExceptionsFilter } from '../../src/common/filters/http-exception.filter';
+import { AllExceptionsFilter } from '../../src/shared/filters/http-exception.filter';
 
 function canConnect(
   host: string,

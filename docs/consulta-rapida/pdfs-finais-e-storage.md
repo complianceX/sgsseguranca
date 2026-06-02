@@ -4,7 +4,7 @@
 
 Hoje, o PDF final oficial dos modulos aderentes ao pipeline governado fica no storage de objetos configurado no backend.
 
-Em producao, esse storage oficial esta apontado para o Cloudflare R2.
+Em producao, esse storage oficial esta apontado para Backblaze B2 via API S3 compativel.
 
 O banco nao guarda o PDF em si. O banco guarda a referencia do artefato oficial, normalmente em campos como:
 
@@ -18,9 +18,9 @@ O acesso ao arquivo acontece por URL assinada gerada pelo backend.
 
 Camada central:
 
-- `backend/src/common/services/document-storage.service.ts`
-- `backend/src/document-registry/document-governance.service.ts`
-- `backend/src/document-registry/document-registry.service.ts`
+- `backend/src/shared/services/document-storage.service.ts`
+- `backend/src/modules/document-registry/document-governance.service.ts`
+- `backend/src/modules/document-registry/document-registry.service.ts`
 
 Responsabilidade de cada parte:
 
@@ -93,14 +93,14 @@ Indicadores comuns:
 
 ## Onde olhar por modulo
 
-- APR: `backend/src/aprs/aprs.service.ts`
-- PT: `backend/src/pts/pts.service.ts`
-- DDS: `backend/src/dds/dds.service.ts`
-- Relatórios (RDO): `backend/src/rdos/rdos.service.ts`
-- Checklist: `backend/src/checklists/checklists.service.ts`
-- CAT: `backend/src/cats/cats.service.ts`
-- Nao Conformidade: `backend/src/nonconformities/nonconformities.service.ts`
-- Auditoria: `backend/src/audits/audits.service.ts`
+- APR: `backend/src/modules/aprs/aprs.service.ts`
+- PT: `backend/src/modules/pts/pts.service.ts`
+- DDS: `backend/src/modules/dds/dds.service.ts`
+- Relatórios (RDO): `backend/src/modules/rdos/rdos.service.ts`
+- Checklist: `backend/src/modules/checklists/checklists.service.ts`
+- CAT: `backend/src/modules/cats/cats.service.ts`
+- Nao Conformidade: `backend/src/modules/nonconformities/nonconformities.service.ts`
+- Auditoria: `backend/src/modules/audits/audits.service.ts`
 
 ## Operacao em producao
 
@@ -108,7 +108,9 @@ As credenciais do storage nao devem ficar no repositorio.
 
 Elas devem ficar apenas nas variaveis de ambiente do servico backend.
 
-No ambiente atual, a configuracao do storage oficial esta no Railway, e o bucket oficial esta no Cloudflare R2.
+No ambiente atual versionado, a configuracao do storage oficial esta no Render,
+e o bucket oficial esta no Backblaze B2. Confirmar variaveis reais no dashboard
+antes de qualquer operacao destrutiva ou corte de infraestrutura.
 
 ## Regra pratica para manutencao
 

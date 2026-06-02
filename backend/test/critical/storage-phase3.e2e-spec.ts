@@ -3,16 +3,16 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { createHash, randomUUID } from 'node:crypto';
-import { StorageController } from '../../src/storage/storage.controller';
-import { StorageService } from '../../src/common/services/storage.service';
-import { TenantService } from '../../src/common/tenant/tenant.service';
-import { AuditService } from '../../src/audit/audit.service';
-import { FileInspectionService } from '../../src/common/security/file-inspection.service';
-import { JwtAuthGuard } from '../../src/auth/jwt-auth.guard';
-import { TenantGuard } from '../../src/common/guards/tenant.guard';
-import { RolesGuard } from '../../src/auth/roles.guard';
-import { TenantInterceptor } from '../../src/common/tenant/tenant.interceptor';
-import { PermissionsGuard } from '../../src/auth/permissions.guard';
+import { StorageController } from '../../src/infra/storage/storage.controller';
+import { StorageService } from '../../src/shared/services/storage.service';
+import { TenantService } from '../../src/shared/tenant/tenant.service';
+import { AuditService } from '../../src/modules/audit-trail/audit.service';
+import { FileInspectionService } from '../../src/shared/security/file-inspection.service';
+import { JwtAuthGuard } from '../../src/modules/auth/jwt-auth.guard';
+import { TenantGuard } from '../../src/shared/guards/tenant.guard';
+import { RolesGuard } from '../../src/modules/auth/roles.guard';
+import { TenantInterceptor } from '../../src/shared/tenant/tenant.interceptor';
+import { PermissionsGuard } from '../../src/modules/auth/permissions.guard';
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const PDF_BUFFER = Buffer.concat([

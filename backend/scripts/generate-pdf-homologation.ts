@@ -17,8 +17,11 @@ import {
   drawPtBlueprint,
   drawTrainingBlueprint,
   formatDateTime,
-} from '../../frontend/lib/pdf-system';
-import { generateMonthlyReportPdf } from '../../frontend/lib/pdf/monthlyReportGenerator';
+} from '../../frontend/src/lib/pdf-system';
+import { generateMonthlyReportPdf } from '../../frontend/src/lib/pdf/monthlyReportGenerator';
+
+// Homologation is a standalone Node process, so it has no browser origin.
+process.env.NEXT_PUBLIC_APP_URL ??= 'https://app.sgsseguranca.com.br';
 
 const tinyImage =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sotXnQAAAAASUVORK5CYII=';
@@ -269,49 +272,84 @@ async function main() {
   const inspection = {
     id: 'ins-homolog-001',
     company_id: 'EMP-001',
-    company: { razao_social: 'Gandra Tecnologia' },
-    site_id: 'SITE-001',
-    site: { nome: 'Obra Industrial Norte' },
-    setor_area: 'Galpao de manutencao',
-    tipo_inspecao: 'Relatorio fotografico',
-    data_inspecao: new Date().toISOString(),
-    horario: '08:30',
-    responsavel_id: 'USR-004',
-    responsavel: { nome: 'Fabio TST' },
-    objetivo: 'Registrar condicoes de trabalho em altura e adequacao de protecoes coletivas.',
-    descricao_local_atividades:
-      'Inspecao realizada em frente de troca de luminarias e manutencao de infraestrutura industrial.',
-    perigos_riscos: [
+    client_id: 'CLIENT-001',
+    project_id: 'SITE-001',
+    client_name: 'Gandra Tecnologia',
+    project_name: 'Obra Industrial Norte',
+    unit_name: 'Galpao de manutencao',
+    location: 'Frente de troca de luminarias',
+    activity_type: 'Manutencao de infraestrutura industrial',
+    report_tone: 'Preventivo',
+    area_status: 'Area controlada',
+    shift: 'Diurno',
+    start_date: new Date().toISOString(),
+    end_date: null,
+    start_time: '08:30',
+    end_time: '11:30',
+    responsible_name: 'Fabio TST',
+    contractor_company: 'Gandra Tecnologia',
+    general_observations:
+      'Registrar condicoes de trabalho em altura e adequacao de protecoes coletivas.',
+    ai_summary:
+      'A frente apresenta condicoes de execucao com necessidade de ajuste imediato no isolamento.',
+    final_conclusion:
+      'Completar o isolamento e validar a ancoragem antes da continuidade do servico.',
+    status: 'Analisado',
+    created_by: 'USR-004',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    day_count: 1,
+    image_count: 2,
+    export_count: 0,
+    last_exported_at: null,
+    days: [
       {
-        grupo_risco: 'Acidente',
-        perigo_fator_risco: 'Queda de altura',
-        fonte_circunstancia: 'Plataforma elevatoria',
-        trabalhadores_expostos: 'Equipe de manutencao',
-        tipo_exposicao: 'Direta',
-        medidas_existentes: 'Cinto e linha de vida',
-        severidade: '4',
-        probabilidade: '3',
-        nivel_risco: '12',
-        classificacao_risco: 'Alto',
-        acoes_necessarias: 'Reforcar isolamento e validar ancoragem',
-        prazo: 'Imediato',
-        responsavel: 'Fabio TST',
+        id: 'ins-day-001',
+        report_id: 'ins-homolog-001',
+        activity_date: new Date().toISOString(),
+        day_summary: 'Registro da frente de trabalho antes da liberacao operacional.',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        image_count: 2,
       },
     ],
-    plano_acao: [
+    images: [
       {
-        acao: 'Completar isolamento lateral da frente de servico',
-        responsavel: 'Lider de manutencao',
-        prazo: 'Hoje',
-        status: 'Pendente',
+        id: 'ins-image-001',
+        report_id: 'ins-homolog-001',
+        report_day_id: 'ins-day-001',
+        image_url: tinyImage,
+        download_url: tinyImage,
+        image_order: 1,
+        manual_caption: 'Plataforma posicionada para manutencao.',
+        ai_title: 'Frente de trabalho preparada',
+        ai_description: 'Plataforma posicionada para manutencao.',
+        ai_positive_points: ['Equipamento posicionado na area prevista.'],
+        ai_technical_assessment: 'Validar isolamento antes do inicio da atividade.',
+        ai_condition_classification: 'Atencao',
+        ai_recommendations: ['Completar o isolamento lateral.'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'ins-image-002',
+        report_id: 'ins-homolog-001',
+        report_day_id: 'ins-day-001',
+        image_url: tinyImage,
+        download_url: tinyImage,
+        image_order: 2,
+        manual_caption: 'Barreira lateral incompleta junto ao corredor.',
+        ai_title: 'Isolamento lateral pendente',
+        ai_description: 'Barreira lateral incompleta junto ao corredor.',
+        ai_positive_points: null,
+        ai_technical_assessment: 'A segregacao deve ser concluida antes da liberacao.',
+        ai_condition_classification: 'Nao conforme',
+        ai_recommendations: ['Instalar barreira continua no corredor.'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
     ],
-    evidencias: [
-      { descricao: 'Plataforma posicionada para manutencao.', url: tinyImage, original_name: 'evidencia-01.png' },
-      { descricao: 'Barreira lateral incompleta junto ao corredor.', url: tinyImage, original_name: 'evidencia-02.png' },
-    ],
-    conclusao:
-      'A frente apresenta condicoes de execucao com necessidade de ajuste imediato no isolamento e reforco da governanca de acesso.',
+    exports: [],
   };
 
   const nc = {
@@ -481,7 +519,7 @@ async function main() {
 
   currentDocument = '07-dds-homologacao.pdf';
   await renderDocument('07-dds-homologacao.pdf', 'operational', 'DDS', dds.tema, 'portrait', async (ctx, code) => {
-    await drawDdsBlueprint(ctx, autoTable, dds as any, signatures as any, code, buildValidationUrl(code));
+    await drawDdsBlueprint(ctx, autoTable, dds as any, signatures as any, [], code, buildValidationUrl(code));
   });
 
   currentDocument = '08-treinamento-homologacao.pdf';

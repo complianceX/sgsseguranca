@@ -6,10 +6,10 @@ O frontend ainda mistura um pouco de estrutura antiga com uma direcao mais modul
 
 - `frontend/app/`: rotas
 - `frontend/app/dashboard/`: telas autenticadas
-- `frontend/components/`: componentes e formularios reutilizaveis
-- `frontend/services/`: clientes HTTP por modulo
-- `frontend/hooks/`: hooks compartilhados
-- `frontend/lib/`: utilitarios e contratos cross-cutting
+- `frontend/src/components/`: componentes e formularios reutilizaveis
+- `frontend/src/services/`: clientes HTTP por modulo
+- `frontend/src/hooks/`: hooks compartilhados
+- `frontend/src/lib/`: utilitarios e contratos cross-cutting
 - `frontend/styles/`: tokens, temas e base visual
 
 ## Shell principal
@@ -18,8 +18,8 @@ Arquivos de shell e navegacao:
 
 - `frontend/app/layout.tsx`
 - `frontend/app/dashboard/layout.tsx`
-- `frontend/components/Sidebar.tsx`
-- `frontend/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/Header.tsx`
 
 Se a duvida for sobre:
 
@@ -48,9 +48,9 @@ O que cada um faz:
 Fluxo mais comum:
 
 1. rota em `frontend/app/dashboard/.../page.tsx`
-2. composicao com componentes em `frontend/components/...`
-3. service HTTP em `frontend/services/...`
-4. backend correspondente em `backend/src/...`
+2. composicao com componentes em `frontend/src/components/...`
+3. service HTTP em `frontend/src/services/...`
+4. backend correspondente em `backend/src/modules/...`
 
 ## Services mais relevantes
 

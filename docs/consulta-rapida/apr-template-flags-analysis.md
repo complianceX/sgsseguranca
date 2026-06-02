@@ -5,41 +5,41 @@ Data da análise: 24/03/2026
 ## 1) Locais onde os flags são lidos/escritos
 
 ### Escrita (mutação)
-- `backend/src/aprs/aprs.service.ts:1418-1420`
+- `backend/src/modules/aprs/aprs.service.ts:1418-1420`
   - Se `is_modelo_padrao = true`, força `is_modelo = true` no create.
-- `backend/src/aprs/aprs.service.ts:1443-1450`
+- `backend/src/modules/aprs/aprs.service.ts:1443-1450`
   - Após create de modelo padrão, limpa `is_modelo_padrao` dos demais registros da empresa e marca o registro salvo como padrão.
-- `backend/src/aprs/aprs.service.ts:1655-1656`
+- `backend/src/modules/aprs/aprs.service.ts:1655-1656`
   - No update: `is_modelo_padrao = true` força `is_modelo = true`.
   - No update: `is_modelo = false` força `is_modelo_padrao = false`.
-- `backend/src/aprs/aprs.service.ts:1756-1763`
+- `backend/src/modules/aprs/aprs.service.ts:1756-1763`
   - Reaplica regra de “um único padrão por empresa” após update.
-- `backend/src/aprs/aprs.service.ts:1927-1928`
+- `backend/src/modules/aprs/aprs.service.ts:1927-1928`
   - Na nova versão (`createNewVersion`), copia `is_modelo` da origem e sempre seta `is_modelo_padrao = false`.
 
 ### Leitura (regras/comportamento)
-- `backend/src/aprs/aprs.service.ts:188`
+- `backend/src/modules/aprs/aprs.service.ts:188`
   - `is_modelo = true` bloqueia emissão de PDF final oficial.
-- `backend/src/aprs/aprs.service.ts:1553-1554`
+- `backend/src/modules/aprs/aprs.service.ts:1553-1554`
   - Retorna os dois flags na listagem paginada.
-- `backend/src/aprs/aprs.service.ts:1582`
+- `backend/src/modules/aprs/aprs.service.ts:1582`
   - Filtro de listagem por `is_modelo_padrao`.
-- `backend/src/aprs/aprs.controller.ts:112`
+- `backend/src/modules/aprs/aprs.controller.ts:112`
   - Exposição do filtro `is_modelo_padrao` via query param.
-- `backend/src/dashboard/dashboard.service.ts:272,278,284`
+- `backend/src/modules/dashboard/dashboard.service.ts:272,278,284`
   - Métricas de templates usam `is_modelo = true`.
-- `backend/src/dashboard/dashboard-document-pendencies.service.ts:317,360,375,547,568,579`
+- `backend/src/modules/dashboard/dashboard-document-pendencies.service.ts:317,360,375,547,568,579`
   - Pendências documentais ignoram modelos (`is_modelo = false`).
-- `backend/src/dashboard/dashboard-pending-queue.service.ts:132`
+- `backend/src/modules/dashboard/dashboard-pending-queue.service.ts:132`
   - Fila operacional considera apenas APR operacional (`is_modelo = false`).
-- `backend/src/dossiers/dossiers.service.ts:1448`
+- `backend/src/modules/dossiers/dossiers.service.ts:1448`
   - Dossiê considera APRs não-modelo (`is_modelo = false`).
 
 ### Contrato/API (DTO/Entity)
-- `backend/src/aprs/entities/apr.entity.ts:63,66`
-- `backend/src/aprs/dto/create-apr.dto.ts:48,52`
-- `backend/src/aprs/dto/apr-response.dto.ts:223,226`
-- `backend/src/aprs/dto/apr-list-item.dto.ts:30,33`
+- `backend/src/modules/aprs/entities/apr.entity.ts:63,66`
+- `backend/src/modules/aprs/dto/create-apr.dto.ts:48,52`
+- `backend/src/modules/aprs/dto/apr-response.dto.ts:223,226`
+- `backend/src/modules/aprs/dto/apr-list-item.dto.ts:30,33`
 
 ## 2) Diferença real de comportamento (semântica atual)
 

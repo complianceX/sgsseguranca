@@ -1,11 +1,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Client } from 'pg';
-import { DisasterRecoveryExecutionService } from '../src/disaster-recovery/disaster-recovery-execution.service';
+import { DisasterRecoveryExecutionService } from '../src/modules/disaster-recovery/disaster-recovery-execution.service';
 import {
   resolveDisasterRecoveryEnvironment,
   resolveRuntimeNodeEnvironment,
-} from '../src/disaster-recovery/disaster-recovery.util';
+} from '../src/modules/disaster-recovery/disaster-recovery.util';
 import {
   appendAuditLog,
   buildPgRestoreArgs,
@@ -18,7 +18,7 @@ import {
   withNestAppContext,
   writeJsonFile,
 } from './disaster-recovery/common';
-import { assertSafeRestoreExecution } from '../src/disaster-recovery/disaster-recovery.util';
+import { assertSafeRestoreExecution } from '../src/modules/disaster-recovery/disaster-recovery.util';
 
 type RestoreManifest = {
   version: 1;

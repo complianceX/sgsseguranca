@@ -8,9 +8,9 @@ import { ConfigService } from '@nestjs/config';
 import {
   SensitiveAction,
   SensitiveActionGuard,
-} from '../../src/common/security/sensitive-action.guard';
-import { SecurityAuditService } from '../../src/common/security/security-audit.service';
-import { REDIS_CLIENT_AUTH } from '../../src/common/redis/redis.constants';
+} from '../../src/shared/security/sensitive-action.guard';
+import { SecurityAuditService } from '../../src/shared/security/security-audit.service';
+import { REDIS_CLIENT_AUTH } from '../../src/shared/redis/redis.constants';
 
 @Controller('phase4-test')
 class Phase4TestController {

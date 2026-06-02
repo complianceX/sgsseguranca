@@ -1,8 +1,8 @@
 import { Repository, ObjectLiteral } from 'typeorm';
-import { User } from '../../src/users/entities/user.entity';
-import { Company } from '../../src/companies/entities/company.entity';
-import { Site } from '../../src/sites/entities/site.entity';
-import { Profile } from '../../src/profiles/entities/profile.entity';
+import { User } from '../../src/modules/users/entities/user.entity';
+import { Company } from '../../src/modules/companies/entities/company.entity';
+import { Site } from '../../src/modules/sites/entities/site.entity';
+import { Profile } from '../../src/modules/profiles/entities/profile.entity';
 
 export class TestHelper {
   static mockRepository<T extends ObjectLiteral = ObjectLiteral>() {

@@ -21,8 +21,8 @@ function buildDataSource() {
     synchronize: false,
     entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
     migrations: [
-      'src/database/migrations/*.ts',
-      'dist/database/migrations/*.js',
+      'src/infra/database/migrations/*.ts',
+      'dist/infra/database/migrations/*.js',
     ],
   });
 }

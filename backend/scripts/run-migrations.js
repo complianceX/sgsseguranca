@@ -227,13 +227,14 @@ function resolveMigrationsForExecution() {
     __dirname,
     '..',
     'dist',
+    'infra',
     'database',
     'migrations',
   );
   const deferredIds = new Set(resolveDeferredMigrationIds());
 
   if (!fs.existsSync(distDir)) {
-    return ['dist/database/migrations/*.js'];
+    return ['dist/infra/database/migrations/*.js'];
   }
 
   const files = fs

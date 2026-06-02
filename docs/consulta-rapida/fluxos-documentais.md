@@ -32,7 +32,7 @@ O registry funciona como trilha governada de documentos finais e artefatos docum
 
 Quando investigar governanca documental, olhar:
 
-- `backend/src/document-registry`
+- `backend/src/modules/document-registry`
 - `frontend/app/dashboard/document-registry`
 
 ## Importacao documental
@@ -49,8 +49,8 @@ O fluxo atual mais importante:
 
 Onde olhar:
 
-- `backend/src/document-import`
-- `frontend/services/documentImportService.ts`
+- `backend/src/modules/document-import`
+- `frontend/src/services/documentImportService.ts`
 - `frontend/app/dashboard/documentos/importar`
 
 ## Assinatura e aceite

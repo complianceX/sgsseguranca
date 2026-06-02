@@ -3,13 +3,13 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { DataSource, QueryRunner } from 'typeorm';
 import type { INestApplicationContext } from '@nestjs/common';
-import { AuthService } from '../src/auth/auth.service';
-import { CnpjUtil } from '../src/common/utils/cnpj.util';
-import { CpfUtil } from '../src/common/utils/cpf.util';
+import { AuthService } from '../src/modules/auth/auth.service';
+import { CnpjUtil } from '../src/shared/utils/cnpj.util';
+import { CpfUtil } from '../src/shared/utils/cpf.util';
 import {
   encryptSensitiveValue,
   hashSensitiveValue,
-} from '../src/common/security/field-encryption.util';
+} from '../src/shared/security/field-encryption.util';
 import {
   ensureDir,
   getStringArg,

@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PDFParse } from 'pdf-parse';
-import { AprStatus } from '../../src/aprs/entities/apr.entity';
-import { Role } from '../../src/auth/enums/roles.enum';
+import { AprStatus } from '../../src/modules/aprs/entities/apr.entity';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
 import { createTestApr, type AprBody } from '../helpers/apr-test.factory';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 

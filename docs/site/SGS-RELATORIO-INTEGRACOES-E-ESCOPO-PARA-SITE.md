@@ -1,6 +1,6 @@
 # SGS - Relatorio de Integracoes, Modulos e Escopo para Site
 
-Data de referencia: 2026-04-23.
+Data de referencia: 2026-06-01.
 
 Este relatorio consolida o que o SGS entrega e integra hoje, com base no repositorio `sgs-seguraca`, documentos de arquitetura, rotas, modulos backend/frontend e configuracao operacional. O objetivo e servir como base para montar o site institucional/comercial do produto sem inventar funcionalidades fora do sistema real.
 
@@ -42,13 +42,13 @@ SaaS de SST/GST para empresas que precisam controlar documentacao, rotinas de se
 
 | Camada | Tecnologia | Papel |
 | --- | --- | --- |
-| Frontend | Next.js 15, React 19, TypeScript | Login, dashboard, formularios, tabelas, modulos operacionais e area autenticada |
+| Frontend | Next.js 16, React 19, TypeScript | Login, dashboard, formularios, tabelas, modulos operacionais e area autenticada |
 | Backend API | NestJS 11, TypeScript, TypeORM | Regras de negocio, auth, RBAC, tenant scoping, storage, documentos, integracoes e health checks |
 | Worker | NestJS worker + BullMQ | Processamento assincrono de filas, emails, importacao documental, relatorios, DR e tarefas agendadas |
-| Banco | Supabase PostgreSQL | Persistencia principal com migrations TypeORM e RLS para defesa multi-tenant |
+| Banco | Neon PostgreSQL | Persistencia principal com migrations TypeORM e RLS para defesa multi-tenant |
 | Cache/Fila | Redis + BullMQ | Cache, rate limiting, coordenacao operacional e filas |
-| Storage | Cloudflare R2 / S3 compativel | PDFs finais, anexos, videos e artefatos oficiais governados |
-| Deploy backend | Render | Servicos web, worker, Redis e cron de migrations |
+| Storage | Backblaze B2 / S3 compativel | PDFs finais, anexos, videos e artefatos oficiais governados |
+| Deploy backend | Render | Servicos web, worker, ClamAV privado e job separado de migrations; Redis externo |
 | Deploy frontend | Vercel | Aplicacao web em `app.sgsseguranca.com.br` |
 
 ### Fluxo simplificado
@@ -122,7 +122,7 @@ Arquitetura:
 - MailService envia pelo provedor configurado.
 - Logs de envio e erros operacionais sao persistidos.
 
-### Cloudflare R2 / S3 compativel
+### Backblaze B2 / S3 compativel
 
 Uso principal:
 
@@ -144,20 +144,20 @@ Mensagem para site:
 
 > Documentos e evidencias ficam armazenados com rastreabilidade, controle de acesso e prova de integridade.
 
-### Supabase PostgreSQL
+### Neon PostgreSQL
 
 Uso principal:
 
 - Banco principal da aplicacao.
 - PostgreSQL gerenciado.
 - RLS como defesa adicional de isolamento por tenant.
-- Suporte ao processo de transicao para Supabase Auth.
+- Compatibilidade legada isolada para integracao com Supabase Auth.
 
 Pontos tecnicos:
 
 - TypeORM como ORM.
 - Migrations versionadas.
-- Pooler Supabase usado em producao.
+- URL direta Neon usada em producao enquanto RLS depender de contexto de sessao.
 - RLS com contexto de empresa/tenant.
 
 ### Redis / BullMQ
@@ -579,7 +579,7 @@ Componentes:
 - Controle de sessoes.
 - MFA/TOTP e recovery codes no fluxo de seguranca.
 - Step-up MFA para operacoes sensiveis.
-- Cutover gradual para Supabase Auth.
+- Compatibilidade legada para sincronizacao com Supabase Auth, sem tratar Supabase como banco atual.
 
 ### RBAC e permissoes
 
@@ -727,9 +727,9 @@ Destacar apenas se o publico for tecnico:
 
 - Next.js.
 - NestJS.
-- PostgreSQL/Supabase.
+- PostgreSQL/Neon.
 - Redis/BullMQ.
-- Cloudflare R2.
+- Backblaze B2 / S3 compativel.
 - Render.
 - Vercel.
 - Sentry/OpenTelemetry.
@@ -754,12 +754,12 @@ Evitar ou escrever com cuidado:
 - "Substitui o tecnico de seguranca" - a Sophie e assistiva.
 - "Video em todos os documentos" - hoje video governado e restrito a DDS, RDO e relatorios fotograficos.
 - "Observabilidade completa por default" - Sentry, OpenTelemetry, Prometheus e Jaeger dependem de configuracao.
-- "Todo storage sempre Cloudflare R2" sem contexto - o runtime usa S3 compativel; producao atual aponta para R2 conforme documentacao/variaveis.
+- "Todo storage sempre Cloudflare R2" - o runtime usa S3 compativel; producao atual versionada aponta para Backblaze B2.
 - "Anthropic como provedor principal" - o codigo tem caminhos/legado para Anthropic, mas o motor oficial atual da Sophie esta orientado a OpenAI.
 
 ## 10. Pontos de atencao antes de publicar o site
 
-1. Atualizar textos antigos que ainda citam Railway como ambiente principal. O desenho atual validado no repo e Render para backend/worker/Redis, Vercel para frontend, Supabase para banco e R2/S3 para storage.
+1. Tratar textos antigos que citam Railway ou R2 como historicos. O desenho atual versionado e Render para backend/worker, Redis externo, Vercel para frontend, Neon para banco e Backblaze B2/S3 para storage.
 2. Confirmar publicamente quais provedores de email estao ativos em producao antes de citar marca especifica como Brevo ou Resend.
 3. Se for citar dominios, usar:
    - Frontend: `https://app.sgsseguranca.com.br`
@@ -803,7 +803,7 @@ O SGS foi desenvolvido para operacao multi-tenant. Cada empresa opera em context
 - `render.yaml`
 - `backend/src/app.module.ts`
 - `backend/src/worker.module.ts`
-- `backend/src/mail/mail.service.ts`
+- `backend/src/infra/mail/mail.service.ts`
 - `backend/src/ai`
 - `backend/src/sophie`
 - `backend/src/consents`

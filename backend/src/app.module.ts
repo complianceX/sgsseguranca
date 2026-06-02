@@ -15,12 +15,12 @@ import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
-import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis-storage.service';
+import { ThrottlerRedisStorageService } from './shared/throttler/throttler-redis-storage.service';
 import {
   REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT_CACHE,
-} from './common/redis/redis.constants';
-import { RedisModule } from './common/redis/redis.module';
+} from './shared/redis/redis.constants';
+import { RedisModule } from './shared/redis/redis.module';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -54,67 +54,67 @@ function isRenderPrivateKeyValueConnection(
 // Controllers & Services
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { SeedService } from './seed/seed.service';
-import { CacheWarmingService } from './common/cache/cache-warming.service';
+import { SeedService } from './modules/seed/seed.service';
+import { CacheWarmingService } from './shared/cache/cache-warming.service';
 
 // Feature modules — agrupados por domínio em config/modules.config.ts
 // Para adicionar um novo módulo, edite aquele arquivo.
-import { ALL_FEATURE_MODULES } from './config/modules.config';
+import { ALL_FEATURE_MODULES } from './infra/config/modules.config';
 import {
   resolveRedisConnection,
   isLocalRedisConnection,
   type ResolvedRedisConnection,
-} from './common/redis/redis-connection.util';
+} from './shared/redis/redis-connection.util';
 import {
   doesDatabaseUrlRequireSsl,
   isNeonPoolerHost,
   parseBooleanFlag,
   resolveDatabaseHostname,
   resolveDbSslOptions,
-} from './common/database/db-ssl.util';
-import { N1QueryDetectorService } from './common/database/n1-query-detector.service';
-import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
+} from './shared/database/db-ssl.util';
+import { N1QueryDetectorService } from './shared/database/n1-query-detector.service';
+import { PostgresApplicationNameService } from './shared/database/postgres-application-name.service';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
 
 // Guards, Interceptors & Middleware
-import { AuthorizationContractGuard } from './auth/authorization-contract.guard';
-import { JwtAuthGuard } from './auth/jwt-auth.guard';
-import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
-import { TenantGuard } from './common/guards/tenant.guard';
-import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
-import { UserRateLimitGuard } from './common/guards/user-rate-limit.guard';
-import { RateLimitsAdminController } from './common/admin/rate-limits-admin.controller';
-import { BusinessMetricsAdminController } from './common/admin/business-metrics-admin.controller';
-import { TenantMiddleware } from './common/middleware/tenant.middleware';
-import { CsrfMiddleware } from './common/middleware/csrf.middleware';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
-import { IdempotencyService } from './common/idempotency/idempotency.service';
-import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
-import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
-import { CacheControlHeadersInterceptor } from './common/interceptors/cache-control-headers.interceptor';
-import { ResilientThrottlerInterceptor } from './common/throttler/resilient-throttler.interceptor';
-import { DatabaseLogger } from './common/logging/database.logger';
-import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
-import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
-import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
-import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
-import { ForbiddenSpikeInterceptor } from './common/security/forbidden-spike.interceptor';
-import { hasValidFieldEncryptionKey } from './common/security/field-encryption.util';
-import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
-import { AdminIpAllowlistMiddleware } from './common/middleware/admin-ip-allowlist.middleware';
-import { BullQueueShutdownService } from './queue/bull-queue-shutdown.service';
+import { AuthorizationContractGuard } from './modules/auth/authorization-contract.guard';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { IpThrottlerGuard } from './shared/guards/ip-throttler.guard';
+import { TenantGuard } from './shared/guards/tenant.guard';
+import { TenantRateLimitGuard } from './shared/guards/tenant-rate-limit.guard';
+import { UserRateLimitGuard } from './shared/guards/user-rate-limit.guard';
+import { RateLimitsAdminController } from './shared/admin/rate-limits-admin.controller';
+import { BusinessMetricsAdminController } from './shared/admin/business-metrics-admin.controller';
+import { TenantMiddleware } from './shared/middleware/tenant.middleware';
+import { CsrfMiddleware } from './shared/middleware/csrf.middleware';
+import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
+import { IdempotencyInterceptor } from './shared/idempotency/idempotency.interceptor';
+import { IdempotencyService } from './shared/idempotency/idempotency.service';
+import { TimeoutInterceptor } from './shared/interceptors/timeout.interceptor';
+import { MetricsInterceptor } from './shared/interceptors/metrics.interceptor';
+import { CacheControlHeadersInterceptor } from './shared/interceptors/cache-control-headers.interceptor';
+import { ResilientThrottlerInterceptor } from './shared/throttler/resilient-throttler.interceptor';
+import { DatabaseLogger } from './shared/logging/database.logger';
+import { RequestContextMiddleware } from './shared/middleware/request-context.middleware';
+import { SentryTraceMiddleware } from './shared/middleware/sentry-trace.middleware';
+import { SecurityActionInterceptor } from './shared/security/security-action.interceptor';
+import { AuditReadInterceptor } from './shared/security/audit-read.interceptor';
+import { ForbiddenSpikeInterceptor } from './shared/security/forbidden-spike.interceptor';
+import { hasValidFieldEncryptionKey } from './shared/security/field-encryption.util';
+import { PaginationClampMiddleware } from './shared/middleware/pagination-clamp.middleware';
+import { AdminIpAllowlistMiddleware } from './shared/middleware/admin-ip-allowlist.middleware';
+import { BullQueueShutdownService } from './infra/queue/bull-queue-shutdown.service';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
-} from './queue/redis-disabled-queue';
+} from './infra/queue/redis-disabled-queue';
 import {
   getAccessTokenTtl,
   getAccessTokenTtlMs,
   isInfiniteTtl,
-} from './auth/auth-security.config';
+} from './modules/auth/auth-security.config';
 
 const IS_PRODUCTION_ENV = process.env.NODE_ENV === 'production';
 const REDIS_FAIL_OPEN_REQUESTED = /^true$/i.test(
@@ -1264,7 +1264,7 @@ export const validationSchema = Joi.object({
 
     // Feature modules — agrupados por domínio: Identity, Tenant, Operations,
     // Compliance, Privacy, Communication, Infrastructure.
-    // Edite backend/src/config/modules.config.ts para adicionar novos módulos.
+    // Edite backend/src/infra/config/modules.config.ts para adicionar novos módulos.
     ...ALL_FEATURE_MODULES,
   ],
   controllers: [

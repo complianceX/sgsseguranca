@@ -6,9 +6,9 @@ import {
   decryptSensitiveValue,
   encryptSensitiveValue,
   hashSensitiveValue,
-} from '../src/common/security/field-encryption.util';
-import { CpfUtil } from '../src/common/utils/cpf.util';
-import { resolveCpfBackfillOptions } from '../src/privacy/cpf-plaintext-migration.util';
+} from '../src/shared/security/field-encryption.util';
+import { CpfUtil } from '../src/shared/utils/cpf.util';
+import { resolveCpfBackfillOptions } from '../src/modules/privacy/cpf-plaintext-migration.util';
 import {
   ensureDir,
   getStringArg,
