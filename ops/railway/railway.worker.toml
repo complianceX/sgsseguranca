@@ -1,0 +1,17 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "ops/docker/Dockerfile.worker"
+watchPatterns = [
+  "backend/**",
+  "ops/docker/Dockerfile.worker",
+  "ops/railway/railway.worker.toml"
+]
+
+[deploy]
+startCommand = "node dist/worker.js"
+healthcheckPath = "/health/public"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+overlapSeconds = 30
+drainingSeconds = 30

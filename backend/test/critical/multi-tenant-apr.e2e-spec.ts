@@ -1,4 +1,4 @@
-import { Role } from '../../src/auth/enums/roles.enum';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
 import { createApr } from '../factories/apr.factory';
 import { TestApp } from '../helpers/test-app';
 

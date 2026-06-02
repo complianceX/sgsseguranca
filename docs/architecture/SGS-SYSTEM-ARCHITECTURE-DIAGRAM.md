@@ -25,7 +25,7 @@ flowchart LR
     EXT[Consumidor externo]
 
     subgraph EDGE[Camada de acesso]
-        FE[Frontend<br/>Next.js 15<br/>Vercel]
+        FE[Frontend<br/>Next.js 16<br/>Vercel]
         PUBLIC[Rotas publicas de validacao<br/>/validar e links publicos]
     end
 
@@ -44,9 +44,9 @@ flowchart LR
     end
 
     subgraph DATA[Dados e persistencia]
-        PG[(Supabase PostgreSQL<br/>TypeORM + RLS)]
+        PG[(Neon PostgreSQL<br/>TypeORM + RLS)]
         REDIS[(Redis<br/>cache + rate limit + BullMQ)]
-        R2[Cloudflare R2 / S3-compatible<br/>PDFs, anexos, videos]
+        R2[Backblaze B2 / S3-compatible<br/>PDFs, anexos, videos]
         REG[Registry documental<br/>integridade e governanca]
     end
 
@@ -108,9 +108,9 @@ flowchart LR
 - `Frontend`: shell autenticado, dashboards, formularios densos e fluxos documentais.
 - `Backend Web`: autoridade de auth, RBAC, tenant scoping, regras de negocio e integracoes.
 - `Worker`: concentra processamento assincrono e jobs pesados desacoplados da request HTTP.
-- `Supabase PostgreSQL`: persistencia principal com RLS para defesa em profundidade multi-tenant.
+- `Neon PostgreSQL`: persistencia principal com RLS para defesa em profundidade multi-tenant.
 - `Redis`: cache, coordenacao operacional, throttling e filas BullMQ.
-- `Cloudflare R2`: storage governado dos artefatos oficiais.
+- `Backblaze B2`: storage S3 compativel governado dos artefatos oficiais.
 - `OpenAI / Sophie`: sempre atras de consentimento e sanitizacao de PII.
 
 ## Notas arquiteturais criticas

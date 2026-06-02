@@ -5,18 +5,18 @@
 ### Frontend
 
 - `frontend/app/(auth)/login/`
-- `frontend/services/authService.ts`
+- `frontend/src/services/authService.ts`
 
 ### Backend
 
-- `backend/src/auth/auth.controller.ts`
-- `backend/src/auth/`
+- `backend/src/modules/auth/auth.controller.ts`
+- `backend/src/modules/auth/`
 
 ## Shell autenticado
 
 - `frontend/app/dashboard/layout.tsx`
-- `frontend/components/Sidebar.tsx`
-- `frontend/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/Header.tsx`
 
 ## Tema, cores e acabamento visual
 
@@ -28,8 +28,8 @@
 ## Dashboard principal
 
 - `frontend/app/dashboard/page.tsx`
-- `frontend/services/dashboardService.ts`
-- `backend/src/dashboard/`
+- `frontend/src/services/dashboardService.ts`
+- `backend/src/modules/dashboard/`
 
 ## APR
 
@@ -37,82 +37,82 @@
 
 - `frontend/app/dashboard/aprs/`
 - `frontend/app/dashboard/aprs/components/`
-- `frontend/services/aprsService.ts`
+- `frontend/src/services/aprsService.ts`
 
 ### Backend
 
-- `backend/src/aprs/`
+- `backend/src/modules/aprs/`
 
 Quando a duvida for lock/read-only, comece por:
 
-- `backend/src/aprs/aprs.service.ts`
+- `backend/src/modules/aprs/aprs.service.ts`
 
 ## DDS
 
 ### Frontend
 
 - `frontend/app/dashboard/dds/`
-- `frontend/components/DdsForm.tsx`
-- `frontend/services/ddsService.ts`
+- `frontend/src/components/DdsForm.tsx`
+- `frontend/src/services/ddsService.ts`
 
 ### Backend
 
-- `backend/src/dds/`
+- `backend/src/modules/dds/`
 
 ## Relatórios
 
 ### Frontend
 
 - `frontend/app/dashboard/relatorios/rdos/`
-- `frontend/services/rdosService.ts`
+- `frontend/src/services/rdosService.ts`
 
 ### Backend
 
-- `backend/src/rdos/`
+- `backend/src/modules/rdos/`
 
 ## Videos governados
 
 ### Frontend
 
-- `frontend/hooks/useDocumentVideos.ts`
-- `frontend/components/document-videos/DocumentVideoPanel.tsx`
-- `frontend/lib/videos/documentVideos.ts`
+- `frontend/src/hooks/useDocumentVideos.ts`
+- `frontend/src/components/document-videos/DocumentVideoPanel.tsx`
+- `frontend/src/lib/videos/documentVideos.ts`
 
 ### Backend
 
-- `backend/src/document-videos/`
+- `backend/src/modules/document-videos/`
 
 ## Importacao documental
 
 ### Frontend
 
 - `frontend/app/dashboard/documentos/importar`
-- `frontend/services/documentImportService.ts`
+- `frontend/src/services/documentImportService.ts`
 
 ### Backend
 
-- `backend/src/document-import/`
+- `backend/src/modules/document-import/`
 
 ## Assinaturas
 
 ### Frontend
 
-- `frontend/services/signaturesService.ts`
+- `frontend/src/services/signaturesService.ts`
 
 ### Backend
 
-- `backend/src/signatures/`
+- `backend/src/modules/signatures/`
 
 ## Registry documental
 
 ### Frontend
 
 - `frontend/app/dashboard/document-registry/`
-- `frontend/services/documentRegistryService.ts`
+- `frontend/src/services/documentRegistryService.ts`
 
 ### Backend
 
-- `backend/src/document-registry/`
+- `backend/src/modules/document-registry/`
 
 ## Dica pratica
 

@@ -5,12 +5,12 @@
     "rootDir": "..",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../frontend/*"]
+      "@/*": ["../frontend/src/*", "../frontend/*"]
     }
   },
   "include": [
     "scripts/generate-pdf-homologation.ts",
-    "../frontend/lib/pdf-system/**/*.ts",
-    "../frontend/lib/pdf/monthlyReportGenerator.ts"
+    "../frontend/src/lib/pdf-system/**/*.ts",
+    "../frontend/src/lib/pdf/monthlyReportGenerator.ts"
   ]
 }

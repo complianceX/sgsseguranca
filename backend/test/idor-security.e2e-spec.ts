@@ -4,12 +4,12 @@ import request from 'supertest';
 import * as cookieParserModule from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { PasswordService } from '../src/common/services/password.service';
-import { Role } from '../src/auth/enums/roles.enum';
+import { PasswordService } from '../src/shared/services/password.service';
+import { Role } from '../src/modules/auth/enums/roles.enum';
 import {
   encryptSensitiveValue,
   hashSensitiveValue,
-} from '../src/common/security/field-encryption.util';
+} from '../src/shared/security/field-encryption.util';
 import { bootstrapBackendTestEnvironment } from './setup/test-env';
 
 bootstrapBackendTestEnvironment();

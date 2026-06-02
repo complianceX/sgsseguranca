@@ -90,8 +90,12 @@ backend/test/load/fixtures/*.generated*.json
 # Artefatos temporários locais de deploy/investigação
 .tmp_render*.json
 osv-scan.json
+npm-audit.json
 .vercel
 .aider*
+.codex_*
+.codex-local-logs/
+.openclaw/
 
 # Arquivos locais do agente (não versionar)
 AGENTS.md
@@ -100,6 +104,10 @@ IDENTITY.md
 SOUL.md
 TOOLS.md
 USER.md
+
+# Artefatos locais de testes/relatorios (não versionar)
+output/
+test-results/
 
 # Artefatos locais de segurança
 output/security/

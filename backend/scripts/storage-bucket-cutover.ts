@@ -15,8 +15,8 @@ import {
   parseCliArgs,
   writeJsonFile,
 } from './disaster-recovery/common';
-import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/disaster-recovery/disaster-recovery.constants';
-import { resolveDisasterRecoveryEnvironment } from '../src/disaster-recovery/disaster-recovery.util';
+import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/modules/disaster-recovery/disaster-recovery.constants';
+import { resolveDisasterRecoveryEnvironment } from '../src/modules/disaster-recovery/disaster-recovery.util';
 
 type BucketRuntimeConfig = {
   bucketName: string | null;

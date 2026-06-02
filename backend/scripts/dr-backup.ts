@@ -1,17 +1,17 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { DocumentStorageService } from '../src/common/services/document-storage.service';
-import { DisasterRecoveryExecutionService } from '../src/disaster-recovery/disaster-recovery-execution.service';
+import { DocumentStorageService } from '../src/shared/services/document-storage.service';
+import { DisasterRecoveryExecutionService } from '../src/modules/disaster-recovery/disaster-recovery-execution.service';
 import {
   DISASTER_RECOVERY_DEFAULT_BACKUP_RETENTION_DAYS,
   DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT,
   DISASTER_RECOVERY_DEFAULT_STORAGE_BACKUP_PREFIX,
-} from '../src/disaster-recovery/disaster-recovery.constants';
+} from '../src/modules/disaster-recovery/disaster-recovery.constants';
 import {
   buildBackupArtifactName,
   resolveDisasterRecoveryEnvironment,
   resolveRetentionDays,
-} from '../src/disaster-recovery/disaster-recovery.util';
+} from '../src/modules/disaster-recovery/disaster-recovery.util';
 import {
   appendAuditLog,
   buildPgDumpArgs,

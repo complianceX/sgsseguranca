@@ -2,9 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
-import { AuthService } from '../src/auth/auth.service';
-import { decryptSensitiveValue } from '../src/common/security/field-encryption.util';
-import { CpfUtil } from '../src/common/utils/cpf.util';
+import { AuthService } from '../src/modules/auth/auth.service';
+import { decryptSensitiveValue } from '../src/shared/security/field-encryption.util';
+import { CpfUtil } from '../src/shared/utils/cpf.util';
 import {
   ensureDir,
   getStringArg,

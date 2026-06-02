@@ -58,12 +58,13 @@ function resolveTargetedMigrations(tokens) {
     __dirname,
     '..',
     'dist',
+    'infra',
     'database',
     'migrations',
   );
   if (!fs.existsSync(distDir)) {
     throw new Error(
-      'Diretório dist/database/migrations não encontrado. Execute npm run build antes.',
+      'Diretório dist/infra/database/migrations não encontrado. Execute npm run build antes.',
     );
   }
 

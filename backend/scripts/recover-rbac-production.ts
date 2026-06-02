@@ -3,8 +3,8 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { Client } from 'pg';
 import Redis from 'ioredis';
-import { PROFILE_PERMISSION_FALLBACK } from '../src/rbac/rbac.service';
-import { resolveRedisConnection } from '../src/common/redis/redis-connection.util';
+import { PROFILE_PERMISSION_FALLBACK } from '../src/modules/rbac/rbac.service';
+import { resolveRedisConnection } from '../src/shared/redis/redis-connection.util';
 import {
   ensureDir,
   getStringArg,

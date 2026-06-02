@@ -1,12 +1,12 @@
 import { createConnection, type Connection, type QueryRunner } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { Dds, DdsStatus } from '../src/dds/entities/dds.entity';
-import { Site } from '../src/sites/entities/site.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Profile } from '../src/profiles/entities/profile.entity';
-import { UserIdentityType } from '../src/users/constants/user-identity.constant';
-import { DDS_THEME_LIBRARY } from '../src/dds/templates/dds-theme-library';
+import { Dds, DdsStatus } from '../src/modules/dds/entities/dds.entity';
+import { Site } from '../src/modules/sites/entities/site.entity';
+import { User } from '../src/modules/users/entities/user.entity';
+import { Profile } from '../src/modules/profiles/entities/profile.entity';
+import { UserIdentityType } from '../src/modules/users/constants/user-identity.constant';
+import { DDS_THEME_LIBRARY } from '../src/modules/dds/templates/dds-theme-library';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 

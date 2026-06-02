@@ -1,4 +1,4 @@
-import { Role } from '../../src/auth/enums/roles.enum';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
 import type { TestApp, LoginSession } from './test-app';
 
 export async function loginAs(

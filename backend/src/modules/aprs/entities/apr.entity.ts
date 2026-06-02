@@ -1,0 +1,328 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  ManyToMany,
+  JoinTable,
+  OneToMany,
+  Index,
+} from 'typeorm';
+import { BaseAuditEntity } from '../../../shared/entities/base-audit.entity';
+import { Site } from '../../sites/entities/site.entity';
+import { User } from '../../users/entities/user.entity';
+import { Activity } from '../../activities/entities/activity.entity';
+import { Risk } from '../../risks/entities/risk.entity';
+import { Epi } from '../../epis/entities/epi.entity';
+import { Tool } from '../../tools/entities/tool.entity';
+import { Machine } from '../../machines/entities/machine.entity';
+import { Company } from '../../companies/entities/company.entity';
+import { AprLog } from './apr-log.entity';
+import { AprApprovalStep } from './apr-approval-step.entity';
+import { AprRiskItem } from './apr-risk-item.entity';
+
+export enum AprStatus {
+  PENDENTE = 'Pendente',
+  APROVADA = 'Aprovada',
+  CANCELADA = 'Cancelada',
+  ENCERRADA = 'Encerrada',
+}
+
+export const APR_ALLOWED_TRANSITIONS: Record<AprStatus, AprStatus[]> = {
+  [AprStatus.PENDENTE]: [AprStatus.APROVADA, AprStatus.CANCELADA],
+  [AprStatus.APROVADA]: [AprStatus.ENCERRADA, AprStatus.CANCELADA],
+  [AprStatus.CANCELADA]: [],
+  [AprStatus.ENCERRADA]: [],
+};
+
+@Entity('aprs')
+export class Apr extends BaseAuditEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  numero: string;
+
+  @Column()
+  titulo: string;
+
+  @Column({ type: 'text', nullable: true })
+  descricao: string;
+
+  /**
+   * Tipo de atividade que orienta os riscos padrão da APR.
+   * Ex.: 'trabalho_altura', 'eletrica', 'espaco_confinado', 'icamento',
+   *      'caldeiraria', 'mineracao', 'manutencao_mecanica', 'outros'
+   */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  tipo_atividade: string | null;
+
+  /**
+   * Frente de trabalho, área, andar, galpão ou zona específica dentro do site.
+   * Ex.: "Frente A – Bloco 3", "Subestação SE-04", "Pit Norte – Nível 220"
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  frente_trabalho: string | null;
+
+  /**
+   * Área de risco específica dentro da frente de trabalho.
+   * Ex.: "Área classificada zona 1", "Espaço confinado V-201", "Linha viva 13,8kV"
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  area_risco: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  turno: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  local_execucao_detalhado: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  responsavel_tecnico_nome: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  responsavel_tecnico_registro: string | null;
+
+  @Column({ type: 'date' })
+  data_inicio: Date;
+
+  @Column({ type: 'date' })
+  data_fim: Date;
+
+  @Column({ type: 'varchar', default: AprStatus.PENDENTE })
+  status: AprStatus;
+
+  /**
+   * Semântica atual (legado em transição):
+   * - `false`: APR operacional comum
+   * - `true`: APR marcada como modelo reutilizável
+   *
+   * Observação: o backend ainda convive com `is_modelo_padrao`.
+   * Quando `is_modelo_padrao = true`, o serviço força `is_modelo = true`.
+   * Ver migration de planejamento `template_type` para unificação semântica.
+   */
+  @Column({ default: false })
+  is_modelo: boolean;
+
+  /**
+   * Semântica atual (legado em transição):
+   * - `true`: modelo padrão da empresa (único por `company_id`)
+   * - `false`: APR sem status de modelo padrão
+   *
+   * Regra de consistência aplicada no serviço:
+   * - `is_modelo_padrao = true` => `is_modelo = true`
+   * - `is_modelo = false` => `is_modelo_padrao = false`
+   */
+  @Column({ default: false })
+  is_modelo_padrao: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  itens_risco?: Array<Record<string, string>>;
+
+  @Column({ type: 'int', nullable: true })
+  probability?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  severity?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  exposure?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  initial_risk?: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_photo?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_document?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  control_description?: string | null;
+
+  @Column({ default: false })
+  control_evidence: boolean;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Index('IDX_apr_company_id', ['company_id'])
+  @Column()
+  company_id: string;
+
+  @ManyToOne(() => Site)
+  @JoinColumn({ name: 'site_id' })
+  site: Site;
+
+  @Index('IDX_apr_site_id', ['site_id'])
+  @Column()
+  site_id: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'elaborador_id' })
+  elaborador: User;
+
+  @Index('IDX_apr_elaborador_id', ['elaborador_id'])
+  @Column()
+  elaborador_id: string;
+
+  @ManyToMany(() => Activity)
+  @JoinTable({
+    name: 'apr_activities',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'activity_id', referencedColumnName: 'id' },
+  })
+  activities: Activity[];
+
+  @ManyToMany(() => Risk)
+  @JoinTable({
+    name: 'apr_risks',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'risk_id', referencedColumnName: 'id' },
+  })
+  risks: Risk[];
+
+  @ManyToMany(() => Epi)
+  @JoinTable({
+    name: 'apr_epis',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'epi_id', referencedColumnName: 'id' },
+  })
+  epis: Epi[];
+
+  @ManyToMany(() => Tool)
+  @JoinTable({
+    name: 'apr_tools',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tool_id', referencedColumnName: 'id' },
+  })
+  tools: Tool[];
+
+  @ManyToMany(() => Machine)
+  @JoinTable({
+    name: 'apr_machines',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'machine_id', referencedColumnName: 'id' },
+  })
+  machines: Machine[];
+
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'apr_participants',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
+  participants: User[];
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'auditado_por_id' })
+  auditado_por: User;
+
+  @Index('IDX_apr_auditado_por_id', ['auditado_por_id'])
+  @Column({ type: 'varchar', nullable: true })
+  auditado_por_id: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_auditoria: Date;
+
+  @Column({ nullable: true })
+  resultado_auditoria: string; // Conforme, Não Conforme
+
+  @Column({ type: 'text', nullable: true })
+  notas_auditoria: string;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_file_key: string;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_folder_path: string;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_original_name: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256: string | null;
+
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  verification_code: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date | null;
+
+  @Column({ type: 'int', default: 1 })
+  versao: number;
+
+  @Index('IDX_apr_parent_apr_id', ['parent_apr_id'])
+  @Column({ type: 'varchar', nullable: true })
+  parent_apr_id: string | null;
+
+  @ManyToOne(() => Apr, { nullable: true })
+  @JoinColumn({ name: 'parent_apr_id' })
+  parent_apr: Apr;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'aprovado_por_id' })
+  aprovado_por: User;
+
+  @Index('IDX_apr_aprovado_por_id', ['aprovado_por_id'])
+  @Column({ type: 'varchar', nullable: true })
+  aprovado_por_id: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  aprovado_em?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  aprovado_motivo?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'reprovado_por_id' })
+  reprovado_por?: User;
+
+  @Index('IDX_apr_reprovado_por_id', ['reprovado_por_id'])
+  @Column({ type: 'varchar', nullable: true })
+  reprovado_por_id?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  reprovado_em?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  reprovado_motivo?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  classificacao_resumo?: {
+    total: number;
+    aceitavel: number;
+    atencao: number;
+    substancial: number;
+    critico: number;
+  };
+
+  @OneToMany(() => AprLog, (log) => log.apr)
+  logs: AprLog[];
+
+  @OneToMany(() => AprApprovalStep, (step) => step.apr, {
+    cascade: false,
+    eager: false,
+  })
+  approval_steps: AprApprovalStep[];
+
+  @OneToMany(() => AprRiskItem, (riskItem) => riskItem.apr, {
+    cascade: false,
+    eager: false,
+  })
+  risk_items: AprRiskItem[];
+
+  @Column({ type: 'uuid', nullable: true })
+  workflowConfigId: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rulesSnapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'int', nullable: true })
+  complianceScore: number | null;
+}

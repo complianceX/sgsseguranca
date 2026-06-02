@@ -1,6 +1,11 @@
 # Variaveis de Ambiente no Railway
 
-Este guia resume como o projeto esta configurado no Railway e quais variaveis sao:
+## Status
+
+Este arquivo preserva o desenho historico e serve como apoio para uma eventual
+migracao. Ele nao confirma runtime ativo no Railway.
+
+Este guia resume quais variaveis Railway sao:
 
 - obrigatorias para o runtime
 - opcionais por feature

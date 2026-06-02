@@ -1,5 +1,5 @@
-import { Role } from '../../src/auth/enums/roles.enum';
-import { AprStatus } from '../../src/aprs/entities/apr.entity';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
+import { AprStatus } from '../../src/modules/aprs/entities/apr.entity';
 import { createApr } from '../factories/apr.factory';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 
