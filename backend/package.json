@@ -46,7 +46,7 @@
     "rdo:perf:audit:json": "node scripts/rdo-performance-audit.js --json",
     "storage:bucket-cutover": "node -r ts-node/register/transpile-only scripts/storage-bucket-cutover.ts --execute",
     "storage:bucket-cutover:dry-run": "node -r ts-node/register/transpile-only scripts/storage-bucket-cutover.ts --dry-run",
-    "pdf:homologation": "node ./node_modules/ts-node/dist/bin.js --project tsconfig.pdf-homologation.json scripts/generate-pdf-homologation.ts",
+    "pdf:homologation": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --project tsconfig.pdf-homologation.json scripts/generate-pdf-homologation.ts",
     "migration:revert": "typeorm migration:revert -d dist/data-source.js",
     "auth:sync:supabase": "node scripts/sync-users-to-supabase-auth.js",
     "auth:sync:supabase:apply": "node scripts/sync-users-to-supabase-auth.js --apply",

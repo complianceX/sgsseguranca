@@ -14,13 +14,13 @@ if (process.env.NEW_RELIC_ENABLED === 'true') {
 }
 
 import * as http from 'http';
-import { buildStructuredLoggerOptions } from './common/logging/structured-winston';
-import { createStructuredWinstonLogger } from './common/logging/structured-winston';
+import { buildStructuredLoggerOptions } from './shared/logging/structured-winston';
+import { createStructuredWinstonLogger } from './shared/logging/structured-winston';
 import {
   initializeTelemetry,
   type TelemetryRuntime,
-} from './common/observability/opentelemetry.config';
-import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
+} from './shared/observability/opentelemetry.config';
+import { initSentry, type SentryInitStatus } from './shared/monitoring/sentry';
 
 const WORKER_SERVICE_NAME = 'wanderson-gandra-worker';
 const WORKER_TELEMETRY_PORT = 9465;

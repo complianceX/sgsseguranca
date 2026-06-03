@@ -10,7 +10,7 @@ Comece por:
 
 ## Como descubro o backend de uma tela?
 
-Procure a rota em `frontend/app/dashboard`, depois o service em `frontend/services` e por fim o modulo correspondente em `backend/src`.
+Procure a rota em `frontend/app/dashboard`, depois o service em `frontend/src/services` e por fim o modulo correspondente em `backend/src`.
 
 ## Como sei se um documento esta travado?
 
@@ -26,17 +26,17 @@ Somente:
 ## Onde vejo a importacao documental?
 
 - frontend: `frontend/app/dashboard/documentos/importar`
-- frontend service: `frontend/services/documentImportService.ts`
-- backend: `backend/src/document-import`
+- frontend service: `frontend/src/services/documentImportService.ts`
+- backend: `backend/src/modules/document-import`
 
 ## Onde vejo a trilha forense?
 
-- backend: `backend/src/forensic-trail`
+- backend: `backend/src/modules/forensic-trail`
 
 ## Onde vejo assinatura e aceite?
 
-- frontend: `frontend/services/signaturesService.ts`
-- backend: `backend/src/signatures`
+- frontend: `frontend/src/services/signaturesService.ts`
+- backend: `backend/src/modules/signatures`
 
 ## Onde vejo o tema e a identidade visual?
 

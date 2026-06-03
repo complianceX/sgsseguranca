@@ -6,16 +6,16 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { DocumentImportController } from '../src/document-import/controllers/document-import.controller';
-import { DocumentImportService } from '../src/document-import/services/document-import.service';
-import { TenantService } from '../src/common/tenant/tenant.service';
-import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
-import { RolesGuard } from '../src/auth/roles.guard';
-import { PermissionsGuard } from '../src/auth/permissions.guard';
-import { RbacService } from '../src/rbac/rbac.service';
-import { TenantGuard } from '../src/common/guards/tenant.guard';
-import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
-import { FileInspectionService } from '../src/common/security/file-inspection.service';
+import { DocumentImportController } from '../src/modules/document-import/controllers/document-import.controller';
+import { DocumentImportService } from '../src/modules/document-import/services/document-import.service';
+import { TenantService } from '../src/shared/tenant/tenant.service';
+import { JwtAuthGuard } from '../src/modules/auth/jwt-auth.guard';
+import { RolesGuard } from '../src/modules/auth/roles.guard';
+import { PermissionsGuard } from '../src/modules/auth/permissions.guard';
+import { RbacService } from '../src/modules/rbac/rbac.service';
+import { TenantGuard } from '../src/shared/guards/tenant.guard';
+import { TenantInterceptor } from '../src/shared/tenant/tenant.interceptor';
+import { FileInspectionService } from '../src/shared/security/file-inspection.service';
 
 @Module({
   controllers: [DocumentImportController],

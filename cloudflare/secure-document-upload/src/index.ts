@@ -121,17 +121,15 @@ async function callBackend(
   path: string,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const response = await fetch(
-    `${env.BACKEND_INTERNAL_BASE_URL.replace(/\/+$/, '')}${path}`,
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${env.BACKEND_INTERNAL_SERVICE_TOKEN}`,
-      },
-      body: JSON.stringify(body),
+  const targetUrl = new URL(path, env.BACKEND_INTERNAL_BASE_URL);
+  const response = await fetch(targetUrl.toString(), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${env.BACKEND_INTERNAL_SERVICE_TOKEN}`,
     },
-  );
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
     throw new Error(`backend_call_failed:${response.status}`);

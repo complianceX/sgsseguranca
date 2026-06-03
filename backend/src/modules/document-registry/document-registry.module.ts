@@ -1,0 +1,34 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import { DocumentRegistryVersionEntry } from './entities/document-registry-version.entity';
+import { DocumentRegistryService } from './document-registry.service';
+import { DocumentRegistryController } from './document-registry.controller';
+import { PublicDocumentRegistryController } from './public-document-registry.controller';
+import { DocumentDownloadController } from './document-download.controller';
+import { DocumentGovernanceService } from './document-governance.service';
+import { CommonModule } from '../../shared/common.module';
+import { AuthModule } from '../auth/auth.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { SecurityAuditModule } from '../../shared/security/security-audit.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      DocumentRegistryEntry,
+      DocumentRegistryVersionEntry,
+    ]),
+    CommonModule,
+    forwardRef(() => AuthModule),
+    ForensicTrailModule,
+    SecurityAuditModule,
+  ],
+  controllers: [
+    DocumentRegistryController,
+    PublicDocumentRegistryController,
+    DocumentDownloadController,
+  ],
+  providers: [DocumentRegistryService, DocumentGovernanceService],
+  exports: [DocumentRegistryService, DocumentGovernanceService],
+})
+export class DocumentRegistryModule {}

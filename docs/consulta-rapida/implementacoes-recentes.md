@@ -9,6 +9,15 @@ Use este guia quando a pergunta for:
 - "onde essa feature foi endurecida?"
 - "o que ainda falta depois dessas rodadas?"
 
+## Estado atual da infraestrutura
+
+O estado atual versionado e Render para backend/worker, Neon para PostgreSQL e
+Backblaze B2 via S3 compativel para storage governado. As referencias a
+Railway e Cloudflare R2 abaixo registram rodadas historicas e nao devem ser
+tratadas como prova do runtime externo atual. Para operacao, consulte:
+
+- `docs/deploy/secure-render-release.md`
+
 ## Visao geral
 
 As ultimas rodadas focaram em cinco trilhas principais:
@@ -60,15 +69,15 @@ Resultado:
 Onde olhar:
 
 - `frontend/app/dashboard/aprs`
-- `backend/src/aprs`
-- `backend/src/signatures`
+- `backend/src/modules/aprs`
+- `backend/src/modules/signatures`
 
 ## 2. PDFs finais oficiais obrigatoriamente no storage governado
 
 O que foi feito:
 
 - o sistema foi endurecido para nao aceitar PDF final oficial em fallback local
-- o storage oficial em producao ficou configurado no Cloudflare R2
+- naquela rodada historica, o storage oficial ficou configurado no Cloudflare R2
 
 Passo a passo:
 
@@ -86,13 +95,13 @@ Passo a passo:
 Resultado:
 
 - documento final oficial precisa existir no storage oficial
-- novo PDF governado fica no R2 e nao em fallback local mascarado
+- naquele rollout, novo PDF governado ficava no R2 e nao em fallback local mascarado
 
 Onde olhar:
 
-- `backend/src/common/services/document-storage.service.ts`
-- `backend/src/common/storage/s3.service.ts`
-- `backend/src/document-registry`
+- `backend/src/shared/services/document-storage.service.ts`
+- `backend/src/shared/storage/s3.service.ts`
+- `backend/src/modules/document-registry`
 - `docs/consulta-rapida/pdfs-finais-e-storage.md`
 
 ## 3. Video governado restrito a DDS e Relatórios (RDO)
@@ -128,7 +137,7 @@ Passo a passo:
    - abrir/download
    - erro honesto
    - loading
-7. o R2 foi ajustado com credenciais corretas de leitura e gravacao
+7. naquela rodada, o R2 foi ajustado com credenciais corretas de leitura e gravacao
 
 Resultado:
 
@@ -138,10 +147,10 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/document-videos`
-- `backend/src/dds`
-- `backend/src/rdos`
-- `frontend/components/document-videos`
+- `backend/src/modules/document-videos`
+- `backend/src/modules/dds`
+- `backend/src/modules/rdos`
+- `frontend/src/components/document-videos`
 
 ## 4. Assinatura verificavel expandida
 
@@ -164,8 +173,8 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/signatures/signatures.service.ts`
-- `backend/src/signatures/signatures.service.spec.ts`
+- `backend/src/modules/signatures/signatures.service.ts`
+- `backend/src/modules/signatures/signatures.service.spec.ts`
 
 ## 5. Dossie governado mais maduro
 
@@ -193,9 +202,9 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/dossiers`
-- `frontend/lib/pdf-system/blueprints/dossierBlueprint.ts`
-- `frontend/services/dossiersService.ts`
+- `backend/src/modules/dossiers`
+- `frontend/src/lib/pdf-system/blueprints/dossierBlueprint.ts`
+- `frontend/src/services/dossiersService.ts`
 
 ## 6. Central de Pendencias Documentais - Story 4.1
 
@@ -227,8 +236,8 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/dashboard/dashboard-document-pendencies.service.ts`
-- `backend/src/dashboard/dashboard-document-pendencies.classifier.ts`
+- `backend/src/modules/dashboard/dashboard-document-pendencies.service.ts`
+- `backend/src/modules/dashboard/dashboard-document-pendencies.classifier.ts`
 - `frontend/app/dashboard/document-pendencies/page.tsx`
 
 ## 7. Central de Pendencias Documentais - Story 4.2
@@ -296,15 +305,15 @@ Resultado:
 Onde olhar:
 
 - `frontend/app/dashboard/relatorios/rdos/RdoPage.tsx`
-- `frontend/components/rdos/RdoEditorModal.tsx`
-- `frontend/components/rdos/RdoViewerModal.tsx`
-- `frontend/components/rdos/RdoActionModals.tsx`
-- `frontend/components/rdos/rdo-modal-types.ts`
-- `frontend/lib/pdf/rdoGenerator.ts`
-- `frontend/lib/pdf-system/components/EvidenceGallery.ts`
-- `frontend/lib/pdf-system/blueprints/rdoBlueprint.ts`
-- `backend/src/rdos/rdos.service.ts`
-- `backend/src/rdos/dto/create-rdo.dto.ts`
+- `frontend/src/components/rdos/RdoEditorModal.tsx`
+- `frontend/src/components/rdos/RdoViewerModal.tsx`
+- `frontend/src/components/rdos/RdoActionModals.tsx`
+- `frontend/src/components/rdos/rdo-modal-types.ts`
+- `frontend/src/lib/pdf/rdoGenerator.ts`
+- `frontend/src/lib/pdf-system/components/EvidenceGallery.ts`
+- `frontend/src/lib/pdf-system/blueprints/rdoBlueprint.ts`
+- `backend/src/modules/rdos/rdos.service.ts`
+- `backend/src/modules/rdos/dto/create-rdo.dto.ts`
 
 Validacao executada nesta passada:
 
@@ -340,8 +349,8 @@ Resultado:
 Onde olhar:
 
 - `frontend/app/dashboard/relatorios/rdos/RdoPage.tsx`
-- `frontend/services/rdosService.ts`
-- `frontend/services/rdosService.test.ts`
+- `frontend/src/services/rdosService.ts`
+- `frontend/src/services/rdosService.test.ts`
    - validar documento
    - reenfileirar importacao
    - ir para nova versao
@@ -355,11 +364,11 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/dashboard/dashboard-document-pendency-operations.service.ts`
-- `backend/src/dashboard/dto/resolve-document-pendency-action.dto.ts`
-- `backend/src/document-import/services/document-import.service.ts`
+- `backend/src/modules/dashboard/dashboard-document-pendency-operations.service.ts`
+- `backend/src/modules/dashboard/dto/resolve-document-pendency-action.dto.ts`
+- `backend/src/modules/document-import/services/document-import.service.ts`
 - `frontend/app/dashboard/document-pendencies/page.tsx`
-- `frontend/services/dashboardService.ts`
+- `frontend/src/services/dashboardService.ts`
 
 ## 8. Ajustes visuais e shell enterprise
 
@@ -384,15 +393,15 @@ Onde olhar:
 - `frontend/styles/tokens.css`
 - `frontend/styles/theme-light.css`
 - `frontend/app/globals.css`
-- `frontend/components/Sidebar.tsx`
-- `frontend/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/Header.tsx`
 
-## 9. Configuracao operacional no Railway e Cloudflare
+## 9. Configuracao operacional historica no Railway e Cloudflare
 
 O que foi feito:
 
 - o projeto foi alinhado no Railway
-- storage oficial ficou coerente com o Cloudflare R2
+- naquele momento, o storage oficial ficou coerente com o Cloudflare R2
 
 Passo a passo:
 
@@ -458,7 +467,7 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/disaster-recovery`
+- `backend/src/modules/disaster-recovery`
 - `backend/scripts/dr-backup.ts`
 - `backend/scripts/dr-restore.ts`
 - `backend/scripts/dr-integrity-scan.ts`
@@ -501,8 +510,8 @@ Resultado:
 
 Onde olhar:
 
-- `backend/src/disaster-recovery/disaster-recovery-replica-storage.service.ts`
-- `backend/src/disaster-recovery/disaster-recovery-storage-protection.service.ts`
+- `backend/src/modules/disaster-recovery/disaster-recovery-replica-storage.service.ts`
+- `backend/src/modules/disaster-recovery/disaster-recovery-storage-protection.service.ts`
 - `backend/scripts/dr-protect-storage.ts`
 - `backend/scripts/dr-recover-environment.ts`
 - `.github/workflows/disaster-recovery-backup.yml`
@@ -516,7 +525,7 @@ O que foi feito:
   - `Backend` enfileira
   - `Worker` consome
   - `MailService` envia via Brevo API
-- foi criado e ajustado o `Worker` no Railway para realmente consumir a fila de e-mails
+- na rodada historica, foi criado e ajustado o `Worker` no Railway para realmente consumir a fila de e-mails
 - o sistema passou a sinalizar melhor falhas operacionais do provedor, especialmente:
   - IP nao autorizado na Brevo
   - circuit breaker aberto apos falhas consecutivas
@@ -582,13 +591,14 @@ Observacoes operacionais:
 
 Onde olhar:
 
-- `backend/src/mail/mail.service.ts`
-- `backend/src/mail/mail.controller.ts`
-- `backend/src/mail/mail.processor.ts`
-- `backend/src/mail/mail.worker.module.ts`
+- `backend/src/infra/mail/mail.service.ts`
+- `backend/src/infra/mail/mail.controller.ts`
+- `backend/src/infra/mail/mail.processor.ts`
+- `backend/src/infra/mail/mail.worker.module.ts`
 - `backend/src/worker.module.ts`
-- `backend/railway.toml`
-- `backend/railway.worker.toml`
+- `railway.web.toml`
+- `railway.worker.toml`
+- `railway.migrations.toml`
 - `docs/consulta-rapida/troubleshooting.md`
 
 ## Como consultar rapidamente o que foi feito
@@ -596,7 +606,7 @@ Onde olhar:
 - se a pergunta for sobre documento final oficial: `pdfs-finais-e-storage.md`
 - se a pergunta for sobre pendencias e acoes operacionais: `implementacoes-recentes.md` e `fluxos-documentais.md`
 - se a pergunta for sobre tenant, RBAC, lock e trilha: `seguranca-e-governanca.md`
-- se a pergunta for sobre ambiente/infra: `variaveis-ambiente-railway.md`
+- se a pergunta for sobre ambiente/infra atual: `docs/deploy/secure-render-release.md`
 
 ## O que ainda pode vir depois
 

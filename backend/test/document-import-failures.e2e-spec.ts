@@ -10,30 +10,30 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import request from 'supertest';
 import { Observable } from 'rxjs';
-import { PermissionsGuard } from '../src/auth/permissions.guard';
-import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
-import { RolesGuard } from '../src/auth/roles.guard';
-import { TenantGuard } from '../src/common/guards/tenant.guard';
-import { FileInspectionService } from '../src/common/security/file-inspection.service';
-import { StorageService } from '../src/common/services/storage.service';
-import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
-import { TenantService } from '../src/common/tenant/tenant.service';
-import { DdsService } from '../src/dds/dds.service';
-import { DocumentImportController } from '../src/document-import/controllers/document-import.controller';
+import { PermissionsGuard } from '../src/modules/auth/permissions.guard';
+import { JwtAuthGuard } from '../src/modules/auth/jwt-auth.guard';
+import { RolesGuard } from '../src/modules/auth/roles.guard';
+import { TenantGuard } from '../src/shared/guards/tenant.guard';
+import { FileInspectionService } from '../src/shared/security/file-inspection.service';
+import { StorageService } from '../src/shared/services/storage.service';
+import { TenantInterceptor } from '../src/shared/tenant/tenant.interceptor';
+import { TenantService } from '../src/shared/tenant/tenant.service';
+import { DdsService } from '../src/modules/dds/dds.service';
+import { DocumentImportController } from '../src/modules/document-import/controllers/document-import.controller';
 import {
   DocumentImportEnqueueResponseDto,
   DocumentImportStatusResponseDto,
-} from '../src/document-import/dto/document-import-queue.dto';
-import { DocumentImportStatus } from '../src/document-import/entities/document-import-status.enum';
+} from '../src/modules/document-import/dto/document-import-queue.dto';
+import { DocumentImportStatus } from '../src/modules/document-import/entities/document-import-status.enum';
 import {
   DocumentImport,
   DocumentImportMetadata,
-} from '../src/document-import/entities/document-import.entity';
-import { DocumentClassifierService } from '../src/document-import/services/document-classifier.service';
-import { DocumentImportService } from '../src/document-import/services/document-import.service';
-import { DocumentInterpreterService } from '../src/document-import/services/document-interpreter.service';
-import { DocumentValidationService } from '../src/document-import/services/document-validation.service';
-import { FileParserService } from '../src/document-import/services/file-parser.service';
+} from '../src/modules/document-import/entities/document-import.entity';
+import { DocumentClassifierService } from '../src/modules/document-import/services/document-classifier.service';
+import { DocumentImportService } from '../src/modules/document-import/services/document-import.service';
+import { DocumentInterpreterService } from '../src/modules/document-import/services/document-interpreter.service';
+import { DocumentValidationService } from '../src/modules/document-import/services/document-validation.service';
+import { FileParserService } from '../src/modules/document-import/services/file-parser.service';
 
 jest.setTimeout(15000);
 

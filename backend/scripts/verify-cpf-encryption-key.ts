@@ -13,7 +13,7 @@ import {
   decryptSensitiveValue,
   encryptSensitiveValue,
   hashSensitiveValue,
-} from '../src/common/security/field-encryption.util';
+} from '../src/shared/security/field-encryption.util';
 
 function loadEnv(): void {
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });

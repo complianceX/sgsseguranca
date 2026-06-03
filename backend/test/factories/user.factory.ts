@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
-import { User } from '../../src/users/entities/user.entity';
-import { Profile } from '../../src/profiles/entities/profile.entity';
-import { PasswordService } from '../../src/common/services/password.service';
+import { User } from '../../src/modules/users/entities/user.entity';
+import { Profile } from '../../src/modules/profiles/entities/profile.entity';
+import { PasswordService } from '../../src/shared/services/password.service';
 
 export type CreateUserFactoryInput = {
   nome: string;

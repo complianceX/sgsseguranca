@@ -12,7 +12,7 @@
  * Pré-condição: docker compose -f docker-compose.test.yml up -d
  */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Role } from '../../src/auth/enums/roles.enum';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 
 const describeE2E =

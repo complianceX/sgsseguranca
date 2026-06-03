@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { SlaEscalationProcessor } from './corrective-actions/sla-escalation.processor';
-import { CorrectiveActionsModule } from './corrective-actions/corrective-actions.module';
-import { CommonModule } from './common/common.module';
+import { SlaEscalationProcessor } from './modules/corrective-actions/sla-escalation.processor';
+import { CorrectiveActionsModule } from './modules/corrective-actions/corrective-actions.module';
+import { CommonModule } from './shared/common.module';
 
 /**
  * Módulo exclusivo do processo worker.

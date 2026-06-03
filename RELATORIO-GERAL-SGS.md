@@ -121,10 +121,10 @@ Use esta organizacao para explicar a arquitetura do projeto:
 - `AGENTES.md`
 - `render.yaml`
 - `package.json`
-- `Dockerfile`
-- `Dockerfile.worker`
-- `docker-compose.yml`
-- `docker-compose.local.yml`
+- `ops/docker/Dockerfile`
+- `ops/docker/Dockerfile.worker`
+- `ops/docker/docker-compose.yml`
+- `ops/docker/docker-compose.local.yml`
 
 ### Backend
 
@@ -132,47 +132,47 @@ O backend fica em `backend/` e concentra a logica do sistema.
 
 Pastas importantes:
 
-- `backend/src/auth/`
-- `backend/src/common/tenant/`
-- `backend/src/common/database/`
-- `backend/src/companies/`
-- `backend/src/users/`
-- `backend/src/rbac/`
-- `backend/src/profiles/`
-- `backend/src/admin/`
-- `backend/src/dashboard/`
-- `backend/src/aprs/`
-- `backend/src/pts/`
-- `backend/src/dds/`
-- `backend/src/rdos/`
-- `backend/src/relatorios/`
-- `backend/src/photographic-reports/`
-- `backend/src/checklists/`
-- `backend/src/cats/`
-- `backend/src/nonconformities/`
-- `backend/src/audits/`
-- `backend/src/dossiers/`
-- `backend/src/document-registry/`
-- `backend/src/document-import/`
-- `backend/src/document-videos/`
-- `backend/src/signatures/`
-- `backend/src/ai/`
-- `backend/src/sophie/`
-- `backend/src/calendar/`
-- `backend/src/mail/`
-- `backend/src/notifications/`
-- `backend/src/push/`
-- `backend/src/privacy-requests/`
-- `backend/src/privacy-governance/`
-- `backend/src/forensic-trail/`
-- `backend/src/storage/`
-- `backend/src/common/storage/`
-- `backend/src/common/redis/`
-- `backend/src/common/queue/`
-- `backend/src/disaster-recovery/`
-- `backend/src/tasks/`
-- `backend/src/reports/`
-- `backend/src/health/`
+- `backend/src/modules/auth/`
+- `backend/src/shared/tenant/`
+- `backend/src/shared/database/`
+- `backend/src/modules/companies/`
+- `backend/src/modules/users/`
+- `backend/src/modules/rbac/`
+- `backend/src/modules/profiles/`
+- `backend/src/modules/admin/`
+- `backend/src/modules/dashboard/`
+- `backend/src/modules/aprs/`
+- `backend/src/modules/pts/`
+- `backend/src/modules/dds/`
+- `backend/src/modules/rdos/`
+- `backend/src/modules/reports/`
+- `backend/src/modules/photographic-reports/`
+- `backend/src/modules/checklists/`
+- `backend/src/modules/cats/`
+- `backend/src/modules/nonconformities/`
+- `backend/src/modules/audits/`
+- `backend/src/modules/dossiers/`
+- `backend/src/modules/document-registry/`
+- `backend/src/modules/document-import/`
+- `backend/src/modules/document-videos/`
+- `backend/src/modules/signatures/`
+- `backend/src/modules/ai/`
+- `backend/src/modules/sophie/`
+- `backend/src/modules/calendar/`
+- `backend/src/infra/mail/`
+- `backend/src/modules/notifications/`
+- `backend/src/infra/push/`
+- `backend/src/modules/privacy-requests/`
+- `backend/src/modules/privacy-governance/`
+- `backend/src/modules/forensic-trail/`
+- `backend/src/infra/storage/`
+- `backend/src/shared/storage/`
+- `backend/src/shared/redis/`
+- `backend/src/shared/queue/`
+- `backend/src/modules/disaster-recovery/`
+- `backend/src/modules/tasks/`
+- `backend/src/modules/reports/`
+- `backend/src/modules/health/`
 
 ### Frontend
 
@@ -181,11 +181,11 @@ O frontend fica em `frontend/` e concentra a experiencia do usuario final.
 Pastas importantes:
 
 - `frontend/app/`
-- `frontend/components/`
-- `frontend/services/`
-- `frontend/hooks/`
+- `frontend/src/components/`
+- `frontend/src/services/`
+- `frontend/src/hooks/`
 - `frontend/styles/`
-- `frontend/scripts/`
+- `ops/frontend/scripts/`
 
 ## O que o backend faz
 

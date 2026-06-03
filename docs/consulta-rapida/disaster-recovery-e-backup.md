@@ -38,7 +38,7 @@ Em vez de depender apenas de versionamento do bucket primário.
 Porque ela é:
 
 - implementável no contexto atual do projeto
-- defensável para Cloudflare R2 / storage S3-compatible
+- defensável para Backblaze B2, Cloudflare R2 ou storage S3-compatible equivalente
 - compatível com restore em ambiente separado
 - mais clara operacionalmente do que uma "cópia lógica" implícita
 
@@ -60,7 +60,7 @@ Porque ela é:
 
 ### Backend
 
-- módulo `backend/src/disaster-recovery`
+- módulo `backend/src/modules/disaster-recovery`
 - entidade `disaster_recovery_executions`
 - serviço de execução auditável
 - serviço de scanner de integridade
@@ -380,7 +380,7 @@ O que depende de infra externa:
 
 - `pg_dump` / `pg_restore`
 - PostgreSQL de origem e de recovery
-- bucket secundário real no Cloudflare R2 ou storage S3-compatible
+- bucket secundário real no Backblaze B2, Cloudflare R2 ou storage S3-compatible equivalente
 - credenciais válidas da réplica
 - versionamento/bucket lock do provedor, se desejado como camada extra
 
@@ -393,7 +393,7 @@ O que depende de infra externa:
 
 ## Onde olhar no código
 
-- `backend/src/disaster-recovery`
+- `backend/src/modules/disaster-recovery`
 - `backend/scripts/dr-backup.ts`
 - `backend/scripts/dr-protect-storage.ts`
 - `backend/scripts/dr-restore.ts`

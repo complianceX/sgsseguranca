@@ -204,7 +204,7 @@ Auth pede leitura rapida, serenidade e foco total na tarefa.
 
 ### PDF
 PDF e um canal separado do CSS do browser.
-- Use `frontend/lib/pdf-system/tokens/pdfColors.ts` e `pdfSemantics.ts`.
+- Use `frontend/src/lib/pdf-system/tokens/pdfColors.ts` e `pdfSemantics.ts`.
 - Nao confie em variaveis CSS do frontend para gerar PDF.
 - Mantenha semantica previsivel: `success`, `warning`, `danger` e `info` devem se comportar de forma consistente entre modulos.
 - Em PDF, prefira RGB fixo e contrastes simples.
@@ -232,7 +232,7 @@ Email precisa ser robusto em clientes variados.
 - `frontend/styles/tokens.css`
 - `frontend/styles/theme-light.css`
 - `frontend/styles/theme-dark.css`
-- `frontend/lib/pdf-system/tokens/pdfColors.ts`
-- `frontend/lib/pdf-system/tokens/pdfSemantics.ts`
-- `backend/src/mail/mail.service.ts`
+- `frontend/src/lib/pdf-system/tokens/pdfColors.ts`
+- `frontend/src/lib/pdf-system/tokens/pdfSemantics.ts`
+- `backend/src/infra/mail/mail.service.ts`
 - `backend/src/auth/auth.service.ts`

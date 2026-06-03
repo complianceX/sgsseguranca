@@ -98,10 +98,14 @@ const nextConfig = {
   // Domínios permitidos para next/image — evita erros de hostname não configurado
   images: {
     remotePatterns: [
-      // Cloudflare R2 (evidências, assinaturas, PDFs)
+      // Storage governado atual (Backblaze B2) e compatibilidade legada R2.
       {
         protocol: "https",
         hostname: "**.r2.cloudflarestorage.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.backblazeb2.com",
       },
     ],
   },

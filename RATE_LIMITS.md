@@ -201,7 +201,7 @@ Retorna snapshot dos contadores Redis:
 
 ### `handleApiError` (automático)
 
-A função `handleApiError` em `frontend/lib/error-handler.ts` extrai automaticamente
+A função `handleApiError` em `frontend/src/lib/error-handler.ts` extrai automaticamente
 o header `Retry-After` e exibe o countdown no toast:
 
 ```
