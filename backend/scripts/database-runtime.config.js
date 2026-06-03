@@ -118,9 +118,10 @@ function isSupabaseHost(hostname) {
 
   const normalized = hostname.toLowerCase();
   return (
-    normalized.includes('supabase.co') ||
-    normalized.includes('pooler.supabase.com') ||
-    normalized.includes('.supabase.')
+    normalized === 'supabase.co' ||
+    normalized.endsWith('.supabase.co') ||
+    normalized === 'pooler.supabase.com' ||
+    normalized.endsWith('.pooler.supabase.com')
   );
 }
 
