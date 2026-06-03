@@ -77,9 +77,9 @@ export class PwnedPasswordService {
 
   private async lookupBreachCount(password: string): Promise<number> {
     // codeql[js/weak-cryptographic-algorithm]
-    // codeql[js/insufficient-password-hash]
-    // lgtm[js/insufficient-password-hash]
     // SHA-1 é exigido pelo protocolo k-anonymity da API HIBP (/range/{prefix}).
+
+    // codeql[js/insufficient-password-hash]
     const sha1 = createHash('sha1')
       .update(password)
       .digest('hex')

@@ -793,9 +793,9 @@ export class AuthService {
   }
 
   private hashContext(value: string): string {
-    // codeql[js/insufficient-password-hash]
-    // lgtm[js/insufficient-password-hash]
     // Hash operacional para chaves/cache/auditoria, não para armazenar senha.
+
+    // codeql[js/insufficient-password-hash]
     return crypto.createHash('sha256').update(value).digest('hex');
   }
 
