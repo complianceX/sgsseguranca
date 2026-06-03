@@ -1,16 +1,13 @@
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { ProfilePermissions } from '../types/profile-permissions.type';
 
 export class CreateProfileDto {
   @IsString()
   @Trim()
-  @Transform(({ value }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : (value as string),
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Nome do perfil é obrigatório' })
   nome: string;
 

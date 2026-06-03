@@ -6,17 +6,14 @@ import {
   IsString,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsCNPJ } from '../../../shared/validators/cnpj.validator';
 
 export class CreateCompanyDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Razão social é obrigatória' })
   razao_social: string;
 
@@ -29,21 +26,13 @@ export class CreateCompanyDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Endereço é obrigatório' })
   endereco: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Responsável é obrigatório' })
   responsavel: string;
 

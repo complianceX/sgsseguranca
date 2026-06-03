@@ -29,10 +29,13 @@ export interface DeprecatedOptions {
  * approveLegacy() { ... }
  */
 export const Deprecated = (options: DeprecatedOptions) => {
+  const warningMessage = options.message
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
   const decorators = [
     Header('Deprecation', 'true'),
     Header('Sunset', options.sunset),
-    Header('Warning', `299 - "${options.message.replace(/"/g, '\\"')}"`),
+    Header('Warning', `299 - "${warningMessage}"`),
   ];
 
   if (options.successorPath) {

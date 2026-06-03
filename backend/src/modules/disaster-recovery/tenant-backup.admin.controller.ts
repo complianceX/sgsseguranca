@@ -18,8 +18,9 @@ import type { Queue } from 'bullmq';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { open } from 'node:fs/promises';
-import { tmpdir } from 'os';
-import { randomUUID } from 'crypto';
+import { mkdirSync } from 'node:fs';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -51,10 +52,18 @@ const tenantBackupJobOptions = withDefaultJobOptions({
 
 const TENANT_BACKUP_UPLOAD_MAX_BYTES = 1024 * 1024 * 200;
 const TENANT_BACKUP_FILE_EXTENSIONS = ['.json.gz', '.gz'];
+const TENANT_BACKUP_UPLOAD_DIR = path.resolve(
+  process.cwd(),
+  'temp',
+  'tenant-backups',
+);
 
 const tenantBackupUploadOptions: MulterOptions = {
   storage: diskStorage({
-    destination: tmpdir(),
+    destination: (_req, _file, cb) => {
+      mkdirSync(TENANT_BACKUP_UPLOAD_DIR, { recursive: true });
+      cb(null, TENANT_BACKUP_UPLOAD_DIR);
+    },
     filename: (_req, file, cb) => {
       const extension = resolveTenantBackupUploadExtension(file.originalname);
       cb(null, `${randomUUID()}${extension}`);
@@ -88,6 +97,21 @@ function resolveTenantBackupUploadExtension(originalName?: string): string {
     return '.gz';
   }
   return '.json.gz';
+}
+
+function resolveTenantBackupUploadedPath(filePath: string): string {
+  const resolvedBase = path.resolve(TENANT_BACKUP_UPLOAD_DIR);
+  const resolvedFile = path.resolve(filePath);
+  const relativePath = path.relative(resolvedBase, resolvedFile);
+  const isInside =
+    relativePath.length === 0 ||
+    (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+
+  if (!isInside) {
+    throw new BadRequestException('Caminho de upload de backup inválido.');
+  }
+
+  return resolvedFile;
 }
 
 @Controller('admin')
@@ -289,7 +313,8 @@ export class TenantBackupAdminController {
       );
     }
 
-    const handle = await open(file.path, 'r');
+    const uploadPath = resolveTenantBackupUploadedPath(file.path);
+    const handle = await open(uploadPath, 'r');
     try {
       const sample = Buffer.alloc(2);
       const { bytesRead } = await handle.read(sample, 0, sample.length, 0);

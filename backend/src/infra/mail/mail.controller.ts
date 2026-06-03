@@ -18,7 +18,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import type { Response } from 'express';
 import { readFile, unlink } from 'fs/promises';
-import { tmpdir } from 'os';
+import { mkdirSync } from 'node:fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -53,6 +53,8 @@ const resolveMailRequestTimeoutMs = (): number => {
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed >= 30_000 ? parsed : 90_000;
 };
+
+const MAIL_TEMP_UPLOAD_DIR = path.resolve(process.cwd(), 'temp');
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -313,7 +315,10 @@ export class MailController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: tmpdir(),
+        destination: (_req, _file, cb) => {
+          mkdirSync(MAIL_TEMP_UPLOAD_DIR, { recursive: true });
+          cb(null, MAIL_TEMP_UPLOAD_DIR);
+        },
         filename: (_req, file, cb) => {
           const ext = path.extname(file.originalname) || '.pdf';
           cb(null, `${randomUUID()}${ext}`);

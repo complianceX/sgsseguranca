@@ -7,19 +7,15 @@ import {
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsCNPJ } from '../../../shared/validators/cnpj.validator';
 import { IsCPF } from '../../../shared/validators/cpf.validator';
 
-const stripScript = (value: string) =>
-  typeof value === 'string'
-    ? value.replace(/<script[^>]{0,200}>/gi, '')
-    : value;
-
 export class CompleteOnboardingDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) => stripScript(value))
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Razão social é obrigatória' })
   @MaxLength(255)
   razao_social: string;
@@ -33,13 +29,13 @@ export class CompleteOnboardingDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) => stripScript(value))
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Endereço é obrigatório' })
   endereco: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) => stripScript(value))
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Responsável é obrigatório' })
   responsavel: string;
 
@@ -49,7 +45,7 @@ export class CompleteOnboardingDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: string }) => stripScript(value))
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Nome do administrador é obrigatório' })
   admin_nome: string;
 

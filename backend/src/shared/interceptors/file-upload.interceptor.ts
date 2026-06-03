@@ -6,7 +6,7 @@ import { open, readFile, realpath, readdir, stat, unlink } from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-const TEMP_UPLOAD_DIR = path.join(process.cwd(), 'temp');
+const TEMP_UPLOAD_DIR = path.resolve(process.cwd(), 'temp');
 const TEMP_UPLOAD_CLEANUP_TTL_MS = resolvePositiveIntEnv(
   'TEMP_UPLOAD_CLEANUP_TTL_MS',
   24 * 60 * 60 * 1000,
@@ -71,6 +71,28 @@ function sanitizeExtension(originalName?: string): string {
 function createTempFilename(originalName?: string): string {
   const extension = sanitizeExtension(originalName);
   return `${Date.now()}-${randomUUID()}${extension}`;
+}
+
+function resolvePathInsideDirectory(
+  baseDirectory: string,
+  candidatePath: string,
+): string {
+  const resolvedBase = path.resolve(baseDirectory);
+  const resolvedCandidate = path.resolve(candidatePath);
+  const relativePath = path.relative(resolvedBase, resolvedCandidate);
+  const isInside =
+    relativePath.length === 0 ||
+    (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+
+  if (!isInside) {
+    throw new BadRequestException('Caminho de arquivo temporário inválido.');
+  }
+
+  return resolvedCandidate;
+}
+
+function resolveTempUploadPath(candidatePath: string): string {
+  return resolvePathInsideDirectory(TEMP_UPLOAD_DIR, candidatePath);
 }
 
 function detectMimeFromMagicBytes(buffer: Buffer): string | null {
@@ -316,7 +338,8 @@ export async function readUploadedFileBuffer(
   }
 
   if (file.path) {
-    const buffer = await readFile(file.path);
+    const filePath = resolveTempUploadPath(file.path);
+    const buffer = await readFile(filePath);
     if (buffer.length === 0) {
       throw new BadRequestException('Falha ao ler o arquivo enviado.');
     }
@@ -383,9 +406,10 @@ export async function cleanupUploadedTempFile(
     return;
   }
 
-  await unlink(file.path).catch((error) => {
+  const filePath = resolveTempUploadPath(file.path);
+  await unlink(filePath).catch((error) => {
     logger?.warn(
-      `Falha ao remover arquivo temporário ${file.path}: ${
+      `Falha ao remover arquivo temporário ${filePath}: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -398,7 +422,9 @@ export async function cleanupStaleTempUploads(options?: {
   now?: number;
   logger?: UploadLogger;
 }): Promise<TempUploadCleanupSummary> {
-  const directory = options?.directory ?? prepareTempUploadDir();
+  const directory = options?.directory
+    ? resolvePathInsideDirectory(TEMP_UPLOAD_DIR, options.directory)
+    : prepareTempUploadDir();
   const resolvedDirectory = await realpath(directory);
   const ttlMs = options?.ttlMs ?? TEMP_UPLOAD_CLEANUP_TTL_MS;
   const now = options?.now ?? Date.now();
@@ -429,7 +455,10 @@ export async function cleanupStaleTempUploads(options?: {
       });
       continue;
     }
-    const filePath = `${resolvedDirectory}${path.sep}${safeName}`;
+    const filePath = resolvePathInsideDirectory(
+      resolvedDirectory,
+      path.join(resolvedDirectory, safeName),
+    );
 
     try {
       const fileStat = await stat(filePath);
@@ -511,7 +540,9 @@ export async function validatePdfMagicBytesFromPath(
   fileInspectionService?: FileInspectionServiceLike,
   filename = path.basename(filePath),
 ) {
-  const handle = await open(filePath, 'r');
+  const resolvedFilePath = resolveTempUploadPath(filePath);
+  const safeFilename = path.basename(filename);
+  const handle = await open(resolvedFilePath, 'r');
   try {
     const sample = Buffer.alloc(4100);
     const { bytesRead } = await handle.read(sample, 0, sample.length, 0);
@@ -521,6 +552,9 @@ export async function validatePdfMagicBytesFromPath(
   }
 
   if (fileInspectionService) {
-    await fileInspectionService.inspect(await readFile(filePath), filename);
+    await fileInspectionService.inspect(
+      await readFile(resolvedFilePath),
+      safeFilename,
+    );
   }
 }

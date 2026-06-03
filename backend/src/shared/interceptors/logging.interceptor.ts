@@ -209,8 +209,14 @@ export class LoggingInterceptor implements NestInterceptor {
     const trimmed = raw.trim();
     if (!trimmed) return trimmed;
 
-    // Email heuristic
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    const atIndex = trimmed.indexOf('@');
+    const dotAfterAt = atIndex > 0 ? trimmed.indexOf('.', atIndex + 2) : -1;
+    if (
+      atIndex > 0 &&
+      dotAfterAt > atIndex + 1 &&
+      dotAfterAt < trimmed.length - 1 &&
+      !trimmed.includes(' ')
+    ) {
       return maskEmail(trimmed);
     }
 

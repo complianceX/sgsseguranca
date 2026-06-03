@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { ChecklistItemDto } from './checklist-item.dto';
 import { ChecklistTopicDto } from './checklist-topic.dto';
 import {
@@ -21,38 +22,28 @@ import {
   type ChecklistStatus,
 } from '../types/checklist-item.type';
 
-/** Remove script blocks, inline event handlers e javascript: URIs de campos de texto livre. */
-function sanitizeTextField(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  return value
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, '')
-    .replace(/<\/script\s*>/gi, '')
-    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/javascript\s*:/gi, '');
-}
-
 export class CreateChecklistDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Título é obrigatório' })
   titulo: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   descricao?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   equipamento?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   maquina?: string;
 

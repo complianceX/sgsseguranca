@@ -6,36 +6,25 @@ import {
   IsString,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 
 export class CreateMachineDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Nome da máquina é obrigatório' })
   nome: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   titulo?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   placa?: string;
 
@@ -44,21 +33,13 @@ export class CreateMachineDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   descricao?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   requisitos_seguranca?: string;
 

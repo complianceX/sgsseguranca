@@ -1,65 +1,42 @@
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAssistedAprDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   title?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   description?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   activity?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   process?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   equipment?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   machine?: string;
 
@@ -78,21 +55,13 @@ export class CreateAssistedAprDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   site_name?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   company_name?: string;
 }

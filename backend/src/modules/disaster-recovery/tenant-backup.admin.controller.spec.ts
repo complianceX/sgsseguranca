@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { mkdirSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PERMISSIONS_KEY } from '../auth/permissions.decorator';
@@ -27,6 +27,11 @@ function getControllerHandler(
 
 describe('TenantBackupAdminController hardening', () => {
   const reflector = new Reflector();
+  const tenantBackupUploadDir = path.resolve(
+    process.cwd(),
+    'temp',
+    'tenant-backups',
+  );
 
   it('exige permissão explícita e step-up nos comandos manuais de DR', () => {
     const backupHandler = getControllerHandler('triggerTenantBackup');
@@ -59,11 +64,15 @@ describe('TenantBackupAdminController hardening', () => {
   });
 
   it('aceita somente arquivo .json.gz com assinatura gzip para restore por upload', async () => {
+    mkdirSync(tenantBackupUploadDir, { recursive: true });
     const controller = new TenantBackupAdminController(
       {} as ConstructorParameters<typeof TenantBackupAdminController>[0],
       {} as ConstructorParameters<typeof TenantBackupAdminController>[1],
     ) as unknown as TenantBackupAdminControllerPrivate;
-    const filePath = path.join(tmpdir(), `${randomUUID()}.json.gz`);
+    const filePath = path.join(
+      tenantBackupUploadDir,
+      `${randomUUID()}.json.gz`,
+    );
     await fs.writeFile(filePath, Buffer.from([0x1f, 0x8b, 0x08, 0x00]));
 
     await expect(
@@ -77,11 +86,15 @@ describe('TenantBackupAdminController hardening', () => {
   });
 
   it('bloqueia upload de restore sem assinatura gzip', async () => {
+    mkdirSync(tenantBackupUploadDir, { recursive: true });
     const controller = new TenantBackupAdminController(
       {} as ConstructorParameters<typeof TenantBackupAdminController>[0],
       {} as ConstructorParameters<typeof TenantBackupAdminController>[1],
     ) as unknown as TenantBackupAdminControllerPrivate;
-    const filePath = path.join(tmpdir(), `${randomUUID()}.json.gz`);
+    const filePath = path.join(
+      tenantBackupUploadDir,
+      `${randomUUID()}.json.gz`,
+    );
     await fs.writeFile(filePath, Buffer.from('not gzip', 'utf8'));
 
     await expect(

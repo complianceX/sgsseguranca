@@ -126,6 +126,9 @@ const RESTORE_CONFIRM_PREFIX = 'RESTORE';
 const TENANT_BACKUP_ENCRYPTION_KEY_ENV = 'TENANT_BACKUP_ENCRYPTION_KEY';
 const RESTORE_DANGEROUS_IN_PROD_ENV = 'DR_ALLOW_TENANT_OVERWRITE_IN_PRODUCTION';
 const INSERT_BATCH_SIZE = 200;
+const UUID_SEGMENT_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BACKUP_ID_SEGMENT_PATTERN = /^tenant-\d{8}-\d{6}-[0-9a-f]{8}$/i;
 
 @Injectable()
 export class TenantBackupService {
@@ -146,14 +149,18 @@ export class TenantBackupService {
     companyId: string,
     options: CreateBackupOptions,
   ): Promise<TenantBackupExecutionResult> {
+    const safeCompanyId = this.assertSafeUuidSegment(companyId, 'companyId');
     const backupId = this.generateBackupId();
     const backupRoot = this.getBackupRoot();
-    const companyBackupDir = path.join(backupRoot, companyId);
-    const backupFilePath = path.join(
+    const companyBackupDir = this.resolvePathInsideDirectory(
+      backupRoot,
+      path.join(backupRoot, safeCompanyId),
+    );
+    const backupFilePath = this.resolvePathInsideDirectory(
       companyBackupDir,
       `${backupId}${TENANT_BACKUP_FILE_SUFFIX}`,
     );
-    const metadataFilePath = path.join(
+    const metadataFilePath = this.resolvePathInsideDirectory(
       companyBackupDir,
       `${backupId}${TENANT_BACKUP_META_SUFFIX}`,
     );
@@ -249,7 +256,12 @@ export class TenantBackupService {
   }
 
   async listBackups(companyId: string): Promise<TenantBackupListItem[]> {
-    const companyBackupDir = path.join(this.getBackupRoot(), companyId);
+    const safeCompanyId = this.assertSafeUuidSegment(companyId, 'companyId');
+    const backupRoot = this.getBackupRoot();
+    const companyBackupDir = this.resolvePathInsideDirectory(
+      backupRoot,
+      path.join(backupRoot, safeCompanyId),
+    );
 
     let entries: string[];
     try {
@@ -268,7 +280,10 @@ export class TenantBackupService {
     const listItems: TenantBackupListItem[] = [];
 
     for (const metadataFile of metadataFiles) {
-      const metadataPath = path.join(companyBackupDir, metadataFile);
+      const metadataPath = this.resolvePathInsideDirectory(
+        companyBackupDir,
+        path.join(companyBackupDir, path.basename(metadataFile)),
+      );
       try {
         const raw = await fs.readFile(metadataPath, 'utf8');
         const parsed = JSON.parse(raw) as TenantBackupListItem;
@@ -727,7 +742,7 @@ export class TenantBackupService {
     input: ResolveBackupFilePathInput,
   ): Promise<string> {
     if (input.backupFilePath) {
-      return path.resolve(input.backupFilePath);
+      return this.resolveExistingUploadedBackupPath(input.backupFilePath);
     }
 
     if (!input.backupId) {
@@ -739,11 +754,23 @@ export class TenantBackupService {
     const normalizedId = input.backupId.endsWith(TENANT_BACKUP_FILE_SUFFIX)
       ? input.backupId.slice(0, -TENANT_BACKUP_FILE_SUFFIX.length)
       : input.backupId;
-
-    const resolved = path.join(
-      this.getBackupRoot(),
+    const safeBackupId = this.assertSafeBackupIdSegment(normalizedId);
+    const safeCompanyId = this.assertSafeUuidSegment(
       input.sourceCompanyId,
-      `${normalizedId}${TENANT_BACKUP_FILE_SUFFIX}`,
+      'sourceCompanyId',
+    );
+    const backupRoot = this.getBackupRoot();
+    const companyBackupDir = this.resolvePathInsideDirectory(
+      backupRoot,
+      path.join(backupRoot, safeCompanyId),
+    );
+
+    const resolved = this.resolvePathInsideDirectory(
+      companyBackupDir,
+      path.join(
+        companyBackupDir,
+        `${safeBackupId}${TENANT_BACKUP_FILE_SUFFIX}`,
+      ),
     );
 
     try {
@@ -1728,6 +1755,45 @@ export class TenantBackupService {
     );
   }
 
+  private assertSafeUuidSegment(value: string, fieldName: string): string {
+    const normalized = String(value || '').trim();
+    if (!UUID_SEGMENT_PATTERN.test(normalized)) {
+      throw new BadRequestException(`${fieldName} inválido.`);
+    }
+    return normalized;
+  }
+
+  private assertSafeBackupIdSegment(value: string): string {
+    const normalized = String(value || '').trim();
+    if (!BACKUP_ID_SEGMENT_PATTERN.test(normalized)) {
+      throw new BadRequestException('backup_id inválido.');
+    }
+    return normalized;
+  }
+
+  private resolvePathInsideDirectory(
+    baseDirectory: string,
+    candidatePath: string,
+  ): string {
+    const resolvedBase = path.resolve(baseDirectory);
+    const resolvedCandidate = path.resolve(candidatePath);
+    const relativePath = path.relative(resolvedBase, resolvedCandidate);
+    const isInside =
+      relativePath.length === 0 ||
+      (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+
+    if (!isInside) {
+      throw new BadRequestException('Caminho de backup inválido.');
+    }
+
+    return resolvedCandidate;
+  }
+
+  private resolveExistingUploadedBackupPath(filePath: string): string {
+    const uploadRoot = path.resolve(process.cwd(), 'temp');
+    return this.resolvePathInsideDirectory(uploadRoot, filePath);
+  }
+
   private resolveEnvironment(): string {
     const env =
       this.configService.get<string>('DR_ENVIRONMENT_NAME') ??
@@ -1781,7 +1847,9 @@ export class TenantBackupService {
 
   private async safeDeleteFile(filePath: string): Promise<number> {
     try {
-      await fs.unlink(filePath);
+      await fs.unlink(
+        this.resolvePathInsideDirectory(this.getBackupRoot(), filePath),
+      );
       return 1;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -1798,7 +1866,7 @@ export class TenantBackupService {
 
   private async safeRemoveUploadedFile(filePath: string): Promise<void> {
     try {
-      await fs.unlink(filePath);
+      await fs.unlink(this.resolveExistingUploadedBackupPath(filePath));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return;

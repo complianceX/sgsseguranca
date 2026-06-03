@@ -11,6 +11,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsCPF } from '../../../shared/validators/cpf.validator';
 import { ValidationMessages } from '../../../shared/validation/validation-messages';
@@ -29,11 +30,7 @@ export class CreateUserDto {
   })
   @IsString({ message: ValidationMessages.IS_STRING('Nome') })
   @Trim()
-  @Transform(({ value }: { value: string }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: ValidationMessages.IS_NOT_EMPTY('Nome') })
   @MinLength(3, { message: ValidationMessages.MIN_LENGTH('Nome', 3) })
   @MaxLength(100, { message: ValidationMessages.MAX_LENGTH('Nome', 100) })

@@ -1045,7 +1045,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
-    if (!files.length) {
+    if (!Array.isArray(files) || !files.length) {
       throw new BadRequestException('Nenhuma foto enviada.');
     }
 
@@ -1081,6 +1081,9 @@ export class PhotographicReportsService {
     try {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
+        if (!file || typeof file !== 'object' || Array.isArray(file)) {
+          throw new BadRequestException('Arquivo de foto inválido.');
+        }
         const buffer = await readUploadedFileBuffer(
           file,
           'Nenhuma foto enviada.',

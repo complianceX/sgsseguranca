@@ -1,25 +1,18 @@
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsArray, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   title?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   description?: string;
 
@@ -29,31 +22,19 @@ export class CreateAssistedNonConformityDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   local_setor_area?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   responsavel_area?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   tipo?: string;
 
@@ -68,21 +49,13 @@ export class CreateAssistedNonConformityDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   source_context?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   image_analysis_summary?: string;
 
@@ -98,11 +71,7 @@ export class CreateAssistedNonConformityDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   image_notes?: string;
 }

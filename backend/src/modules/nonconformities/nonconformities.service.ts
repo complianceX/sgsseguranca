@@ -264,12 +264,15 @@ export class NonConformitiesService {
   }
 
   private getInlineAttachmentPayloadBytes(dataUrl: string): number | null {
-    const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
-    if (!match) {
+    const base64Marker = ';base64,';
+    const markerIndex = dataUrl.indexOf(base64Marker);
+    if (!dataUrl.startsWith('data:') || markerIndex <= 'data:'.length) {
       return null;
     }
 
-    const base64Payload = match[2].replace(/\s+/g, '');
+    const base64Payload = dataUrl
+      .slice(markerIndex + base64Marker.length)
+      .replace(/\s+/g, '');
     if (!base64Payload) {
       return 0;
     }

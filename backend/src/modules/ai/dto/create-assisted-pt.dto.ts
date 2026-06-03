@@ -1,4 +1,5 @@
 import { Transform } from 'class-transformer';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import {
   IsBoolean,
@@ -11,21 +12,13 @@ import {
 export class CreateAssistedPtDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   title?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   description?: string;
 
@@ -44,21 +37,13 @@ export class CreateAssistedPtDto {
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   site_name?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string'
-      ? value.replace(/<script[^>]{0,200}>/gi, '')
-      : value,
-  )
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   company_name?: string;
 

@@ -182,7 +182,8 @@ export class PhotographicReportsController {
     @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: UploadPhotographicReportImagesDto,
   ) {
-    return this.photographicReportsService.uploadImages(id, files || [], dto);
+    const uploadedFiles = Array.isArray(files) ? files : [];
+    return this.photographicReportsService.uploadImages(id, uploadedFiles, dto);
   }
 
   @Patch(':id/images/:imageId')
