@@ -1,0 +1,24 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit-trail/audit.module';
+import { CommonModule } from '../../shared/common.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+import { Cat } from './entities/cat.entity';
+import { PublicCatsController } from './public-cats.controller';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Cat, User, Site]),
+    CommonModule,
+    AuditModule,
+    DocumentRegistryModule,
+  ],
+  controllers: [CatsController, PublicCatsController],
+  providers: [CatsService],
+  exports: [CatsService],
+})
+export class CatsModule {}

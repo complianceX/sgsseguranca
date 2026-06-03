@@ -34,7 +34,7 @@ O sistema hoje tem estes blocos principais:
   - persistencia principal
 - `redis`
   - fila, cache e coordenacao operacional
-- `cloudflare r2`
+- `backblaze b2`
   - storage governado de PDFs, videos e anexos oficiais
 - `mail`
   - envio de notificacoes e artefatos documentais
@@ -49,7 +49,7 @@ flowchart LR
     FE --> API[Backend NestJS]
     API --> PG[(Postgres)]
     API --> REDIS[(Redis / BullMQ)]
-    API --> R2[Cloudflare R2]
+    API --> R2[Backblaze B2 / S3 compativel]
     API --> MAIL[Email Provider]
     API --> AI[OpenAI / Anthropic]
     REDIS --> WORKER[Worker / Jobs]
@@ -709,7 +709,7 @@ Observacao:
 Padrao principal:
 
 - pagina em `frontend/app/dashboard/<modulo>`
-- service em `frontend/services/<modulo>Service.ts`
+- service em `frontend/src/services/<modulo>Service.ts`
 - controller em `backend/src/<modulo>/<modulo>.controller.ts`
 - service de dominio em `backend/src/<modulo>/<modulo>.service.ts`
 
@@ -720,7 +720,7 @@ Padrao principal:
 - `DocumentStorageService`
 - `DocumentGovernanceService`
 - `DocumentRegistryService`
-- `S3Service` configurado para Cloudflare R2 no ambiente atual
+- `S3Service` configurado para Backblaze B2 via API S3 compativel no ambiente atual
 
 ### Backend para fila
 

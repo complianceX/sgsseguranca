@@ -1,4 +1,4 @@
-import { resolveRedisConnection } from './common/redis/redis-connection.util';
+import { resolveRedisConnection } from './shared/redis/redis-connection.util';
 
 export function assertWorkerRedisContract(env: NodeJS.ProcessEnv): void {
   if (/^true$/i.test(env.REDIS_DISABLED || '')) {

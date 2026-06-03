@@ -1,1 +1,1 @@
-export { DDS_THEME_LIBRARY, type DdsThemeSeed } from '../src/dds/templates/dds-theme-library';
+export { DDS_THEME_LIBRARY, type DdsThemeSeed } from '../src/modules/dds/templates/dds-theme-library';

@@ -59,7 +59,7 @@ Verifique:
 
 Audite:
 
-- `frontend/components/document-videos/`
+- `frontend/src/components/document-videos/`
 - integracao do formulario
 - service do modulo
 - backend `document-videos`
@@ -83,7 +83,7 @@ Verifique nesta ordem:
    - `npm run start:worker`
 3. a fila `mail` esta sendo consumida
 4. o provedor ativo de envio
-5. se a Brevo API esta aceitando o IP de saida atual do Railway
+5. se a Brevo API esta aceitando o IP de saida atual do provedor de runtime
 
 Diagnostico atual do projeto:
 
@@ -97,7 +97,7 @@ Como saber qual provedor esta ativo:
 - se existir `BREVO_API_KEY`, o `MailService` prioriza Brevo API
 - sem `BREVO_API_KEY` e com `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS`, `MAIL_PORT` e `MAIL_SECURE`, o sistema usa SMTP
 
-O que checar no Railway:
+O que checar no provedor de runtime atual (Render):
 
 - servico `Backend`
 - servico `Worker`
@@ -114,7 +114,7 @@ O que checar no Railway:
 O que checar na Brevo:
 
 - `Security > Authorised IPs`
-- se o IP de saida do Railway apareceu como nao autorizado
+- se o IP de saida do runtime apareceu como nao autorizado
 - se o IP foi realmente movido para a lista de autorizados
 
 Sintomas comuns e causa raiz:
@@ -122,7 +122,7 @@ Sintomas comuns e causa raiz:
 - request `201` no backend, PDF salvo e job criado, mas o e-mail nao chega
   - normalmente indica fila/worker ou falha do provedor, nao problema do PDF
 - log com `Brevo bloqueou o IP de saída do servidor (...)`
-  - causa raiz: IP atual do Railway nao autorizado em `Brevo > Security > Authorised IPs`
+  - causa raiz: IP atual do runtime nao autorizado em `Brevo > Security > Authorised IPs`
 - log com `Circuit breaker integration:brevo_email is OPEN`
   - a integracao entrou em protecao apos falhas consecutivas; aguarde a janela de reset e confirme os IPs autorizados
 - job `queued` com `attemptsMade = 0`
@@ -138,9 +138,9 @@ Se houver jobs antigos com falha:
 
 Onde olhar no codigo:
 
-- `backend/src/mail/mail.service.ts`
-- `backend/src/mail/mail.controller.ts`
-- `backend/src/mail/mail.processor.ts`
+- `backend/src/infra/mail/mail.service.ts`
+- `backend/src/infra/mail/mail.controller.ts`
+- `backend/src/infra/mail/mail.processor.ts`
 - `backend/src/worker.module.ts`
 
 ## PDF final indisponivel

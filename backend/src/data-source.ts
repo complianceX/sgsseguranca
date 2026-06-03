@@ -4,7 +4,7 @@ import {
   doesDatabaseUrlRequireSsl,
   parseBooleanFlag,
   resolveDbSslOptions,
-} from './common/database/db-ssl.util';
+} from './shared/database/db-ssl.util';
 
 // Para migrations/setup: preferir DATABASE_MIGRATION_URL ou DATABASE_DIRECT_URL.
 // Essas URLs devem usar a role administrativa/DDL. DATABASE_URL fica reservado
@@ -84,7 +84,7 @@ export default new DataSource(
         // Glob preciso: exclui diretórios que não contêm entities de domínio.
         // A estrutura dist/ espelha src/ sem o prefixo src/ (rootDir: "src").
         entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
-        migrations: ['dist/database/migrations/*.js'],
+        migrations: ['dist/infra/database/migrations/*.js'],
       }
     : {
         type: 'postgres',
@@ -113,6 +113,6 @@ export default new DataSource(
           process.env.POSTGRES_DB,
         ssl: getSslConfig(),
         entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
-        migrations: ['dist/database/migrations/*.js'],
+        migrations: ['dist/infra/database/migrations/*.js'],
       },
 );

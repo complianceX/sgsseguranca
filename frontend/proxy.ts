@@ -35,6 +35,7 @@ function buildCsp(nonce: string): string {
     "https://*.sentry.io",
     "https://challenges.cloudflare.com",
     "https://*.r2.cloudflarestorage.com",
+    "https://*.backblazeb2.com",
     "https://api.elevenlabs.io",
     "wss://api.elevenlabs.io",
   ].filter(Boolean);
@@ -56,7 +57,7 @@ function buildCsp(nonce: string): string {
     `base-uri 'self'`,
     `object-src 'none'`,
     `frame-ancestors 'none'`,
-    `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com`,
+    `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.backblazeb2.com`,
     `font-src 'self' data:`,
     // Endurecimento incremental:
     // - mantém compatibilidade com style="" legado via style-src-attr
@@ -67,7 +68,7 @@ function buildCsp(nonce: string): string {
     `script-src ${scriptSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `frame-src 'self' https://challenges.cloudflare.com`,
-    `media-src 'self' blob: data: ${[apiOrigin, "https://*.r2.cloudflarestorage.com", "https://api.elevenlabs.io"].filter(Boolean).join(" ")}`,
+    `media-src 'self' blob: data: ${[apiOrigin, "https://*.r2.cloudflarestorage.com", "https://*.backblazeb2.com", "https://api.elevenlabs.io"].filter(Boolean).join(" ")}`,
     `worker-src 'self' blob:`,
     `form-action 'self'`,
     "upgrade-insecure-requests",

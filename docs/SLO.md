@@ -74,8 +74,9 @@ Um deploy pode ser promovido para produção quando, durante 15 minutos de tráf
 
 ### Critérios de rollback automático
 
-Render realiza rollback automático se `preDeployCommand` falhar. Rollback manual deve ser
-considerado se qualquer um dos critérios acima for violado por mais de 5 minutos após deploy.
+Migrations rodam no job separado `sgs-migrations`, antes da promocao de releases
+que dependam de schema novo. Rollback manual deve ser considerado se qualquer um
+dos critérios acima for violado por mais de 5 minutos após deploy.
 
 ---
 

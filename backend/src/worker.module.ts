@@ -9,36 +9,36 @@ import type { Redis } from 'ioredis';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
-import { DatabaseLogger } from './common/logging/database.logger';
-import { RedisModule } from './common/redis/redis.module';
-import { REDIS_CLIENT_BULLMQ } from './common/redis/redis.constants';
-import { MailWorkerModule } from './mail/mail.worker.module';
-import { DocumentImportWorkerModule } from './document-import/document-import.worker.module';
-import { ReportsWorkerModule } from './reports/reports.worker.module';
-import { QueueServicesModule } from './queue/queue-services.module';
-import { ObservabilityModule } from './common/observability/observability.module';
-import { ObservabilityWorkerModule } from './common/observability/observability.worker.module';
+import { DatabaseLogger } from './shared/logging/database.logger';
+import { RedisModule } from './shared/redis/redis.module';
+import { REDIS_CLIENT_BULLMQ } from './shared/redis/redis.constants';
+import { MailWorkerModule } from './infra/mail/mail.worker.module';
+import { DocumentImportWorkerModule } from './modules/document-import/document-import.worker.module';
+import { ReportsWorkerModule } from './modules/reports/reports.worker.module';
+import { QueueServicesModule } from './infra/queue/queue-services.module';
+import { ObservabilityModule } from './shared/observability/observability.module';
+import { ObservabilityWorkerModule } from './shared/observability/observability.worker.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
-import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
-import { DocumentRetentionWorkerModule } from './tasks/document-retention-worker.module';
-import { RbacModule } from './rbac/rbac.module';
-import { SecurityAuditModule } from './common/security/security-audit.module';
-import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
+import { ExpiryNotificationsWorkerModule } from './modules/tasks/expiry-notifications-worker.module';
+import { DocumentRetentionWorkerModule } from './modules/tasks/document-retention-worker.module';
+import { RbacModule } from './modules/rbac/rbac.module';
+import { SecurityAuditModule } from './shared/security/security-audit.module';
+import { WorkerHeartbeatReporterService } from './shared/redis/worker-heartbeat-reporter.service';
 import {
   isLocalRedisConnection,
   resolveRedisConnection,
-} from './common/redis/redis-connection.util';
+} from './shared/redis/redis-connection.util';
 import {
   doesDatabaseUrlRequireSsl,
   isNeonPoolerHost,
   parseBooleanFlag,
   resolveDatabaseHostname,
   resolveDbSslOptions,
-} from './common/database/db-ssl.util';
-import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
-import { DashboardWorkerModule } from './dashboard/dashboard.worker.module';
-import { DisasterRecoveryWorkerModule } from './disaster-recovery/disaster-recovery.worker.module';
-import { TasksWorkerModule } from './tasks/tasks.worker.module';
+} from './shared/database/db-ssl.util';
+import { PostgresApplicationNameService } from './shared/database/postgres-application-name.service';
+import { DashboardWorkerModule } from './modules/dashboard/dashboard.worker.module';
+import { DisasterRecoveryWorkerModule } from './modules/disaster-recovery/disaster-recovery.worker.module';
+import { TasksWorkerModule } from './modules/tasks/tasks.worker.module';
 
 interface RedisCacheConfig {
   store: unknown;

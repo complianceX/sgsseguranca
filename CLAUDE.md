@@ -49,10 +49,10 @@ Node:
 
 - Sempre usar `useAuth()` para autenticação e permissões.
 - Nunca usar strings literais para permissões.
-- Usar `Permission.X` de `frontend/lib/permissions.ts`.
-- Rotas protegidas devem ser configuradas em `frontend/lib/route-config.ts`.
+- Usar `Permission.X` de `frontend/src/lib/permissions.ts`.
+- Rotas protegidas devem ser configuradas em `frontend/src/lib/route-config.ts`.
 - Nunca proteger rota diretamente no layout.
-- Sempre usar `frontend/lib/api.ts` para chamadas HTTP.
+- Sempre usar `frontend/src/lib/api.ts` para chamadas HTTP.
 - Usar `toast.success()` e `toast.error()` via `sonner`.
 - Usar `ListPageLayout` e `FormPageLayout` quando aplicável.
 
@@ -64,7 +64,7 @@ Node:
 
 Sempre gerar esta estrutura:
 
-backend/src/<meu-modulo>/
+backend/src/modules/<meu-modulo>/
 ├── dto/
 │ ├── create-meu-modulo.dto.ts
 │ └── meu-modulo-response.dto.ts
@@ -78,12 +78,12 @@ backend/src/<meu-modulo>/
 
 Também criar migration manual em:
 
-backend/src/database/migrations/
+backend/src/infra/database/migrations/
 └── <timestamp>-create-meu-modulo.ts
 
 Depois, registrar o módulo em:
 
-backend/src/config/modules.config.ts
+backend/src/infra/config/modules.config.ts
 
 O módulo deve ser colocado no domínio correto.
 
@@ -167,20 +167,20 @@ frontend/app/dashboard/<meu-modulo>/
 
 Criar service em:
 
-frontend/services/meuModuloService.ts
+frontend/src/services/meuModuloService.ts
 
 Depois exportar no barrel:
 
-frontend/services/index.ts
+frontend/src/services/index.ts
 
 Se a rota exigir ADMIN_GERAL:
 
-- adicionar prefixo em `frontend/lib/route-config.ts` dentro de `ADMIN_ROUTES`.
+- adicionar prefixo em `frontend/src/lib/route-config.ts` dentro de `ADMIN_ROUTES`.
 
 Se a rota exigir permissão específica:
 
 - adicionar em `PERMISSION_ROUTE_EXCEPTIONS`
-- adicionar em `frontend/lib/permissions.ts`
+- adicionar em `frontend/src/lib/permissions.ts`
 
 ---
 

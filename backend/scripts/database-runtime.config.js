@@ -62,7 +62,8 @@ function doesDatabaseUrlRequireSsl(url) {
 function resolveSslConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
   const legacySslEnabled = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
-  const runtimeDatabaseUrl = firstNonEmpty(
+  const databaseUrl = firstNonEmpty(
+    process.env.DATABASE_MIGRATION_URL,
     process.env.DATABASE_URL,
     process.env.DATABASE_PRIVATE_URL,
     process.env.DATABASE_PUBLIC_URL,
@@ -70,16 +71,12 @@ function resolveSslConfig() {
     process.env.POSTGRES_URL,
     process.env.POSTGRESQL_URL,
   );
-  const databaseUrlRequiresSsl = doesDatabaseUrlRequireSsl(runtimeDatabaseUrl);
+  const databaseUrlRequiresSsl = doesDatabaseUrlRequireSsl(databaseUrl);
   const sslEnabled =
     parseBooleanFlag(process.env.DATABASE_SSL) ||
     legacySslEnabled ||
     databaseUrlRequiresSsl;
   const sslCA = firstNonEmpty(process.env.DATABASE_SSL_CA);
-
-  if (!isProduction && !sslEnabled) {
-    return false;
-  }
 
   if (!isProduction && !sslEnabled) {
     return false;
@@ -121,9 +118,10 @@ function isSupabaseHost(hostname) {
 
   const normalized = hostname.toLowerCase();
   return (
-    normalized.includes('supabase.co') ||
-    normalized.includes('pooler.supabase.com') ||
-    normalized.includes('.supabase.')
+    normalized === 'supabase.co' ||
+    normalized.endsWith('.supabase.co') ||
+    normalized === 'pooler.supabase.com' ||
+    normalized.endsWith('.pooler.supabase.com')
   );
 }
 

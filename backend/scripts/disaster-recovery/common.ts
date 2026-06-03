@@ -329,7 +329,7 @@ export async function runWithSuperAdminContext<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   const { TenantService } =
-    await import('../../src/common/tenant/tenant.service');
+    await import('../../src/shared/tenant/tenant.service');
   const tenantService = app.get(TenantService);
   return await tenantService.run(
     { companyId: undefined, isSuperAdmin: true },

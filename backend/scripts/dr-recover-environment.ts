@@ -1,13 +1,13 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { DisasterRecoveryExecutionService } from '../src/disaster-recovery/disaster-recovery-execution.service';
-import type { DisasterRecoveryIntegrityScanReport } from '../src/disaster-recovery/disaster-recovery.types';
-import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/disaster-recovery/disaster-recovery.constants';
+import { DisasterRecoveryExecutionService } from '../src/modules/disaster-recovery/disaster-recovery-execution.service';
+import type { DisasterRecoveryIntegrityScanReport } from '../src/modules/disaster-recovery/disaster-recovery.types';
+import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/modules/disaster-recovery/disaster-recovery.constants';
 import {
   assertSafeSeparateEnvironmentRecovery,
   resolveDisasterRecoveryEnvironment,
   resolveRuntimeNodeEnvironment,
-} from '../src/disaster-recovery/disaster-recovery.util';
+} from '../src/modules/disaster-recovery/disaster-recovery.util';
 import {
   appendAuditLog,
   getStringArg,

@@ -102,7 +102,7 @@ Variáveis críticas de produção:
 
 Fluxo recomendado em produção:
 
-1. Aplicar migration antes de subir nova versão:
+1. Aplicar migration pelo job separado antes de subir nova versão:
 `npm run release:migrate`
 2. Subir aplicação:
 `npm run start:web`
@@ -111,22 +111,26 @@ Fluxo recomendado em produção:
 4. Habilitar proteção de startup:
 `REQUIRE_NO_PENDING_MIGRATIONS=true`
 
-No Render, configure `npm run migration:run` como pre-deploy step do serviço web.
+No Render, nao configure migrations no `preDeployCommand` do serviço web.
+Execute `sgs-migrations` manualmente quando a release alterar schema. O job deve
+receber `DATABASE_MIGRATION_URL` da role owner/DDL; web e worker recebem apenas
+`DATABASE_URL` da role runtime sem `BYPASSRLS`.
 
-## Deploy Render + Redis Externo + Supabase (V1)
+## Deploy Render + Redis Externo + Neon
 
 Modelo operacional aprovado para este projeto:
 
 - backend continua em NestJS
-- banco em Supabase Postgres (session pooler 5432)
+- banco em Neon Postgres com URL direta enquanto RLS depender de contexto de sessao
 - web e worker no Render como servicos separados
+- migrations em job separado no Render, fora do deploy automatico do web
 - Redis fica fora do Render, em provedor externo com tres URLs lógicas
+- storage oficial em Backblaze B2 via API S3 compativel
 
 Comandos esperados no Render:
 
 - `backend-web`
   - build: `npm ci && npm run build`
-  - pre-deploy: `npm run migration:run`
   - start: `npm run start:web`
 - `backend-worker`
   - build: `npm ci && npm run build`
@@ -134,7 +138,7 @@ Comandos esperados no Render:
 
 Variaveis criticas em ambos os servicos:
 
-- `DATABASE_URL` (Supabase, com `sslmode=require`)
+- `DATABASE_URL` (Neon direta da role runtime, com `sslmode=require`)
 - `DATABASE_SSL=true`
 - `DATABASE_SSL_ALLOW_INSECURE=false`
 - `REDIS_AUTH_URL`, `REDIS_CACHE_URL`, `REDIS_QUEUE_URL`
@@ -144,11 +148,12 @@ Variaveis criticas em ambos os servicos:
 - `CORS_ALLOWED_ORIGINS`
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
-- `AWS_S3_BUCKET`
+- `AWS_S3_BUCKET` / `AWS_BUCKET_NAME`
+- `AWS_S3_ENDPOINT` / `AWS_ENDPOINT` (Backblaze B2 S3 compativel)
 
-Runbook completo de cutover/rollback:
+Runbooks operacionais:
 
-- `backend/docs/RENDER_SUPABASE_CUTOVER.md`
+- `docs/deploy/secure-render-release.md`
 
 ## Etapas 5, 6 e 7
 

@@ -2,8 +2,8 @@ import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { Role } from '../../src/auth/enums/roles.enum';
-import { TenantBackupService } from '../../src/disaster-recovery/tenant-backup.service';
+import { Role } from '../../src/modules/auth/enums/roles.enum';
+import { TenantBackupService } from '../../src/modules/disaster-recovery/tenant-backup.service';
 import { createApr } from '../factories/apr.factory';
 import { TestApp } from '../helpers/test-app';
 

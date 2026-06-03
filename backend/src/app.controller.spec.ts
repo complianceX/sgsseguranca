@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
-import { RedisService } from './common/redis/redis.service';
+import { RedisService } from './shared/redis/redis.service';
 
 type RedisClientMock = {
   ping: jest.Mock<Promise<string>, []>;

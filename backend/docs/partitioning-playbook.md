@@ -161,7 +161,7 @@ O retention worker (`AI_HISTORY_MAX_DAYS=90`) precisa ser estendido para:
 1. **Mensalmente**: criar a partição do próximo mês
 2. **Após 90 dias**: `DROP PARTITION ai_interactions_YYYY_MM` ao invés de DELETE
 
-Ver `backend/src/common/storage/document-retention.service.ts` —
+Ver `backend/src/shared/storage/document-retention.service.ts` —
 adicionar handler análogo para particionamento.
 
 ---

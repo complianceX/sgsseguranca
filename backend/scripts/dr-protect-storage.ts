@@ -1,7 +1,7 @@
 import * as path from 'path';
-import { DisasterRecoveryStorageProtectionService } from '../src/disaster-recovery/disaster-recovery-storage-protection.service';
-import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/disaster-recovery/disaster-recovery.constants';
-import { resolveDisasterRecoveryEnvironment } from '../src/disaster-recovery/disaster-recovery.util';
+import { DisasterRecoveryStorageProtectionService } from '../src/modules/disaster-recovery/disaster-recovery-storage-protection.service';
+import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/modules/disaster-recovery/disaster-recovery.constants';
+import { resolveDisasterRecoveryEnvironment } from '../src/modules/disaster-recovery/disaster-recovery.util';
 import {
   appendAuditLog,
   getStringArg,

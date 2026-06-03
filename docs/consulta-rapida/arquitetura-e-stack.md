@@ -8,7 +8,7 @@ O sistema e uma plataforma SaaS de SST/GST com frontend web, backend API, worker
 
 ### Frontend
 
-- stack: Next.js 15
+- stack: Next.js 16
 - pasta: `frontend/`
 - papel: login, dashboard, CRUDs, formularios densos, fluxos documentais e shell autenticado
 

@@ -26,19 +26,19 @@ import type {
   RequestHandler,
 } from 'express';
 import type { Queue } from 'bullmq';
-import { buildStructuredLoggerOptions } from './common/logging/structured-winston';
-import { createStructuredWinstonLogger } from './common/logging/structured-winston';
+import { buildStructuredLoggerOptions } from './shared/logging/structured-winston';
+import { createStructuredWinstonLogger } from './shared/logging/structured-winston';
 import {
   initializeTelemetry,
   type TelemetryRuntime,
-} from './common/observability/opentelemetry.config';
-import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
+} from './shared/observability/opentelemetry.config';
+import { initSentry, type SentryInitStatus } from './shared/monitoring/sentry';
 import {
   isCorsOriginAllowed,
   resolveAllowedCorsOrigins,
-} from './common/security/cors-origins';
-import { ALLOWED_CORS_HEADERS } from './common/security/cors-headers';
-import { constantTimeEquals } from './common/security/constant-time.util';
+} from './shared/security/cors-origins';
+import { ALLOWED_CORS_HEADERS } from './shared/security/cors-headers';
+import { constantTimeEquals } from './shared/security/constant-time.util';
 import type { VersionValue } from '@nestjs/common/interfaces';
 
 const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
@@ -112,7 +112,7 @@ async function bootstrap() {
     { AllExceptionsFilter },
     { SwaggerModule, DocumentBuilder },
   ] = await Promise.all([
-    import('./common/database/migration-startup.guard'),
+    import('./shared/database/migration-startup.guard'),
     import('@nestjs/core'),
     import('@nestjs/common'),
     import('./app.module'),
@@ -123,7 +123,7 @@ async function bootstrap() {
     import('@nestjs/bullmq'),
     import('nest-winston'),
     import('helmet'),
-    import('./common/filters/http-exception.filter'),
+    import('./shared/filters/http-exception.filter'),
     import('@nestjs/swagger'),
   ]);
   const cookieParserImport: unknown = await import('cookie-parser');
@@ -304,7 +304,7 @@ async function bootstrap() {
   // Proteção contra prototype pollution — rejeita body com __proto__/constructor/prototype.
   // Deve rodar APÓS body-parser (que converte JSON string → objeto) e ANTES dos guards.
   const { protoPollutionMiddleware } =
-    await import('./common/middleware/proto-pollution.middleware');
+    await import('./shared/middleware/proto-pollution.middleware');
   app.use(protoPollutionMiddleware);
 
   app.useGlobalPipes(

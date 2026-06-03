@@ -1,0 +1,24 @@
+import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { QueueMonitorService } from './queue-monitor.service';
+import { TempCleanupService } from '../../shared/services/temp-cleanup.service';
+import { DlqRetentionService } from './dlq-retention.service';
+
+@Module({
+  imports: [
+    BullModule.registerQueue(
+      { name: 'pdf-generation' },
+      { name: 'mail' },
+      { name: 'pdf-generation-dlq' },
+      { name: 'mail-dlq' },
+      { name: 'document-import' },
+      { name: 'document-import-dlq' },
+      { name: 'sla-escalation' },
+      { name: 'expiry-notifications' },
+      { name: 'document-retention' },
+    ),
+  ],
+  providers: [QueueMonitorService, TempCleanupService, DlqRetentionService],
+  exports: [QueueMonitorService, TempCleanupService, DlqRetentionService],
+})
+export class QueueServicesModule {}

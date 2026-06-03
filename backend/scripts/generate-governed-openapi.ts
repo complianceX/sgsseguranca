@@ -20,8 +20,8 @@ import {
   getSchemaPath,
   SwaggerModule,
 } from '@nestjs/swagger';
-import { GovernedPdfAccessResponseDto } from '../src/common/dto/governed-pdf-access-response.dto';
-import { DocumentMailDispatchResponseDto } from '../src/mail/dto/document-mail-dispatch-response.dto';
+import { GovernedPdfAccessResponseDto } from '../src/shared/dto/governed-pdf-access-response.dto';
+import { DocumentMailDispatchResponseDto } from '../src/infra/mail/dto/document-mail-dispatch-response.dto';
 
 /**
  * Controller virtual — existe apenas para que o SwaggerModule emita os schemas

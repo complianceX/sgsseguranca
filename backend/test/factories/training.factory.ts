@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { Training } from '../../src/trainings/entities/training.entity';
+import { Training } from '../../src/modules/trainings/entities/training.entity';
 
 export type CreateTrainingFactoryInput = {
   nome: string;
