@@ -152,10 +152,7 @@ export class TenantBackupService {
     const safeCompanyId = this.assertSafeUuidSegment(companyId, 'companyId');
     const backupId = this.generateBackupId();
     const backupRoot = this.getBackupRoot();
-    const companyBackupDir = this.resolvePathInsideDirectory(
-      backupRoot,
-      path.join(backupRoot, safeCompanyId),
-    );
+    const companyBackupDir = path.join(backupRoot, safeCompanyId);
     const backupFilePath = this.resolvePathInsideDirectory(
       companyBackupDir,
       `${backupId}${TENANT_BACKUP_FILE_SUFFIX}`,
@@ -258,10 +255,7 @@ export class TenantBackupService {
   async listBackups(companyId: string): Promise<TenantBackupListItem[]> {
     const safeCompanyId = this.assertSafeUuidSegment(companyId, 'companyId');
     const backupRoot = this.getBackupRoot();
-    const companyBackupDir = this.resolvePathInsideDirectory(
-      backupRoot,
-      path.join(backupRoot, safeCompanyId),
-    );
+    const companyBackupDir = path.join(backupRoot, safeCompanyId);
 
     let entries: string[];
     try {
@@ -760,10 +754,7 @@ export class TenantBackupService {
       'sourceCompanyId',
     );
     const backupRoot = this.getBackupRoot();
-    const companyBackupDir = this.resolvePathInsideDirectory(
-      backupRoot,
-      path.join(backupRoot, safeCompanyId),
-    );
+    const companyBackupDir = path.join(backupRoot, safeCompanyId);
 
     const resolved = this.resolvePathInsideDirectory(
       companyBackupDir,
