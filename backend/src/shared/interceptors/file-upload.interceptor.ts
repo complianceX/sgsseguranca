@@ -78,7 +78,9 @@ function resolvePathInsideDirectory(
   candidatePath: string,
 ): string {
   const resolvedBase = path.resolve(baseDirectory);
-  const resolvedCandidate = path.resolve(candidatePath);
+  const resolvedCandidate = path.isAbsolute(candidatePath)
+    ? path.resolve(candidatePath)
+    : path.resolve(resolvedBase, candidatePath);
   const relativePath = path.relative(resolvedBase, resolvedCandidate);
   const isInside =
     relativePath.length === 0 ||

@@ -101,7 +101,9 @@ function resolveTenantBackupUploadExtension(originalName?: string): string {
 
 function resolveTenantBackupUploadedPath(filePath: string): string {
   const resolvedBase = path.resolve(TENANT_BACKUP_UPLOAD_DIR);
-  const resolvedFile = path.resolve(filePath);
+  const resolvedFile = path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(resolvedBase, filePath);
   const relativePath = path.relative(resolvedBase, resolvedFile);
   const isInside =
     relativePath.length === 0 ||
