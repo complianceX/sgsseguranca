@@ -315,6 +315,7 @@ export class TenantBackupAdminController {
       );
     }
 
+
     // codeql[js/path-injection]
     const uploadPath = resolveTenantBackupUploadedPath(file.path);
     const handle = await open(uploadPath, 'r');

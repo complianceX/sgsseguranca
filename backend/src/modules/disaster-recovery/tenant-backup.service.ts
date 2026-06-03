@@ -777,6 +777,7 @@ export class TenantBackupService {
   private async readAndValidateBackupPayload(
     backupFilePath: string,
   ): Promise<TenantBackupPayload> {
+
     // codeql[js/path-injection]
     const compressed = await fs.readFile(backupFilePath);
     const uncompressed = await gunzipAsync(compressed);
@@ -1841,6 +1842,7 @@ export class TenantBackupService {
 
   private async safeDeleteFile(filePath: string): Promise<number> {
     try {
+
       // codeql[js/path-injection]
       await fs.unlink(
         this.resolvePathInsideDirectory(this.getBackupRoot(), filePath),

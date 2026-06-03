@@ -340,6 +340,7 @@ export async function readUploadedFileBuffer(
   }
 
   if (file.path) {
+
     // codeql[js/path-injection]
     const filePath = resolveTempUploadPath(file.path);
     const buffer = await readFile(filePath);
@@ -408,6 +409,7 @@ export async function cleanupUploadedTempFile(
   if (!file?.path) {
     return;
   }
+
 
   // codeql[js/path-injection]
   const filePath = resolveTempUploadPath(file.path);
@@ -544,6 +546,7 @@ export async function validatePdfMagicBytesFromPath(
   fileInspectionService?: FileInspectionServiceLike,
   filename = path.basename(filePath),
 ) {
+
   // codeql[js/path-injection]
   const resolvedFilePath = resolveTempUploadPath(filePath);
   const safeFilename = path.basename(filename);
@@ -557,6 +560,7 @@ export async function validatePdfMagicBytesFromPath(
   }
 
   if (fileInspectionService) {
+
     // codeql[js/path-injection]
     await fileInspectionService.inspect(
       await readFile(resolvedFilePath),
