@@ -9,6 +9,15 @@ describe('MachinesService (catalog cache)', () => {
   };
 
   const createService = () => {
+    const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+    const queryBuilder = {
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getManyAndCount,
+    };
     const machinesRepository = {
       find: jest.fn(),
       findOne: jest.fn(),
@@ -18,7 +27,7 @@ describe('MachinesService (catalog cache)', () => {
       merge: jest.fn((entity: EntityLike, data: EntityLike) =>
         Object.assign(entity, data),
       ),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
       count: jest.fn(),
     };
 
@@ -38,7 +47,7 @@ describe('MachinesService (catalog cache)', () => {
       tenantService as never,
     );
 
-    return { service, machinesRepository, cacheManager };
+    return { service, machinesRepository, cacheManager, queryBuilder };
   };
 
   afterEach(() => {
@@ -103,5 +112,19 @@ describe('MachinesService (catalog cache)', () => {
       `catalog:machines:${tenantId}`,
     );
     expect(cacheManager.del).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const { service, queryBuilder } = createService();
+
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
+
+    expect(queryBuilder.getManyAndCount).not.toHaveBeenCalled();
   });
 });

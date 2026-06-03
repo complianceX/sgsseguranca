@@ -719,6 +719,16 @@ describe('UsersService.findPaginated', () => {
       },
     );
   });
+
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
+  });
 });
 
 describe('UsersService.create identity classification', () => {

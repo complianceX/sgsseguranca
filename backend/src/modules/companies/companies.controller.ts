@@ -31,6 +31,7 @@ import {
   normalizeOffsetPagination,
   OffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 type AuthReq = {
   user?: {
@@ -78,10 +79,10 @@ export class CompaniesController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ): Promise<OffsetPage<CompanyResponseDto>> {
+    const normalizedSearch = normalizeOptionalSearchQuery(search);
     const isSuperAdmin = this.tenantService.isSuperAdmin();
     if (!isSuperAdmin) {
       const tenantId = req.user?.company_id || this.tenantService.getTenantId();
-      const normalizedSearch = search?.trim().toLowerCase();
       const pagination = normalizeOffsetPagination(
         {
           page: page ? Number(page) : undefined,
@@ -105,7 +106,9 @@ export class CompaniesController {
           !normalizedSearch ||
           [company.razao_social, company.cnpj, company.responsavel]
             .filter(Boolean)
-            .some((value) => value.toLowerCase().includes(normalizedSearch));
+            .some((value) =>
+              value.toLowerCase().includes(normalizedSearch.toLowerCase()),
+            );
         const data = matchesSearch ? [company] : [];
 
         return {
@@ -121,7 +124,7 @@ export class CompaniesController {
     return this.companiesService.findPaginated({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
-      search,
+      search: normalizedSearch ?? undefined,
     });
   }
 

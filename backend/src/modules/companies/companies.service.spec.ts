@@ -12,6 +12,7 @@ import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Dds } from '../dds/entities/dds.entity';
+import type { SelectQueryBuilder } from 'typeorm';
 
 describe('CompaniesService', () => {
   let service: CompaniesService;
@@ -127,6 +128,35 @@ describe('CompaniesService', () => {
       expect(result).toHaveLength(1);
       expect((result[0] as Company).id).toBe(companies[0].id);
       expect((cacheManager.set as jest.Mock).mock.calls).toHaveLength(1);
+    });
+  });
+
+  describe('findPaginated', () => {
+    it('rejeita search malformado em vez de estourar 500', async () => {
+      const queryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn(),
+      } as unknown as SelectQueryBuilder<Company>;
+
+      (
+        repo as unknown as { createQueryBuilder: jest.Mock }
+      ).createQueryBuilder = jest.fn().mockReturnValue(queryBuilder);
+
+      await expect(
+        service.findPaginated({
+          page: 1,
+          limit: 20,
+          search: ['forged'] as unknown as string,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(
+        (queryBuilder.getManyAndCount as jest.Mock).mock.calls,
+      ).toHaveLength(0);
     });
   });
 

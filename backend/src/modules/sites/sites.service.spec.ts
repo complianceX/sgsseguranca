@@ -1,4 +1,5 @@
 import type { Repository } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { Site } from './entities/site.entity';
 import { SitesService } from './sites.service';
@@ -38,5 +39,32 @@ describe('SitesService.findPaginated', () => {
     });
     expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
     expect(result.data).toEqual([]);
+  });
+
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const qb = makeSitesQueryBuilder();
+    const repository = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    } as unknown as jest.Mocked<Repository<Site>>;
+    const tenantService = {
+      getContext: jest.fn().mockReturnValue({
+        companyId: '11111111-1111-4111-8111-111111111111',
+        isSuperAdmin: false,
+        userId: '22222222-2222-4222-8222-222222222222',
+        siteScope: 'single',
+        siteIds: [],
+      }),
+    } as unknown as jest.Mocked<TenantService>;
+    const service = new SitesService(repository, tenantService);
+
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(qb.getManyAndCount).not.toHaveBeenCalled();
   });
 });

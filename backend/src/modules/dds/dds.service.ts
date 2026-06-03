@@ -40,6 +40,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import {
   CursorPaginatedResponse,
   decodeCursorToken,
@@ -507,8 +508,9 @@ export class DdsService {
     this.applyDdsSiteScope(idsQuery, scope);
     this.applyDdsSiteScope(countQuery, scope);
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
@@ -595,8 +597,9 @@ export class DdsService {
     idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
     this.applyDdsSiteScope(idsQuery, scope);
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')

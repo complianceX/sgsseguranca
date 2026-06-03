@@ -451,6 +451,31 @@ describe('RdosService', () => {
     );
   });
 
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([{ id: RDO_ID }]),
+      getCount: jest.fn().mockResolvedValue(1),
+    };
+    repository.createQueryBuilder.mockReturnValue(qb);
+
+    await expect(
+      service.findPaginated({
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
+
+    expect(qb.getRawMany).not.toHaveBeenCalled();
+    expect(qb.getCount).not.toHaveBeenCalled();
+  });
+
   // ─── findOne ─────────────────────────────────────────────────────────────────
 
   it('retorna RDO existente pelo ID', async () => {

@@ -13,6 +13,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 @Injectable()
 export class SitesService {
@@ -72,8 +73,9 @@ export class SitesService {
       }
     }
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       const condition = `(
         LOWER(site.nome) LIKE :search
         OR LOWER(COALESCE(site.cidade, '')) LIKE :search

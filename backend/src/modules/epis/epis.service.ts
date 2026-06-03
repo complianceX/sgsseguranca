@@ -11,6 +11,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 @Injectable()
 export class EpisService extends BaseService<Epi> {
@@ -101,8 +102,9 @@ export class EpisService extends BaseService<Epi> {
 
     query.where('epi.company_id = :tenantId', { tenantId });
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       const condition = `(
         LOWER(epi.nome) LIKE :search
         OR LOWER(COALESCE(epi.ca, '')) LIKE :search

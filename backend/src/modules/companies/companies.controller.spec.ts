@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { CompaniesController } from './companies.controller';
 import { CompaniesService } from './companies.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
@@ -90,5 +91,16 @@ describe('CompaniesController', () => {
       search: 'teste',
     });
     expect(companiesService.findOne).not.toHaveBeenCalled();
+  });
+
+  it('rejeita search malformado antes de consultar a service', () => {
+    expect(() =>
+      controller.findAll({ user: { company_id: 'company-1' } }, '1', '20', [
+        'forged',
+      ] as unknown as string),
+    ).toThrow(BadRequestException);
+
+    expect(companiesService.findOne).not.toHaveBeenCalled();
+    expect(companiesService.findPaginated).not.toHaveBeenCalled();
   });
 });

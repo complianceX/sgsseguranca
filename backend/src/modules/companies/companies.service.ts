@@ -24,6 +24,7 @@ import {
 } from '../../shared/utils/offset-pagination.util';
 import { profileStage } from '../../shared/observability/perf-stage.util';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import { StorageService } from '../../shared/services/storage.service';
 import { Site } from '../sites/entities/site.entity';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -264,8 +265,9 @@ export class CompaniesService {
       .skip(skip)
       .take(limit);
 
-    if (opts?.search?.trim()) {
-      const search = `%${escapeLikePattern(opts.search.trim())}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${escapeLikePattern(searchTerm)}%`;
       query.where(
         `(
           company.razao_social ILIKE :search ESCAPE '\\'

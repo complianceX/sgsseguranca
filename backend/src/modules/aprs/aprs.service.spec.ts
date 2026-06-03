@@ -26,6 +26,7 @@ import type { CacheService } from '../../shared/cache/cache.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprWorkflowService } from './aprs-workflow.service';
+import { BadRequestException } from '@nestjs/common';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -678,6 +679,33 @@ describe('AprsService', () => {
       'NULLS LAST',
     );
     expect(qb.addOrderBy).toHaveBeenCalledWith('apr.updated_at', 'DESC');
+  });
+
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const qb = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn(),
+    };
+
+    aprRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(qb.getManyAndCount).not.toHaveBeenCalled();
   });
 
   it('bloqueia anexo manual de PDF final da APR pela esteira descontinuada', async () => {

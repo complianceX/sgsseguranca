@@ -74,6 +74,7 @@ import {
   AprValidationResult,
 } from './services/apr-rules-engine.service';
 import { AprFeatureFlagService } from './services/apr-feature-flag.service';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
 const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 30;
@@ -1471,7 +1472,8 @@ export class AprsService {
       qb.andWhere('apr.site_id = :siteId', { siteId: opts.siteId });
     }
 
-    if (opts?.search) {
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
       qb.andWhere(
         `(apr.numero ILIKE :search
           OR apr.titulo ILIKE :search
@@ -1482,7 +1484,7 @@ export class AprsService {
           OR elaborador.nome ILIKE :search
           OR auditado_por.nome ILIKE :search
           OR aprovado_por.nome ILIKE :search)`,
-        { search: `%${opts.search}%` },
+        { search: `%${searchTerm}%` },
       );
     }
 

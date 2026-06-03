@@ -273,6 +273,16 @@ describe('DdsService — listagens filtradas e cursor', () => {
     expect(mockRepository.find).not.toHaveBeenCalled();
   });
 
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 10,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
+  });
+
   it('deve limitar findByCursor a 100 registros por página', async () => {
     await service.findByCursor({ limit: 9999 });
 
@@ -295,5 +305,14 @@ describe('DdsService — listagens filtradas e cursor', () => {
     });
     expect(mockQb.andWhere).toHaveBeenCalledWith('1 = 0');
     expect(mockRepository.find).not.toHaveBeenCalled();
+  });
+
+  it('rejeita search malformado no cursor em vez de cair em 500', async () => {
+    await expect(
+      service.findByCursor({
+        limit: 10,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
   });
 });

@@ -16,6 +16,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 @Injectable()
 export class RisksService extends BaseService<Risk> {
@@ -154,8 +155,9 @@ export class RisksService extends BaseService<Risk> {
 
     query.where('risk.company_id = :tenantId', { tenantId });
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       const clause = `(
         LOWER(risk.nome) LIKE :search
         OR LOWER(COALESCE(risk.categoria, '')) LIKE :search

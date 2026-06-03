@@ -35,6 +35,7 @@ import {
   resolveSiteAccessScopeFromTenantService,
 } from '../../shared/tenant/site-access-scope.util';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
@@ -347,8 +348,9 @@ export class AuditsService {
       qb.andWhere('a.site_id IN (:...siteIds)', { siteIds: scope.siteIds });
     }
 
-    if (opts?.search?.trim()) {
-      const search = `%${escapeLikePattern(opts.search.trim())}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${escapeLikePattern(searchTerm)}%`;
       qb.andWhere(
         "(a.titulo ILIKE :search ESCAPE '\\' OR a.tipo_auditoria ILIKE :search ESCAPE '\\')",
         { search },

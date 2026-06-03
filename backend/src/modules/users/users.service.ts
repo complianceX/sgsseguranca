@@ -35,6 +35,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { RbacService, type RoleScope } from '../rbac/rbac.service';
 import { AuthRedisService } from '../../shared/redis/redis.service';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import {
   decryptSensitiveValue,
   encryptSensitiveValue,
@@ -697,7 +698,7 @@ export class UsersService {
       });
     }
 
-    const search = opts?.search?.trim();
+    const search = normalizeOptionalSearchQuery(opts?.search);
     if (search) {
       const escapedSearch = `%${escapeLikePattern(search)}%`;
       const normalizedCpfSearch = search.replace(/\D/g, '');

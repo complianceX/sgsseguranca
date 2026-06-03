@@ -43,6 +43,7 @@ import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
 import { DocumentVideosService } from '../document-videos/document-videos.service';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
@@ -932,7 +933,7 @@ export class RdosService {
     if (opts?.data_fim) {
       appendClause('rdo.data <= :dataFim', { dataFim: opts.data_fim });
     }
-    const search = opts?.search?.trim();
+    const search = normalizeOptionalSearchQuery(opts?.search);
     if (search) {
       appendClause(
         '(rdo.numero ILIKE :search OR site.nome ILIKE :search OR responsavel.nome ILIKE :search)',
@@ -1080,7 +1081,7 @@ export class RdosService {
       defaultLimit: 20,
       maxLimit: 100,
     });
-    const search = opts?.search?.trim();
+    const search = normalizeOptionalSearchQuery(opts?.search);
 
     this.assertFindPaginatedFilters(opts);
 

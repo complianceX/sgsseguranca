@@ -11,6 +11,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 
 @Injectable()
 export class MachinesService extends BaseService<Machine> {
@@ -101,8 +102,9 @@ export class MachinesService extends BaseService<Machine> {
 
     query.where('machine.company_id = :tenantId', { tenantId });
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       const clause = `(
         LOWER(machine.nome) LIKE :search
         OR LOWER(COALESCE(machine.placa, '')) LIKE :search

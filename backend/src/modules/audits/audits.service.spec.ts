@@ -281,6 +281,34 @@ describe('AuditsService', () => {
     );
   });
 
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    (
+      repository as unknown as { createQueryBuilder: jest.Mock }
+    ).createQueryBuilder = jest.fn().mockReturnValue(queryBuilder);
+
+    await expect(
+      service.findPaginated(
+        {
+          page: 1,
+          limit: 20,
+          search: ['forged'] as unknown as string,
+        },
+        'company-1',
+      ),
+    ).rejects.toThrow();
+
+    expect(queryBuilder.getManyAndCount).not.toHaveBeenCalled();
+  });
+
   it('rejeita auditor que nao pertence a obra selecionada', async () => {
     tenantRepo.findOne.mockResolvedValue({
       id: 'audit-1',

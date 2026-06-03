@@ -16,6 +16,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
@@ -157,8 +158,9 @@ export class DidsService {
       }
     }
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = normalizeOptionalSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       const condition =
         "(LOWER(did.titulo) LIKE :search OR LOWER(did.atividade_principal) LIKE :search OR LOWER(COALESCE(did.frente_trabalho, '')) LIKE :search)";
       idsQuery.andWhere(condition, { search });

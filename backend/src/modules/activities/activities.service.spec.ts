@@ -12,14 +12,15 @@ describe('ActivitiesService', () => {
     const take = jest.fn().mockReturnThis();
     const skip = jest.fn().mockReturnThis();
     const orderBy = jest.fn().mockReturnThis();
-    const createQueryBuilder = jest.fn().mockReturnValue({
+    const qb = {
       orderBy,
       skip,
       take,
       where,
       andWhere,
       getManyAndCount,
-    });
+    };
+    const createQueryBuilder = jest.fn().mockReturnValue(qb);
     const create = jest.fn((input: Partial<Activity>) => input);
     const save = jest.fn((input: Partial<Activity>) =>
       Promise.resolve({
@@ -51,6 +52,7 @@ describe('ActivitiesService', () => {
     return {
       service,
       repository,
+      qb,
       createQueryBuilder,
       orderBy,
       cacheManager,
@@ -63,6 +65,20 @@ describe('ActivitiesService', () => {
     await service.findPaginated({ page: 1, limit: 20 });
 
     expect(orderBy).toHaveBeenCalledWith('activity.created_at', 'DESC');
+  });
+
+  it('rejeita search malformado em vez de cair em 500', async () => {
+    const { service, qb } = createService();
+
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(qb.getManyAndCount).not.toHaveBeenCalled();
   });
 
   it('persiste company_id do tenant autenticado ao criar atividade', async () => {

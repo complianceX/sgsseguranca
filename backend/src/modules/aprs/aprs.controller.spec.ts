@@ -38,6 +38,7 @@ describe('AprsController (http)', () => {
     profile: { nome: 'Administrador da Empresa' },
   };
   let app: INestApplication;
+  let controller: AprsController;
 
   const aprsService = {
     attachPdf: jest.fn(),
@@ -180,6 +181,7 @@ describe('AprsController (http)', () => {
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.init();
+    controller = moduleRef.get(AprsController);
   });
 
   afterAll(async () => {
@@ -373,6 +375,26 @@ describe('AprsController (http)', () => {
       contextFilter: undefined,
       userId: 'user-1',
     });
+  });
+
+  it('rejeita search malformado na listagem da APR', () => {
+    expect(() =>
+      controller.findPaginated(
+        1,
+        20,
+        ['forged'] as unknown as string,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ),
+    ).toThrow();
+
+    expect(aprsService.findPaginated).not.toHaveBeenCalled();
   });
 
   it('ignora company_id do client na listagem de arquivos da APR', async () => {

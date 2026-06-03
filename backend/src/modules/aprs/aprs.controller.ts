@@ -51,6 +51,7 @@ import { ApiStandardResponses } from '../../shared/swagger/api-standard-response
 import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audit-action.decorator';
 import { RequestTimeout } from '../../shared/decorators/request-timeout.decorator';
 import { PdfRequestTimeout } from '../../shared/decorators/pdf-request-timeout.decorator';
+import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import { HttpCache } from '../../shared/decorators/http-cache.decorator';
 import {
   parseRateLimit,
@@ -273,6 +274,7 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<OffsetPage<AprListItemDto>> {
+    const normalizedSearch = normalizeOptionalSearchQuery(search);
     const normalizedSort = APR_LIST_SORT_OPTIONS.includes(
       sort as AprListSortOption,
     )
@@ -294,7 +296,7 @@ export class AprsController {
     return this.aprsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
-      search: search || undefined,
+      search: normalizedSearch ?? undefined,
       status: status || undefined,
       siteId: siteId || undefined,
       responsibleId: responsibleId || undefined,

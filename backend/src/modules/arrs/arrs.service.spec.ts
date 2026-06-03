@@ -121,6 +121,31 @@ describe('ArrsService', () => {
     expect(arrRepository.find).not.toHaveBeenCalled();
   });
 
+  it('findPaginated: rejeita search malformado em vez de cair em 500', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      getCount: jest.fn().mockResolvedValue(0),
+    };
+    arrRepository.createQueryBuilder.mockReturnValue(queryBuilder as never);
+
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 10,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toThrow();
+
+    expect(queryBuilder.getRawMany).not.toHaveBeenCalled();
+    expect(queryBuilder.getCount).not.toHaveBeenCalled();
+  });
+
   it('rejeita participante fora da obra selecionada ao criar ARR', async () => {
     const siteRepository = {
       findOne: jest.fn(() => Promise.resolve({ id: 'site-1' })),
