@@ -117,6 +117,18 @@ export class PhotographicReportsService {
     return normalized.length > 0 ? normalized : null;
   }
 
+  private normalizeSearchQuery(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      if (value == null) {
+        return null;
+      }
+
+      throw new BadRequestException('Parâmetro de busca inválido.');
+    }
+
+    return this.normalizeText(value);
+  }
+
   private normalizeRequiredText(value: string, fieldLabel: string): string {
     const normalized = String(value ?? '').trim();
     if (!normalized) {
@@ -599,8 +611,9 @@ export class PhotographicReportsService {
       query.andWhere('report.status = :status', { status: opts.status });
     }
 
-    if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+    const searchTerm = this.normalizeSearchQuery(opts?.search);
+    if (searchTerm) {
+      const search = `%${searchTerm.toLowerCase()}%`;
       query.andWhere(
         `(
           LOWER(report.client_name) LIKE :search OR

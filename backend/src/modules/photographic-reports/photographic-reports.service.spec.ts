@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
 import { DeepPartial, IsNull, Repository } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { PhotographicReportsService } from './photographic-reports.service';
 import {
   PhotographicReport,
@@ -13,7 +13,7 @@ import { RequestContext } from '../../shared/middleware/request-context.middlewa
 
 type ReportRepoMock = Pick<
   Repository<PhotographicReport>,
-  'create' | 'save' | 'delete' | 'findOne'
+  'create' | 'save' | 'delete' | 'findOne' | 'createQueryBuilder'
 >;
 type DayRepoMock = Pick<Repository<PhotographicReportDay>, 'create' | 'save'>;
 type ImageRepoMock = Pick<Repository<PhotographicReportImage>, 'save'>;
@@ -25,6 +25,7 @@ describe('PhotographicReportsService', () => {
     save: jest.fn(),
     delete: jest.fn(),
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const dayRepository: jest.Mocked<DayRepoMock> = {
     create: jest.fn(),
@@ -60,9 +61,32 @@ describe('PhotographicReportsService', () => {
   };
 
   let service: PhotographicReportsService;
+  let reportQueryBuilder: {
+    leftJoinAndSelect: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    orderBy: jest.Mock;
+    skip: jest.Mock;
+    take: jest.Mock;
+    loadRelationCountAndMap: jest.Mock;
+    getManyAndCount: jest.Mock;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    reportQueryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      loadRelationCountAndMap: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    reportRepository.createQueryBuilder.mockReturnValue(
+      reportQueryBuilder as never,
+    );
     service = new PhotographicReportsService(
       reportRepository as unknown as Repository<PhotographicReport>,
       dayRepository as unknown as Repository<PhotographicReportDay>,
@@ -194,5 +218,17 @@ describe('PhotographicReportsService', () => {
     expect(payload).toBeDefined();
     expect(payload?.created_by).toBe('auth-user-1');
     expect(payload?.created_by).not.toBe('forged-user');
+  });
+
+  it('findPaginated rejeita search inválido em vez de estourar 500', async () => {
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 10,
+        search: ['forged'] as unknown as string,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(reportQueryBuilder.getManyAndCount).not.toHaveBeenCalled();
   });
 });
