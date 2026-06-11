@@ -84,6 +84,10 @@ function logObservabilityStatus(
 
 async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WEB_SERVICE_NAME);
+  const webPort = Number(process.env.PORT || 8080);
+  const requestedPrometheusPort = process.env.PROMETHEUS_PORT
+    ? Number(process.env.PROMETHEUS_PORT)
+    : WEB_TELEMETRY_PORT;
 
   const sentryStatus = initSentry('backend-web');
   const telemetry =
@@ -91,11 +95,19 @@ async function bootstrap() {
       ? await initializeTelemetry({
           serviceName: process.env.OTEL_SERVICE_NAME || WEB_SERVICE_NAME,
           serviceVersion: process.env.OTEL_SERVICE_VERSION || '1.0.0',
-          prometheusPort: process.env.PROMETHEUS_PORT
-            ? Number(process.env.PROMETHEUS_PORT)
-            : WEB_TELEMETRY_PORT,
+          prometheusPort: requestedPrometheusPort,
+          avoidPorts: [webPort],
         })
       : null;
+
+  if (telemetry && telemetry.prometheusPort !== requestedPrometheusPort) {
+    bootstrapLogger.warn({
+      event: 'prometheus_port_adjusted',
+      requestedPrometheusPort,
+      effectivePrometheusPort: telemetry.prometheusPort,
+      reservedPort: webPort,
+    });
+  }
 
   const [
     { assertNoPendingMigrationsInProd },
@@ -506,7 +518,7 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  const port = process.env.PORT || 8080;
+  const port = webPort;
   await app.listen(port, '0.0.0.0');
 
   bootstrapLogger.info({
