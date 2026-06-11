@@ -8,6 +8,7 @@ WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY backend/package*.json ./
+COPY backend/scripts ./scripts
 RUN npm ci
 
 COPY backend/. .
