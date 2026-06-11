@@ -54,10 +54,10 @@ Repositório esperado:
 Configuração recomendada:
 
 - Build pack: Dockerfile
-- Dockerfile: `backend/Dockerfile`
-- Root directory: `backend`
+- Dockerfile: `Dockerfile`
+- Root directory: `.` (raiz do repositório)
 - Start command: `npm run start:web`
-- Porta interna: `3000`
+- Porta interna: `8080`
 - Health check: `/health/public`
 
 Variáveis obrigatórias:
@@ -102,8 +102,8 @@ Variáveis já fixadas no repo e que devem permanecer:
 Configuração recomendada:
 
 - Build pack: Dockerfile
-- Dockerfile: `backend/Dockerfile.worker`
-- Root directory: `backend`
+- Dockerfile: `Dockerfile.worker`
+- Root directory: `.` (raiz do repositório)
 - Start command: `npm run start:worker`
 
 Variáveis obrigatórias:
@@ -179,7 +179,7 @@ Sequência recomendada:
 
 O repo já possui os dois Dockerfiles separados:
 
-- `backend/Dockerfile`
-- `backend/Dockerfile.worker`
+- `Dockerfile`
+- `Dockerfile.worker`
 
 Isso evita improviso no deploy e mantém web/worker isolados.
