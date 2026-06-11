@@ -112,6 +112,10 @@ function logObservabilityStatus(
 
 async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WORKER_SERVICE_NAME);
+  const workerPort = getWorkerHealthPort();
+  const requestedPrometheusPort = process.env.PROMETHEUS_PORT
+    ? Number(process.env.PROMETHEUS_PORT)
+    : WORKER_TELEMETRY_PORT;
 
   const { assertWorkerRedisContract } = await import('./worker-runtime.guard');
 
@@ -123,11 +127,19 @@ async function bootstrap() {
       ? await initializeTelemetry({
           serviceName: process.env.OTEL_SERVICE_NAME || WORKER_SERVICE_NAME,
           serviceVersion: process.env.OTEL_SERVICE_VERSION || '1.0.0',
-          prometheusPort: process.env.PROMETHEUS_PORT
-            ? Number(process.env.PROMETHEUS_PORT)
-            : WORKER_TELEMETRY_PORT,
+          prometheusPort: requestedPrometheusPort,
+          avoidPorts: [workerPort],
         })
       : null;
+
+  if (telemetry && telemetry.prometheusPort !== requestedPrometheusPort) {
+    bootstrapLogger.warn({
+      event: 'prometheus_port_adjusted',
+      requestedPrometheusPort,
+      effectivePrometheusPort: telemetry.prometheusPort,
+      reservedPort: workerPort,
+    });
+  }
 
   const [{ NestFactory }, { WinstonModule }, { WorkerModule }] =
     await Promise.all([
