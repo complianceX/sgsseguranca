@@ -22,6 +22,32 @@ export type TelemetryRuntime = {
   samplerArg: number;
 };
 
+function normalizePortCandidate(value: unknown, fallback: number): number {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim().length > 0
+        ? Number(value)
+        : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function resolveSafeTelemetryPort(
+  requestedPort: number,
+  avoidPorts: number[],
+): number {
+  const occupied = new Set(
+    avoidPorts.filter((port) => Number.isFinite(port) && port > 0),
+  );
+
+  let candidate = requestedPort;
+  while (occupied.has(candidate)) {
+    candidate += 1;
+  }
+
+  return candidate;
+}
+
 function clampRatio(raw: unknown, fallback: number): number {
   const n =
     typeof raw === 'number'
@@ -86,6 +112,7 @@ export function initializeTelemetry(opts?: {
   serviceName?: string;
   serviceVersion?: string;
   prometheusPort?: number;
+  avoidPorts?: number[];
 }): Promise<TelemetryRuntime> {
   const serviceName = opts?.serviceName ?? 'wanderson-gandra-backend';
   const serviceVersion = opts?.serviceVersion ?? '1.0.0';
@@ -95,8 +122,13 @@ export function initializeTelemetry(opts?: {
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
     process.env.JAEGER_ENDPOINT ??
     'http://localhost:4318/v1/traces';
-  const prometheusPort = Number(
-    opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
+  const requestedPrometheusPort = normalizePortCandidate(
+    opts?.prometheusPort ?? process.env.PROMETHEUS_PORT,
+    9464,
+  );
+  const prometheusPort = resolveSafeTelemetryPort(
+    requestedPrometheusPort,
+    opts?.avoidPorts ?? [],
   );
 
   const isProduction = process.env.NODE_ENV === 'production';
