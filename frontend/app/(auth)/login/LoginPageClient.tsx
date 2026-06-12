@@ -223,20 +223,21 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
       )}
 
       <main className={styles.shell}>
-        <section className={styles.brandBlock}>
-          <div className={styles.brandRow}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo-sgs.svg?v=20260425"
-              alt="SGS - Sistema de Gestão de Segurança"
-              width={260}
-              height={130}
-              className={styles.brandLogo}
-            />
-          </div>
-        </section>
+        <div className={styles.card}>
+          <section className={styles.brandBlock}>
+            <div className={styles.brandRow}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-sgs.svg?v=20260425"
+                alt="SGS - Sistema de Gestão de Segurança"
+                width={260}
+                height={130}
+                className={styles.brandLogo}
+              />
+            </div>
+          </section>
 
-        <section className={styles.formSection}>
+          <section className={styles.formSection}>
           <header className={styles.header}>
             <h1 className={styles.title}>Informe seus dados abaixo:</h1>
           </header>
@@ -441,6 +442,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
             </Link>
           </div>
         </section>
+        </div>
       </main>
     </div>
   );
