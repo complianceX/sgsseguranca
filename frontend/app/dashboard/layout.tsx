@@ -121,6 +121,10 @@ function DashboardShell({
     setSelectorOpen(false);
   };
 
+  const handleLoginRedirect = () => {
+    window.location.assign('/login?expired=1');
+  };
+
   if (loading || !isMounted) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -142,7 +146,7 @@ function DashboardShell({
           </p>
           <button
             type="button"
-            onClick={() => router.push('/login')}
+            onClick={handleLoginRedirect}
             className="mt-4 w-full rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-semibold text-white motion-safe:transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
           >
             Ir para login

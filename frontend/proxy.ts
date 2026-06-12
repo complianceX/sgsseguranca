@@ -10,10 +10,6 @@ function isDashboardRoute(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 }
 
-function isAuthRoute(pathname: string): boolean {
-  return pathname === "/login" || pathname.startsWith("/login/");
-}
-
 function isDevtoolsRoute(pathname: string): boolean {
   return pathname === "/devtools" || pathname.startsWith("/devtools/");
 }
@@ -97,10 +93,6 @@ export function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("expired", "1");
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (isAuthRoute(pathname) && request.cookies.has(REFRESH_CSRF_COOKIE)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   const random = crypto.getRandomValues(new Uint8Array(16));
