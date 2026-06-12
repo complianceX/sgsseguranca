@@ -1,5 +1,24 @@
 const LEGACY_RENDER_API_HOST = 'sgs-backend-web-d49b.onrender.com';
 const CANONICAL_PROD_API_ORIGIN = 'https://api.sgsseguranca.com.br';
+const PROXY_PATH = '/proxy';
+
+function readAppOrigin(): string | null {
+  const rawAppUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (!rawAppUrl) {
+    return null;
+  }
+
+  try {
+    const parsedAppUrl = new URL(rawAppUrl);
+    const normalized = parsedAppUrl.toString();
+    return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+  } catch {
+    return null;
+  }
+}
 
 export function normalizePublicApiBaseUrl(
   rawApiUrl?: string | null,
@@ -17,6 +36,20 @@ export function normalizePublicApiBaseUrl(
   }
 
   if (parsedUrl.hostname === LEGACY_RENDER_API_HOST) {
+    const appOrigin = readAppOrigin();
+    if (appOrigin) {
+      return new URL(PROXY_PATH, appOrigin).toString().replace(/\/$/, '');
+    }
+
+    return CANONICAL_PROD_API_ORIGIN;
+  }
+
+  if (parsedUrl.origin === CANONICAL_PROD_API_ORIGIN) {
+    const appOrigin = readAppOrigin();
+    if (appOrigin) {
+      return new URL(PROXY_PATH, appOrigin).toString().replace(/\/$/, '');
+    }
+
     return CANONICAL_PROD_API_ORIGIN;
   }
 
