@@ -35,7 +35,7 @@
 }
 
 .brandLogo {
-  width: min(25rem, 82vw);
+  width: min(18rem, 82vw);
   height: auto;
   display: block;
 }
@@ -52,8 +52,8 @@
   margin: 0;
   font-family: var(--font-sans);
   font-size: clamp(2rem, 1vw + 1.55rem, 2.65rem);
-  line-height: 1.04;
-  letter-spacing: -0.05em;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
   color: var(--login-blue-deep);
 }
 
@@ -244,9 +244,38 @@
   transform: translateY(-1px);
 }
 
+.btnSubmit:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px var(--ds-color-focus-ring),
+    0 0 0 5px var(--ds-bg-primary);
+}
+
 .btnSubmit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.loadingContent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ds-text-inverse) 30%, transparent);
+  border-top-color: var(--ds-text-inverse);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .supportCta {

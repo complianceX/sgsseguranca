@@ -406,13 +406,18 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
               type="submit"
               disabled={loading}
             >
-              {loading
-                ? 'Entrando...'
-                : mfaStage === 'bootstrap'
-                  ? 'Ativar MFA e entrar'
-                  : mfaStage === 'challenge'
-                    ? 'Confirmar acesso'
-                    : 'Acessar'}
+              {loading ? (
+                <span className={styles.loadingContent}>
+                  <span className={styles.spinner} />
+                  Entrando...
+                </span>
+              ) : mfaStage === 'bootstrap' ? (
+                'Ativar MFA e entrar'
+              ) : mfaStage === 'challenge' ? (
+                'Confirmar acesso'
+              ) : (
+                'Acessar'
+              )}
             </button>
           </form>
 
