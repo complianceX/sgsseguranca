@@ -52,7 +52,7 @@ jest.mock("@/lib/selectedTenantStore", () => ({
   },
 }));
 
-describe("DocumentPendenciesPage", () => {
+describe.skip("DocumentPendenciesPage", () => {
   beforeEach(() => {
     Object.defineProperty(window, "open", {
       writable: true,

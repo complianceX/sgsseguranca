@@ -12,6 +12,12 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const distRoot = path.resolve(__dirname, '../dist');
+const migrationsDir = path.join(
+  distRoot,
+  'infra',
+  'database',
+  'migrations',
+);
 
 function buildDataSource() {
   const databaseConfig = resolveDatabaseConfig();
@@ -30,7 +36,7 @@ function buildDataSource() {
     entities: [
       path.join(distRoot, '!(database|seed|queue|worker)', '**', '*.entity.js'),
     ],
-    migrations: [path.join(distRoot, 'database', 'migrations', '*.js')],
+    migrations: [path.join(migrationsDir, '*.js')],
   });
 }
 

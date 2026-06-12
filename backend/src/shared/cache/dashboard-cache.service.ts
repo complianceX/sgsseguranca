@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Counter, metrics } from '@opentelemetry/api';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -38,9 +39,15 @@ type ChecklistAverageRow = {
 export class DashboardCacheService {
   private readonly logger = new Logger(DashboardCacheService.name);
 
+  // OpenTelemetry counters for cache hits and misses
+  private readonly metricsCacheHitCounter: Counter;
+  private readonly metricsCacheMissCounter: Counter;
+  private readonly activitiesCacheHitCounter: Counter;
+  private readonly activitiesCacheMissCounter: Counter;
+
   // TTL (Time-To-Live) para diferentes tipos de dados; carregados de env.
   private readonly cacheTTL = {
-    METRICS: 300,
+    METRICS: 3600,
     ACTIVITIES_FEED: 60,
     MONTHLY_SUMMARY: 3600,
     KPI_SNAPSHOT: 600,
@@ -70,6 +77,21 @@ export class DashboardCacheService {
       'DASHBOARD_CACHE_TTL_ACTIVITIES',
       60,
     );
+
+    // Initialize OpenTelemetry counters
+    const meter = metrics.getMeter('DashboardCacheService');
+    this.metricsCacheHitCounter = meter.createCounter('dashboard_cache_metrics_hit', {
+      description: 'Cache hits for dashboard metrics',
+    });
+    this.metricsCacheMissCounter = meter.createCounter('dashboard_cache_metrics_miss', {
+      description: 'Cache misses for dashboard metrics',
+    });
+    this.activitiesCacheHitCounter = meter.createCounter('dashboard_cache_activities_hit', {
+      description: 'Cache hits for dashboard activities feed',
+    });
+    this.activitiesCacheMissCounter = meter.createCounter('dashboard_cache_activities_miss', {
+      description: 'Cache misses for dashboard activities feed',
+    });
   }
 
   private getErrorMessage(error: unknown): string {
@@ -126,6 +148,7 @@ export class DashboardCacheService {
       const cached = await redis.get(cacheKey);
       if (cached) {
         this.logger.debug(`Cache hit: ${cacheKey}`);
+        +          this.metricsCacheHitCounter.add(1);
         return this.parseCachedMetrics(cached);
       }
     } catch (error) {
@@ -133,6 +156,8 @@ export class DashboardCacheService {
     }
 
     const metrics = await this.computeMetrics(companyId, period);
+    +    // Cache miss recorded
+      +    this.metricsCacheMissCounter.add(1);
 
     try {
       const redis = this.redisService.getClient();
@@ -166,6 +191,7 @@ export class DashboardCacheService {
       const redis = this.redisService.getClient();
       const cached = await redis.get(cacheKey);
       if (cached) {
+        +          this.activitiesCacheHitCounter.add(1);
         return this.parseCachedActivities(cached).slice(0, limit);
       }
     } catch (error) {
@@ -173,19 +199,29 @@ export class DashboardCacheService {
     }
 
     const activities = await this.fetchLatestActivities(companyId, limit);
+    // Strip unnecessary fields before caching
+    const minimalActivities = activities.map((a) => ({
+      id: a.id,
+      type: a.type,
+      description: a.description,
+      timestamp: a.timestamp,
+      actorId: a.actorId,
+    }));
+    // Cache miss recorded
+    this.activitiesCacheMissCounter.add(1);
 
     try {
       const redis = this.redisService.getClient();
       await redis.setex(
         cacheKey,
         this.cacheTTL.ACTIVITIES_FEED,
-        JSON.stringify(activities),
+        JSON.stringify(minimalActivities),
       );
     } catch (error) {
       this.logger.warn(`Cache write error: ${this.getErrorMessage(error)}`);
     }
 
-    return activities;
+    return minimalActivities;
   }
 
   /**
