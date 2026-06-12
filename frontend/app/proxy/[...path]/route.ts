@@ -67,10 +67,9 @@ async function proxyRequest(
   const upstreamHeaders = upstream.headers as Headers & {
     getSetCookie?: () => string[];
   };
-  const getSetCookie = upstreamHeaders.getSetCookie;
-  if (getSetCookie) {
+  if (typeof upstreamHeaders.getSetCookie === 'function') {
     responseHeaders.delete('set-cookie');
-    for (const cookie of getSetCookie()) {
+    for (const cookie of upstreamHeaders.getSetCookie()) {
       responseHeaders.append('set-cookie', cookie);
     }
   }
