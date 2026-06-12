@@ -5,8 +5,9 @@ import { mkdirSync } from 'fs';
 import { open, readFile, realpath, readdir, stat, unlink } from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { resolveSgsTempDirectory } from '../temp-directory.util';
 
-const TEMP_UPLOAD_DIR = path.resolve(process.cwd(), 'temp');
+const TEMP_UPLOAD_DIR = resolveSgsTempDirectory();
 const TEMP_UPLOAD_CLEANUP_TTL_MS = resolvePositiveIntEnv(
   'TEMP_UPLOAD_CLEANUP_TTL_MS',
   24 * 60 * 60 * 1000,
