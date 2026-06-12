@@ -161,11 +161,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hasRefreshCsrfCookie = Boolean(
           readCookie(REFRESH_CSRF_COOKIE_NAME),
         );
+        const shouldAttemptSessionRefresh =
+          hasRefreshCsrfCookie && authRefreshHint.get();
         if (!hasRefreshCsrfCookie && authRefreshHint.get()) {
           authRefreshHint.clear();
         }
 
-        if (!tokenStore.get() && hasRefreshCsrfCookie) {
+        if (!tokenStore.get() && shouldAttemptSessionRefresh) {
           const refreshed = await authService.refreshAccessToken();
           const refreshedToken = refreshed.accessToken;
           if (refreshedToken) {

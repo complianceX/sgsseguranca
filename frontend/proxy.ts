@@ -61,9 +61,10 @@ function buildCsp(nonce: string): string {
     `font-src 'self' data:`,
     // Endurecimento incremental:
     // - mantém compatibilidade com style="" legado via style-src-attr
-    // - remove unsafe-inline do style-src raiz para reduzir superfície em varreduras
+    // - permite style-src-elem inline porque widgets de terceiros e runtime do
+    //   Next inserem <style> sem nonce em produção.
     `style-src 'self'`,
-    `style-src-elem 'self' 'nonce-${nonce}'`,
+    `style-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline'`,
     `style-src-attr 'unsafe-inline'`,
     `script-src ${scriptSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
