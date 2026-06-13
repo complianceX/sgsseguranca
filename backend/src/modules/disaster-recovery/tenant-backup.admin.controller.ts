@@ -22,6 +22,7 @@ import { mkdirSync } from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
+import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -53,8 +54,7 @@ const tenantBackupJobOptions = withDefaultJobOptions({
 const TENANT_BACKUP_UPLOAD_MAX_BYTES = 1024 * 1024 * 200;
 const TENANT_BACKUP_FILE_EXTENSIONS = ['.json.gz', '.gz'];
 const TENANT_BACKUP_UPLOAD_DIR = path.resolve(
-  process.cwd(),
-  'temp',
+  resolveSgsTempDirectory(),
   'tenant-backups',
 );
 

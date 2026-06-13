@@ -21,6 +21,7 @@ import { readFile, unlink } from 'fs/promises';
 import { mkdirSync } from 'node:fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { UploadedFile } from '@nestjs/common';
@@ -54,7 +55,7 @@ const resolveMailRequestTimeoutMs = (): number => {
   return Number.isFinite(parsed) && parsed >= 30_000 ? parsed : 90_000;
 };
 
-const MAIL_TEMP_UPLOAD_DIR = path.resolve(process.cwd(), 'temp');
+const MAIL_TEMP_UPLOAD_DIR = resolveSgsTempDirectory();
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };

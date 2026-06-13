@@ -7,6 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PERMISSIONS_KEY } from '../auth/permissions.decorator';
 import { SENSITIVE_ACTION_KEY } from '../../shared/security/sensitive-action.guard';
+import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { TenantBackupAdminController } from './tenant-backup.admin.controller';
 
 type TenantBackupAdminControllerPrivate = {
@@ -28,8 +29,7 @@ function getControllerHandler(
 describe('TenantBackupAdminController hardening', () => {
   const reflector = new Reflector();
   const tenantBackupUploadDir = path.resolve(
-    process.cwd(),
-    'temp',
+    resolveSgsTempDirectory(),
     'tenant-backups',
   );
 
