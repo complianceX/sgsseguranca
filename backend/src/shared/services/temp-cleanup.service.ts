@@ -2,11 +2,12 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveSgsTempDirectory } from '../temp-directory.util';
 
 @Injectable()
 export class TempCleanupService implements OnModuleInit {
   private readonly logger = new Logger(TempCleanupService.name);
-  private readonly tempDir = path.join(process.cwd(), 'temp');
+  private readonly tempDir = resolveSgsTempDirectory();
   private readonly maxAge = 24 * 60 * 60 * 1000; // 24 horas
 
   onModuleInit() {

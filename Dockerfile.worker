@@ -47,14 +47,12 @@ ENV UV_THREADPOOL_SIZE=64
 
 WORKDIR /app
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/modules/sophie/kb ./dist/modules/sophie/kb
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/newrelic.js ./newrelic.js
-
-RUN chown -R node:node /app
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/src/modules/sophie/kb ./dist/modules/sophie/kb
+COPY --from=builder --chown=node:node /app/scripts ./scripts
+COPY --from=builder --chown=node:node /app/newrelic.js ./newrelic.js
 USER node
 
 CMD ["node", "dist/worker.js"]

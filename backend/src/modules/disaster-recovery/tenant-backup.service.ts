@@ -19,6 +19,7 @@ import {
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { captureException } from '../../shared/monitoring/sentry';
+import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from './disaster-recovery.constants';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
 import type {
@@ -1784,7 +1785,7 @@ export class TenantBackupService {
   }
 
   private resolveExistingUploadedBackupPath(filePath: string): string {
-    const uploadRoot = path.resolve(process.cwd(), 'temp');
+    const uploadRoot = resolveSgsTempDirectory();
     return this.resolvePathInsideDirectory(uploadRoot, filePath);
   }
 

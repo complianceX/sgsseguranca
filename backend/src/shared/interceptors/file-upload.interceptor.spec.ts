@@ -10,9 +10,10 @@ import {
   resetTempUploadCleanupStateForTests,
   validateFileMagicBytes,
 } from './file-upload.interceptor';
+import { resolveSgsTempDirectory } from '../temp-directory.util';
 
 describe('file-upload.interceptor helpers', () => {
-  const tempDir = path.join(process.cwd(), 'temp');
+  const tempDir = resolveSgsTempDirectory();
 
   afterEach(() => {
     resetTempUploadCleanupStateForTests();
