@@ -26,7 +26,7 @@ Este aceite representa ciência integral da Política de Privacidade publicada e
 - Identificação do controlador, encarregado (DPO) e canais oficiais.
 - Categorias de dados tratados, inclusive dados sensíveis de saúde ocupacional.
 - Finalidades e bases legais (LGPD Art. 7º e 11).
-- Lista nominal de operadores (OpenAI, Supabase, Cloudflare, Sentry, New Relic, provedor de e-mail, storage, Redis) e transferência internacional.
+- Lista nominal de operadores (OpenAI, Neon, Cloudflare, Sentry, New Relic, provedor de e-mail, storage, Redis) e transferência internacional.
 - Retenção por tipo de dado e exclusão em backups.
 - Direitos do titular (Art. 18) e canal de atendimento.
 - Cookies estritamente necessários.

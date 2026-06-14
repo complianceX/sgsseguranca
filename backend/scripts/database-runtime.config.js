@@ -111,20 +111,6 @@ function getHostnameFromDatabaseConfig(databaseConfig) {
   return databaseConfig.host || '';
 }
 
-function isSupabaseHost(hostname) {
-  if (typeof hostname !== 'string') {
-    return false;
-  }
-
-  const normalized = hostname.toLowerCase();
-  return (
-    normalized === 'supabase.co' ||
-    normalized.endsWith('.supabase.co') ||
-    normalized === 'pooler.supabase.com' ||
-    normalized.endsWith('.pooler.supabase.com')
-  );
-}
-
 function isTlsCertificateError(error) {
   const message =
     error && typeof error.message === 'string'
@@ -311,7 +297,6 @@ module.exports = {
   firstNonEmpty,
   firstNonEmptyEnvCandidate,
   getHostnameFromDatabaseConfig,
-  isSupabaseHost,
   isTlsCertificateError,
   parseBooleanFlag,
   resolveDatabaseConfig,

@@ -34,21 +34,12 @@ interface RedisCacheConfig {
   tls?: Record<string, unknown>;
 }
 
-function isRenderPrivateKeyValueConnection(
+function isConnectionAcceptableWithoutPassword(
   connection: ResolvedRedisConnection | null,
 ): boolean {
   if (!connection) return false;
 
-  const host = connection.host.trim().toLowerCase();
-
-  return (
-    connection.source === 'url' &&
-    connection.url?.startsWith('redis://') === true &&
-    /^red-[a-z0-9]+$/.test(host) &&
-    connection.port === 6379 &&
-    !connection.username &&
-    !connection.password
-  );
+  return isLocalRedisConnection(connection);
 }
 
 // Controllers & Services
@@ -300,7 +291,6 @@ export const validationSchema = Joi.object({
   // O runtime falha fechado em resolveDbSslOptions.
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().valid(false).default(false),
-  DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   LEGACY_CPF_PLAINTEXT_LOOKUP_ENABLED: Joi.boolean().default(false),
   REDIS_URL: Joi.string().optional(),
@@ -573,15 +563,16 @@ export const validationSchema = Joi.object({
   THROTTLE_LIMIT: Joi.number().default(100),
   // Connection pool — ajuste por ambiente/instância
   // Regra: DB_POOL_MAX * nº_de_instâncias < max_connections do PostgreSQL
-  // Railway starter: max_connections = 97 → max 20 por instância (com 1 worker)
-  // Supabase free: max_connections = 60 → max 15 por instância
-  DB_POOL_MAX: Joi.number().default(20),
+  // Neon Starter: max_connections = 20 → max 10 web + 5 worker = 15 (folga 5)
+  DB_POOL_MAX: Joi.number().default(10),
   // min > 0 pré-aquece conexões e elimina cold-start de pool em picos de tráfego
   DB_POOL_MIN: Joi.number().default(2),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
   // statement_timeout: mata queries travadas (segurança e previsibilidade de SLA)
-  DB_STATEMENT_TIMEOUT_MS: Joi.number().default(0), // 0 = desabilitado (default PG)
+  // 30s evita que queries lentas seguram conexões do pool por tempo indeterminado
+  DB_STATEMENT_TIMEOUT_MS: Joi.number().default(30000),
+  DB_PREPARE_THRESHOLD: Joi.number().integer().min(0).max(10).default(0),
   DB_APPLICATION_NAME: Joi.string().optional().allow(''),
   DB_APPLICATION_NAME_WEB: Joi.string().optional().allow(''),
   DATABASE_POOLER_ALLOW_SESSION_RLS: Joi.boolean().default(false),
@@ -735,6 +726,7 @@ export const validationSchema = Joi.object({
   // N+1 Query Detection — development only
   N1_QUERY_DETECTION_ENABLED: Joi.boolean().default(false),
   N1_QUERY_THRESHOLD: Joi.number().integer().min(2).max(100).default(3),
+  N1_QUERY_BLOCKING_ENABLED: Joi.boolean().default(false),
   N1_SLOW_QUERY_THRESHOLD: Joi.number()
     .integer()
     .min(50)
@@ -1110,7 +1102,7 @@ export const validationSchema = Joi.object({
           ...commonBase,
           // Connection pooling configurável via env
           extra: {
-            max: config.get<number>('DB_POOL_MAX', 20),
+            max: config.get<number>('DB_POOL_MAX', 10),
             min: config.get<number>('DB_POOL_MIN', 2),
             idleTimeoutMillis: config.get<number>('DB_IDLE_TIMEOUT_MS', 30000),
             connectionTimeoutMillis: config.get<number>(
@@ -1126,9 +1118,10 @@ export const validationSchema = Joi.object({
               config.get<string>('DB_APPLICATION_NAME'),
               'api_web',
             ]),
-            // prepareThreshold: 0 mantido para compatibilidade com PgBouncer
-            // (transaction mode não suporta prepared statements por sessão)
-            prepareThreshold: 0,
+            // prepareThreshold: 0 para compatibilidade com PgBouncer (transaction mode
+            // não suporta prepared statements por sessão). Em conexão direta (sem pooler),
+            // configure DB_PREPARE_THRESHOLD=1 para reutilizar planos de execução.
+            prepareThreshold: config.get<number>('DB_PREPARE_THRESHOLD', 0),
             // statement_timeout: mata queries travadas no banco (ms). 0 = off.
             // Setar via env DB_STATEMENT_TIMEOUT_MS em produção (ex: 30000 = 30s).
             ...(config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0) > 0
@@ -1444,21 +1437,21 @@ export class AppModule implements OnModuleInit {
     // a qualquer processo com acesso de rede ao Redis — risco CRÍTICO.
     const redisAuthHasPassword =
       !redisAuthConn ||
-      isRenderPrivateKeyValueConnection(redisAuthConn) ||
+      isConnectionAcceptableWithoutPassword(redisAuthConn) ||
       Boolean(
         redisAuthConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
       );
     const redisCacheHasPassword =
       !redisCacheConn ||
-      isRenderPrivateKeyValueConnection(redisCacheConn) ||
+      isConnectionAcceptableWithoutPassword(redisCacheConn) ||
       Boolean(
         redisCacheConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
       );
     const redisQueueHasPassword =
       !redisQueueConn ||
-      isRenderPrivateKeyValueConnection(redisQueueConn) ||
+      isConnectionAcceptableWithoutPassword(redisQueueConn) ||
       Boolean(
         redisQueueConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),

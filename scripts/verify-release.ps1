@@ -1,11 +1,8 @@
 #!/usr/bin/env pwsh
 
 param(
-    [string]$RenderWebServiceId = "srv-d75c5eea2pns73dv84rg",
-    [string]$RenderWorkerServiceId = "srv-d75c5eea2pns73dv84sg",
     [string]$VercelProject = "frontend",
     [string]$ApiHealthUrl = "https://api.sgsseguranca.com.br/health/public",
-    [string]$RenderWebHealthUrl = "https://sgs-backend-web-d49b.onrender.com/health/public",
     [string]$AppLoginUrl = "https://app.sgsseguranca.com.br/login",
     [string]$ExpectedCommit = "",
     [int]$HttpTimeoutSec = 20
@@ -106,25 +103,11 @@ function Get-StatusCode {
 Write-Host "=== SGS Release Verification ===" -ForegroundColor Cyan
 Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')"
 
-$renderWebDeploys = Invoke-JsonCommand -Exe "render" -CommandArgs @("deploys", "list", $RenderWebServiceId, "--output", "json") -Label "Render web deploys"
-$renderWorkerDeploys = Invoke-JsonCommand -Exe "render" -CommandArgs @("deploys", "list", $RenderWorkerServiceId, "--output", "json") -Label "Render worker deploys"
 $vercelData = Invoke-JsonCommand -Exe "vercel" -CommandArgs @("list", $VercelProject, "-F", "json") -Label "Vercel deployments"
 
-if (-not $renderWebDeploys -or $renderWebDeploys.Count -eq 0) { throw "No Render web deploys found." }
-if (-not $renderWorkerDeploys -or $renderWorkerDeploys.Count -eq 0) { throw "No Render worker deploys found." }
 if (-not $vercelData.deployments -or $vercelData.deployments.Count -eq 0) { throw "No Vercel deployments found." }
 
-$webLatest = $renderWebDeploys[0]
-$workerLatest = $renderWorkerDeploys[0]
 $vercelLatest = $vercelData.deployments[0]
-
-Write-Check -Ok ($webLatest.status -eq "live") `
-    -SuccessMessage "Render web latest deploy is live ($($webLatest.id), commit $($webLatest.commit.id))" `
-    -FailureMessage "Render web latest deploy is '$($webLatest.status)' ($($webLatest.id))"
-
-Write-Check -Ok ($workerLatest.status -eq "live") `
-    -SuccessMessage "Render worker latest deploy is live ($($workerLatest.id), commit $($workerLatest.commit.id))" `
-    -FailureMessage "Render worker latest deploy is '$($workerLatest.status)' ($($workerLatest.id))"
 
 Write-Check -Ok ($vercelLatest.state -eq "READY") `
     -SuccessMessage "Vercel latest deploy is READY ($($vercelLatest.url))" `
@@ -144,10 +127,6 @@ if ($vercelLatest.meta) {
 }
 
 if ($ExpectedCommit) {
-    Write-Check -Ok (($webLatest.commit.id -eq $ExpectedCommit) -and ($workerLatest.commit.id -eq $ExpectedCommit)) `
-        -SuccessMessage "Render web/worker are on expected commit $ExpectedCommit" `
-        -FailureMessage "Render commits differ from expected commit $ExpectedCommit (web=$($webLatest.commit.id), worker=$($workerLatest.commit.id))"
-
     if ($vercelCommit) {
         Write-Check -Ok ($vercelCommit -eq $ExpectedCommit) `
             -SuccessMessage "Vercel is on expected commit $ExpectedCommit" `
@@ -160,16 +139,11 @@ if ($ExpectedCommit) {
 }
 
 $apiHealth = Get-StatusCode -Url $ApiHealthUrl
-$renderWebHealth = Get-StatusCode -Url $RenderWebHealthUrl
 $appLogin = Get-StatusCode -Url $AppLoginUrl
 
 Write-Check -Ok ($apiHealth -eq 200) `
     -SuccessMessage "API health returned 200 ($ApiHealthUrl)" `
     -FailureMessage "API health returned $apiHealth ($ApiHealthUrl)"
-
-Write-Check -Ok ($renderWebHealth -eq 200) `
-    -SuccessMessage "Render web health returned 200 ($RenderWebHealthUrl)" `
-    -FailureMessage "Render web health returned $renderWebHealth ($RenderWebHealthUrl)"
 
 Write-Check -Ok ($appLogin -eq 200) `
     -SuccessMessage "Frontend login returned 200 ($AppLoginUrl)" `

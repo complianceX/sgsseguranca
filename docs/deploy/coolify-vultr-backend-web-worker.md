@@ -1,20 +1,22 @@
-# Deploy SGS Backend no Vultr + Coolify
+# Deploy SGS Backend no Vultr + Coolify (documento histórico)
 
-Este runbook cobre apenas os dois serviços que saem do Render:
+> *Nota: Infraestrutura atualizada. A migração foi concluída — Render foi desligado. Este documento documenta o processo de migração para referência futura.*
+
+Este runbook cobre os dois serviços que foram migrados do Render:
 
 - `backend web`
 - `backend worker`
 
 O banco, Redis e frontend continuam em suas plataformas atuais.
 
-## Estado alvo
+## Estado atual (pós-migração)
 
 - Vultr executa o Coolify em uma instância dedicada
 - Coolify recebe o repositório GitHub do SGS
 - Dois aplicativos separados sob o mesmo projeto:
   - web HTTP
   - worker assíncrono
-- Render é mantido apenas até o corte final e depois desligado
+- Render foi desligado após conclusão da migração
 
 ## Instância Vultr
 
@@ -80,8 +82,6 @@ Variáveis obrigatórias:
 - `AWS_S3_ENDPOINT`
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
-- `SUPABASE_URL`
-- `SUPABASE_JWT_SECRET`
 - `OPENAI_API_KEY`
 
 Variáveis já fixadas no repo e que devem permanecer:
@@ -124,8 +124,6 @@ Variáveis obrigatórias:
 - `AWS_S3_ENDPOINT`
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
-- `SUPABASE_URL`
-- `SUPABASE_JWT_SECRET`
 - `OPENAI_API_KEY`
 
 Variáveis já fixadas no repo e que devem permanecer:
@@ -156,17 +154,17 @@ Comando de migrations no backend:
 
 - `npm run release:migrate`
 
-## Corte do Render
+## Corte do Render (concluído)
 
-Só desligar os serviços antigos depois de validar:
+O corte foi realizado seguindo a validação abaixo:
 
-- web responde em `/health/public`
-- worker sobe sem erro
-- filas processam normalmente
-- login funciona
-- PDF e rotinas assíncronas funcionam
+- [x] web responde em `/health/public`
+- [x] worker sobe sem erro
+- [x] filas processam normalmente
+- [x] login funciona
+- [x] PDF e rotinas assíncronas funcionam
 
-Sequência recomendada:
+Sequência executada:
 
 1. subir web no Coolify
 2. subir worker no Coolify

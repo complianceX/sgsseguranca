@@ -485,7 +485,7 @@ async function runCheck() {
       );
     }
 
-    // Extensions inventory (Neon/Supabase drift guard)
+    // Extensions inventory (Neon drift guard)
     checks.extensions = (
       await client.query(`
         SELECT extname, extversion

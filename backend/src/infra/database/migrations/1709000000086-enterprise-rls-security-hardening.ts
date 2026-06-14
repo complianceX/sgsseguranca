@@ -208,7 +208,7 @@ export class EnterpriseRlsSecurityHardening1709000000086 implements MigrationInt
     console.log(
       '⚠️  REMINDER: Set app.current_company and app.is_super_admin in',
     );
-    console.log('      session via SET statement or Supabase auth context');
+    console.log('      session via SET statement or Neon auth context');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

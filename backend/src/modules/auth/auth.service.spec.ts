@@ -199,9 +199,6 @@ describe('AuthService', () => {
               if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
                 return true;
               }
-              if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
-                return true;
-              }
               return null;
             }),
           }),
@@ -631,7 +628,7 @@ describe('AuthService', () => {
       expect(dataSource.query).not.toHaveBeenCalled();
     });
 
-    it('retorna false quando senha local não confere e não há fallback Supabase', async () => {
+    it('retorna false quando senha local não confere e não há fallback externo', async () => {
       usersService.findOneWithPassword.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',

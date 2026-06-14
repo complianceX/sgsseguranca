@@ -108,9 +108,9 @@ As credenciais do storage nao devem ficar no repositorio.
 
 Elas devem ficar apenas nas variaveis de ambiente do servico backend.
 
-No ambiente atual versionado, a configuracao do storage oficial esta no Render,
+No ambiente atual versionado, a configuracao do storage oficial esta no Vultr/Coolify,
 e o bucket oficial esta no Backblaze B2. Confirmar variaveis reais no dashboard
-antes de qualquer operacao destrutiva ou corte de infraestrutura.
+antes de qualquer operacao destrutiva.
 
 ## Regra pratica para manutencao
 

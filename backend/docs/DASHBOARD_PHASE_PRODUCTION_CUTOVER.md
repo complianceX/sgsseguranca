@@ -8,7 +8,7 @@ Documento objetivo para colocar em producao a fase de refatoracao do dashboard:
 - `GET /dashboard/document-pendencies`
 - `POST /dashboard/invalidate`
 
-Escopo: web + worker + Redis + Postgres/Supabase.
+Escopo: web + worker + Redis + Postgres/Neon.
 
 ## 1. Pre-condicoes
 
@@ -60,12 +60,9 @@ VALIDATION_TOKEN_SECRET=change_me_validation_secret_min_32_chars
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=30
 
-SUPABASE_URL=https://project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=change_me
-SUPABASE_JWT_SECRET=
-SUPABASE_AUTH_SYNC_ENABLED=true
-SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN=true
-LEGACY_PASSWORD_AUTH_ENABLED=true
+# As variáveis SUPABASE_* foram removidas — a stack migrou para Neon.
+# Autenticação agora é feita via JWT nativo com PostgreSQL (Neon).
+LEGACY_PASSWORD_AUTH_ENABLED=false
 
 REFRESH_CSRF_ENFORCED=true
 REFRESH_CSRF_REPORT_ONLY=false
@@ -138,11 +135,8 @@ JWT_SECRET=change_me_jwt_secret_min_32_chars
 JWT_REFRESH_SECRET=change_me_refresh_secret_min_32_chars
 VALIDATION_TOKEN_SECRET=change_me_validation_secret_min_32_chars
 
-SUPABASE_URL=https://project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=change_me
-SUPABASE_AUTH_SYNC_ENABLED=true
-SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN=true
-LEGACY_PASSWORD_AUTH_ENABLED=true
+# As variáveis SUPABASE_* foram removidas — a stack migrou para Neon.
+LEGACY_PASSWORD_AUTH_ENABLED=false
 
 WORKER_HEARTBEAT_ENABLED=true
 WORKER_HEARTBEAT_REQUIRED=true
@@ -237,4 +231,4 @@ O codigo desta fase esta pronto. O maior risco remanescente para hoje nao e impl
 - Redis real
 - segredo de validacao
 - CORS correto
-- TLS do Postgres/Supabase
+- TLS do Postgres/Neon

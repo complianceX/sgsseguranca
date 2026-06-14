@@ -68,8 +68,8 @@ const dataCategories = [
 
 const subprocessors = [
   {
-    name: 'Supabase / Postgres',
-    purpose: 'Banco de dados relacional, autenticação e armazenamento de arquivos',
+    name: 'Neon / PostgreSQL',
+    purpose: 'Banco de dados relacional (substituiu o Supabase como provedor PostgreSQL)',
     country: 'Conforme região do projeto',
     safeguard: 'DPA, região, backup e retenção devem ser confirmados no contrato vigente',
   },
@@ -115,7 +115,7 @@ const cookieRows = [
   {
     name: 'sb-access-token / sb-refresh-token',
     type: 'Estritamente necessário',
-    purpose: 'Manutenção de sessão autenticada via Supabase Auth',
+    purpose: 'Manutenção de sessão autenticada',
     duration: 'Sessão / 7 dias',
     thirdParty: 'Não',
   },

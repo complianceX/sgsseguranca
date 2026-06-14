@@ -1,15 +1,15 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Otimizações específicas para Supabase (PostgreSQL gerenciado)
+ * Otimizações específicas para Neon (PostgreSQL gerenciado)
  *
- * Stack: Render (web + worker) → Supabase PgBouncer pooler → PostgreSQL
+ * Stack: Vercel (web) → Vultr (worker) → Neon PgBouncer pooler → PostgreSQL
  *
- * Esta migration faz ajustes que são seguros em Supabase e não requerem
+ * Esta migration faz ajustes que são seguros em Neon e não requerem
  * permissão de superusuário:
  *
  * 1. pg_stat_statements — habilita rastreamento de queries lentas.
- *    No Supabase já vem habilitado por padrão, mas o CREATE EXTENSION é
+ *    No Neon já vem habilitado por padrão, mas o CREATE EXTENSION é
  *    idempotente. Permite usar a view pg_stat_statements para identificar
  *    queries que precisam de otimização.
  *
@@ -25,12 +25,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * 4. Reset de pg_stat_user_tables (apenas log informativo — sem efeito colateral).
  *
- * NOTA: Em Supabase, ALTER TABLE ... SET (autovacuum_*) requer que o usuário
- * seja o owner da tabela (normalmente 'postgres' no Supabase). Se o usuário
+ * NOTA: Em Neon, ALTER TABLE ... SET (autovacuum_*) requer que o usuário
+ * seja o owner da tabela. Se o usuário
  * da migration não for owner, a instrução será ignorada silenciosamente.
  */
-export class SupabaseRuntimeOptimizations1709000000114 implements MigrationInterface {
-  name = 'SupabaseRuntimeOptimizations1709000000114';
+export class NeonRuntimeOptimizations1709000000114 implements MigrationInterface {
+  name = 'NeonRuntimeOptimizations1709000000114';
   transaction = false;
 
   private async safeQuery(
@@ -211,7 +211,7 @@ export class SupabaseRuntimeOptimizations1709000000114 implements MigrationInter
     //    mail_logs:  cresce com cada e-mail enviado
     //    apr_logs:   cresce com cada mudança de status de APR
     //
-    //    Padrão Supabase: autovacuum_vacuum_scale_factor = 0.2 (20% de dead tuples)
+    //    Padrão Neon: autovacuum_vacuum_scale_factor = 0.2 (20% de dead tuples)
     //    Ajuste: 0.05 (5%) para tabelas de audit → vacuum mais frequente
     //    Isso reduz bloat e mantém HOT update path eficiente
     // =========================================================
@@ -242,19 +242,17 @@ export class SupabaseRuntimeOptimizations1709000000114 implements MigrationInter
     // 4. Configuração de work_mem para queries de aggregation
     //    Ajuste LOCAL por sessão — não altera configuração global.
     //    Apenas documenta o valor recomendado; não pode ser persistido via migration.
-    //    Usar env DATABASE_URL com ?options=-c work_mem=16MB para Render.
+    //    Usar env DATABASE_URL com ?options=-c work_mem=16MB para o provedor.
     // =========================================================
     console.log(`
-[114] RECOMENDAÇÕES DE CONFIGURAÇÃO PARA SUPABASE/RENDER:
+[114] RECOMENDAÇÕES DE CONFIGURAÇÃO:
 
-  Render (env vars do web service):
-    DATABASE_URL         = postgresql://...@aws-*.pooler.supabase.com:6543/postgres
-    DATABASE_DIRECT_URL  = postgresql://...@aws-*.supabase.com:5432/postgres
+  Vercel (env vars):
     DB_POOL_MAX          = 20
     DB_POOL_MIN          = 2
     DB_STATEMENT_TIMEOUT_MS = 30000
 
-  Supabase Dashboard → SQL Editor:
+  Neon Console → SQL Editor:
     -- Verificar queries lentas:
     SELECT query, calls, total_exec_time/calls AS avg_ms,
            rows/calls AS avg_rows

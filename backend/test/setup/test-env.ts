@@ -55,7 +55,7 @@ export function bootstrapBackendTestEnvironment() {
     'test-field-encryption-hash-key-0123456789abcdef',
   );
 
-  // E2E: usa autenticação local (password em `users`) para evitar depender do fallback Supabase.
+  // E2E: usa autenticação local (password em `users`).
   applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
 
   // E2E: usa filesystem local apenas quando S3/MinIO não estiver configurado.
@@ -123,7 +123,6 @@ export function bootstrapBackendTestEnvironment() {
   applyForced('DATABASE_SSL', 'false');
   applyForced('DATABASE_SSL_ALLOW_INSECURE', 'false');
   applyForced('DATABASE_SSL_ALLOW_INSECURE_FORCE', 'false');
-  applyForced('DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK', 'false');
   applyForced('BANCO_DE_DADOS_SSL', 'false');
 
   // Telemetria desabilitada em testes

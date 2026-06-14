@@ -95,7 +95,7 @@ Explique a arquitetura de forma executiva, sem excesso tecnico.
 - Cache e filas: Redis + BullMQ
 - Storage: S3 compativel
 - Deploy frontend: Vercel
-- Deploy backend e worker: Render
+- Deploy backend e worker: Vultr/Coolify
 - Observabilidade: logs estruturados, Sentry opcional, OpenTelemetry opcional
 
 ## Estrutura de pastas do monorepo
@@ -109,7 +109,7 @@ Use esta organizacao para explicar a arquitetura do projeto:
 - `docs/`: documentacao tecnica, rapida, institucional e de arquitetura
 - `scripts/`: scripts utilitarios
 - `test/`: testes e cargas de performance
-- `supabase/`: artefatos relacionados ao banco e ao ambiente Supabase
+- `neon/`: artefatos relacionados ao banco e ao ambiente Neon
 - `cloudflare/`: utilitarios e exemplos ligados a Cloudflare
 - `prompts/`: prompts operacionais e guias de trabalho
 - `artifacts/`: saidas e arquivos auxiliares
@@ -119,7 +119,6 @@ Use esta organizacao para explicar a arquitetura do projeto:
 
 - `README.md`
 - `AGENTES.md`
-- `render.yaml`
 - `package.json`
 - `ops/docker/Dockerfile`
 - `ops/docker/Dockerfile.worker`
@@ -295,7 +294,7 @@ Ele e responsavel por:
 ### Deploy
 
 - frontend em Vercel
-- backend e worker em Render
+- backend e worker em Vultr/Coolify
 - banco gerenciado fora do app
 
 ### Observabilidade

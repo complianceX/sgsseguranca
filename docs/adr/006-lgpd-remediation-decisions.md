@@ -102,6 +102,8 @@ Auditoria completa de privacidade identificou 25 achados (A1–A25) cobrindo aus
 
 ## Decisão 9 — Páginas legais com conteúdo LGPD-compliant (A15–A20)
 
+> **Nota histórica:** O Supabase foi substituído pelo Neon como provedor de banco de dados PostgreSQL. Esta decisão reflete o estado anterior com Supabase.
+
 - **Política de Privacidade** (`/privacidade`): adicionados suboperadores nomeados (OpenAI, Supabase, Cloudflare, Sentry, New Relic), tabela de transferências internacionais com salvaguardas, seção de dados sensíveis de saúde (Art. 11), tabela de retenção, tabela de cookies, DPO com telefone/e-mail, links para /termos e /cookies.
 - **Termos de Uso** (`/termos`): adicionadas cláusula de responsabilidade de IA (lista explícita de não-substituição), notificação de incidentes em 48h (Art. 48 LGPD), janela de exportação de 30 dias pós-rescisão, teto de responsabilidade de 12 meses.
 - **Política de Cookies** (`/cookies`): página nova com tabela de 7 cookies (name, category, purpose, duration, third-party, HttpOnly, Secure), seção sobre localStorage/sessionStorage, instrução de configuração por browser.

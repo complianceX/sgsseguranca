@@ -296,7 +296,7 @@ npm run recovery:ajn-quality -- --file=scripts/recovery/ajn-quality.csv
 - opcionais: `email_contato_empresa, perfil`
 
 **Pré-requisitos de ambiente:**
-- `DATABASE_URL` apontando para o Postgres/Supabase
+- `DATABASE_URL` apontando para o Postgres/Neon
 - `DATABASE_SSL=true`
 - `DATABASE_SSL_ALLOW_INSECURE=false`
 
@@ -379,7 +379,7 @@ node scripts/smoke-db-readonly.js --iterations=15 --latency-warn-ms=250 --json
 ---
 
 ### 🧪 homolog-rls-temp-schema.js
-Pipeline de homologação técnica no mesmo Supabase via schema temporário para validar RLS antes de aplicar em `public`.
+Pipeline de homologação técnica no mesmo banco (Neon) via schema temporário para validar RLS antes de aplicar em `public`.
 
 **Uso:**
 ```bash
@@ -423,9 +423,11 @@ npm run recovery:null-password -- --map-file=scripts/recovery/templates/null-pas
 
 ---
 
-### 🚪 Cutover para Supabase Auth
+### 🚪 Cutover para Supabase Auth (HISTÓRICO — COMPLETO)
 
-Fluxo recomendado para desligar a autenticação legada por `public.users.password` sem quebrar produção:
+> **Nota:** O cutover do Supabase Auth foi concluído. O Supabase foi removido da stack. A autenticação agora é feita inteiramente via JWT nativo com PostgreSQL (Neon). Esta seção é mantida apenas como registro histórico.
+
+Fluxo que foi seguido para desligar a autenticação legada por `public.users.password` sem quebrar produção:
 
 1. manter `SUPABASE_AUTH_SYNC_ENABLED=true`
 2. manter `SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN=true`
@@ -435,13 +437,13 @@ Fluxo recomendado para desligar a autenticação legada por `public.users.passwo
 6. usar `POST /auth/forgot-password` / `POST /auth/reset-password` ou `npm run recovery:null-password` para os remanescentes
 7. só então desligar `LEGACY_PASSWORD_AUTH_ENABLED=false`
 
-**Observação importante:**
+**Observação importante (histórica):**
 - quando `LEGACY_PASSWORD_AUTH_ENABLED=false`, o backend deixa de usar `public.users.password` como fonte canônica.
 - `POST /auth/login`, `POST /auth/change-password` e `POST /auth/confirm-password` continuam funcionando, mas a verificação passa a usar `auth.users.encrypted_password`.
 - nesse ponto, o backend deve estar com `SUPABASE_JWT_SECRET` configurado para validar também os JWTs emitidos pelo projeto.
 - o frontend pode continuar usando o fluxo atual via API; autenticação direta no client do Supabase vira uma opção arquitetural, não mais uma exigência do cutover.
 
-**Diagnóstico operacional:**
+**Diagnóstico operacional (histórico):**
 ```bash
 # Resumo textual
 npm run auth:cutover:readiness
@@ -450,7 +452,7 @@ npm run auth:cutover:readiness
 npm run auth:cutover:readiness:json
 ```
 
-**O diagnóstico mede pelo menos:**
+**O diagnóstico media pelo menos:**
 - usuários ativos com `auth_user_id`
 - usuários ativos sem bridge
 - usuários ativos com senha utilizável no `auth.users`
@@ -496,8 +498,8 @@ node scripts/audit-mail-runtime.js --prune-failed --min-age-minutes=0
 - o prune é ignorado quando a `mail-dlq` ainda possui itens pendentes
 - por padrão, o prune exige jobs com pelo menos `1440` minutos de idade
 - a `mail-dlq` continua sendo a fonte operacional para retry manual
-- se o `REDIS_URL` apontar para hostname privado do Render e o script rodar fora do runtime do serviço, a inspeção de filas é pulada com `warn` em vez de travar
-- para validar filas nesse cenário, rode o script dentro de um one-off job ou sessão SSH do Render
+- se o `REDIS_URL` apontar para hostname privado do Vultr/Coolify e o script rodar fora do runtime do serviço, a inspeção de filas é pulada com `warn` em vez de travar
+- para validar filas nesse cenário, rode o script dentro de um one-off job ou sessão SSH do Vultr/Coolify
 
 ---
 

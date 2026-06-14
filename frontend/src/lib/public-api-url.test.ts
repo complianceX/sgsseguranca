@@ -20,12 +20,6 @@ describe('normalizePublicApiBaseUrl', () => {
     ).toBe('https://app.sgsseguranca.com.br/proxy');
   });
 
-  it('redirects the legacy Render host to the same-origin proxy path', () => {
-    expect(
-      normalizePublicApiBaseUrl('https://sgs-backend-web-d49b.onrender.com'),
-    ).toBe('https://app.sgsseguranca.com.br/proxy');
-  });
-
   it('keeps local API URLs intact for development', () => {
     expect(normalizePublicApiBaseUrl('http://localhost:3011')).toBe(
       'http://localhost:3011',

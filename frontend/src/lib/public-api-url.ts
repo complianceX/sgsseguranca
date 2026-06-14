@@ -1,4 +1,3 @@
-const LEGACY_RENDER_API_HOST = 'sgs-backend-web-d49b.onrender.com';
 const CANONICAL_PROD_API_ORIGIN = 'https://api.sgsseguranca.com.br';
 const PROXY_PATH = '/proxy';
 
@@ -33,15 +32,6 @@ export function normalizePublicApiBaseUrl(
     parsedUrl = new URL(value);
   } catch {
     return value.endsWith('/') ? value.slice(0, -1) : value;
-  }
-
-  if (parsedUrl.hostname === LEGACY_RENDER_API_HOST) {
-    const appOrigin = readAppOrigin();
-    if (appOrigin) {
-      return new URL(PROXY_PATH, appOrigin).toString().replace(/\/$/, '');
-    }
-
-    return CANONICAL_PROD_API_ORIGIN;
   }
 
   if (parsedUrl.origin === CANONICAL_PROD_API_ORIGIN) {

@@ -19,4 +19,4 @@ Apenas o comando padrão de migrations:
 npm run migration:run
 ```
 
-O Render executa isso automaticamente via `preDeployCommand` no `render.yaml`.
+O Vultr/Coolify executa isso automaticamente via `preDeployCommand` no `coolify.yaml`.

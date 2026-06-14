@@ -1,3 +1,5 @@
+> **Nota histórica:** Infraestrutura atualizada em 2026. O Supabase foi substituído pelo Neon como provedor de banco de dados PostgreSQL. O backend foi migrado do Render para Vultr/Coolify. Este documento reflete o estado anterior com Supabase e Render.
+
 # SGS - Plano e Execucao de Ciberseguranca
 
 Data: 2026-05-12

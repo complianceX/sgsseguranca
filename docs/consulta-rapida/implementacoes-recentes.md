@@ -11,12 +11,12 @@ Use este guia quando a pergunta for:
 
 ## Estado atual da infraestrutura
 
-O estado atual versionado e Render para backend/worker, Neon para PostgreSQL e
+O estado atual versionado e Vultr/Coolify para backend/worker, Neon para PostgreSQL e
 Backblaze B2 via S3 compativel para storage governado. As referencias a
-Railway e Cloudflare R2 abaixo registram rodadas historicas e nao devem ser
+Railway, Cloudflare R2 e Render abaixo registram rodadas historicas e nao devem ser
 tratadas como prova do runtime externo atual. Para operacao, consulte:
 
-- `docs/deploy/secure-render-release.md`
+- `docs/deploy/coolify-vultr-backend-web-worker.md`
 
 ## Visao geral
 
@@ -606,7 +606,7 @@ Onde olhar:
 - se a pergunta for sobre documento final oficial: `pdfs-finais-e-storage.md`
 - se a pergunta for sobre pendencias e acoes operacionais: `implementacoes-recentes.md` e `fluxos-documentais.md`
 - se a pergunta for sobre tenant, RBAC, lock e trilha: `seguranca-e-governanca.md`
-- se a pergunta for sobre ambiente/infra atual: `docs/deploy/secure-render-release.md`
+- se a pergunta for sobre ambiente/infra atual: `docs/deploy/coolify-vultr-backend-web-worker.md`
 
 ## O que ainda pode vir depois
 

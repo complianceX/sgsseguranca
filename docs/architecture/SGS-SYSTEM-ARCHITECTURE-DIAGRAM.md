@@ -1,6 +1,6 @@
 # Diagrama de Arquitetura do SGS
 
-Visão executiva da arquitetura atual do SGS, baseada na estrutura real do monorepo, no `render.yaml` e nos ADRs de multi-tenancy e backend.
+Visão executiva da arquitetura atual do SGS, baseada na estrutura real do monorepo e nos ADRs de multi-tenancy e backend.
 
 ```mermaid
 %%{init: {
@@ -30,7 +30,7 @@ flowchart LR
     end
 
     subgraph APP[Aplicacao principal]
-        API[Backend Web<br/>NestJS 11<br/>Render]
+        API[Backend Web<br/>NestJS 11<br/>Vultr/Coolify]
         WS[Gateway de notificacoes<br/>WebSocket / Socket.IO]
         AUTH[Auth + RBAC + CSRF<br/>Consentimento IA]
         TENANT[TenantMiddleware + AsyncLocalStorage<br/>TenantDbContextService]
@@ -39,7 +39,7 @@ flowchart LR
     end
 
     subgraph ASYNC[Processamento assincrono]
-        WORKER[Backend Worker<br/>NestJS worker<br/>Render]
+        WORKER[Backend Worker<br/>NestJS worker<br/>Vultr/Coolify]
         JOBS[Jobs pesados<br/>PDF, importacao documental,<br/>mail, revalidacao, DR]
     end
 

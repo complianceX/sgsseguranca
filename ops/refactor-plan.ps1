@@ -50,7 +50,7 @@ foreach ($p in $gitUntrack) {
 
 # 2) Moves (git mv keeps history)
 $moves = @(
-  # render.yaml permanece na raiz: o Blueprint do Render depende desse contrato.
+  # render.yaml foi removido: o Blueprint mudou para Vultr/Coolify
   @{ from = "railway.web.toml"; to = "ops/railway/railway.web.toml" },
   @{ from = "railway.worker.toml"; to = "ops/railway/railway.worker.toml" },
   @{ from = "railway.migrations.toml"; to = "ops/railway/railway.migrations.toml" },
