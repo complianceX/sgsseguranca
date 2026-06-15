@@ -1,4 +1,4 @@
-import { render, screen } from "@/$(Match.1)esting-library/react';
+import { render, screen } from '@testing-library/react';
 import { Badge } from './badge';
 
 describe('Badge', () => {

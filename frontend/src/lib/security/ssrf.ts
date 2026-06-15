@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 
 const PRIVATE_RANGES = [
@@ -10,24 +10,8 @@ const PRIVATE_RANGES = [
   { start: '169.254.0.0', end: '169.254.255.255' },
 ];
 
-const IPV6_PRIVATE_RANGES = [
-  'fc00::/7',
-  'fe80::/10',
-  '::1/128',
-  '::/128',
-];
-
 function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
-}
-
-function ipv6ToInt(ip: string): number {
-  const parts = ip.split(':').filter(p => p !== '');
-  let result = 0;
-  for (let i = 0; i < Math.min(parts.length, 4); i++) {
-    result = (result << 8) + parseInt(parts[i] || '0', 16);
-  }
-  return result >>> 0;
 }
 
 function isPrivateIPv4(hostname: string): boolean {
@@ -167,11 +151,16 @@ export class TokenValidator {
     this.cleanup();
     
     if (this.validTokens.size >= this.MAX_TOKENS) {
-      const oldestKey = this.validTokens.keys().next().value;
-      if (oldestKey) this.validTokens.delete(oldestKey);
+      // Evicção por expiração — remover o token mais antigo (menor expiry)
+      let evictKey: string | undefined;
+      let evictExpiry = Infinity;
+      for (const [k, exp] of this.validTokens) {
+        if (exp < evictExpiry) { evictExpiry = exp; evictKey = k; }
+      }
+      if (evictKey) this.validTokens.delete(evictKey);
     }
     
-    const raw = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const raw = `${prefix}-${Date.now()}-${randomBytes(16).toString('hex')}`;
     const hash = createHash('sha256').update(raw).digest('hex');
     const token = `${prefix}_${hash.slice(0, 16)}`;
     const expiry = Date.now() + expiryMs;

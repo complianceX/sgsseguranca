@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@/$(Match.1)esting-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './button';
 
 describe('Button', () => {
