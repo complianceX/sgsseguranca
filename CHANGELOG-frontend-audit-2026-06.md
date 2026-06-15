@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-74 arquivos alterados (+1330/-2808), 0 erros TypeScript, 13 bugs corrigidos — segurança e acessibilidade passam de zero cobertura para auditoria completa nas rotas públicas. Validação automática (CLI) concluída: middleware 307 redirect funcional, Turnstile presente nas 3 rotas, bundle ~94KB (login), `@turf/turf` removido, backend online (200 OK). Pendente: DDS sessionStorage em modo privado, upload >50MB, WebSocket com throttling e auditoria NVDA/VoiceOver — exigem navegador real. Maior risco de deploy: middleware pode bloquear rotas públicas se a matcher estiver mal calibrada.
+74 arquivos alterados (+1330/-2808), 0 erros TypeScript, 13 bugs corrigidos — segurança e acessibilidade passam de zero cobertura para auditoria completa nas rotas públicas. Validação automática (CLI) concluída: `proxy.ts` (Next.js 16 — antigo `middleware.ts`) com 307 redirect funcional, Turnstile presente nas 3 rotas, bundle ~94KB (login), `@turf/turf` removido, backend online (200 OK). Pendente: DDS sessionStorage em modo privado, upload >50MB, WebSocket com throttling e auditoria NVDA/VoiceOver — exigem navegador real. Maior risco de deploy: a matcher do `proxy.ts` pode bloquear rotas públicas se mal calibrada.
 
 ## Risco antes / depois
 
@@ -19,7 +19,7 @@
 
 ## Breaking changes
 
-- **`middleware.ts` agora bloqueia `/dashboard/*` e `/proxy/*` sem cookie de sessão** — usuários com sessão inválida serão redirecionados para `/login` (antes acessavam HTML vazio e falhavam no cliente).
+- **`proxy.ts` (Next.js 16) agora bloqueia `/dashboard/*` e `/proxy/*` sem cookie de sessão** (o Next.js 16 deprecou `middleware.ts` em favor de `proxy.ts` — mesma funcionalidade, novo nome de arquivo) — usuários com sessão inválida serão redirecionados para `/login` (antes acessavam HTML vazio e falhavam no cliente).
 - **`BACKEND_PROXY_URL` é OBRIGATÓRIO em produção** (`frontend/app/proxy/[...path]/route.ts:8`). Se não setado, o proxy recusa requisições com 500. O IP hardcoded foi removido.
 - **Hash SHA-256 não é mais calculado para arquivos >50MB** (`storageUploadService.ts`). Backend precisa validar checksum via presigned URL do Backblaze B2. Arquivos menores continuam com hash.
 - **Token de assinatura DDS movido de URL para `sessionStorage`** (`assinar/dds/[token]/page.tsx`). `history.replaceState` limpa a URL após carregar o contexto. Links antigos (já compartilhados) continuam funcionando até o token expirar.
@@ -32,7 +32,7 @@
 ### Segurança
 
 - Turnstile (Cloudflare) adicionado em forgot-password e DDS signing → `forgot-password/page.tsx`, `assinar/dds/[token]/page.tsx`, `publicDdsSignatureService.ts`. Nonce lido do DOM via `<body data-nonce>`.
-- Middleware protege `/dashboard/*` e `/proxy/*` com redirect para `/login` se cookie `refresh_csrf` ausente → `middleware.ts`.
+- Middleware protege `/dashboard/*` e `/proxy/*` com redirect para `/login` se cookie `refresh_csrf` ausente → `proxy.ts` (Next.js 16 deprecou `middleware.ts` em favor de `proxy.ts`).
 - IP hardcoded removido do proxy Vultr → `proxy/[...path]/route.ts`. `BACKEND_PROXY_URL` obrigatório.
 - Token de assinatura DDS removido da URL — armazenado em `sessionStorage`, URL limpa via `history.replaceState` → `assinar/dds/[token]/page.tsx`.
 
@@ -98,7 +98,7 @@ Os 13 bugs identificados e corrigidos durante o processo. Todos surgiram da ativ
 ## O QUE NÃO FOI TESTADO
 
 - **Testes unitários**: 106/107 suites passam (559 testes, 2 skipped, 0 falhas). Nenhum dos 22 itens tem teste automatizado próprio — cobertura é indireta via testes existentes de serviços/utils.
-- **Integração com backend**: Backend `api.sgsseguranca.com.br` responde 200 OK. Middleware testado via CLI (307 redirect sem cookie). Turnstile confirmado nas 3 rotas via HTML parsing. Fluxos completos (login, forgot-password, DDS signing, WebSocket, upload) NÃO foram testados ponta-a-ponta — exigem navegador real e sessão autenticada.
+- **Integração com backend**: Backend `api.sgsseguranca.com.br` responde 200 OK. `proxy.ts` testado via CLI (307 redirect sem cookie). Turnstile confirmado nas 3 rotas via HTML parsing. Fluxos completos (login, forgot-password, DDS signing, WebSocket, upload) NÃO foram testados ponta-a-ponta — exigem navegador real e sessão autenticada.
 - **Fluxo de assinatura DDS**: Token movido para `sessionStorage` — não testado em iframe, modo privado, ou múltiplas abas. `history.replaceState` não foi verificado com navegadores legacy (IE11 não é alvo).
 - **Métricas de produção**: LCP, bundle size, latência WebSocket — não medidos. Estimativas: `@turf/turf` removido (−170KB), `next/image` com `priority` no logo (esperado LCP <2.5s), WebSocket com reconexão backoff (esperado <2s em 3G).
 - **Upload >50MB**: SHA-256 pulado para arquivos >50MB. Não testado com arquivo real de 500MB. Retry 3× não verificado com mock de falha.
@@ -108,11 +108,11 @@ Os 13 bugs identificados e corrigidos durante o processo. Todos surgiram da ativ
 
 ## Riscos do deploy
 
-- **`middleware.ts` pode quebrar rotas públicas** se a matcher (`config.matcher`) estiver mal calibrada. Testar manualmente: `/login`, `/forgot-password`, `/assinar/dds/[token]`, `/validar/[code]`.
+- **`proxy.ts` pode quebrar rotas públicas** se a matcher (`config.matcher`) estiver mal calibrada (Next.js 16 renomeou `middleware.ts` para `proxy.ts`). Verificar: `/login`, `/forgot-password`, `/assinar/dds/[token]`, `/validar/[code]`.
 - **Fluxo de assinatura DDS migrou para `sessionStorage`** — testar em iframe (sessionStorage não persiste) e modo privado. Se token não sobreviver a redirect, assinatura quebra.
 - **Upload com XHR + retry pode mascarar falhas reais** se o backend retornar erro 5xx intermitente — o retry automático tenta 3× antes de falhar. Monitorar logs após deploy.
 - **`noUncheckedIndexedAccess` bloqueia builds novos** — qualquer PR que toque em acesso de array sem checar `undefined` falha. Educar o time.
-- **Build atual em produção é pré-auditoria** (`build-20260612182639`). O deploy do branch `fix/otel-prometheus-port-collision` ainda não foi feito. Até lá, middleware, proxy, Turnstile e demais melhorias não valem.
+- **Build atual em produção é pré-auditoria** (`build-20260612182639`). O deploy do branch `fix/otel-prometheus-port-collision` ainda não foi feito. Até lá, `proxy.ts` (Next.js 16 — antigo `middleware.ts`), proxy de API, Turnstile e demais melhorias não valem.
 - **`BACKEND_PROXY_URL` adicionado nos `.env` locais** mas **precisa ser setado no Vercel Dashboard** (Project Settings → Environment Variables) antes do deploy. Se esquecer, proxy retorna 500.
 - **`VERCEL_OIDC_TOKEN` está apenas em `.env` locais** (gitignorado pelo padrão `.env*`). Não exposto no repositório. Pode ser removido dos arquivos locais — o Vercel injeta automaticamente em produção.
 
@@ -145,7 +145,7 @@ Tempo total de rollback estimado: 5min se for só frontend, 15min se incluir rot
 
 - [x] Backend online — `api.sgsseguranca.com.br` responde 200
 - [x] `BACKEND_PROXY_URL` adicionado nos `.env` locais (vercel + production)
-- [x] Middleware — 307 redirect para `/login?redirect=...` sem cookie `refresh_csrf`
+- [x] `proxy.ts` — 307 redirect para `/login?redirect=...` sem cookie `refresh_csrf`
 - [x] Turnstile — confirmado nas 3 rotas (login, forgot-password, DDS)
 - [x] Bundle inicial — login ~94KB (framework + página), bem abaixo de 200KB
 - [x] `@turf/turf` — removido de `package.json` e `package-lock.json`
