@@ -1,12 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import Image from 'next/image';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import api from '@/lib/api';
 import axios from 'axios';
 import styles from '../auth.module.css';
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: Record<string, unknown>,
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
 
 function formatCpf(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -16,12 +30,62 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
+function getBodyNonce(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  return document.body?.getAttribute('data-nonce') || undefined;
+}
+
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [cpf, setCpf] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+  const turnstileEnabled = turnstileSiteKey.length > 0;
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !turnstileEnabled ||
+      !turnstileScriptReady ||
+      !turnstileContainerRef.current ||
+      !window.turnstile ||
+      turnstileWidgetIdRef.current
+    ) {
+      return;
+    }
+
+    turnstileWidgetIdRef.current = window.turnstile.render(
+      turnstileContainerRef.current,
+      {
+        sitekey: turnstileSiteKey,
+        action: 'forgot-password',
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(''),
+        'error-callback': () => setTurnstileToken(''),
+      },
+    );
+
+    return () => {
+      if (turnstileWidgetIdRef.current && window.turnstile?.remove) {
+        window.turnstile.remove(turnstileWidgetIdRef.current);
+      }
+      turnstileWidgetIdRef.current = null;
+      setTurnstileToken('');
+    };
+  }, [turnstileEnabled, turnstileScriptReady, turnstileSiteKey]);
+
+  const resetTurnstile = () => {
+    if (turnstileWidgetIdRef.current && window.turnstile?.reset) {
+      window.turnstile.reset(turnstileWidgetIdRef.current);
+    }
+    setTurnstileToken('');
+  };
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (error) setError('');
@@ -31,9 +95,18 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    if (turnstileEnabled && !turnstileToken) {
+      setError('Conclua a verificação de segurança antes de continuar.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { cpf: cpf.replace(/\D/g, '') });
+      await api.post('/auth/forgot-password', {
+        cpf: cpf.replace(/\D/g, ''),
+        turnstileToken: turnstileToken || undefined,
+      });
       setSent(true);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 429) {
@@ -41,13 +114,25 @@ export default function ForgotPasswordPage() {
       } else {
         setError('Ocorreu um erro. Tente novamente mais tarde.');
       }
+      resetTurnstile();
     } finally {
       setLoading(false);
     }
   };
 
+  const nonce = getBodyNonce();
+
   return (
     <div className={styles.page}>
+      {turnstileEnabled && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          nonce={nonce}
+          strategy="afterInteractive"
+          onLoad={() => setTurnstileScriptReady(true)}
+        />
+      )}
+
       <div className={styles.card}>
         <div className={styles.brand}>
           <Image
@@ -109,9 +194,15 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
 
+              {turnstileEnabled ? (
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div ref={turnstileContainerRef} />
+                </div>
+              ) : null}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (turnstileEnabled && !turnstileToken)}
                 className={styles.submitButton}
               >
                 {loading ? (

@@ -20,6 +20,7 @@ import {
 import styles from './login.module.css';
 import { authService } from '@/services/authService';
 import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image';
 import { useTheme } from '@/hooks/useTheme';
 
 declare global {
@@ -226,13 +227,13 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
         <div className={styles.card}>
           <section className={styles.brandBlock}>
             <div className={styles.brandRow}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo-sgs.svg?v=20260425"
+              <Image
+                src="/logo-sgs.svg"
                 alt="SGS - Sistema de Gestão de Segurança"
                 width={260}
                 height={130}
                 className={styles.brandLogo}
+                priority
               />
             </div>
           </section>

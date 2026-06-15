@@ -84,7 +84,7 @@ export function OnboardingModal({ userId }: Props) {
 
   if (!open) return null;
 
-  const current = STEPS[step];
+  const current = STEPS[step]!;
   const Icon = current.icon;
   const isLast = step === STEPS.length - 1;
 

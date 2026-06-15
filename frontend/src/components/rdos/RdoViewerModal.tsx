@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 import {
   AlertTriangle,
@@ -483,16 +484,18 @@ export function RdoViewerModal({
                               href={resolveActivityPhotoSrc(photo) || "#"}
                               target="_blank"
                               rel="noreferrer"
-                              className="block h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+                              className="relative block h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+                              <Image
                                 src={
                                   resolveActivityPhotoSrc(photo) ||
                                   "/placeholder-image.png"
                                 }
                                 alt={`Foto ${photoIndex + 1} da atividade ${index + 1}`}
-                                className="h-full w-full object-cover"
+                                fill
+                                className="object-cover"
+                                sizes="80px"
+                                unoptimized
                               />
                             </a>
                           ))}

@@ -349,7 +349,7 @@ export function ArrForm({ id }: ArrFormProps) {
         if (!id) {
           const initialCompanyId = getInitialCompanyId();
           if (!initialCompanyId && companiesData.length === 1) {
-            setValue('company_id', companiesData[0].id, {
+            setValue('company_id', companiesData[0]!.id, {
               shouldValidate: true,
             });
           }

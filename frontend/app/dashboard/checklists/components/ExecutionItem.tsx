@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { Camera, Plus, Trash2 } from "lucide-react";
 import {
   UseFormRegister,
@@ -73,7 +74,7 @@ export const ExecutionItem = React.memo(
     const choiceBaseClassName =
       "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold motion-safe:transition-colors";
     const fieldClassName =
-      "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+      "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
     const derivedItemStatus = React.useMemo(
       () =>
         hasAnswerableSubitems
@@ -302,7 +303,7 @@ export const ExecutionItem = React.memo(
     };
 
     return (
-      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 motion-safe:transition-colors hover:border-[var(--ds-color-warning-border)]">
+      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 hover:border-[var(--ds-color-warning-border)]">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -528,14 +529,16 @@ export const ExecutionItem = React.memo(
                 key={`${index}-${photoIndex}`}
                 className="relative h-16 w-16 overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={
                     resolvePhotoSrc?.(photo, index, photoIndex) ||
                     "/placeholder-image.png"
                   }
                   alt={`Foto ${photoIndex + 1} do item ${index + 1}`}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="64px"
+                  unoptimized
                 />
                 <button
                   type="button"

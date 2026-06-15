@@ -1,7 +1,7 @@
 .page {
   --login-blue: var(--ds-accent-primary);
   --login-blue-deep: color-mix(in srgb, var(--ds-color-action-primary-active) 76%, var(--ds-bg-elevated) 24%);
-  --login-blue-soft: color-mix(in srgb, var(--ds-accent-primary) 52%, var(--ds-bg-primary) 48%);
+  --login-blue-soft: color-mix(in srgb, var(--ds-accent-primary) 70%, var(--ds-bg-primary) 30%);
   --login-panel-border: color-mix(in srgb, var(--component-card-border) 82%, transparent);
   --login-text: var(--ds-text-primary);
   --login-text-soft: var(--ds-text-secondary);

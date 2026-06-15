@@ -13,8 +13,8 @@ export function getMedicalExamDateKey(
     return null;
   }
 
-  const dateKey = value.split('T')[0];
-  return ISO_DATE_RE.test(dateKey) ? dateKey : null;
+  const [dateKey] = value.split('T');
+  return dateKey && ISO_DATE_RE.test(dateKey) ? dateKey : null;
 }
 
 export function toMedicalExamInputDateValue(

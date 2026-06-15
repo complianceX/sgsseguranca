@@ -368,12 +368,12 @@ export default function PrivacyRequestsAdminPage() {
 
                   {eventsByRequest[request.id] ? (
                     <div className="mt-3 space-y-2">
-                      {eventsByRequest[request.id].length === 0 ? (
+                      {eventsByRequest[request.id]!.length === 0 ? (
                         <p className="text-xs text-[var(--ds-color-text-secondary)]">
                           Nenhum evento registrado para este protocolo.
                         </p>
                       ) : (
-                        eventsByRequest[request.id].map((event) => (
+                        eventsByRequest[request.id]!.map((event) => (
                           <div
                             key={event.id}
                             className="rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-secondary)]"

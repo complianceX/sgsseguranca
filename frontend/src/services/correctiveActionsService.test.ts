@@ -180,7 +180,7 @@ describe('correctiveActionsService', () => {
 
       expect(api.get).toHaveBeenCalledWith('/corrective-actions/sla/by-site');
       expect(result).toHaveLength(2);
-      expect(result[0].site).toBe('Site A');
+      expect(result[0]!.site).toBe('Site A');
     });
   });
 

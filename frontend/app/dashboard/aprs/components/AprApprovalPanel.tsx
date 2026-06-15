@@ -5,8 +5,8 @@ import { aprsService } from "@/services/aprsService";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Circle, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
-import { handleApiError } from "@/lib/error-handler";
 import { AprReopenModal } from "./AprReopenModal";
+import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
 
 type WorkflowHistory = {
   id: string;
@@ -66,9 +66,9 @@ interface AprApprovalPanelProps {
 }
 
 export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProps) {
+  const { acting, execute } = useApprovalWorkflow();
   const [status, setStatus] = useState<WorkflowStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [reopenModalOpen, setReopenModalOpen] = useState(false);
@@ -90,18 +90,12 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
   }, [loadStatus]);
 
   const handleApprove = async () => {
-    if (acting) return;
-    setActing(true);
-    try {
+    await execute('approve', async () => {
       await aprsService.workflowApprove(aprId);
       toast.success("Passo de aprovação registrado.");
       await loadStatus();
       onStatusChange?.();
-    } catch (error) {
-      handleApiError(error, "Aprovação");
-    } finally {
-      setActing(false);
-    }
+    });
   };
 
   const handleReject = async () => {
@@ -109,26 +103,22 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
       toast.error("Motivo de reprovação deve ter pelo menos 10 caracteres.");
       return;
     }
-    if (acting) return;
-    setActing(true);
-    try {
+    await execute('reject', async () => {
       await aprsService.workflowReject(aprId, rejectReason.trim());
       toast.success("APR reprovada.");
       setShowRejectInput(false);
       setRejectReason("");
       await loadStatus();
       onStatusChange?.();
-    } catch (error) {
-      handleApiError(error, "Reprovação");
-    } finally {
-      setActing(false);
-    }
+    });
   };
 
   const handleReopen = async (reason: string) => {
-    await aprsService.workflowReopen(aprId, reason);
-    await loadStatus();
-    onStatusChange?.();
+    await execute('reopen', async () => {
+      await aprsService.workflowReopen(aprId, reason);
+      await loadStatus();
+      onStatusChange?.();
+    });
   };
 
   if (loading) {
@@ -238,16 +228,16 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={acting}
+                disabled={acting !== null}
                 onClick={handleApprove}
                 className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-success)] motion-safe:transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 <ThumbsUp className="h-4 w-4" />
-                {acting ? "Aprovando..." : "Aprovar"}
+                {acting === 'approve' ? "Aprovando..." : "Aprovar"}
               </button>
               <button
                 type="button"
-                disabled={acting}
+                disabled={acting !== null}
                 onClick={() => setShowRejectInput(true)}
                 className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-danger)] motion-safe:transition-opacity hover:opacity-80 disabled:opacity-50"
               >
@@ -267,11 +257,11 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={acting || rejectReason.trim().length < 10}
+                  disabled={acting !== null || rejectReason.trim().length < 10}
                   onClick={handleReject}
                   className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--color-danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
-                  {acting ? "Reprovando..." : "Confirmar reprovação"}
+                  {acting === 'reject' ? "Reprovando..." : "Confirmar reprovação"}
                 </button>
                 <button
                   type="button"
@@ -293,8 +283,9 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
         <div className="border-t border-[var(--ds-color-border-subtle)] pt-3">
           <button
             type="button"
+            disabled={acting !== null}
             onClick={() => setReopenModalOpen(true)}
-            className="text-xs text-[var(--ds-color-text-secondary)] underline underline-offset-2 hover:text-[var(--ds-color-text-primary)]"
+            className="text-xs text-[var(--ds-color-text-secondary)] underline underline-offset-2 hover:text-[var(--ds-color-text-primary)] disabled:opacity-40 disabled:pointer-events-none"
           >
             Reabrir passo anterior
           </button>

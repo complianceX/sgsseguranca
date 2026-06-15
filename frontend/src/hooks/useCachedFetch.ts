@@ -51,7 +51,8 @@ function maybePruneCache(force = false) {
     index < overflow && index < evictableEntries.length;
     index += 1
   ) {
-    memoryCache.delete(evictableEntries[index][0]);
+    const [entryKey] = evictableEntries[index]!;
+    memoryCache.delete(entryKey);
   }
 }
 

@@ -95,8 +95,9 @@ export default function CalendarPage() {
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
     for (const event of filteredEvents) {
-      if (!map[event.date]) map[event.date] = [];
-      map[event.date].push(event);
+      const dateKey = event.date;
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey]!.push(event);
     }
     return map;
   }, [filteredEvents]);

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -1312,11 +1313,13 @@ export function PhotographicReportWorkspace({
                             {(() => {
                               const imageSrc = safeExternalArtifactUrl(image.download_url || image.image_url);
                               return imageSrc ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
+                              <Image
                                 src={imageSrc}
                                 alt={image.ai_title || image.manual_caption || "Foto do relatório"}
+                                width={800}
+                                height={224}
                                 className="h-56 w-full object-cover"
+                                unoptimized
                               />
                               ) : (
                               <div className="flex h-56 items-center justify-center text-[var(--color-text-secondary)]">

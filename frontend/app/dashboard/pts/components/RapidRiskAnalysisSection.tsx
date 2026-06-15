@@ -21,8 +21,9 @@ export const RapidRiskAnalysisSection = () => {
   );
 
   const setRapidRiskChecklistAnswer = (index: number, resposta: RapidRiskChecklistAnswer) => {
+      const item = rapidRiskChecklist[index]!;
       const updated = [...rapidRiskChecklist];
-      updated[index] = { ...updated[index], resposta };
+      updated[index] = { ...item, resposta };
       setValue('analise_risco_rapida_checklist', updated, {
         shouldValidate: true,
       });

@@ -127,7 +127,7 @@ export function drawExecutiveSummaryStrip(
     const row = Math.floor(index / columns);
     const col = index % columns;
     const x = margin + 4 + col * (colWidth + gap);
-    const y = rowOffsets[row];
+    const y = rowOffsets[row]!;
     const cardH = Math.max(entry.blockHeight, 11);
     const tone = toneColor(ctx, entry.metric.tone);
 

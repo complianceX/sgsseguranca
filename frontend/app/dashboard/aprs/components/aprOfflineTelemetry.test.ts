@@ -22,7 +22,7 @@ describe("aprOfflineTelemetry", () => {
     });
 
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
-    const dispatchedEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{
+    const dispatchedEvent = dispatchSpy.mock.calls[0]![0] as CustomEvent<{
       event: string;
       draftId?: string;
       queueItemId?: string;

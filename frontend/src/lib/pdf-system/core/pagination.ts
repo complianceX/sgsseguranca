@@ -1,6 +1,10 @@
 ﻿import type { PdfContext } from "./types";
 import { formatDateTime, sanitize } from "./format";
 
+interface JsPdfWithGState {
+  GState?: new (opts: { opacity: number }) => { opacity: number };
+}
+
 const DRAFT_DISCLAIMER_LINES = [
   "RASCUNHO — NÃO É DOCUMENTO OFICIAL",
   "O PDF final oficial é gerado somente pelo backend do SGS.",
@@ -16,11 +20,7 @@ const DRAFT_DISCLAIMER_LINES = [
 export function applyDraftWatermark(ctx: PdfContext) {
   const { doc, pageWidth, pageHeight } = ctx;
   const pages = doc.getNumberOfPages();
-  // GState está disponível como propriedade da instância em jsPDF ≥2.x
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const GStateClass = (doc as any).GState as
-    | (new (opts: Record<string, unknown>) => unknown)
-    | undefined;
+  const GStateClass = (doc as unknown as JsPdfWithGState).GState;
 
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page);

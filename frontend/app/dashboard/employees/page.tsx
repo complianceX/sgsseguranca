@@ -14,6 +14,8 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
+import { ModalFrame, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/modal-frame';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { usersService, User } from '@/services/usersService';
 import { authService } from '@/services/authService';
@@ -43,6 +45,11 @@ export default function EmployeesPage() {
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
     selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [stepUpCode, setStepUpCode] = useState('');
+  const [stepUpLoading, setStepUpLoading] = useState(false);
+  const [stepUpError, setStepUpError] = useState<string | null>(null);
 
   useEffect(() => {
     const syncActiveCompanyId = () => {
@@ -103,20 +110,37 @@ export default function EmployeesPage() {
     void loadEmployees();
   }, [loadEmployees]);
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     if (!activeCompanyId) {
       toast.error('Selecione uma empresa antes de excluir um funcionario.');
       return;
     }
+    setDeleteTargetId(id);
+    setStepUpCode('');
+    setStepUpError(null);
+    setIsDeleteModalOpen(true);
+  }
 
-    if (!confirm('Tem certeza que deseja excluir este funcionario?')) return;
+  function handleCloseModal() {
+    if (stepUpLoading) return;
+    setIsDeleteModalOpen(false);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTargetId || !activeCompanyId) {
+      toast.error('Selecione um funcionario e uma empresa antes de confirmar.');
+      return;
+    }
+
+    const trimmed = stepUpCode.trim();
+    if (!trimmed) {
+      toast.error('Informe o codigo de verificacao MFA.');
+      return;
+    }
 
     try {
-      const stepUpValue = prompt(
-        'Confirme com senha ou código MFA para excluir definitivamente:',
-      );
-      const trimmed = (stepUpValue || '').trim();
-      if (!trimmed) return;
+      setStepUpLoading(true);
+      setStepUpError(null);
 
       const stepUp =
         /^\d{6,8}$/.test(trimmed)
@@ -127,15 +151,20 @@ export default function EmployeesPage() {
             });
 
       await usersService.delete(
-        id,
+        deleteTargetId,
         stepUp.stepUpToken,
         activeCompanyId || undefined,
       );
-      setEmployees((current) => current.filter((employee) => employee.id !== id));
+      setEmployees((current) => current.filter((employee) => employee.id !== deleteTargetId));
       toast.success('Funcionario excluido com sucesso.');
+      setIsDeleteModalOpen(false);
+      setDeleteTargetId(null);
+      setStepUpCode('');
     } catch (error) {
       logger.error('Erro ao excluir funcionario:', error);
-      toast.error('Erro ao excluir funcionario. Verifique se existem dependencias.');
+      setStepUpError('Codigo de verificacao invalido ou erro na operacao. Tente novamente.');
+    } finally {
+      setStepUpLoading(false);
     }
   }
 
@@ -254,7 +283,7 @@ export default function EmployeesPage() {
             />
           ) : null}
 
-        {displayedEmployees.length === 0 ? (
+        {!loading && displayedEmployees.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="Nenhum funcionario encontrado"
@@ -363,6 +392,52 @@ export default function EmployeesPage() {
           </Table>
         )}
       </div>
+
+      <ModalFrame isOpen={isDeleteModalOpen} onClose={handleCloseModal} shellClassName="max-w-sm">
+        <ModalHeader
+          title="Confirmar exclusao de funcionario"
+          description="Esta acao requer verificacao adicional de seguranca."
+          onClose={handleCloseModal}
+          icon={<ShieldCheck className="h-5 w-5" />}
+        />
+        <ModalBody>
+          <label htmlFor="stepUpCode" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            Codigo de verificacao MFA
+          </label>
+          <Input
+            id="stepUpCode"
+            type="text"
+            inputMode="numeric"
+            placeholder="Digite o codigo de 6 a 8 digitos"
+            value={stepUpCode}
+            onChange={(e) => setStepUpCode(e.target.value)}
+            disabled={stepUpLoading}
+            autoComplete="one-time-code"
+            aria-invalid={!!stepUpError}
+            className="mt-1.5"
+          />
+          {stepUpError ? (
+            <p role="alert" className="mt-2 text-xs font-medium text-[var(--ds-color-danger)]">
+              {stepUpError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setIsDeleteModalOpen(false)} disabled={stepUpLoading}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={stepUpLoading || !stepUpCode.trim()}
+            >
+              {stepUpLoading ? 'Verificando...' : 'Excluir funcionario'}
+            </Button>
+          </div>
+        </ModalFooter>
+      </ModalFrame>
     </ListPageLayout>
   );
 }

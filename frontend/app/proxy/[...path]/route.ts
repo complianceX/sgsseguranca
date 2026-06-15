@@ -1,6 +1,3 @@
-const FALLBACK_PRODUCTION_BACKEND_ORIGIN =
-  'http://jm4nzz41rkp8bh6zpdqjymi9.216.238.104.148.sslip.io';
-
 function normalizeBaseUrl(rawValue: string | undefined): string | null {
   const value = rawValue?.trim();
   if (!value) {
@@ -16,6 +13,8 @@ function normalizeBaseUrl(rawValue: string | undefined): string | null {
   }
 }
 
+const DEV_FALLBACK = 'http://localhost:3011';
+
 function resolveBackendOrigin(): string {
   const explicitProxyTarget = normalizeBaseUrl(
     process.env.BACKEND_PROXY_URL ||
@@ -29,10 +28,13 @@ function resolveBackendOrigin(): string {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    return FALLBACK_PRODUCTION_BACKEND_ORIGIN;
+    throw new Error(
+      'BACKEND_PROXY_URL não configurado. ' +
+        'Defina esta variável de ambiente para o proxy do backend funcionar em produção.',
+    );
   }
 
-  return 'http://localhost:3011';
+  return DEV_FALLBACK;
 }
 
 async function proxyRequest(

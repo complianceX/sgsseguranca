@@ -23,13 +23,19 @@ export type CompleteUploadResponse = {
   sha256Verified: boolean;
 };
 
+const SHA256_CLIENT_SIDE_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB
+
 function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 }
 
-async function computeSha256(file: File): Promise<string> {
+async function computeSha256(file: File): Promise<string | null> {
+  if (file.size > SHA256_CLIENT_SIDE_SIZE_LIMIT) {
+    return null;
+  }
+
   if (!globalThis.crypto?.subtle) {
     throw new Error(
       'Web Crypto API indisponível para calcular SHA-256 do upload.',
@@ -99,6 +105,74 @@ export const storageUploadService = {
     }
   },
 
+  async uploadWithProgress(
+    uploadUrl: string,
+    file: File,
+    options?: {
+      onProgress?: (pct: number) => void;
+      signal?: AbortSignal;
+      contentType?: string;
+    },
+  ): Promise<void> {
+    const contentType = options?.contentType || file.type || 'application/octet-stream';
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', contentType);
+
+          const abortHandler = () => {
+            xhr.abort();
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+
+          options?.signal?.addEventListener('abort', abortHandler, { once: true });
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              options?.onProgress?.(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+
+          xhr.onload = () => {
+            options?.signal?.removeEventListener('abort', abortHandler);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Upload falhou (HTTP ${xhr.status}).`));
+            }
+          };
+
+          xhr.onerror = () => {
+            options?.signal?.removeEventListener('abort', abortHandler);
+            reject(new Error('Falha de rede ao enviar arquivo.'));
+          };
+
+          xhr.onabort = () => {
+            options?.signal?.removeEventListener('abort', abortHandler);
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+
+          xhr.send(file);
+        });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err;
+        }
+
+        if (attempt === maxRetries) {
+          throw err;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+      }
+    }
+  },
+
   async completeUpload(
     input: CompleteUploadInput,
   ): Promise<CompleteUploadResponse> {
@@ -125,7 +199,7 @@ export const storageUploadService = {
     return this.completeUpload({
       fileKey: presigned.fileKey,
       originalFilename: file.name,
-      sha256,
+      ...(sha256 ? { sha256 } : {}),
     });
   },
 };

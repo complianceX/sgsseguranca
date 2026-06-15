@@ -24,7 +24,7 @@ interface SignatureModalProps {
 }
 
 export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureModalProps) {
-  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'hmac'>('digital');
+  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'hmac'>('hmac');
 const timerRef = useRef<number | undefined>(undefined);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [pin, setPin] = useState('');

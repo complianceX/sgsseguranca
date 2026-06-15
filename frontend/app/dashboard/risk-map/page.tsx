@@ -149,7 +149,8 @@ export default function RiskMapPage() {
     }
 
     for (const [key, categories] of cellCategories.entries()) {
-      nextCellMap[key].categorias = Array.from(categories);
+      if (!nextCellMap[key]) continue;
+      nextCellMap[key]!.categorias = Array.from(categories);
     }
 
     const nextChartData = Object.entries(categoryData)

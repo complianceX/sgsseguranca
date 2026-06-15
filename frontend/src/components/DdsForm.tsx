@@ -7,7 +7,6 @@ import { sitesService, Site } from "@/services/sitesService";
 import { useForm } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   ArrowLeft,
   Save,
@@ -51,20 +50,7 @@ import {
   dedupeDdsUsersById,
   isDdsUserVisibleForSite,
 } from "@/lib/dds-user-scope";
-
-const ddsSchema = z.object({
-  tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
-  conteudo: z.string().optional(),
-  data: z.string(),
-  company_id: z.string().min(1, "Selecione uma empresa"),
-  site_id: z.string().min(1, "Selecione um site"),
-  facilitador_id: z.string().min(1, "Selecione um facilitador"),
-  participants: z
-    .array(z.string())
-    .min(1, "Selecione pelo menos um participante"),
-});
-
-type DdsFormData = z.infer<typeof ddsSchema>;
+import { ddsSchema, type DdsFormData } from "@/lib/validation/ddsForm.schema";
 
 interface DdsFormProps {
   id?: string;

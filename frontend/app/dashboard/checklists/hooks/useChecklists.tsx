@@ -277,7 +277,7 @@ useEffect(() => {
       uniqueIds.map((id) => checklistsService.delete(id)),
     );
     const successfulIds = uniqueIds.filter(
-      (_, index) => results[index].status === 'fulfilled',
+      (_, index) => results[index]!.status === 'fulfilled',
     );
     const failedCount = uniqueIds.length - successfulIds.length;
 

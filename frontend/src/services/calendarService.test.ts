@@ -51,8 +51,8 @@ describe('calendarService', () => {
       expect(result.year).toBe(2026);
       expect(result.month).toBe(4);
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].type).toBe('training');
-      expect(result.data[1].type).toBe('medical_exam');
+      expect(result.data[0]!.type).toBe('training');
+      expect(result.data[1]!.type).toBe('medical_exam');
     });
 
     it('retorna lista vazia quando não há eventos no mês', async () => {

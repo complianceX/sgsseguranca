@@ -24,6 +24,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { toInputDateValue } from "@/lib/date/safeFormat";
+import Image from "next/image";
 import { isSafeImagePreviewUrl } from "@/lib/security/is-safe-image-preview-url";
 import {
   openSafeExternalUrlInNewTab,
@@ -644,11 +645,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
                     >
                       {safeEvidenceUrl && shouldRenderInlineImagePreview(safeEvidenceUrl) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={safeEvidenceUrl}
                         alt={item.label}
+                        width={400}
+                        height={160}
                         className="h-40 w-full object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="flex h-40 items-center justify-center bg-[var(--ds-color-surface-muted)] px-4 text-center text-xs text-[var(--ds-color-text-muted)]">
@@ -1512,11 +1515,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                     >
                       {safeAttachmentUrl && shouldRenderInlineImagePreview(safeAttachmentUrl) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={safeAttachmentUrl}
                           alt={previewLabel}
+                          width={400}
+                          height={128}
                           className="h-32 w-full object-cover"
+                          unoptimized
                         />
                       ) : governedAttachment ? (
                         <div className="flex h-32 flex-col items-center justify-center gap-2 bg-[var(--ds-color-success-subtle)] px-4 text-center text-xs text-[var(--ds-color-success)]">

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { machinesService, Machine } from '@/services/machinesService';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -165,8 +165,8 @@ export default function MachinesPage() {
       }
     >
       {loading && machines.length === 0 ? (
-        <div className="p-6">
-          <InlineLoadingState label="Carregando maquinas..." />
+        <div className="p-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+          Carregando máquinas...
         </div>
       ) : machines.length === 0 ? (
         <div className="p-6">

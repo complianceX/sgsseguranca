@@ -218,7 +218,7 @@ describe('LoginPageClient', () => {
       expect(renderTurnstile).toHaveBeenCalled();
     });
 
-    const turnstileOptions = renderTurnstile.mock.calls[0][1] as {
+    const turnstileOptions = renderTurnstile.mock.calls[0]![1] as {
       callback?: (token: string) => void;
     };
     await act(async () => {

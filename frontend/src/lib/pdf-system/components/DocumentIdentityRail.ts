@@ -67,7 +67,7 @@ export function drawDocumentIdentityRail(
 
     row.forEach((field, columnIndex) => {
       const accent =
-        accentPalette[(rowIndex * columns + columnIndex) % accentPalette.length];
+        accentPalette[(rowIndex * columns + columnIndex) % accentPalette.length]!;
       const x = margin + columnIndex * (cardWidth + gap);
       const valueLines = (doc.splitTextToSize(
         sanitize(field.value),

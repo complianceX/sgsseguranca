@@ -18,16 +18,13 @@ import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const fieldClassName =
-  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
 const errorFieldClassName =
   'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
 const labelClassName =
   'block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
-const sectionCardClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
-
 const riskSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
   categoria: z.string().min(1, 'Selecione uma categoria'),
@@ -178,7 +175,7 @@ export function RiskForm({ id }: RiskFormProps) {
         icon={
           <Link
             href="/dashboard/risks"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] motion-safe:transition hover:bg-[var(--ds-color-surface-muted)]"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] hover:bg-[var(--ds-color-surface-muted)]"
             title="Voltar"
             aria-label="Voltar para a lista de riscos"
           >
@@ -194,29 +191,12 @@ export function RiskForm({ id }: RiskFormProps) {
           </div>
         }
       />
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Cadastro guiado
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture o risco com classificação consistente, parâmetros de avaliação e medidas de controle.
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, categoria e criticidade antes de salvar para manter a base de riscos padronizada.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
-        <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-              Contexto e classificação
-            </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Defina a empresa, a categoria e o nome do risco para uso em APRs, PTs e análises administrativas.
-            </p>
-          </div>
-        <div className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+            Contexto e classificação
+          </p>
+        <div className="mt-4 space-y-4">
           <div>
             <label htmlFor="company_id" className={labelClassName}>Empresa</label>
             <select
@@ -234,9 +214,7 @@ export function RiskForm({ id }: RiskFormProps) {
             </select>
             {errors.company_id ? (
               <p className={errorClassName}>{errors.company_id.message}</p>
-            ) : (
-              <p className={helperClassName}>A empresa define o tenant da biblioteca de riscos.</p>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -253,9 +231,7 @@ export function RiskForm({ id }: RiskFormProps) {
             />
             {errors.nome ? (
               <p className={errorClassName}>{errors.nome.message}</p>
-            ) : (
-              <p className={helperClassName}>Use um nome direto para facilitar busca, sugestão e reaproveitamento.</p>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -277,9 +253,7 @@ export function RiskForm({ id }: RiskFormProps) {
             </select>
             {errors.categoria ? (
               <p className={errorClassName}>{errors.categoria.message}</p>
-            ) : (
-              <p className={helperClassName}>Classifique corretamente para manter relatórios e filtros coerentes.</p>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -288,11 +262,10 @@ export function RiskForm({ id }: RiskFormProps) {
               id="descricao"
               {...register('descricao')}
               aria-label="Descrição do risco"
-              rows={4}
+              rows={3}
               className={fieldClassName}
               placeholder="Descreva brevemente o risco..."
             />
-            <p className={helperClassName}>Use este campo para contexto, condição perigosa ou cenário de ocorrência.</p>
           </div>
 
           <div>
@@ -301,25 +274,21 @@ export function RiskForm({ id }: RiskFormProps) {
               id="medidas_controle"
               {...register('medidas_controle')}
               aria-label="Medidas de controle"
-              rows={4}
+              rows={3}
               className={fieldClassName}
               placeholder="Informe as medidas de controle adotadas..."
             />
-            <p className={helperClassName}>Descreva controles existentes ou recomendados de forma prática e verificável.</p>
           </div>
         </div>
-        </section>
+        </div>
 
-        <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-              Avaliação e hierarquia
-            </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Registre os parâmetros que ajudam a calcular a criticidade e orientar a resposta operacional.
-            </p>
-          </div>
-        <div className="space-y-4">
+        <hr className="border-[var(--ds-color-border-subtle)]" />
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+            Avaliação e hierarquia
+          </p>
+        <div className="mt-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label htmlFor="probability" className={labelClassName}>Probabilidade (1-5)</label>
@@ -333,7 +302,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 className={fieldClassName}
                 placeholder="1 a 5"
               />
-              <p className={helperClassName}>Baixa a muito alta chance de ocorrência.</p>
             </div>
             <div>
               <label htmlFor="severity" className={labelClassName}>Severidade (1-5)</label>
@@ -347,7 +315,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 className={fieldClassName}
                 placeholder="1 a 5"
               />
-              <p className={helperClassName}>Impacto potencial do dano ou evento.</p>
             </div>
             <div>
               <label htmlFor="exposure" className={labelClassName}>Exposição (1-5)</label>
@@ -361,7 +328,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 className={fieldClassName}
                 placeholder="1 a 5"
               />
-              <p className={helperClassName}>Frequência ou tempo de exposição ao risco.</p>
             </div>
           </div>
 
@@ -380,7 +346,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 <option value="HIGH">Alto</option>
                 <option value="CRITICAL">Crítico</option>
               </select>
-              <p className={helperClassName}>Deixe automático quando a classificação vier da lógica do sistema.</p>
             </div>
             <div>
               <label htmlFor="control_hierarchy" className={labelClassName}>Hierarquia de Controle</label>
@@ -397,7 +362,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 <option value="ADMINISTRATIVE">Administrativo</option>
                 <option value="PPE">EPI</option>
               </select>
-              <p className={helperClassName}>Priorize controles mais fortes antes de depender de EPI.</p>
             </div>
           </div>
 
@@ -410,21 +374,17 @@ export function RiskForm({ id }: RiskFormProps) {
               rows={3}
               className={fieldClassName}
             />
-            <p className={helperClassName}>Explique como o controle é aplicado e como sua eficácia é verificada.</p>
           </div>
         </div>
-        </section>
+        </div>
 
-        <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-              Evidências
-            </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Registre referências e confirme se o controle possui evidência validada.
-            </p>
-          </div>
-        <div className="space-y-4">
+        <hr className="border-[var(--ds-color-border-subtle)]" />
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+            Evidências
+          </p>
+        <div className="mt-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="evidence_photo" className={labelClassName}>Evidência (foto/url)</label>
@@ -436,7 +396,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 className={fieldClassName}
                 placeholder="Link para foto ou evidência visual"
               />
-              <p className={helperClassName}>Use um link quando a comprovação visual estiver fora do sistema.</p>
             </div>
             <div>
               <label htmlFor="evidence_document" className={labelClassName}>Evidência documental</label>
@@ -448,7 +407,6 @@ export function RiskForm({ id }: RiskFormProps) {
                 className={fieldClassName}
                 placeholder="Procedimento, laudo ou referência documental"
               />
-              <p className={helperClassName}>Informe documento, procedimento ou laudo relacionado ao controle.</p>
             </div>
           </div>
 
@@ -457,17 +415,14 @@ export function RiskForm({ id }: RiskFormProps) {
               <input id="control_evidence" type="checkbox" {...register('control_evidence')} className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]" />
               Controle com evidência validada
             </label>
-            <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
-              Marque somente quando houver comprovação objetiva do controle implementado.
-            </p>
           </div>
         </div>
-        </section>
+        </div>
 
         <div className="flex justify-end space-x-3 border-t pt-6">
           <Link
             href="/dashboard/risks"
-            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] motion-safe:transition-colors"
+            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
