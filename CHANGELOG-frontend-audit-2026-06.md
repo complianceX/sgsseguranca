@@ -1,10 +1,10 @@
 # Frontend SGS — Auditoria de Segurança, Performance e Acessibilidade
 > 2026-06-14 · branch: `fix/otel-prometheus-port-collision` · base: `a6c703d7` · autor: complianceX
-> Hash do commit final: `daa84a88`
+> Hash do commit final: `e416c2e8`
 
 ## TL;DR
 
-69 arquivos alterados, 0 erros TypeScript, 13 bugs corrigidos durante a implementação — segurança e acessibilidade passam de zero cobertura para auditoria completa nas rotas públicas. Maior risco de deploy: middleware pode bloquear rotas públicas se a matcher estiver mal calibrada e a migração do token DDS para sessionStorage não foi testada em modo privado. Validação ponta-a-ponta não foi feita — backend offline (HTTP 522) durante toda a auditoria; testes unitários continuam com infraestrutura quebrada.
+74 arquivos alterados (+1330/-2808), 0 erros TypeScript, 13 bugs corrigidos — segurança e acessibilidade passam de zero cobertura para auditoria completa nas rotas públicas. Validação automática (CLI) concluída: middleware 307 redirect funcional, Turnstile presente nas 3 rotas, bundle ~94KB (login), `@turf/turf` removido, backend online (200 OK). Pendente: DDS sessionStorage em modo privado, upload >50MB, WebSocket com throttling e auditoria NVDA/VoiceOver — exigem navegador real. Maior risco de deploy: middleware pode bloquear rotas públicas se a matcher estiver mal calibrada.
 
 ## Risco antes / depois
 
@@ -98,7 +98,7 @@ Os 13 bugs identificados e corrigidos durante o processo. Todos surgiram da ativ
 ## O QUE NÃO FOI TESTADO
 
 - **Testes unitários**: 106/107 suites passam (559 testes, 2 skipped, 0 falhas). Nenhum dos 22 itens tem teste automatizado próprio — cobertura é indireta via testes existentes de serviços/utils.
-- **Integração com backend**: Backend `api.sgsseguranca.com.br` retorna 522 (Cloudflare timeout). Nenhum fluxo foi validado ponta-a-ponta: login, forgot-password, DDS signing, WebSocket, upload, step-up MFA.
+- **Integração com backend**: Backend `api.sgsseguranca.com.br` responde 200 OK. Middleware testado via CLI (307 redirect sem cookie). Turnstile confirmado nas 3 rotas via HTML parsing. Fluxos completos (login, forgot-password, DDS signing, WebSocket, upload) NÃO foram testados ponta-a-ponta — exigem navegador real e sessão autenticada.
 - **Fluxo de assinatura DDS**: Token movido para `sessionStorage` — não testado em iframe, modo privado, ou múltiplas abas. `history.replaceState` não foi verificado com navegadores legacy (IE11 não é alvo).
 - **Métricas de produção**: LCP, bundle size, latência WebSocket — não medidos. Estimativas: `@turf/turf` removido (−170KB), `next/image` com `priority` no logo (esperado LCP <2.5s), WebSocket com reconexão backoff (esperado <2s em 3G).
 - **Upload >50MB**: SHA-256 pulado para arquivos >50MB. Não testado com arquivo real de 500MB. Retry 3× não verificado com mock de falha.
@@ -112,8 +112,9 @@ Os 13 bugs identificados e corrigidos durante o processo. Todos surgiram da ativ
 - **Fluxo de assinatura DDS migrou para `sessionStorage`** — testar em iframe (sessionStorage não persiste) e modo privado. Se token não sobreviver a redirect, assinatura quebra.
 - **Upload com XHR + retry pode mascarar falhas reais** se o backend retornar erro 5xx intermitente — o retry automático tenta 3× antes de falhar. Monitorar logs após deploy.
 - **`noUncheckedIndexedAccess` bloqueia builds novos** — qualquer PR que toque em acesso de array sem checar `undefined` falha. Educar o time.
-- **`BACKEND_PROXY_URL` não setado** bloqueia todas as requisições proxy em produção. Garantir que a env var existe em staging e prod.
-- **Rotacionar Sentry Auth Token + Vercel OIDC Token** — verificar se `.vercel.production.env` com tokens hardcoded ainda está no repositório. Se sim, vazar.
+- **Build atual em produção é pré-auditoria** (`build-20260612182639`). O deploy do branch `fix/otel-prometheus-port-collision` ainda não foi feito. Até lá, middleware, proxy, Turnstile e demais melhorias não valem.
+- **`BACKEND_PROXY_URL` adicionado nos `.env` locais** mas **precisa ser setado no Vercel Dashboard** (Project Settings → Environment Variables) antes do deploy. Se esquecer, proxy retorna 500.
+- **`VERCEL_OIDC_TOKEN` está apenas em `.env` locais** (gitignorado pelo padrão `.env*`). Não exposto no repositório. Pode ser removido dos arquivos locais — o Vercel injeta automaticamente em produção.
 
 ### Plano de rollback
 
@@ -122,7 +123,7 @@ Se algo crítico falhar em produção:
 1. **Frontend Vercel:** reverter pelo dashboard Vercel (botão "Promote to Production" no deploy anterior). Tempo estimado: <2min.
 2. **Backend Vultr/Coolify:** manter rodando — apenas o frontend volta à versão anterior.
 3. **Migrações de banco:** nenhuma foi feita nesta auditoria — sem necessidade de rollback de schema.
-4. **Variáveis de ambiente:** `BACKEND_PROXY_URL` foi adicionada como obrigatória. Se voltar à versão anterior, a env var continua existindo (sem impacto). Sentry token e Vercel OIDC token: se rotacionados, atualizar no Vercel antes do revert.
+4. **Variáveis de ambiente:** `BACKEND_PROXY_URL` foi adicionada como obrigatória. Se voltar à versão anterior, a env var continua existindo (sem impacto). `VERCEL_OIDC_TOKEN`: o Vercel injeta automaticamente em produção — não precisa estar nos `.env` do repositório.
 5. **Comunicação:** avisar time no canal #engenharia antes do revert.
 
 Tempo total de rollback estimado: 5min se for só frontend, 15min se incluir rotação de tokens.
@@ -142,15 +143,16 @@ Tempo total de rollback estimado: 5min se for só frontend, 15min se incluir rot
 
 ## Validação pendente — checklist para o deploy
 
-- [ ] Religar Vultr/Coolify e validar `/api` healthcheck
-- [ ] Setar `BACKEND_PROXY_URL` em staging + prod
-- [ ] Testar middleware.ts com cookie expirado em todas as rotas públicas
-- [ ] Validar fluxo DDS: sessionStorage sobrevive a redirect? Funciona em modo privado?
-- [ ] Confirmar Turnstile carrega nas 3 rotas (login, forgot-password, DDS)
-- [ ] Testar upload de arquivo >50MB (SHA-256 pulado)
-- [ ] Simular rede instável (DevTools throttling) e validar reconexão WebSocket
-- [ ] Medir LCP nas rotas /dashboard, /dashboard/aprs, /dashboard/kpis
-- [ ] Confirmar bundle inicial <200KB (verificar se @turf/turf foi completamente removido)
-- [ ] Auditoria de acessibilidade com NVDA/VoiceOver nos fluxos públicos
-- [ ] Backup do banco antes do deploy
-- [ ] Educar time sobre `noUncheckedIndexedAccess: true` — revisar PRs futuros
+- [x] Backend online — `api.sgsseguranca.com.br` responde 200
+- [x] `BACKEND_PROXY_URL` adicionado nos `.env` locais (vercel + production)
+- [x] Middleware — 307 redirect para `/login?redirect=...` sem cookie `refresh_csrf`
+- [x] Turnstile — confirmado nas 3 rotas (login, forgot-password, DDS)
+- [x] Bundle inicial — login ~94KB (framework + página), bem abaixo de 200KB
+- [x] `@turf/turf` — removido de `package.json` e `package-lock.json`
+- [ ] **`BACKEND_PROXY_URL` no Vercel Dashboard** — pendente (essencial para proxy)
+- [ ] **DDS sessionStorage** — testar em modo privado + iframe (navegador real)
+- [ ] **Upload >50MB** — testar com arquivo grande real
+- [ ] **WebSocket reconnect** — simular com DevTools throttling
+- [ ] **LCP em produção** — medir com Lighthouse após deploy
+- [ ] **Auditoria NVDA/VoiceOver** — fluxos públicos (login, forgot-password, DDS)
+- [ ] **Educar time** sobre `noUncheckedIndexedAccess: true`
