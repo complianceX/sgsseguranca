@@ -6,6 +6,8 @@ const isSqlite = (qr: QueryRunner) =>
 
 export class AddSoftDeleteNotificationsPush1709000000201 implements MigrationInterface {
   name = 'AddSoftDeleteNotificationsPush1709000000201';
+  // CREATE/DROP INDEX CONCURRENTLY não pode rodar dentro de transação
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (isSqlite(queryRunner)) {

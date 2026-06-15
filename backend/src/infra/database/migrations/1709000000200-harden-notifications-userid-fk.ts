@@ -6,6 +6,8 @@ const isSqlite = (qr: QueryRunner) =>
 
 export class HardenNotificationsUseridFk1709000000200 implements MigrationInterface {
   name = 'HardenNotificationsUseridFk1709000000200';
+  // CREATE INDEX CONCURRENTLY não pode rodar dentro de transação
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('notifications'))) {
