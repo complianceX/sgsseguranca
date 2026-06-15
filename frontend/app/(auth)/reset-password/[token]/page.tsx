@@ -210,6 +210,8 @@ function ResetPasswordForm({ token }: { token: string }) {
               placeholder="••••••••"
               required
               autoFocus
+              autoComplete="new-password"
+              aria-describedby={error ? 'form-error' : undefined}
             />
             <button
               type="button"
@@ -255,6 +257,8 @@ function ResetPasswordForm({ token }: { token: string }) {
               className={`${styles.input} ${styles.inputWithToggle}`}
               placeholder="••••••••"
               required
+              autoComplete="new-password"
+              aria-describedby={error ? 'form-error' : undefined}
             />
             <button
               type="button"
@@ -269,7 +273,7 @@ function ResetPasswordForm({ token }: { token: string }) {
         </div>
 
         {error && (
-          <div className={styles.errorBanner} role="alert" aria-live="assertive">
+          <div id="form-error" className={styles.errorBanner} role="alert" aria-live="assertive">
             <AlertCircle size={16} aria-hidden="true" />
             <span>{error}</span>
           </div>

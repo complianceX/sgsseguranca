@@ -4,7 +4,6 @@ const CLEANUP_INTERVAL_MS = 60_000;
 interface Bucket {
   count: number;
   windowStart: number;
-  locked: boolean;
 }
 
 const store = new Map<string, Bucket>();
@@ -32,25 +31,14 @@ export function checkRateLimit(
   let bucket = store.get(key);
 
   if (!bucket || now - bucket.windowStart > windowMs) {
-    bucket = { count: 0, windowStart: now, locked: false };
+    bucket = { count: 0, windowStart: now };
     store.set(key, bucket);
   }
 
-  if (bucket.locked) {
-    const remaining = Math.max(0, maxRequests - bucket.count);
-    const resetAt = bucket.windowStart + windowMs;
-    return {
-      allowed: false,
-      remaining,
-      resetAt,
-    };
-  }
-
-  bucket.locked = true;
+  // JS é single-threaded — não há corrida de dados; o incremento é sempre atômico.
   bucket.count += 1;
   const remaining = Math.max(0, maxRequests - bucket.count);
   const resetAt = bucket.windowStart + windowMs;
-  bucket.locked = false;
 
   return {
     allowed: bucket.count <= maxRequests,
@@ -59,12 +47,28 @@ export function checkRateLimit(
   };
 }
 
+function peekRateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number = WINDOW_MS,
+): { remaining: number; resetAt: number } {
+  const now = Date.now();
+  const bucket = store.get(key);
+  if (!bucket || now - bucket.windowStart > windowMs) {
+    return { remaining: maxRequests, resetAt: now + windowMs };
+  }
+  return {
+    remaining: Math.max(0, maxRequests - bucket.count),
+    resetAt: bucket.windowStart + windowMs,
+  };
+}
+
 export function rateLimitHeaders(
   key: string,
   maxRequests: number,
   windowMs?: number,
 ): Record<string, string> {
-  const result = checkRateLimit(key, maxRequests, windowMs);
+  const result = peekRateLimit(key, maxRequests, windowMs);
   return {
     'X-RateLimit-Limit': String(maxRequests),
     'X-RateLimit-Remaining': String(result.remaining),
