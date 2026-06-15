@@ -330,6 +330,21 @@ export class MailProcessor extends WorkerHost {
     }
   }
 
+  private sanitizeJobDataForDlq(data: unknown): unknown {
+    if (!isRecord(data)) return data;
+    const sanitized: Record<string, unknown> = { ...data };
+    if (typeof sanitized.email === 'string') {
+      sanitized.email = maskEmail(sanitized.email);
+    }
+    // tenantContext pode conter userId — manter apenas companyId
+    if (isRecord(sanitized.tenantContext)) {
+      sanitized.tenantContext = {
+        companyId: sanitized.tenantContext.companyId,
+      };
+    }
+    return sanitized;
+  }
+
   private async handleFailure(
     job: Job<unknown, unknown, string>,
     error: unknown,
@@ -369,8 +384,16 @@ export class MailProcessor extends WorkerHost {
         originalJobName: job.name,
         attemptsMade: attemptsAfterFailure,
         companyId,
-        data: job.data,
-        error: { message: error.message, stack: error.stack },
+        // Sanitizar dados do job antes de persistir na DLQ — remover PII (email)
+        data: this.sanitizeJobDataForDlq(job.data),
+        error: {
+          message: error.message,
+          // Stack trace truncado em produção para evitar vazamento de paths internos
+          stack:
+            process.env.NODE_ENV === 'production'
+              ? error.stack?.split('\n').slice(0, 3).join('\n')
+              : error.stack,
+        },
         failedAt: new Date().toISOString(),
       };
 

@@ -18,6 +18,7 @@ import { ModalFrame, ModalHeader, ModalBody, ModalFooter } from '@/components/ui
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { usersService, User } from '@/services/usersService';
+import { maskCpf } from '@/lib/format/cpf';
 import { authService } from '@/services/authService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -338,7 +339,7 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{employee.cpf}</TableCell>
+                  <TableCell>{maskCpf(employee.cpf)}</TableCell>
                   <TableCell className="text-[var(--ds-color-text-secondary)]">
                     {employee.funcao || '-'}
                   </TableCell>

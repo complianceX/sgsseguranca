@@ -38,6 +38,10 @@ export function isAllowedImportFile(file: File): boolean {
     fileName.endsWith(ext),
   );
 
-  // Alguns navegadores podem retornar file.type vazio ou inconsistente.
-  return isAllowedMime || isAllowedExt;
+  // Alguns navegadores retornam file.type vazio — aceitar se ao menos a extensão bater.
+  // Se MIME estiver disponível, exigir que AMBOS (MIME e extensão) sejam válidos.
+  if (mimeType) {
+    return isAllowedMime && isAllowedExt;
+  }
+  return isAllowedExt;
 }

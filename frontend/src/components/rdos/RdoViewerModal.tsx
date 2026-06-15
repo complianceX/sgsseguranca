@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import type { Rdo } from "@/services/rdosService";
+import { maskCpf } from "@/lib/format/cpf";
 import { RDO_STATUS_COLORS, RDO_STATUS_LABEL, CLIMA_LABEL, OCORRENCIA_TIPO_LABEL } from "@/services/rdosService";
 import { safeToLocaleDateString } from "@/lib/date/safeFormat";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
@@ -582,7 +583,7 @@ export function RdoViewerModal({
                           {sig.nome}
                         </p>
                         <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                          CPF: {sig.cpf}
+                          CPF: {maskCpf(sig.cpf)}
                         </p>
                         <p className="text-xs text-[color:var(--ds-color-success)]/80">
                           {formatSignatureDate(sig.signedAt)}

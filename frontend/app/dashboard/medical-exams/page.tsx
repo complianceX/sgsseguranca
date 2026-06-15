@@ -11,6 +11,7 @@ import {
   RESULTADO_LABEL,
 } from '@/services/medicalExamsService';
 import { downloadExcel } from '@/lib/download-excel';
+import { maskCpf } from '@/lib/format/cpf';
 import {
   Calendar,
   FileSpreadsheet,
@@ -505,7 +506,7 @@ export default function MedicalExamsPage() {
                               {exam.user?.nome ?? 'Colaborador'}
                             </div>
                             <div className="text-xs text-[var(--ds-color-text-muted)]">
-                              {exam.user?.cpf ?? `ID ${exam.user_id.slice(0, 8)}`}
+                              {exam.user?.cpf ? maskCpf(exam.user.cpf) : `ID ${exam.user_id.slice(0, 8)}`}
                             </div>
                           </div>
                         </div>

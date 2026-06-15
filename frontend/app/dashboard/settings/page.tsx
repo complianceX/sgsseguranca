@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { maskCpf } from '@/lib/format/cpf';
 import {
   BellRing,
   ClipboardList,
@@ -1038,7 +1039,7 @@ useEffect(() => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium text-[var(--ds-color-text-secondary)]">CPF</span>
-                <span>{user?.cpf}</span>
+                <span>{maskCpf(user?.cpf)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium text-[var(--ds-color-text-secondary)]">Perfil</span>

@@ -11,6 +11,7 @@ import {
   type UserModuleAccessOption,
   usersService,
 } from "@/services/usersService";
+import { maskCpf } from "@/lib/format/cpf";
 
 type UserModuleAccessManagerProps = {
   enabled: boolean;
@@ -345,7 +346,7 @@ export function UserModuleAccessManager({
             <option value="">Selecione...</option>
             {searchResults.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {candidate.nome} {candidate.cpf ? `- ${candidate.cpf}` : ""}
+                {candidate.nome} {candidate.cpf ? `- ${maskCpf(candidate.cpf)}` : ""}
               </option>
             ))}
             {selectedUser &&
@@ -354,7 +355,7 @@ export function UserModuleAccessManager({
               ) && (
                 <option value={selectedUser.id}>
                   {selectedUser.nome}{" "}
-                  {selectedUser.cpf ? `- ${selectedUser.cpf}` : ""}
+                  {selectedUser.cpf ? `- ${maskCpf(selectedUser.cpf)}` : ""}
                 </option>
               )}
           </select>

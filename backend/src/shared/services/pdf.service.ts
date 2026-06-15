@@ -67,8 +67,29 @@ export class PdfService {
     }
 
     try {
+      // Bloquear todas as requests de rede externas durante geração de PDF.
+      // Defesa em profundidade contra SSRF cego: o HTML vem de template com dados
+      // HTML-escaped, mas interceptamos requests para garantir que nenhum recurso
+      // externo seja buscado mesmo se uma futura alteração introduzir dados não-escapados.
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const url = req.url();
+        // Permitir apenas dados inline e recursos locais
+        if (
+          url.startsWith('data:') ||
+          url.startsWith('blob:') ||
+          url === 'about:blank'
+        ) {
+          void req.continue();
+        } else {
+          void req.abort('blockedbyclient');
+        }
+      });
+
       await page.setContent(html, {
-        waitUntil: 'networkidle0',
+        // domcontentloaded em vez de networkidle0: o template não depende de recursos remotos.
+        // Mais rápido e elimina o risco de SSRF cego por recursos externos.
+        waitUntil: 'domcontentloaded',
         timeout: 30_000,
       });
 

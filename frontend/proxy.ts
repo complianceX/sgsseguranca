@@ -70,8 +70,12 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.backblazeb2.com`,
     `font-src 'self' data:`,
-    `style-src 'self'`,
-    `style-src-elem 'self' 'unsafe-inline'`,
+    `style-src 'self' 'unsafe-inline'`,
+    // style-src-elem: nonce em prod para <style> tags injetadas pelo Next.js/Tailwind;
+    // unsafe-inline mantido só em dev (Next.js HMR injeta tags sem nonce).
+    `style-src-elem 'self' 'nonce-${nonce}'${!isProduction ? " 'unsafe-inline'" : ""}`,
+    // style-src-attr: React usa style={} => atributo style HTML; mantido como unsafe-inline
+    // pois nonce não é suportado em atributos style pela spec CSP3.
     `style-src-attr 'unsafe-inline'`,
     `script-src ${scriptSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
