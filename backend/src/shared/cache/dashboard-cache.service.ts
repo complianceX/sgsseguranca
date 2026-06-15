@@ -80,18 +80,30 @@ export class DashboardCacheService {
 
     // Initialize OpenTelemetry counters
     const meter = metrics.getMeter('DashboardCacheService');
-    this.metricsCacheHitCounter = meter.createCounter('dashboard_cache_metrics_hit', {
-      description: 'Cache hits for dashboard metrics',
-    });
-    this.metricsCacheMissCounter = meter.createCounter('dashboard_cache_metrics_miss', {
-      description: 'Cache misses for dashboard metrics',
-    });
-    this.activitiesCacheHitCounter = meter.createCounter('dashboard_cache_activities_hit', {
-      description: 'Cache hits for dashboard activities feed',
-    });
-    this.activitiesCacheMissCounter = meter.createCounter('dashboard_cache_activities_miss', {
-      description: 'Cache misses for dashboard activities feed',
-    });
+    this.metricsCacheHitCounter = meter.createCounter(
+      'dashboard_cache_metrics_hit',
+      {
+        description: 'Cache hits for dashboard metrics',
+      },
+    );
+    this.metricsCacheMissCounter = meter.createCounter(
+      'dashboard_cache_metrics_miss',
+      {
+        description: 'Cache misses for dashboard metrics',
+      },
+    );
+    this.activitiesCacheHitCounter = meter.createCounter(
+      'dashboard_cache_activities_hit',
+      {
+        description: 'Cache hits for dashboard activities feed',
+      },
+    );
+    this.activitiesCacheMissCounter = meter.createCounter(
+      'dashboard_cache_activities_miss',
+      {
+        description: 'Cache misses for dashboard activities feed',
+      },
+    );
   }
 
   private getErrorMessage(error: unknown): string {
@@ -148,7 +160,7 @@ export class DashboardCacheService {
       const cached = await redis.get(cacheKey);
       if (cached) {
         this.logger.debug(`Cache hit: ${cacheKey}`);
-        +          this.metricsCacheHitCounter.add(1);
+        this.metricsCacheHitCounter.add(1);
         return this.parseCachedMetrics(cached);
       }
     } catch (error) {
@@ -156,8 +168,7 @@ export class DashboardCacheService {
     }
 
     const metrics = await this.computeMetrics(companyId, period);
-    +    // Cache miss recorded
-      +    this.metricsCacheMissCounter.add(1);
+    this.metricsCacheMissCounter.add(1);
 
     try {
       const redis = this.redisService.getClient();
@@ -185,13 +196,13 @@ export class DashboardCacheService {
       return this.fetchLatestActivities(companyId, limit);
     }
 
-    const cacheKey = `dashboard:feed:${companyId}`;
+    const cacheKey = `dashboard:feed:${companyId}:${limit}`;
 
     try {
       const redis = this.redisService.getClient();
       const cached = await redis.get(cacheKey);
       if (cached) {
-        +          this.activitiesCacheHitCounter.add(1);
+        this.activitiesCacheHitCounter.add(1);
         return this.parseCachedActivities(cached).slice(0, limit);
       }
     } catch (error) {
@@ -296,40 +307,40 @@ export class DashboardCacheService {
           fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
 
-      const aprCount = await this.aprRepository
-        .createQueryBuilder('a')
-        .where('a.company_id = :companyId', { companyId })
-        .andWhere('a.created_at >= :fromDate', { fromDate })
-        .getCount();
-
-      const checklistRow = await this.checklistRepository
-        .createQueryBuilder('c')
-        .where('c.company_id = :companyId', { companyId })
-        .andWhere('c.created_at >= :fromDate', { fromDate })
-        .select('AVG(COALESCE(c.score, 0))', 'avgScore')
-        .getRawOne<ChecklistAverageRow>();
+      const [aprCount, checklistRow, totalAudits, approvedAudits, auditCount] =
+        await Promise.all([
+          this.aprRepository
+            .createQueryBuilder('a')
+            .where('a.company_id = :companyId', { companyId })
+            .andWhere('a.created_at >= :fromDate', { fromDate })
+            .getCount(),
+          this.checklistRepository
+            .createQueryBuilder('c')
+            .where('c.company_id = :companyId', { companyId })
+            .andWhere('c.created_at >= :fromDate', { fromDate })
+            .select('AVG(COALESCE(c.score, 0))', 'avgScore')
+            .getRawOne<ChecklistAverageRow>(),
+          this.auditRepository
+            .createQueryBuilder('audit')
+            .where('audit.company_id = :companyId', { companyId })
+            .getCount(),
+          this.auditRepository
+            .createQueryBuilder('audit')
+            .where('audit.company_id = :companyId', { companyId })
+            .andWhere(
+              "audit.status != 'canceled' AND audit.status != 'rejected'",
+            )
+            .getCount(),
+          this.auditRepository
+            .createQueryBuilder('audit')
+            .where('audit.company_id = :companyId', { companyId })
+            .andWhere('audit.created_at >= :fromDate', { fromDate })
+            .getCount(),
+        ]);
 
       const checklistScore = this.normalizeChecklistScore(checklistRow);
-
-      const totalAudits = await this.auditRepository
-        .createQueryBuilder('audit')
-        .where('audit.company_id = :companyId', { companyId })
-        .getCount();
-
-      const approvedAudits = await this.auditRepository
-        .createQueryBuilder('audit')
-        .where('audit.company_id = :companyId', { companyId })
-        .andWhere("audit.status != 'canceled' AND audit.status != 'rejected'")
-        .getCount();
-
       const complianceRate =
         totalAudits > 0 ? Math.round((approvedAudits / totalAudits) * 100) : 0;
-
-      const auditCount = await this.auditRepository
-        .createQueryBuilder('audit')
-        .where('audit.company_id = :companyId', { companyId })
-        .andWhere('audit.created_at >= :fromDate', { fromDate })
-        .getCount();
 
       const metrics: DashboardMetricsResult = {
         aprsCount: aprCount,

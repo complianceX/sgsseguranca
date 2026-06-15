@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import type { DocumentDownloadGrantService } from './document-download-grant.service';
 import { DocumentStorageService } from './document-storage.service';
 import type { S3Service } from '../storage/s3.service';
-import type { StorageService } from './storage.service';
 import type { TenantService } from '../tenant/tenant.service';
 
 describe('DocumentStorageService', () => {
@@ -20,7 +19,6 @@ describe('DocumentStorageService', () => {
   it('gera chave documental com subpasta de escopo sem quebrar o prefixo do tenant', () => {
     const service = new DocumentStorageService(
       createConfigService(),
-      {} as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
       {} as DocumentDownloadGrantService,
@@ -42,7 +40,6 @@ describe('DocumentStorageService', () => {
   it('falha de forma explícita quando nenhum storage documental está configurado', async () => {
     const service = new DocumentStorageService(
       createConfigService(),
-      {} as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
       {} as DocumentDownloadGrantService,
@@ -57,16 +54,12 @@ describe('DocumentStorageService', () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
-  it('usa o storage gerenciado quando AWS_BUCKET_NAME está configurado', async () => {
-    const uploadFile = jest.fn().mockResolvedValue(undefined);
-    const legacyUploadFile = jest.fn().mockResolvedValue(undefined);
+  it('usa o S3Service quando AWS_BUCKET_NAME está configurado (managed ou legacy)', async () => {
+    const uploadFile = jest.fn().mockResolvedValue('url');
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
       {
         uploadFile,
-      } as unknown as StorageService,
-      {
-        uploadFile: legacyUploadFile,
       } as unknown as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
       {} as DocumentDownloadGrantService,
@@ -82,20 +75,16 @@ describe('DocumentStorageService', () => {
       'documents/company/video.mp4',
       Buffer.from('video'),
       'video/mp4',
+      undefined,
     );
-    expect(legacyUploadFile).not.toHaveBeenCalled();
   });
 
-  it('usa o caminho legado quando AWS_S3_BUCKET está configurado', async () => {
-    const uploadFile = jest.fn().mockResolvedValue(undefined);
-    const legacyUploadFile = jest.fn().mockResolvedValue(undefined);
+  it('usa o S3Service quando AWS_S3_BUCKET está configurado (legacy)', async () => {
+    const uploadFile = jest.fn().mockResolvedValue('url');
     const service = new DocumentStorageService(
       createConfigService({ AWS_S3_BUCKET: 'legacy-bucket' }),
       {
         uploadFile,
-      } as unknown as StorageService,
-      {
-        uploadFile: legacyUploadFile,
       } as unknown as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
       {} as DocumentDownloadGrantService,
@@ -107,25 +96,23 @@ describe('DocumentStorageService', () => {
       'video/mp4',
     );
 
-    expect(legacyUploadFile).toHaveBeenCalledWith(
+    expect(uploadFile).toHaveBeenCalledWith(
       'documents/company/video.mp4',
       Buffer.from('video'),
       'video/mp4',
       undefined,
     );
-    expect(uploadFile).not.toHaveBeenCalled();
   });
 
   it('traduz falha de download por arquivo ausente em NotFoundException honesta', async () => {
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
       {
-        downloadFileBuffer: jest
+        downloadFile: jest
           .fn()
           .mockRejectedValue(new Error('Not found in bucket')),
-      } as unknown as StorageService,
-      {} as S3Service,
-      { getTenantId: jest.fn() } as unknown as TenantService,
+      } as unknown as S3Service,
+      {} as TenantService,
       {} as DocumentDownloadGrantService,
     );
 
@@ -137,14 +124,15 @@ describe('DocumentStorageService', () => {
   it('traduz falha de presign em indisponibilidade do storage governado', async () => {
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {} as S3Service,
       {
-        getPresignedDownloadUrl: jest
+        getTenantId: jest.fn().mockReturnValue(null),
+      } as unknown as TenantService,
+      {
+        issueRestrictedAppDownloadUrl: jest
           .fn()
           .mockRejectedValue(new Error('socket timeout')),
-      } as unknown as StorageService,
-      {} as S3Service,
-      { getTenantId: jest.fn() } as unknown as TenantService,
-      {} as DocumentDownloadGrantService,
+      } as unknown as DocumentDownloadGrantService,
     );
 
     await expect(
@@ -158,9 +146,10 @@ describe('DocumentStorageService', () => {
       .mockResolvedValue('/storage/download/token');
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
-      {} as StorageService,
       {} as S3Service,
-      { getTenantId: jest.fn() } as unknown as TenantService,
+      {
+        getTenantId: jest.fn().mockReturnValue(null),
+      } as unknown as TenantService,
       {
         issueRestrictedAppDownloadUrl,
       } as unknown as DocumentDownloadGrantService,
@@ -176,37 +165,33 @@ describe('DocumentStorageService', () => {
   });
 
   it('permite TTL explícito de até 4h apenas via fluxo de e-mail', async () => {
-    const getEmailLinkPresignedDownloadUrl = jest
-      .fn()
-      .mockResolvedValue('signed-url');
+    const getEmailLinkSignedUrl = jest.fn().mockResolvedValue('signed-url');
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      { getEmailLinkSignedUrl } as unknown as S3Service,
       {
-        getEmailLinkPresignedDownloadUrl,
-      } as unknown as StorageService,
-      {} as S3Service,
-      { getTenantId: jest.fn() } as unknown as TenantService,
+        getTenantId: jest.fn().mockReturnValue(null),
+      } as unknown as TenantService,
       {} as DocumentDownloadGrantService,
     );
 
     await service.getEmailLinkSignedUrl('documents/company-1/apr/doc.pdf');
 
-    expect(getEmailLinkPresignedDownloadUrl).toHaveBeenCalledWith(
+    expect(getEmailLinkSignedUrl).toHaveBeenCalledWith(
       'documents/company-1/apr/doc.pdf',
       14400,
     );
   });
 
   it('mantém presign direto para artefatos não-PDF', async () => {
-    const getPresignedDownloadUrl = jest.fn().mockResolvedValue('signed-url');
+    const getSignedUrl = jest.fn().mockResolvedValue('signed-url');
     const issueRestrictedAppDownloadUrl = jest.fn();
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      { getSignedUrl } as unknown as S3Service,
       {
-        getPresignedDownloadUrl,
-      } as unknown as StorageService,
-      {} as S3Service,
-      { getTenantId: jest.fn() } as unknown as TenantService,
+        getTenantId: jest.fn().mockReturnValue(null),
+      } as unknown as TenantService,
       {
         issueRestrictedAppDownloadUrl,
       } as unknown as DocumentDownloadGrantService,
@@ -214,7 +199,7 @@ describe('DocumentStorageService', () => {
 
     await service.getSignedUrl('documents/company-1/evidence/video.mp4');
 
-    expect(getPresignedDownloadUrl).toHaveBeenCalledWith(
+    expect(getSignedUrl).toHaveBeenCalledWith(
       'documents/company-1/evidence/video.mp4',
       900,
     );

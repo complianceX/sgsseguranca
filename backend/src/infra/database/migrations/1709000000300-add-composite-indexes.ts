@@ -34,9 +34,17 @@ export class AddCompositeIndexesCompanyCreated1709000000300 implements Migration
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "IDX_activities_company_created"`);
-    await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "IDX_checklists_company_created"`);
-    await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "IDX_audits_company_created"`);
-    await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "IDX_aprs_company_created"`);
+    await queryRunner.query(
+      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_activities_company_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_checklists_company_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_audits_company_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_aprs_company_created"`,
+    );
   }
 }

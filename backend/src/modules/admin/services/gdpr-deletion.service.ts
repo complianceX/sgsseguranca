@@ -287,24 +287,25 @@ export class GDPRDeletionService {
       `[GDPR] ENTERPRISE: Soft-delete company ${companyId} initiated`,
     );
 
-    const tables = [
-      'users',
-      'sites',
-      'aprs',
-      'pts',
-      'trainings',
-      'medical_exams',
-      'checklists',
-      'inspections',
-      'nonconformities',
-      'corrective_actions',
-      'audits',
-      'cats',
-      'document_registry',
-      'mail_logs',
-      'activities',
-      'audit_logs',
-    ];
+    // Descoberta dinâmica: todas as tabelas públicas com colunas company_id E deleted_at.
+    // Garante que novas tabelas adicionadas ao schema sejam automaticamente cobertas.
+    const discoveredRows = await this.dataSource.query<
+      { table_name: string }[]
+    >(`
+      SELECT DISTINCT c.table_name
+      FROM information_schema.columns c
+      INNER JOIN information_schema.columns d
+        ON d.table_name = c.table_name
+        AND d.table_schema = 'public'
+        AND d.column_name = 'deleted_at'
+      WHERE c.column_name = 'company_id'
+        AND c.table_schema = 'public'
+      ORDER BY c.table_name
+    `);
+    const tables = discoveredRows.map((r) => r.table_name);
+    this.logger.log(
+      `[GDPR] Discovered ${tables.length} tables with company_id + deleted_at`,
+    );
 
     let totalRows = 0;
     const now = new Date();
@@ -318,9 +319,9 @@ export class GDPRDeletionService {
         const affectedRows = this.getAffectedRowCount(result);
         totalRows += affectedRows;
         this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
-      } catch {
-        this.logger.warn(
-          `  ⚠  ${table}: Could not soft-delete (table may not have company_id)`,
+      } catch (err) {
+        this.logger.error(
+          `  ✗ ${table}: Soft-delete falhou — ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

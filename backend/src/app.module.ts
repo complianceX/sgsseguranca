@@ -97,28 +97,15 @@ import { hasValidFieldEncryptionKey } from './shared/security/field-encryption.u
 import { PaginationClampMiddleware } from './shared/middleware/pagination-clamp.middleware';
 import { AdminIpAllowlistMiddleware } from './shared/middleware/admin-ip-allowlist.middleware';
 import { BullQueueShutdownService } from './infra/queue/bull-queue-shutdown.service';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from './infra/queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from './infra/queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from './infra/queue/redis-queue-infra.util';
 import {
   getAccessTokenTtl,
   getAccessTokenTtlMs,
   isInfiniteTtl,
 } from './modules/auth/auth-security.config';
 
-const IS_PRODUCTION_ENV = process.env.NODE_ENV === 'production';
-const REDIS_FAIL_OPEN_REQUESTED = /^true$/i.test(
-  process.env.REDIS_FAIL_OPEN || (IS_PRODUCTION_ENV ? 'false' : 'true'),
-);
-
-const queueRedisConnection = resolveRedisConnection(process.env, 'queue');
-const shouldUseQueueRedisInfra =
-  !isRedisDisabled &&
-  Boolean(queueRedisConnection) &&
-  (IS_PRODUCTION_ENV ||
-    !REDIS_FAIL_OPEN_REQUESTED ||
-    !isLocalRedisConnection(queueRedisConnection));
+const shouldUseQueueRedisInfra = shouldUseRedisQueueInfra();
 
 const queueInfraModules = shouldUseQueueRedisInfra
   ? [
