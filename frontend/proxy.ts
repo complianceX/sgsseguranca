@@ -6,12 +6,31 @@ const isProduction = process.env.NODE_ENV === "production";
 // Cookie definido pelo backend com path '/' — presente enquanto sessao está ativa.
 const REFRESH_CSRF_COOKIE = "refresh_csrf";
 
+const PUBLIC_ROUTE_PREFIXES = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/assinar",
+  "/_next",
+  "/favicon.ico",
+  "/monitoring-tunnel",
+  "/api",
+];
+
 function isDashboardRoute(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 }
 
+function isProxyRoute(pathname: string): boolean {
+  return pathname === "/proxy" || pathname.startsWith("/proxy/");
+}
+
 function isDevtoolsRoute(pathname: string): boolean {
   return pathname === "/devtools" || pathname.startsWith("/devtools/");
+}
+
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 function buildCsp(nonce: string): string {
@@ -36,10 +55,6 @@ function buildCsp(nonce: string): string {
     "wss://api.elevenlabs.io",
   ].filter(Boolean);
 
-  // Nonce por requisição para scripts. Em estilos, React e alguns widgets
-  // aplicam style="" em runtime; CSP nonce nao cobre atributos style.
-  // Em desenvolvimento, o React Refresh do Next usa eval para HMR. Em produção,
-  // 'unsafe-eval' permanece bloqueado.
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
@@ -55,11 +70,6 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.backblazeb2.com`,
     `font-src 'self' data:`,
-    // Endurecimento incremental:
-    // - mantém compatibilidade com style="" legado via style-src-attr
-    // - permite <style> inline sem nonce porque Sonner e partes do runtime do
-    //   Next inserem folhas de estilo em produção. Não misture nonce aqui:
-    //   com nonce/hash presente, CSP ignora 'unsafe-inline' para estilos.
     `style-src 'self'`,
     `style-src-elem 'self' 'unsafe-inline'`,
     `style-src-attr 'unsafe-inline'`,
@@ -78,6 +88,29 @@ function buildCsp(nonce: string): string {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (isPublicRoute(pathname)) {
+    const random = crypto.getRandomValues(new Uint8Array(16));
+    const nonce = btoa(String.fromCharCode(...random));
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-nonce", nonce);
+
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    response.headers.set("Content-Security-Policy", buildCsp(nonce));
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    );
+    return response;
+  }
+
   if (isHiddenRoute(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
@@ -86,12 +119,12 @@ export function proxy(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  // Redireciona para login se acessar dashboard sem sessao ativa.
-  // O cookie refresh_csrf (path=/,não-httpOnly) é emitido pelo backend no login
-  // e limpo no logout — serve como sinal confiável de sessão sem expor o refresh token.
-  if (isDashboardRoute(pathname) && !request.cookies.has(REFRESH_CSRF_COOKIE)) {
+  if (
+    (isDashboardRoute(pathname) || isProxyRoute(pathname)) &&
+    !request.cookies.has(REFRESH_CSRF_COOKIE)
+  ) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("expired", "1");
+    loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
