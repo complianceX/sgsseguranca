@@ -92,17 +92,16 @@ ENV UV_THREADPOOL_SIZE=16
 
 WORKDIR /app
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/modules/sophie/kb ./dist/modules/sophie/kb
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/newrelic.js ./newrelic.js
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/src/modules/sophie/kb ./dist/modules/sophie/kb
+COPY --from=builder --chown=node:node /app/scripts ./scripts
+COPY --from=builder --chown=node:node /app/newrelic.js ./newrelic.js
 
-COPY backend/entrypoint.sh ./entrypoint.sh
+COPY --chown=node:node backend/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' entrypoint.sh \
-  && chmod +x entrypoint.sh \
-  && chown -R node:node /app
+  && chmod +x entrypoint.sh
 
 EXPOSE 8080
 

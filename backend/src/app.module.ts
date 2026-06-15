@@ -1637,7 +1637,11 @@ export class AppModule implements OnModuleInit {
     const smtpHost = process.env.MAIL_HOST?.trim();
     const smtpUser = process.env.MAIL_USER?.trim();
     const smtpPass = process.env.MAIL_PASS?.trim();
-    const hasSmtpCredentials = Boolean(smtpHost && smtpUser && smtpPass);
+    const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+    const resendApiKey = process.env.RESEND_API_KEY?.trim();
+    const hasMailProviderCredentials = Boolean(
+      (smtpHost && smtpUser && smtpPass) || brevoApiKey || resendApiKey,
+    );
 
     if (failures.length > 0) {
       this.logger.error('❌ FALHAS DE SEGURANÇA DETECTADAS:');
@@ -1647,10 +1651,10 @@ export class AppModule implements OnModuleInit {
       throw new Error('Configuração de segurança inválida em produção');
     }
 
-    if (mailEnabled && !hasSmtpCredentials) {
+    if (mailEnabled && !hasMailProviderCredentials) {
       this.logger.warn(
-        'AVISO DE SEGURANÇA: MAIL_ENABLED=true sem credenciais SMTP completas. ' +
-          'O runtime vai iniciar, mas os envios de e-mail permanecerão desativados até configurar MAIL_HOST, MAIL_USER e MAIL_PASS.',
+        'AVISO DE SEGURANÇA: MAIL_ENABLED=true sem credenciais de provedor completas. ' +
+          'O runtime vai iniciar, mas os envios de e-mail permanecerão desativados até configurar MAIL_HOST, MAIL_USER, MAIL_PASS, BREVO_API_KEY ou RESEND_API_KEY.',
       );
     }
 
