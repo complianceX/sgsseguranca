@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { S3Client } from '@aws-sdk/client-s3';
+import type { IntegrationResilienceService } from '../resilience/integration-resilience.service';
 import { S3Service } from './s3.service';
 
 type MockS3ClientInstance = {
@@ -34,6 +35,14 @@ jest.mock('@aws-sdk/client-s3', () => ({
     ),
 }));
 
+const mockIntegrationExecute = jest.fn(
+  (_name: string, fn: () => Promise<unknown>) => fn(),
+);
+
+const mockIntegrationResilienceService = {
+  execute: mockIntegrationExecute,
+} as unknown as IntegrationResilienceService;
+
 describe('S3Service', () => {
   const createConfigService = (
     values: Record<string, string | undefined> = {},
@@ -59,6 +68,7 @@ describe('S3Service', () => {
         AWS_ACCESS_KEY_ID: REDACTED
         AWS_SECRET_ACCESS_KEY: REDACTED
       }),
+      mockIntegrationResilienceService,
     );
 
     await expect(
@@ -94,6 +104,7 @@ describe('S3Service', () => {
         AWS_ACCESS_KEY_ID: REDACTED
         AWS_SECRET_ACCESS_KEY: REDACTED
       }),
+      mockIntegrationResilienceService,
     );
 
     await expect(
@@ -118,7 +129,10 @@ describe('S3Service', () => {
   });
 
   it('permanece desabilitado quando não há bucket configurado', async () => {
-    const service = new S3Service(createConfigService());
+    const service = new S3Service(
+      createConfigService(),
+      mockIntegrationResilienceService,
+    );
 
     await expect(
       service.uploadFile(

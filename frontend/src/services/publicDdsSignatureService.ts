@@ -84,6 +84,7 @@ export const publicDdsSignatureService = {
     payload: {
       accepted_terms: boolean;
       signature_data: string;
+      turnstileToken?: string;
     },
   ): Promise<PublicDdsSignatureSubmitResult> => {
     const response = await fetch(buildPublicSignatureUrl(token), {

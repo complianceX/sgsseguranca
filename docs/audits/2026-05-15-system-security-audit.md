@@ -1,3 +1,5 @@
+> **Nota:** Infraestrutura atualizada em 2026. O backend foi migrado do Render para Vultr/Coolify. Este documento reflete o estado anterior com Render.
+
 # SGS - Auditoria de Seguranca do Sistema
 
 Data: 2026-05-15  

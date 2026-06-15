@@ -10,6 +10,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
+import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
 import {
   EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
   INTERNAL_DOWNLOAD_TTL_SECONDS,
@@ -59,7 +60,10 @@ export class S3Service implements OnModuleDestroy {
   private readonly region: string;
   private readonly useS3: boolean;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private readonly integration: IntegrationResilienceService,
+  ) {
     this.bucketName =
       this.configService.get<string>('AWS_BUCKET_NAME') ||
       this.configService.get<string>('AWS_S3_BUCKET') ||
@@ -121,7 +125,11 @@ export class S3Service implements OnModuleDestroy {
         CacheControl: 'public, max-age=31536000', // 1 year
       });
 
-      await this.s3Client.send(command);
+      await this.integration.execute(
+        's3_put_object',
+        () => this.s3Client.send(command),
+        { timeoutMs: 30_000 },
+      );
 
       const url = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
       this.logger.log(`File uploaded successfully: ${key}`);
@@ -169,7 +177,11 @@ export class S3Service implements OnModuleDestroy {
         ResponseContentDisposition: 'attachment',
       });
 
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+      const url = await this.integration.execute(
+        's3_presign_get',
+        () => getSignedUrl(this.s3Client, command, { expiresIn }),
+        { timeoutMs: 10_000 },
+      );
       return url;
     } catch (error) {
       this.logger.error(
@@ -194,7 +206,11 @@ export class S3Service implements OnModuleDestroy {
         Key: key,
       });
 
-      const response = await this.s3Client.send(command);
+      const response = await this.integration.execute(
+        's3_get_object',
+        () => this.s3Client.send(command),
+        { timeoutMs: 30_000 },
+      );
       const stream = response.Body;
 
       if (!hasAsyncIterator(stream)) {
@@ -230,7 +246,11 @@ export class S3Service implements OnModuleDestroy {
         Key: key,
       });
 
-      await this.s3Client.send(command);
+      await this.integration.execute(
+        's3_delete',
+        () => this.s3Client.send(command),
+        { timeoutMs: 10_000 },
+      );
       this.logger.log(`File deleted successfully: ${key}`);
     } catch (error) {
       this.logger.error(
@@ -255,7 +275,11 @@ export class S3Service implements OnModuleDestroy {
         Key: key,
       });
 
-      await this.s3Client.send(command);
+      await this.integration.execute(
+        's3_head_object',
+        () => this.s3Client.send(command),
+        { timeoutMs: 10_000 },
+      );
       return true;
     } catch (error) {
       const name = error instanceof Error ? error.name : '';
@@ -291,7 +315,11 @@ export class S3Service implements OnModuleDestroy {
             : undefined,
       });
 
-      const response = await this.s3Client.send(command);
+      const response = await this.integration.execute(
+        's3_list_objects',
+        () => this.s3Client.send(command),
+        { timeoutMs: 30_000 },
+      );
       for (const object of response.Contents || []) {
         if (object.Key) {
           keys.push(object.Key);

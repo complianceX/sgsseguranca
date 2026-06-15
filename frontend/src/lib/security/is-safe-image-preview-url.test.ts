@@ -20,7 +20,7 @@ describe('isSafeImagePreviewUrl', () => {
   it('bloqueia protocolo relativo, host externo e caracteres perigosos', () => {
     expect(isSafeImagePreviewUrl('//evil.example/foto.jpg')).toBe(false);
     expect(isSafeImagePreviewUrl('https://evil.example/foto.jpg')).toBe(false);
-    expect(isSafeImagePreviewUrl('https://bucket.supabase.co/foto.jpg')).toBe(false);
+    expect(isSafeImagePreviewUrl('https://bucket.neon.tech/foto.jpg')).toBe(false);
     expect(isSafeImagePreviewUrl('/uploads/%5c%5c/foto.jpg')).toBe(false);
     expect(isSafeImagePreviewUrl('javascript:alert(1)')).toBe(false);
   });

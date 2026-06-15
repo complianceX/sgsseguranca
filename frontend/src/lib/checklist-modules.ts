@@ -227,10 +227,10 @@ export const getChecklistModuleArea = (
   slug: ChecklistModuleArea["slug"],
 ): ChecklistModuleArea =>
   checklistModuleAreas.find((area) => area.slug === slug) ??
-  checklistModuleAreas[0];
+  checklistModuleAreas[0]!;
 
 export const getChecklistRecordsArea = (
   slug: ChecklistRecordsArea["slug"],
 ): ChecklistRecordsArea =>
   checklistRecordsAreas.find((area) => area.slug === slug) ??
-  checklistRecordsAreas[0];
+  checklistRecordsAreas[0]!;

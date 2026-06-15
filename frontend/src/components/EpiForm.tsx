@@ -35,13 +35,11 @@ interface EpiFormProps {
 import { companiesService, Company } from '@/services/companiesService';
 
 const fieldClassName =
-  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none';
 const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
 const labelClassName = 'block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
-const sectionCardClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-base)_94%,white_6%)_0%,var(--ds-color-surface-base)_100%)] p-5 shadow-[var(--ds-shadow-xs)]';
 const sectionHeaderClassName = 'space-y-1';
 const sectionEyebrowClassName =
   'text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]';
@@ -171,18 +169,6 @@ export function EpiForm({ id }: EpiFormProps) {
           </div>
         }
       />
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4 shadow-[var(--ds-shadow-xs)]">
-        <p className={sectionEyebrowClassName}>
-          Cadastro guiado
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture o EPI com vínculo à empresa, identificação de CA e validade operacional.
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, nome do equipamento e dados regulatórios antes de salvar.
-        </p>
-      </div>
-
       <form
         onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="space-y-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
@@ -196,7 +182,7 @@ export function EpiForm({ id }: EpiFormProps) {
             <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
-        <section className={sectionCardClassName}>
+        <section>
           <div className={sectionHeaderClassName}>
             <p className={sectionEyebrowClassName}>
               Contexto e identificação
@@ -205,7 +191,7 @@ export function EpiForm({ id }: EpiFormProps) {
               Defina o tenant do EPI e o nome principal usado em entregas, inspeções e controle de estoque.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="company_id" className={labelClassName}>Empresa</label>
               <select
@@ -245,7 +231,7 @@ export function EpiForm({ id }: EpiFormProps) {
           </div>
         </section>
 
-        <section className={sectionCardClassName}>
+        <section>
           <div className={sectionHeaderClassName}>
             <p className={sectionEyebrowClassName}>
               Conformidade e detalhes
@@ -254,7 +240,7 @@ export function EpiForm({ id }: EpiFormProps) {
               Registre certificação, validade e observações relevantes para uso e auditoria.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="ca" className={labelClassName}>Certificado de Aprovação (C.A.)</label>
               <input
@@ -304,11 +290,7 @@ export function EpiForm({ id }: EpiFormProps) {
             disabled={loading || isSubmitting || !isValid}
             className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
-            {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
+            <Save className="mr-2 h-4 w-4" />
             {id ? 'Salvar alterações' : 'Criar EPI'}
           </button>
         </div>

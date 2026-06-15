@@ -12,6 +12,9 @@ out
 .env.local
 .env.development
 .env.production
+.env.production.env
+.vercel.production.env
+frontend/.vercel.production.env
 
 # Logs 
 npm-debug.log 
@@ -88,7 +91,7 @@ backend/test/load/fixtures/login-users.generated*.json
 backend/test/load/fixtures/*.generated*.json
 
 # Artefatos temporários locais de deploy/investigação
-.tmp_render*.json
+.tmp_coolify*.json
 osv-scan.json
 npm-audit.json
 .vercel
@@ -111,3 +114,7 @@ test-results/
 
 # Artefatos locais de segurança
 output/security/
+
+# Arquivos temporários de diagnóstico/ferramentas
+diagnostic-queries.sql
+playwright_cli.tmp.sh

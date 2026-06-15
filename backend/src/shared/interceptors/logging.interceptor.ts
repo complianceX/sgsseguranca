@@ -176,7 +176,6 @@ export class LoggingInterceptor implements NestInterceptor {
       'x-api-key',
       'x-service-token',
       'x-auth-token',
-      'x-supabase-service-role-key',
       'x-csrf-token',
       'x-refresh-csrf',
       'client_secret',

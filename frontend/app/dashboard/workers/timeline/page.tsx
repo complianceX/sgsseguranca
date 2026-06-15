@@ -2,6 +2,7 @@
 import { logger } from '@/lib/logger';
 
 import { useEffect, useMemo, useState } from 'react';
+import { maskCpf } from '@/lib/format/cpf';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -211,7 +212,7 @@ export default function WorkerTimelinePage() {
                   <div>
                     <CardTitle className="text-2xl">{timeline.worker.nome}</CardTitle>
                     <CardDescription>
-                      {timeline.worker.funcao || 'Função não informada'} · CPF {timeline.worker.cpf || 'não informado'}
+                      {timeline.worker.funcao || 'Função não informada'} · CPF {timeline.worker.cpf ? maskCpf(timeline.worker.cpf) : 'não informado'}
                     </CardDescription>
                   </div>
                 </div>

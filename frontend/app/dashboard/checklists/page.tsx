@@ -21,7 +21,6 @@ import {
 import {
   EmptyState,
   ErrorState,
-  InlineLoadingState,
 } from '@/components/ui/state';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -300,7 +299,9 @@ export function ChecklistsPageView({
     <div className="space-y-6">
       {loading && filteredChecklists.length === 0 ? (
         <Card tone="default" padding="lg">
-          <InlineLoadingState label="Carregando checklists..." />
+          <CardContent className="text-center text-sm text-[var(--ds-color-text-muted)]">
+            Carregando checklists...
+          </CardContent>
         </Card>
       ) : null}
 
@@ -341,7 +342,7 @@ export function ChecklistsPageView({
               key={entry.slug}
               href={entry.href}
               className={cn(
-                'rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all',
+                'rounded-[var(--ds-radius-xl)] border px-4 py-4',
                 active
                   ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]'
                   : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40',

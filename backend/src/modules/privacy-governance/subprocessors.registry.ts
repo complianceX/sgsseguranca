@@ -37,8 +37,8 @@ export type PrivacySubprocessor = {
 
 export const PRIVACY_SUBPROCESSORS: PrivacySubprocessor[] = [
   {
-    id: 'render',
-    provider: 'Render',
+    id: 'vultr',
+    provider: 'Vultr / Coolify',
     service: 'Hospedagem do backend e worker',
     category: 'hosting',
     status: 'active',
@@ -58,8 +58,8 @@ export const PRIVACY_SUBPROCESSORS: PrivacySubprocessor[] = [
     evidenceRequired: ['DPA vigente', 'regiao do servico', 'politica de logs'],
   },
   {
-    id: 'supabase-postgres',
-    provider: 'Supabase/PostgreSQL',
+    id: 'neon-postgres',
+    provider: 'Neon/PostgreSQL',
     service: 'Banco de dados relacional',
     category: 'database',
     status: 'configured_if_enabled',

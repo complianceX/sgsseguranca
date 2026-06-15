@@ -289,9 +289,9 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
       expect(response.status).toBe(200);
     });
 
-    it('GET /health/ready → 404 (probe legado removido)', async () => {
+    it('GET /health/ready → 200 (readiness probe k8s ativa)', async () => {
       const response = await testApp.request().get('/health/ready');
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
     });
   });
 });

@@ -7,7 +7,7 @@ import { ClipboardList, Pencil, Plus, Search, Trash2, Wrench } from 'lucide-reac
 import { toast } from 'sonner';
 import { toolsService, Tool } from '@/services/toolsService';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);
@@ -168,8 +168,8 @@ export default function ToolsPage() {
       }
     >
       {loading && tools.length === 0 ? (
-        <div className="p-6">
-          <InlineLoadingState label="Carregando ferramentas..." />
+        <div className="p-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+          Carregando ferramentas...
         </div>
       ) : tools.length === 0 ? (
         <div className="p-6">

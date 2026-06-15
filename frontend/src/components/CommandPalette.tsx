@@ -437,8 +437,9 @@ export function CommandPalette() {
   const groupedResults = useMemo(() => {
     const groups: Record<string, SearchResultItem[]> = {};
     for (const r of searchResults) {
-      if (!groups[r.group]) groups[r.group] = [];
-      groups[r.group].push(r);
+      const groupKey = r.group;
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey]!.push(r);
     }
     return groups;
   }, [searchResults]);

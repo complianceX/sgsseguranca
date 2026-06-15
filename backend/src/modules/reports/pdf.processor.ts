@@ -263,6 +263,19 @@ export class PdfProcessor extends WorkerHost {
     return { url };
   }
 
+  private sanitizeJobDataForDlq(data: unknown): unknown {
+    if (typeof data !== 'object' || data === null) return data;
+    const d = data as Record<string, unknown>;
+    return {
+      ...d,
+      // HTML pode ter centenas de KB — guardar apenas tamanho para diagnóstico
+      html:
+        typeof d.html === 'string'
+          ? `[truncated ${d.html.length} chars]`
+          : d.html,
+    };
+  }
+
   @OnWorkerEvent('failed')
   async onFailed(job: Job<unknown, unknown, string> | undefined, error: Error) {
     if (!job) return;
@@ -294,8 +307,15 @@ export class PdfProcessor extends WorkerHost {
         originalJobName: job.name,
         attemptsMade: job.attemptsMade,
         companyId: jobData?.companyId,
-        data: job.data,
-        error: { message: error.message, stack: error.stack },
+        // job.data pode conter HTML gerado — truncar para evitar payload gigante na DLQ
+        data: this.sanitizeJobDataForDlq(job.data),
+        error: {
+          message: error.message,
+          stack:
+            process.env.NODE_ENV === 'production'
+              ? error.stack?.split('\n').slice(0, 3).join('\n')
+              : error.stack,
+        },
         failedAt: new Date().toISOString(),
       };
 

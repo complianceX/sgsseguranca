@@ -15,7 +15,7 @@ SGS Segurança — Referência para monitoramento e critérios de aprovação de
 | `GET /dashboard` (agregados) | 300 ms | 800 ms | 2 000 ms | 1 % |
 | `GET /reports/jobs` (scan DLQ) | 100 ms | 400 ms | 1 000 ms | 1 % |
 
-> Medidos no backend (OTEL spans). Exclui latência de rede cliente-Render.
+> Medidos no backend (OTEL spans). Exclui latência de rede cliente-Vultr/Coolify.
 
 ---
 

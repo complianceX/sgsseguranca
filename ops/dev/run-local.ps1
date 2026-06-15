@@ -187,7 +187,7 @@ function Ensure-LocalInfraEnv() {
     Set-EnvValueInFile './backend/.env' 'DATABASE_PASSWORD' $localPgPass
     if ($localDbName) { Set-EnvValueInFile './backend/.env' 'DATABASE_NAME' $localDbName }
 
-    # Força o backend a NÃO usar DATABASE_URL (que geralmente aponta para Supabase/prod).
+    # Força o backend a NÃO usar DATABASE_URL (que geralmente aponta para Neon/prod).
     # O AppModule prioriza DATABASE_URL quando está preenchido.
     Set-EnvValueInFile './backend/.env' 'DATABASE_URL' ''
     Set-EnvValueInFile './backend/.env' 'DATABASE_DIRECT_URL' ''

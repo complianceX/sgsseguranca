@@ -21,7 +21,7 @@ Use estes arquivos como ponto de partida:
 - [troubleshooting.md](./troubleshooting.md): problemas comuns e onde investigar
 - [faq.md](./faq.md): perguntas frequentes para consulta rapida
 - [comandos-e-validacao.md](./comandos-e-validacao.md): comandos mais usados para rodar, validar e diagnosticar
-- [../deploy/secure-render-release.md](../deploy/secure-render-release.md): release seguro no Render com migrations separadas
+- [../deploy/coolify-vultr-backend-web-worker.md](../deploy/coolify-vultr-backend-web-worker.md): deploy do backend web/worker no Vultr/Coolify
 
 ## Como usar
 

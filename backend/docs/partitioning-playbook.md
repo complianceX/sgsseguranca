@@ -42,7 +42,7 @@ abaixo desses limites, o procedimento abaixo é seguro.
 
 ### 2. Subir flag de leitura-somente no app
 
-Defina temporariamente `FEATURE_AI_ENABLED=false` no Render dashboard
+Defina temporariamente `FEATURE_AI_ENABLED=false` no Vultr/Coolify dashboard
 ou pause os workers que escrevem na tabela. Confirme via:
 
 ```sql

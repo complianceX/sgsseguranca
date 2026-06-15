@@ -6,6 +6,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { maskCpf } from '@/lib/format/cpf';
 
 interface UsersTableRowProps {
   user: User;
@@ -22,7 +23,7 @@ export const UsersTableRow = React.memo(({ user, onGdprErase, onHardDelete }: Us
         <div className="font-medium text-[var(--ds-color-text-primary)]">{user.nome}</div>
         <div className="text-xs text-[var(--ds-color-text-muted)]">{user.email}</div>
       </TableCell>
-      <TableCell className="px-5 py-4 text-[var(--ds-color-text-secondary)]">{user.cpf}</TableCell>
+      <TableCell className="px-5 py-4 text-[var(--ds-color-text-secondary)]">{maskCpf(user.cpf)}</TableCell>
       <TableCell className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
         {user.funcao || '-'}
       </TableCell>

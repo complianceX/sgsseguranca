@@ -32,20 +32,6 @@ export function resolveDatabaseHostname(input: {
   return typeof input.host === 'string' ? input.host.trim() : '';
 }
 
-export function isSupabaseHost(hostname: string | null | undefined): boolean {
-  if (typeof hostname !== 'string') {
-    return false;
-  }
-
-  const normalized = hostname.toLowerCase();
-  return (
-    normalized === 'supabase.co' ||
-    normalized.endsWith('.supabase.co') ||
-    normalized === 'pooler.supabase.com' ||
-    normalized.endsWith('.pooler.supabase.com')
-  );
-}
-
 export function isNeonPoolerHost(hostname: string | null | undefined): boolean {
   if (typeof hostname !== 'string') {
     return false;

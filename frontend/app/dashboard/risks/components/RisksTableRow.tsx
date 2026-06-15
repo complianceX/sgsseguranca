@@ -43,7 +43,7 @@ export const RisksTableRow = React.memo(({
             size="icon"
             variant="ghost"
             onClick={() => onDelete(risk.id)}
-            className="text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
             title="Excluir Risco"
           >
             <Trash2 className="h-4 w-4" />

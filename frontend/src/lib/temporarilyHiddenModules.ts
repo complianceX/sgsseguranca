@@ -5,7 +5,8 @@ export function isTemporarilyHiddenDashboardRoute(
 ): boolean {
   if (!path) return false;
 
-  const normalizedPath = path.split('?')[0].split('#')[0];
+  const beforeQuery = path.split('?')[0]!;
+  const normalizedPath = beforeQuery.split('#')[0]!;
 
   return TEMPORARILY_HIDDEN_DASHBOARD_PREFIXES.some(
     (prefix) =>

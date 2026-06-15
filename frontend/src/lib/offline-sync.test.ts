@@ -79,9 +79,9 @@ describe("offline-sync", () => {
     const snapshot = await getOfflineQueueSnapshot();
 
     expect(snapshot).toHaveLength(1);
-    expect(snapshot[0].id).toBe(first.id);
-    expect(snapshot[0].correlationId).toBe("apr:draft:draft-1");
-    expect(snapshot[0].data).toEqual({ numero: "APR-1B" });
+    expect(snapshot[0]!.id).toBe(first.id);
+    expect(snapshot[0]!.correlationId).toBe("apr:draft:draft-1");
+    expect(snapshot[0]!.data).toEqual({ numero: "APR-1B" });
     expect((second as { deduplicated?: boolean }).deduplicated).toBe(true);
   });
 
@@ -107,9 +107,9 @@ describe("offline-sync", () => {
 
     expect(result.status).toBe("pending");
     expect(snapshot).toHaveLength(1);
-    expect(snapshot[0].id).toBe(queued.id);
-    expect(snapshot[0].state).toBe("retry_waiting");
-    expect(snapshot[0].attempts).toBe(1);
+    expect(snapshot[0]!.id).toBe(queued.id);
+    expect(snapshot[0]!.state).toBe("retry_waiting");
+    expect(snapshot[0]!.attempts).toBe(1);
   });
 
   it("remove explicitamente a entrada da fila sem deixar resíduo duplicado", async () => {
@@ -147,8 +147,8 @@ describe("offline-sync", () => {
     const snapshot = await getOfflineQueueSnapshot();
 
     expect(snapshot).toHaveLength(1);
-    expect(snapshot[0].data).toEqual({ titulo: "APR" });
-    expect(snapshot[0].headers).toEqual({ "x-company-id": "company-1" });
+    expect(snapshot[0]!.data).toEqual({ titulo: "APR" });
+    expect(snapshot[0]!.headers).toEqual({ "x-company-id": "company-1" });
   });
 
   it("nao persiste fila em plaintext quando WebCrypto indisponivel", async () => {

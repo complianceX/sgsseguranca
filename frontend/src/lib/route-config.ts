@@ -57,9 +57,15 @@ export const HIDDEN_ROUTES = [
 export type HiddenRoute = (typeof HIDDEN_ROUTES)[number];
 
 /** Retorna true se o pathname é uma rota exclusiva de ADMIN_GERAL. */
+function normalizePath(pathname: string): string {
+  const beforeQuery = pathname.split('?')[0]!;
+  const [cleaned] = beforeQuery.split('#');
+  return cleaned ?? beforeQuery;
+}
+
 export function isAdminRoute(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  const clean = pathname.split('?')[0].split('#')[0];
+  const clean = normalizePath(pathname);
   return ADMIN_ROUTES.some(
     (route) => clean === route || clean.startsWith(`${route}/`),
   );
@@ -68,7 +74,7 @@ export function isAdminRoute(pathname: string | null | undefined): boolean {
 /** Retorna true se o pathname está temporariamente oculto. */
 export function isHiddenRoute(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  const clean = pathname.split('?')[0].split('#')[0];
+  const clean = normalizePath(pathname);
   return HIDDEN_ROUTES.some(
     (prefix) => clean === prefix || clean.startsWith(`${prefix}/`),
   );
@@ -82,7 +88,7 @@ export function getRoutePermissionException(
   pathname: string | null | undefined,
 ): string | undefined {
   if (!pathname) return undefined;
-  const clean = pathname.split('?')[0].split('#')[0];
+  const clean = normalizePath(pathname);
   return PERMISSION_ROUTE_EXCEPTIONS.find(({ route }) =>
     clean.startsWith(route),
   )?.permission;

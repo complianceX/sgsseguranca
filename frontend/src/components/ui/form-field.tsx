@@ -33,11 +33,30 @@ export function FormField({
           ) : null}
         </label>
         {description ? (
-          <p className="text-xs text-[var(--ds-color-text-muted)]">{description}</p>
+          <p id={htmlFor ? `${htmlFor}-description` : undefined} className="text-xs text-[var(--ds-color-text-muted)]">{description}</p>
         ) : null}
       </div>
-      {children}
-      {error ? <p className="text-xs font-medium text-[var(--ds-color-danger)]">{error}</p> : null}
+      {React.isValidElement(children)
+        ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            'aria-invalid': error ? 'true' : undefined,
+            'aria-required': required ? 'true' : undefined,
+            'aria-describedby': htmlFor
+              ? [description && `${htmlFor}-description`, error && `${htmlFor}-error`]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              : undefined,
+          })
+        : children}
+      {error ? (
+        <p
+          id={htmlFor ? `${htmlFor}-error` : undefined}
+          role="alert"
+          aria-live="assertive"
+          className="text-xs font-medium text-[var(--ds-color-danger)]"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

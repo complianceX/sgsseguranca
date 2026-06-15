@@ -15,11 +15,21 @@ if (!fs.existsSync(eslintBin)) {
   process.exit(1);
 }
 
-const env = { ...process.env };
+// ESLint v9 defaults to flat config — force legacy mode so .eslintrc.cjs is used
+// and ignorePatterns (including .vercel/**) is honoured.
+const env = { ...process.env, ESLINT_USE_FLAT_CONFIG: "false" };
 
 const result = spawnSync(
   process.execPath,
-  [eslintBin, ".", "--max-warnings=0"],
+  [
+    eslintBin,
+    ".",
+    "--max-warnings=0",
+    "--ignore-pattern", ".vercel/**",
+    "--ignore-pattern", ".next/**",
+    "--ignore-pattern", "out/**",
+    "--ignore-pattern", "build/**",
+  ],
   {
     stdio: "inherit",
     env,

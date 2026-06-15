@@ -68,6 +68,6 @@ describe('privacyRequestsService', () => {
     const result = await privacyRequestsService.listEvents('req-1');
 
     expect(api.get).toHaveBeenCalledWith('/privacy-requests/req-1/events');
-    expect(result[0].id).toBe('event-1');
+    expect(result[0]!.id).toBe('event-1');
   });
 });

@@ -68,8 +68,8 @@ describe("checklists form serialization", () => {
     );
 
     expect(payload.topicos).toHaveLength(2);
-    expect(payload.topicos[0].itens).toHaveLength(1);
-    expect(payload.topicos[0].itens[0].subitens?.[0]).toEqual({
+    expect(payload.topicos[0]!.itens).toHaveLength(1);
+    expect(payload.topicos[0]!.itens[0]!.subitens?.[0]).toEqual({
       id: "sub-1",
       texto: "Cobertura adequada",
       ordem: 1,
@@ -77,8 +77,8 @@ describe("checklists form serialization", () => {
       resposta: undefined,
       observacao: "Sem cobertura",
     });
-    expect(payload.topicos[0].itens[0].status).toBe("nao");
-    expect(payload.topicos[1].itens).toHaveLength(0);
+    expect(payload.topicos[0]!.itens[0]!.status).toBe("nao");
+    expect(payload.topicos[1]!.itens).toHaveLength(0);
     expect(payload.itens).toHaveLength(1);
   });
 
@@ -151,12 +151,12 @@ describe("checklists form serialization", () => {
 
     expect(payload.equipamento).toBe("");
     expect(payload.foto_equipamento).toBe("");
-    expect(payload.topicos[0].descricao).toBe("");
-    expect(payload.topicos[0].barreira_tipo).toBeUndefined();
-    expect(payload.itens[0].criticidade).toBeUndefined();
-    expect(payload.itens[0].bloqueia_operacao_quando_nc).toBe(false);
-    expect(payload.itens[0].acao_corretiva_imediata).toBe("");
-    expect(payload.itens[0].barreira_tipo).toBeUndefined();
+    expect(payload.topicos[0]!.descricao).toBe("");
+    expect(payload.topicos[0]!.barreira_tipo).toBeUndefined();
+    expect(payload.itens[0]!.criticidade).toBeUndefined();
+    expect(payload.itens[0]!.bloqueia_operacao_quando_nc).toBe(false);
+    expect(payload.itens[0]!.acao_corretiva_imediata).toBe("");
+    expect(payload.itens[0]!.barreira_tipo).toBeUndefined();
   });
 
   it("normaliza status legados e reseta estado de execução ao carregar modelo", () => {
@@ -182,11 +182,11 @@ describe("checklists form serialization", () => {
       { resetExecutionState: true },
     );
 
-    expect(normalized.topicos[0].titulo).toBe("Área de vivência");
-    expect(normalized.itens[0].status).toBe("sim");
-    expect(normalized.itens[0].observacao).toBe("");
-    expect(normalized.itens[0].fotos).toEqual([]);
-    expect(normalized.itens[0].subitens).toEqual([]);
+    expect(normalized.topicos[0]!.titulo).toBe("Área de vivência");
+    expect(normalized.itens[0]!.status).toBe("sim");
+    expect(normalized.itens[0]!.observacao).toBe("");
+    expect(normalized.itens[0]!.fotos).toEqual([]);
+    expect(normalized.itens[0]!.subitens).toEqual([]);
   });
 
   it("propaga o status do item para subitens legados sem resposta propria", () => {
@@ -213,7 +213,7 @@ describe("checklists form serialization", () => {
       [],
     );
 
-    expect(normalized.itens[0].subitens?.map((subitem) => subitem.status)).toEqual([
+    expect(normalized.itens[0]!.subitens?.map((subitem) => subitem.status)).toEqual([
       "nao",
       "nao",
     ]);
@@ -306,8 +306,8 @@ describe("checklists form serialization", () => {
     );
 
     expect(editingState.itens).toHaveLength(1);
-    expect(editingState.itens[0].id).toBe("item-blank");
-    expect(editingState.itens[0].item).toBe("");
+    expect(editingState.itens[0]!.id).toBe("item-blank");
+    expect(editingState.itens[0]!.item).toBe("");
 
     const payload = buildChecklistRequestPayload(
       {
@@ -341,7 +341,7 @@ describe("checklists form serialization", () => {
     );
 
     expect(payload.itens).toHaveLength(0);
-    expect(payload.topicos[0].itens).toHaveLength(0);
+    expect(payload.topicos[0]!.itens).toHaveLength(0);
   });
 
   it("preserva metadados de Barreira Viva entre topico, item e payload final", () => {

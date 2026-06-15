@@ -318,7 +318,7 @@ describe("DdsApprovalPanel", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        "Não foi possível aprovar a etapa atual.",
+        "Erro de conexão ou erro inesperado. Verifique sua internet.",
       );
     });
   });

@@ -1,3 +1,5 @@
+> **Nota:** Infraestrutura atualizada em 2026. O backend foi migrado do Render para Vultr/Coolify. Este documento reflete o estado anterior com Render.
+
 # Auditoria critica do backend para venda - SGS
 
 Data: 2026-04-28  

@@ -33,6 +33,15 @@ type GovernanceSignature = {
   image: null;
 };
 
+export function maskCpfForPdf(value?: string | null): string {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length !== 11) {
+    return "-";
+  }
+
+  return `***.***.***-${digits.slice(-2)}`;
+}
+
 function parseSignature(raw?: string): ParsedSignature | null {
   if (!raw) return null;
 
@@ -215,7 +224,7 @@ export async function generateRdoPdf(
             label: "Responsável pela obra",
             name: sanitize(responsavelSignature.nome || "-"),
             role: `Responsável pela obra • CPF ${sanitize(
-              responsavelSignature.cpf || "-",
+              maskCpfForPdf(responsavelSignature.cpf),
             )}`,
             date: responsavelSignature.signed_at,
             image: null,
@@ -226,7 +235,7 @@ export async function generateRdoPdf(
             label: "Engenheiro responsável",
             name: sanitize(engineerSignature.nome || "-"),
             role: `Engenheiro responsável • CPF ${sanitize(
-              engineerSignature.cpf || "-",
+              maskCpfForPdf(engineerSignature.cpf),
             )}`,
             date: engineerSignature.signed_at,
             image: null,

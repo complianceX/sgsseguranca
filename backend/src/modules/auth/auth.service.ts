@@ -1409,10 +1409,23 @@ export class AuthService {
     // invalidados. O usuário precisará fazer login novamente em todos os
     // dispositivos — comportamento de segurança esperado.
     await this.redisService.clearAllRefreshTokens(userId);
-    await this.userSessionRepository.update(
-      { user_id: userId, is_active: true },
-      { is_active: false, revoked_at: new Date() },
-    );
+    const userForRevocation =
+      await this.usersService.findOneWithPassword(userId);
+    if (userForRevocation?.company_id) {
+      await this.withUserSessionTenantContext(
+        userForRevocation.company_id,
+        (repo) =>
+          repo.update(
+            { user_id: userId, is_active: true },
+            { is_active: false, revoked_at: new Date() },
+          ),
+      );
+    } else {
+      await this.userSessionRepository.update(
+        { user_id: userId, is_active: true },
+        { is_active: false, revoked_at: new Date() },
+      );
+    }
     this.securityAudit.passwordChanged(userId);
 
     return { message: 'Senha atualizada com sucesso' };
@@ -1662,8 +1675,15 @@ export class AuthService {
     await this.pwnedPasswordService.assertNotPwned(newPassword);
 
     const hashedPassword = await this.passwordService.hash(newPassword);
+    let resetUserCompanyId: string | null = null;
     await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      const rows: { company_id: string }[] =
+        (await manager.query<{ company_id: string }[]>(
+          `SELECT company_id FROM "users" WHERE id = $1`,
+          [userId],
+        )) ?? [];
+      resetUserCompanyId = rows[0]?.company_id ?? null;
       await manager.update(User, { id: userId }, { password: hashedPassword });
     });
 
@@ -1671,10 +1691,19 @@ export class AuthService {
 
     // Invalida todos os refresh tokens — o usuário precisará fazer login novamente
     await this.redisService.clearAllRefreshTokens(userId);
-    await this.userSessionRepository.update(
-      { user_id: userId, is_active: true },
-      { is_active: false, revoked_at: new Date() },
-    );
+    if (resetUserCompanyId) {
+      await this.withUserSessionTenantContext(resetUserCompanyId, (repo) =>
+        repo.update(
+          { user_id: userId, is_active: true },
+          { is_active: false, revoked_at: new Date() },
+        ),
+      );
+    } else {
+      await this.userSessionRepository.update(
+        { user_id: userId, is_active: true },
+        { is_active: false, revoked_at: new Date() },
+      );
+    }
 
     this.logger.log({ event: 'password_reset', userId });
     this.securityAudit.passwordReset(userId);

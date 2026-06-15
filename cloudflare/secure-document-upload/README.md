@@ -8,7 +8,7 @@
 
 Motivo tecnico:
 
-- evita duplicidade de estado entre edge e PostgreSQL/Supabase;
+- evita duplicidade de estado entre edge e PostgreSQL/Neon;
 - reaproveita auditoria, trilha forense, multi-tenant e governanca documental ja existentes;
 - elimina reconciliacao entre bancos diferentes para o mesmo documento.
 

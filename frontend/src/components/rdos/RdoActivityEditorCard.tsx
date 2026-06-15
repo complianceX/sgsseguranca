@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -168,13 +169,15 @@ export function RdoActivityEditorCard({
                   key={`${photo}-${photoIndex}`}
                   className="relative h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={
                       resolveActivityPhotoSrc(photo) || "/placeholder-image.png"
                     }
                     alt={`Foto governada ${photoIndex + 1} da atividade ${activityIndex + 1}`}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                    unoptimized
                   />
                   <button
                     type="button"
@@ -201,11 +204,13 @@ export function RdoActivityEditorCard({
                   key={`${photo.previewUrl}-${photoIndex}`}
                   className="relative h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={photo.previewUrl}
                     alt={`Foto pendente ${photoIndex + 1} da atividade ${activityIndex + 1}`}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                    unoptimized
                   />
                   <button
                     type="button"

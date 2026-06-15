@@ -18,13 +18,11 @@ import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const fieldClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
 const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
 const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
-const sectionCardClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 const toolSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -162,18 +160,6 @@ export function ToolForm({ id }: ToolFormProps) {
           </div>
         }
       />
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Cadastro guiado
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture a ferramenta com vínculo empresarial, identificação e rastreabilidade de série.
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, nome e identificação antes de salvar para evitar ativos duplicados.
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         {submitError && (
           <div
@@ -184,7 +170,7 @@ export function ToolForm({ id }: ToolFormProps) {
             <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
-        <section className={sectionCardClassName}>
+        <section>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
               Contexto e identificação
@@ -193,7 +179,7 @@ export function ToolForm({ id }: ToolFormProps) {
               Defina tenant e nome principal da ferramenta para cadastro, verificação e controle de uso.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <label htmlFor="company_id" className={labelClassName}>
               Empresa
@@ -239,7 +225,7 @@ export function ToolForm({ id }: ToolFormProps) {
         </div>
         </section>
 
-        <section className={sectionCardClassName}>
+        <section>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
               Rastreabilidade
@@ -248,7 +234,7 @@ export function ToolForm({ id }: ToolFormProps) {
               Dados complementares para identificar a ferramenta em estoque, inspeções e manutenções.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2">
             <label htmlFor="numero_serie" className={labelClassName}>
               Número de Série
@@ -291,11 +277,7 @@ export function ToolForm({ id }: ToolFormProps) {
             disabled={loading || isSubmitting || !isValid}
             className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
-            {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
+            <Save className="mr-2 h-4 w-4" />
             {id ? 'Salvar alterações' : 'Criar ferramenta'}
           </button>
         </div>
