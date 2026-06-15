@@ -9,7 +9,6 @@ frontend:
 infra:
   - changed-files:
       - any-glob-to-any-file:
-          - "render.yaml"
           - "Dockerfile"
           - "Dockerfile.worker"
           - "docker-compose*.yml"

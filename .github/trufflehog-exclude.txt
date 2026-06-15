@@ -1,0 +1,7 @@
+# Caminhos excluídos do TruffleHog (regex por linha, casadas contra o path do arquivo).
+# Contêm DSNs/credenciais de EXEMPLO (placeholders) que o detector Postgres casa
+# estruturalmente como "unverified". Gitleaks (job separado) continua escaneando
+# 100% do repositório como backstop, então não há perda de cobertura para secrets reais.
+\.example$
+\.md$
+\.spec\.ts$

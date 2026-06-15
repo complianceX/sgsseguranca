@@ -4,7 +4,7 @@ Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e ba
 
 ## Estado real do projeto
 
-- Deploy e migrations seguem contrato determinístico para Render + Neon.
+- Deploy e migrations seguem contrato determinístico para Vultr + Neon.
 - Frontend usa configuração explícita de ambiente e falha cedo sem URLs públicas válidas.
 - Quality gate local/CI já executa lint, testes e build reais.
 - Observabilidade atual:
@@ -20,7 +20,7 @@ Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e ba
 - `frontend/`: Next.js 16
 - `backend/`: NestJS 11 + TypeORM + PostgreSQL + Redis + BullMQ
 - `worker`: processo separado para filas pesadas, PDFs e jobs assíncronos
-- `Render`: web e worker separados
+- `Vultr / Coolify`: backend web e worker separados
 - `Neon`: PostgreSQL gerenciado com role runtime separada da role owner/DDL
 - `Backblaze B2`: storage S3 compativel para artefatos governados
 - `Vercel`: frontend
@@ -95,8 +95,8 @@ npm run start:worker
 
 ## Deploy de Produção
 
-- `Render (backend-web)`: API HTTP (`npm run start:web`)
-- `Render (backend-worker)`: processamento assíncrono (`npm run start:worker`)
+- `Vultr / Coolify (backend-web)`: API HTTP (`npm run start:web`)
+- `Vultr / Coolify (backend-worker)`: processamento assíncrono (`npm run start:worker`)
 - `Neon`: banco PostgreSQL (`DATABASE_URL` direta da role runtime com `sslmode=require`)
 - `Backblaze B2`: storage oficial S3 compativel
 - `Vercel`: frontend Next.js
@@ -111,4 +111,4 @@ npm run start:worker
 - [backend/docs/security-hardening-runbook-d1-dday-d1.md](backend/docs/security-hardening-runbook-d1-dday-d1.md)
 - [backend/docs/security-hardening-war-room-checklist.md](backend/docs/security-hardening-war-room-checklist.md)
 - [backend/docs/security-hardening-ticket-template.md](backend/docs/security-hardening-ticket-template.md)
-- [docs/deploy/secure-render-release.md](docs/deploy/secure-render-release.md)
+- [docs/deploy/coolify-vultr-backend-web-worker.md](docs/deploy/coolify-vultr-backend-web-worker.md)

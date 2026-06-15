@@ -1,7 +1,9 @@
 # Smoke Test de Producao SGS
 
+> *Nota histórica: Infraestrutura atualizada. O Supabase foi substituído pelo Neon como provedor de banco de dados PostgreSQL. Este documento reflete o estado anterior com Supabase e Render (Render foi substituído por Vultr/Coolify).*
+
 Data base: 28 de marco de 2026
-Ambiente: Render + Supabase / production
+Ambiente: Vultr/Coolify + Neon / production
 Frontend: https://app.sgsseguranca.com.br
 Backend: https://api.sgsseguranca.com.br
 

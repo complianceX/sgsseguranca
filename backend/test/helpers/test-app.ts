@@ -363,8 +363,6 @@ export class TestApp {
   private async seedBaseData() {
     const profileMap = await this.seedProfiles();
     const passwordHash = await this.passwordService.hash(DEFAULT_PASSWORD);
-    await this.ensureLocalSupabaseAuthStub();
-
     const companyA = await this.upsertCompany({
       razao_social: 'Tenant A SST LTDA',
       cnpj: '11222333000181',
@@ -414,11 +412,6 @@ export class TestApp {
         worker: '29537914802',
       },
     });
-
-    await this.upsertLocalSupabaseAuthUsers(
-      [...Object.values(usersTenantA), ...Object.values(usersTenantB)],
-      passwordHash,
-    );
 
     this.seed = {
       tenantA: {
@@ -487,43 +480,6 @@ export class TestApp {
       process.env.NODE_ENV === 'test' &&
       ['127.0.0.1', 'localhost'].includes(host)
     );
-  }
-
-  private async ensureLocalSupabaseAuthStub(): Promise<void> {
-    if (!this.isLocalTestDatabase()) {
-      return;
-    }
-
-    await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "auth"`);
-    await this.dataSource.query(`
-      CREATE TABLE IF NOT EXISTS "auth"."users" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-        "email" text NOT NULL UNIQUE,
-        "encrypted_password" text,
-        CONSTRAINT "PK_auth_users_id" PRIMARY KEY ("id")
-      )
-    `);
-  }
-
-  private async upsertLocalSupabaseAuthUsers(
-    users: SeedUserRecord[],
-    passwordHash: string,
-  ): Promise<void> {
-    if (!this.isLocalTestDatabase()) {
-      return;
-    }
-
-    for (const user of users) {
-      await this.dataSource.query(
-        `
-          INSERT INTO "auth"."users" ("email", "encrypted_password")
-          VALUES ($1, $2)
-          ON CONFLICT ("email")
-          DO UPDATE SET "encrypted_password" = EXCLUDED."encrypted_password"
-        `,
-        [user.email, passwordHash],
-      );
-    }
   }
 
   private async seedProfiles(): Promise<Record<Role, Profile>> {

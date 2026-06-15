@@ -25,12 +25,8 @@ async function main() {
 
   Sentry.captureException(error, {
     tags: {
-      source: 'render-job-smoke',
+      source: 'smoke-test',
       marker,
-    },
-    extra: {
-      serviceId: process.env.RENDER_SERVICE_ID || 'unknown',
-      serviceName: process.env.RENDER_SERVICE_NAME || 'unknown',
     },
   });
 

@@ -34,7 +34,7 @@ const cookies: CookieRow[] = [
   {
     name: 'sb-access-token',
     category: 'Estritamente necessário',
-    purpose: 'Token de sessão JWT emitido pelo Supabase Auth. Identifica o usuário autenticado.',
+    purpose: 'Token de sessão JWT emitido pelo sistema de autenticação. Identifica o usuário autenticado.',
     duration: 'Sessão (expiração conforme token JWT, padrão 1h)',
     thirdParty: 'Não',
     httpOnly: true,
@@ -172,7 +172,7 @@ export default function CookiesPage() {
                   </span>
                   <div>
                     <strong>Autenticação e sessão</strong>
-                    <p>Tokens Supabase Auth para manter você logado com segurança.</p>
+                    <p>Tokens de autenticação para manter você logado com segurança.</p>
                   </div>
                 </div>
                 <div className={styles.sideItem}>
@@ -274,16 +274,17 @@ export default function CookiesPage() {
                 .
               </li>
               <li>
-                <strong>Supabase (EUA):</strong> tokens de sessão para autenticação.
-                DPA, região e certificações aplicáveis devem ser confirmados conforme
-                o projeto contratado. Saiba mais em{' '}
+                <strong>Neon (PostgreSQL):</strong> banco de dados relacional que
+                armazena sessões e dados de autenticação. DPA, região e certificações
+                aplicáveis devem ser confirmados conforme o serviço contratado.
+                Saiba mais em{' '}
                 <a
-                  href="https://supabase.com/privacy"
+                  href="https://neon.tech/privacy"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.inlineLink}
                 >
-                  supabase.com/privacy
+                  neon.tech/privacy
                 </a>
                 .
               </li>

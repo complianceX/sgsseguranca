@@ -58,7 +58,7 @@ import { Counter } from '@opentelemetry/api';
 export const PTS_DOMAIN_METRICS = 'PTS_DOMAIN_METRICS';
 
 // Throttle: evita UPDATE desnecessário quando múltiplas requests chegam simultaneamente.
-// Valor em ms. Em produção com 2 instâncias Render cada uma tem seu próprio throttle
+// Valor em ms. Em produção com 2 instâncias cada uma tem seu próprio throttle
 // — redundância intencional (ambas podem expirar, mas no máximo 1×/60s por instância).
 const EXPIRE_REFRESH_THROTTLE_MS = 60_000;
 
@@ -350,7 +350,7 @@ export class PtsService {
     const lastRun = this.expireRefreshThrottle.get(throttleKey) ?? 0;
 
     if (Date.now() - lastRun < EXPIRE_REFRESH_THROTTLE_MS) {
-      return; // Executado recentemente — pular para reduzir carga no Supabase
+      return; // Executado recentemente — pular para reduzir carga no banco
     }
 
     // Marcar antes de executar para que requests concorrentes não disparem em paralelo

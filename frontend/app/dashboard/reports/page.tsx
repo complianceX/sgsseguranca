@@ -861,7 +861,7 @@ export default function ReportsPage() {
     if (selected) {
       return selected;
     }
-    return reportHubOptionsWithAccess[0];
+    return reportHubOptionsWithAccess[0]!;
   }, [reportHubOptionsWithAccess, selectedReportType]);
 
   return (

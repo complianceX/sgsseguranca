@@ -33,6 +33,9 @@ jobs:
           path: ./
           base: ${{ github.event.pull_request.base.sha || github.event.before }}
           head: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Exclui docs/exemplos/specs com DSNs placeholder (falsos positivos do detector
+          # Postgres). Gitleaks escaneia o repo inteiro como backstop.
+          extra_args: --exclude-paths=.github/trufflehog-exclude.txt
 
   dependency-audit:
     name: Dependency Audit

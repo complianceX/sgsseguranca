@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import Script from "next/script";
 import {
   CheckCircle2,
   Eraser,
@@ -26,6 +27,19 @@ import {
   publicDdsSignatureService,
 } from "@/services/publicDdsSignatureService";
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: Record<string, unknown>,
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -40,9 +54,37 @@ function formatDateTime(value?: string | null) {
   return parsed.toLocaleString("pt-BR");
 }
 
+const SESSION_KEY = 'dds_signature_token';
+
+function getSessionToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setSessionToken(token: string) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, token);
+  } catch {
+    // sessionStorage indisponível (ex:私 mode) — falha silenciosa
+  }
+}
+
+function clearSessionToken() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // silent
+  }
+}
+
 export default function PublicDdsSignaturePage() {
   const params = useParams<{ token: string }>();
-  const token = decodeURIComponent(params.token || "");
+  const urlToken = decodeURIComponent(params.token || "");
+  const [resolvedToken, setResolvedToken] = useState<string | null>(null);
   const signatureRef = useRef<SignatureCanvas>(null);
   const [context, setContext] = useState<PublicDdsSignatureContext | null>(
     null,
@@ -53,20 +95,84 @@ export default function PublicDdsSignaturePage() {
   const [error, setError] = useState<string | null>(null);
   const [signedAt, setSignedAt] = useState<string | null>(null);
 
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+  const turnstileEnabled = turnstileSiteKey.length > 0;
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !turnstileEnabled ||
+      !turnstileScriptReady ||
+      !turnstileContainerRef.current ||
+      !window.turnstile ||
+      turnstileWidgetIdRef.current
+    ) {
+      return;
+    }
+
+    turnstileWidgetIdRef.current = window.turnstile.render(
+      turnstileContainerRef.current,
+      {
+        sitekey: turnstileSiteKey,
+        action: 'dds-signing',
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(''),
+        'error-callback': () => setTurnstileToken(''),
+      },
+    );
+
+    return () => {
+      if (turnstileWidgetIdRef.current && window.turnstile?.remove) {
+        window.turnstile.remove(turnstileWidgetIdRef.current);
+      }
+      turnstileWidgetIdRef.current = null;
+      setTurnstileToken('');
+    };
+  }, [turnstileEnabled, turnstileScriptReady, turnstileSiteKey]);
+
+  const resetTurnstile = () => {
+    if (turnstileWidgetIdRef.current && window.turnstile?.reset) {
+      window.turnstile.reset(turnstileWidgetIdRef.current);
+    }
+    setTurnstileToken('');
+  };
+
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
 
+    const sessionToken = getSessionToken();
+    const effectiveToken = sessionToken || urlToken;
+
+    if (!effectiveToken) {
+      setError("Link de assinatura inválido.");
+      setLoading(false);
+      return;
+    }
+
+    setResolvedToken(effectiveToken);
+
+    if (!sessionToken && urlToken) {
+      setSessionToken(urlToken);
+    }
+
     publicDdsSignatureService
-      .getContext(token)
+      .getContext(effectiveToken)
       .then((data) => {
         if (!active) return;
         setContext(data);
         setSignedAt(data.signedAt);
+        if (urlToken && window.history.replaceState) {
+          window.history.replaceState(null, "", "/assinar/dds");
+        }
       })
       .catch((err) => {
         if (!active) return;
+        clearSessionToken();
         setError(
           err instanceof Error
             ? err.message
@@ -80,7 +186,7 @@ export default function PublicDdsSignaturePage() {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [urlToken]);
 
   function clearSignature() {
     signatureRef.current?.clear();
@@ -123,20 +229,33 @@ export default function PublicDdsSignaturePage() {
       return;
     }
 
+    if (turnstileEnabled && !turnstileToken) {
+      toast.error("Conclua a verificação de segurança antes de assinar.");
+      return;
+    }
+
     const signatureData = getSignatureDataUrl();
     if (!signatureData) {
       toast.error("Não foi possível capturar a assinatura.");
       return;
     }
 
+    const submitToken = resolvedToken || getSessionToken() || urlToken;
+    if (!submitToken) {
+      toast.error("Token de assinatura não encontrado. Recarregue a página.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      const result = await publicDdsSignatureService.submit(token, {
+      const result = await publicDdsSignatureService.submit(submitToken, {
         accepted_terms: acceptedTerms,
         signature_data: signatureData,
+        turnstileToken: turnstileToken || undefined,
       });
       setSignedAt(result.signedAt || new Date().toISOString());
+      clearSessionToken();
       toast.success("Assinatura registrada com segurança.");
     } catch (err) {
       setError(
@@ -144,13 +263,29 @@ export default function PublicDdsSignaturePage() {
           ? err.message
           : "Não foi possível registrar a assinatura.",
       );
+      resetTurnstile();
     } finally {
       setSubmitting(false);
     }
   }
 
+  function getBodyNonce(): string | undefined {
+    if (typeof document === 'undefined') return undefined;
+    return document.body?.getAttribute('data-nonce') || undefined;
+  }
+
+  const nonce = getBodyNonce();
+
   return (
     <main className="min-h-screen bg-[var(--ds-color-bg-subtle)] px-4 py-8">
+      {turnstileEnabled && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          nonce={nonce}
+          strategy="afterInteractive"
+          onLoad={() => setTurnstileScriptReady(true)}
+        />
+      )}
       <section className="mx-auto max-w-3xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -281,6 +416,7 @@ export default function PublicDdsSignaturePage() {
                           onChange={(event) =>
                             setAcceptedTerms(event.target.checked)
                           }
+                          disabled={turnstileEnabled && !turnstileToken}
                           className="mt-1 h-4 w-4 accent-[var(--ds-color-action-primary)]"
                         />
                         <span>
@@ -298,13 +434,19 @@ export default function PublicDdsSignaturePage() {
                         Limpar
                       </Button>
                     </div>
+
+                    {turnstileEnabled ? (
+                      <div className="flex justify-center pt-2">
+                        <div ref={turnstileContainerRef} />
+                      </div>
+                    ) : null}
                   </CardContent>
                 </Card>
 
                 <div className="flex justify-end">
                   <Button
                     type="submit"
-                    disabled={submitting || !acceptedTerms}
+                    disabled={submitting || !acceptedTerms || (turnstileEnabled && !turnstileToken)}
                     leftIcon={<ShieldCheck className="h-4 w-4" />}
                   >
                     {submitting ? "Registrando..." : "Confirmar assinatura"}

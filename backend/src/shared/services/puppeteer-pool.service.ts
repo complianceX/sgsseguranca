@@ -183,6 +183,11 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     const launchOptions: puppeteer.LaunchOptions & { executablePath?: string } =
       {
         args: [
+          // --no-sandbox é necessário em containers Docker sem user namespace isolation.
+          // Mitigações compensatórias: (1) HTML gerado via setContent, nunca page.goto com URL externa;
+          // (2) todos os dados interpolados no HTML são HTML-escaped; (3) request interception ativa
+          // em pdf.service.ts bloqueando recursos de rede; (4) container executa como usuário não-root
+          // (USER node no Dockerfile.worker); (5) PDF validado contra magic bytes + anti-JS patterns.
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',

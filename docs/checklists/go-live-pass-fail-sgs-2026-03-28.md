@@ -9,7 +9,9 @@ Preencha cada linha com `PASS` ou `FAIL`.
 
 - [ ] `PASS` ou `FAIL` - Frontend ativo em `https://app.sgsseguranca.com.br`
 - [ ] `PASS` ou `FAIL` - Backend ativo em `https://api.sgsseguranca.com.br`
-- [ ] `PASS` ou `FAIL` - Worker ativo no Render
+> *Nota: Infraestrutura atualizada. Este documento reflete o estado com Render, que foi substituído por Vultr/Coolify.*
+
+- [ ] `PASS` ou `FAIL` - Worker ativo no Vultr/Coolify
 - [ ] `PASS` ou `FAIL` - `GET /health/public` responde `200`
 
 ## Login e sessao

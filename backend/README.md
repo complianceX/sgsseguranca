@@ -111,23 +111,17 @@ Fluxo recomendado em produção:
 4. Habilitar proteção de startup:
 `REQUIRE_NO_PENDING_MIGRATIONS=true`
 
-No Render, nao configure migrations no `preDeployCommand` do serviço web.
-Execute `sgs-migrations` manualmente quando a release alterar schema. O job deve
-receber `DATABASE_MIGRATION_URL` da role owner/DDL; web e worker recebem apenas
-`DATABASE_URL` da role runtime sem `BYPASSRLS`.
-
-## Deploy Render + Redis Externo + Neon
+## Deploy Vultr / Coolify + Redis Externo + Neon
 
 Modelo operacional aprovado para este projeto:
 
 - backend continua em NestJS
 - banco em Neon Postgres com URL direta enquanto RLS depender de contexto de sessao
-- web e worker no Render como servicos separados
-- migrations em job separado no Render, fora do deploy automatico do web
-- Redis fica fora do Render, em provedor externo com tres URLs lógicas
+- web e worker no Vultr/Coolify como servicos separados
+- Redis em provedor externo com tres URLs lógicas
 - storage oficial em Backblaze B2 via API S3 compativel
 
-Comandos esperados no Render:
+Comandos esperados no Vultr/Coolify:
 
 - `backend-web`
   - build: `npm ci && npm run build`
@@ -153,7 +147,7 @@ Variaveis criticas em ambos os servicos:
 
 Runbooks operacionais:
 
-- `docs/deploy/secure-render-release.md`
+- `docs/deploy/coolify-vultr-backend-web-worker.md`
 
 ## Etapas 5, 6 e 7
 

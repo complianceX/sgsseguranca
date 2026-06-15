@@ -116,29 +116,6 @@ async function inspectMailQueues(env, options) {
 
   const warnings = [];
   const redisTimeoutMs = toPositiveInt(options['redis-timeout-ms'], 3_000);
-  const redisDetails = inspectRedisUrl(env.REDIS_URL);
-  if (
-    redisDetails.isLikelyPrivateRenderHost &&
-    !isRunningInsideRender(env)
-  ) {
-    warnings.push(
-      'REDIS_URL aponta para hostname privado do Render. Inspeção das filas foi ignorada fora do runtime do serviço; rode este script em um one-off job/SSH do Render para validar filas.',
-    );
-    return {
-      ok: null,
-      accessible: false,
-      connectionMode: 'skipped_private_render_host',
-      reason:
-        'Fila não acessível externamente porque o Redis usa hostname privado do Render.',
-      mail: null,
-      dlq: null,
-      failedJobs: [],
-      dlqJobs: [],
-      prunedFailedJobIds: [],
-      pruneSkipped: true,
-      warnings,
-    };
-  }
 
   const redis = new IORedis(env.REDIS_URL, {
     connectTimeout: redisTimeoutMs,
@@ -288,32 +265,6 @@ async function inspectMailQueues(env, options) {
       redis.disconnect();
     }
   }
-}
-
-function inspectRedisUrl(redisUrl) {
-  try {
-    const parsed = new URL(redisUrl);
-    const hostname = (parsed.hostname || '').trim().toLowerCase();
-    return {
-      hostname,
-      isLikelyPrivateRenderHost:
-        hostname.startsWith('red-') && !hostname.includes('.'),
-    };
-  } catch {
-    return {
-      hostname: null,
-      isLikelyPrivateRenderHost: false,
-    };
-  }
-}
-
-function isRunningInsideRender(env) {
-  return Boolean(
-    (env.RENDER || '').trim() ||
-      (env.RENDER_SERVICE_ID || '').trim() ||
-      (env.RENDER_INSTANCE_ID || '').trim() ||
-      (env.RENDER_EXTERNAL_HOSTNAME || '').trim(),
-  );
 }
 
 async function runAudit() {

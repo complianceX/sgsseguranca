@@ -1,5 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { BruteForceService } from './brute-force.service';
+import { hashSensitiveValue } from '../../shared/security/field-encryption.util';
 import type { AuthRedisService } from '../../shared/redis/redis.service';
 
 describe('BruteForceService', () => {
@@ -44,6 +45,8 @@ describe('BruteForceService', () => {
       LOGIN_FAIL_BLOCK_SECONDS: '900',
       LOGIN_FAIL_ACCOUNT_MAX: '3',
       LOGIN_FAIL_ACCOUNT_BLOCK_SECONDS: '1200',
+      FIELD_ENCRYPTION_ENABLED: 'false',
+      FIELD_ENCRYPTION_HASH_KEY: 'brute-force-test-hash-key-32chars!',
     };
   });
 
@@ -57,10 +60,11 @@ describe('BruteForceService', () => {
 
     await service.registerCpfFailure('12345678900');
 
+    const cpfHash = hashSensitiveValue('12345678900');
     expect(client.eval).toHaveBeenCalled();
-    expect(multiDel).toHaveBeenCalledWith('auth:bf:cpf:12345678900');
+    expect(multiDel).toHaveBeenCalledWith(`auth:bf:cpf:${cpfHash}`);
     expect(multiSet).toHaveBeenCalledWith(
-      'auth:bf:cpf:block:12345678900',
+      `auth:bf:cpf:block:${cpfHash}`,
       '1',
       'EX',
       1200,
@@ -83,9 +87,10 @@ describe('BruteForceService', () => {
 
     await service.resetCpf('12345678900');
 
+    const cpfHash = hashSensitiveValue('12345678900');
     expect(client.del).toHaveBeenCalledWith(
-      'auth:bf:cpf:12345678900',
-      'auth:bf:cpf:block:12345678900',
+      `auth:bf:cpf:${cpfHash}`,
+      `auth:bf:cpf:block:${cpfHash}`,
     );
   });
 });

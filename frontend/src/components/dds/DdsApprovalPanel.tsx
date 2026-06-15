@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
+import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
 
 type DdsApprovalPanelProps = {
   dds: Dds | null;
@@ -56,9 +57,9 @@ export function DdsApprovalPanel({
   canManage,
   onDdsChanged,
 }: DdsApprovalPanelProps) {
+  const { acting, execute } = useApprovalWorkflow();
   const [flow, setFlow] = useState<DdsApprovalFlow | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deciding, setDeciding] = useState(false);
   const [reason, setReason] = useState("");
   const [pin, setPin] = useState("");
 
@@ -110,18 +111,12 @@ export function DdsApprovalPanel({
 
   const initialize = async () => {
     if (!ddsId) return;
-    try {
-      setDeciding(true);
+    await execute('approve', async () => {
       const next = await ddsService.initializeApprovalFlow(ddsId);
       setFlow(next);
       void refreshDds();
       toast.success("Fluxo de aprovação DDS iniciado.");
-    } catch (error) {
-      console.error("Erro ao iniciar aprovação DDS:", error);
-      toast.error("Não foi possível iniciar a aprovação do DDS.");
-    } finally {
-      setDeciding(false);
-    }
+    }, 'Inicialização do fluxo');
   };
 
   const approve = async () => {
@@ -130,11 +125,11 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    try {
-      setDeciding(true);
+    const pendingRecordId = flow.currentStep.pending_record_id;
+    await execute('approve', async () => {
       const next = await ddsService.approveApprovalStep(
         ddsId,
-        flow.currentStep.pending_record_id,
+        pendingRecordId,
         { reason: reason.trim() || undefined, pin: pin.trim() },
       );
       setFlow(next);
@@ -142,12 +137,7 @@ export function DdsApprovalPanel({
       setPin("");
       void refreshDds();
       toast.success("Etapa aprovada.");
-    } catch (error) {
-      console.error("Erro ao aprovar DDS:", error);
-      toast.error("Não foi possível aprovar a etapa atual.");
-    } finally {
-      setDeciding(false);
-    }
+    });
   };
 
   const reject = async () => {
@@ -160,11 +150,11 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    try {
-      setDeciding(true);
+    const pendingRecordId = flow.currentStep.pending_record_id;
+    await execute('reject', async () => {
       const next = await ddsService.rejectApprovalStep(
         ddsId,
-        flow.currentStep.pending_record_id,
+        pendingRecordId,
         { reason: reason.trim(), pin: pin.trim() },
       );
       setFlow(next);
@@ -172,12 +162,7 @@ export function DdsApprovalPanel({
       setPin("");
       void refreshDds();
       toast.warning("DDS reprovado nesta etapa.");
-    } catch (error) {
-      console.error("Erro ao reprovar DDS:", error);
-      toast.error("Não foi possível reprovar a etapa atual.");
-    } finally {
-      setDeciding(false);
-    }
+    });
   };
 
   const reopen = async () => {
@@ -192,8 +177,7 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    try {
-      setDeciding(true);
+    await execute('reopen', async () => {
       const next = await ddsService.reopenApprovalFlow(ddsId, {
         reason: reason.trim(),
         pin: pin.trim(),
@@ -203,12 +187,7 @@ export function DdsApprovalPanel({
       setPin("");
       void refreshDds();
       toast.success("Fluxo de aprovação reaberto em novo ciclo.");
-    } catch (error) {
-      console.error("Erro ao reabrir aprovação DDS:", error);
-      toast.error("Não foi possível reabrir o fluxo de aprovação.");
-    } finally {
-      setDeciding(false);
-    }
+    });
   };
 
   return (
@@ -307,7 +286,7 @@ export function DdsApprovalPanel({
             aria-label="Motivo da decisão do fluxo de aprovação do DDS"
             className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]"
             placeholder="Motivo opcional para aprovação; obrigatório para reprovação ou reabertura."
-            disabled={locked || deciding}
+            disabled={locked || acting !== null}
           />
           <input
             type="password"
@@ -320,14 +299,14 @@ export function DdsApprovalPanel({
             aria-label="PIN para assinatura da decisão DDS"
             className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]"
             placeholder="PIN de assinatura do aprovador (4 a 6 dígitos)"
-            disabled={locked || deciding}
+            disabled={locked || acting !== null}
           />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              loading={deciding && flow?.status === "not_started"}
-              disabled={locked || deciding || flow?.status !== "not_started"}
+              loading={acting === 'approve' && flow?.status === "not_started"}
+              disabled={locked || acting !== null || flow?.status !== "not_started"}
               onClick={initialize}
               leftIcon={<ShieldCheck className="h-4 w-4" />}
             >
@@ -336,8 +315,8 @@ export function DdsApprovalPanel({
             <Button
               type="button"
               variant="success"
-              loading={deciding && flow?.status === "pending"}
-              disabled={locked || deciding || !flow?.currentStep}
+              loading={acting === 'approve' && flow?.status === "pending"}
+              disabled={locked || acting !== null || !flow?.currentStep}
               onClick={approve}
               leftIcon={<CheckCircle2 className="h-4 w-4" />}
             >
@@ -346,7 +325,8 @@ export function DdsApprovalPanel({
             <Button
               type="button"
               variant="destructive"
-              disabled={locked || deciding || !flow?.currentStep}
+              loading={acting === 'reject'}
+              disabled={locked || acting !== null || !flow?.currentStep}
               onClick={reject}
               leftIcon={<XCircle className="h-4 w-4" />}
             >
@@ -355,7 +335,8 @@ export function DdsApprovalPanel({
             <Button
               type="button"
               variant="warning"
-              disabled={locked || deciding || flow?.status !== "rejected"}
+              loading={acting === 'reopen'}
+              disabled={locked || acting !== null || flow?.status !== "rejected"}
               onClick={reopen}
               leftIcon={<RotateCcw className="h-4 w-4" />}
             >

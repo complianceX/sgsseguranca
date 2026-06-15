@@ -1,9 +1,10 @@
 {
   "date": "2026-05-03",
+  "note": "Infraestrutura atualizada. Este documento reflete o estado com Render, que foi substituído por Vultr/Coolify.",
   "environment": {
     "frontend": "https://app.sgsseguranca.com.br",
     "api": "https://api.sgsseguranca.com.br",
-    "renderCommit": "de6ced760abe6fa691bafdc5f82e3dd47d73e0b0"
+    "deployCommit": "de6ced760abe6fa691bafdc5f82e3dd47d73e0b0"
   },
   "health": {
     "apiHealthPublic": 200,

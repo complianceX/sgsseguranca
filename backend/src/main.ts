@@ -41,7 +41,7 @@ import { ALLOWED_CORS_HEADERS } from './shared/security/cors-headers';
 import { constantTimeEquals } from './shared/security/constant-time.util';
 import type { VersionValue } from '@nestjs/common/interfaces';
 
-const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
+const WEB_SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'sgs-backend';
 const WEB_TELEMETRY_PORT = 9464;
 
 const hasDefaultRequestHandlerExport = (

@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
  * Detector de N+1 queries baseado nos eventos do logger do TypeORM.
  *
  * Não depende de DataSource no bootstrap para evitar ciclos de injeção
- * durante a inicialização do TypeORM no Render.
+ * durante a inicialização do TypeORM.
  */
 @Injectable()
 export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +21,7 @@ export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
   private readonly threshold: number;
   private readonly slowQueryThresholdMs: number;
   private readonly maxQueriesInMemory: number;
+  private readonly blockingEnabled: boolean;
 
   constructor(private readonly configService: ConfigService) {
     this.enabled = this.configService.get<boolean>(
@@ -35,6 +36,10 @@ export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
     this.maxQueriesInMemory = this.configService.get<number>(
       'N1_MAX_QUERIES_IN_MEMORY',
       1000,
+    );
+    this.blockingEnabled = this.configService.get<boolean>(
+      'N1_QUERY_BLOCKING_ENABLED',
+      false,
     );
   }
 
@@ -160,14 +165,20 @@ export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
     const truncatedPattern = pattern.pattern.substring(0, 100);
 
     if (pattern.count === this.threshold) {
+      const severity = this.calculateSeverity(pattern.count, avgTime);
       this.logger.warn({
         event: 'n1_query_detected',
         pattern: truncatedPattern,
         count: pattern.count,
         avgTime: Math.round(avgTime),
-        severity: this.calculateSeverity(pattern.count, avgTime),
+        severity,
         suggestion: this.generateSuggestion(pattern.pattern, pattern),
       });
+      if (this.blockingEnabled) {
+        throw new Error(
+          `N+1 query detected (${pattern.count} repeats, avg ${Math.round(avgTime)}ms): ${truncatedPattern}. ${this.generateSuggestion(pattern.pattern, pattern)}`,
+        );
+      }
     }
 
     if (avgTime > this.slowQueryThresholdMs) {

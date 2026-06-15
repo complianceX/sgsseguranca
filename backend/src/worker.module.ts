@@ -206,13 +206,13 @@ const validationSchema = Joi.object({
   // O runtime falha fechado em resolveDbSslOptions.
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().valid(false).default(false),
-  DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   LEGACY_CPF_PLAINTEXT_LOOKUP_ENABLED: Joi.boolean().default(false),
   DB_POOL_MAX: Joi.number().default(5),
   DB_POOL_MIN: Joi.number().default(0),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
+  DB_PREPARE_THRESHOLD: Joi.number().integer().min(0).max(10).default(0),
   DB_APPLICATION_NAME: Joi.string().optional().allow(''),
   DB_APPLICATION_NAME_WORKER: Joi.string().optional().allow(''),
   DATABASE_POOLER_ALLOW_SESSION_RLS: Joi.boolean().default(false),
@@ -417,8 +417,10 @@ const validationSchema = Joi.object({
               config.get<string>('DB_APPLICATION_NAME'),
               'api_worker',
             ]),
-            // SECURITY: compatível com PgBouncer em modo transaction
-            prepareThreshold: 0,
+            // prepareThreshold: 0 para compatibilidade com PgBouncer (transaction mode
+            // não suporta prepared statements por sessão). Em conexão direta (sem pooler),
+            // configure DB_PREPARE_THRESHOLD=1 para reutilizar planos de execução.
+            prepareThreshold: config.get<number>('DB_PREPARE_THRESHOLD', 0),
             // Keepalive previne drop silencioso de conexões ociosas (Neon serverless)
             keepAlive: true,
             keepAliveInitialDelayMillis: 10_000,

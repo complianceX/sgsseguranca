@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { ListPageLayout } from "@/components/layout";
 import { PaginationControls } from "@/components/PaginationControls";
 import { StatusPill } from "@/components/ui/status-pill";
-import { InlineCallout } from "@/components/ui/inline-callout";
+
 import { EmptyState } from "@/components/ui/state";
 import {
   Table,
@@ -282,13 +282,6 @@ export function ChecklistModelsView({
       }
     >
       <div className="space-y-4">
-        <InlineCallout
-          tone="info"
-          icon={<LayoutTemplate className="h-4 w-4" />}
-          title="Gestão guiada"
-          description="Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e inicie checklists a partir de um modelo padrão ou do zero."
-        />
-
         <div className="grid gap-3 px-4 md:grid-cols-2 xl:grid-cols-4">
           {checklistModuleAreas.map((entry) => {
             const active = entry.slug === area.slug;
@@ -298,7 +291,7 @@ export function ChecklistModelsView({
                 key={entry.slug}
                 href={entry.href}
                 className={cn(
-                  "rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all",
+                  "rounded-[var(--ds-radius-xl)] border px-4 py-4",
                   active
                     ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]"
                     : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40",

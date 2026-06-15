@@ -1,7 +1,7 @@
 /** @type {import('eslint').Linter.Config} */
 module.exports = {
   root: true,
-  ignorePatterns: ['.next/**', 'out/**', 'build/**', 'next-env.d.ts'],
+  ignorePatterns: ['.next/**', '.vercel/**', 'out/**', 'build/**', 'next-env.d.ts'],
   extends: ['next/core-web-vitals', 'next/typescript'],
   rules: {
     'no-restricted-syntax': [

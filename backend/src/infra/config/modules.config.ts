@@ -110,6 +110,8 @@ import { ChecklistsModule } from '../../modules/checklists/checklists.module';
 import { RelatoriosModule } from '../../modules/reports/_legacy-relatorios/relatorios.module';
 import { ContractsModule } from '../../modules/contracts/contracts.module';
 import { DocumentRegistryModule } from '../../modules/document-registry/document-registry.module';
+import { CorrectiveActionsModule } from '../../modules/corrective-actions/corrective-actions.module';
+import { DossiersModule } from '../../modules/dossiers/dossiers.module';
 
 export const COMPLIANCE_MODULES: NestModule[] = [
   AuditsModule,
@@ -118,6 +120,8 @@ export const COMPLIANCE_MODULES: NestModule[] = [
   RelatoriosModule,
   ContractsModule,
   DocumentRegistryModule,
+  CorrectiveActionsModule,
+  DossiersModule,
 ];
 
 // ─── Privacy (LGPD) ──────────────────────────────────────────────────────────
@@ -158,19 +162,21 @@ import { DocumentImportModule } from '../../modules/document-import/document-imp
 import { DashboardModule } from '../../modules/dashboard/dashboard.module';
 import { DisasterRecoveryModule } from '../../modules/disaster-recovery/disaster-recovery.module';
 import { AuditModule } from '../../modules/audit-trail/audit.module';
+import { HealthModule } from '../../modules/health/health.module';
 
 export const INFRASTRUCTURE_MODULES: NestModule[] = [
+  ObservabilityModule,
   CommonModule,
   RedisModule,
   AiModule,
   DataLoaderModule,
-  ObservabilityModule,
   SecurityAuditModule,
   FileInspectionModule,
   DocumentImportModule,
   DashboardModule,
   DisasterRecoveryModule,
   AuditModule,
+  HealthModule,
 ];
 
 /**

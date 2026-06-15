@@ -1,11 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 import { notificationsService, type AppNotification } from '@/services/notificationsService';
+import { tokenStore } from '@/lib/tokenStore';
+import { getApiBaseUrl } from '@/lib/api';
 
-const ACTIVE_INTERVAL_MS   = 15_000; // 15s quando aba ativa
-const INACTIVE_INTERVAL_MS = 60_000; // 60s quando aba inativa
-const DEBOUNCE_MS          = 500;    // evita múltiplos fetches em rajada
+const ACTIVE_INTERVAL_MS   = 15_000;
+const INACTIVE_INTERVAL_MS = 60_000;
+const DEBOUNCE_MS          = 500;
+const MAX_WS_RETRIES       = 3;
+const WS_RETRY_BACKOFF     = [1_000, 2_000, 4_000] as const;
 
 export interface UseRealtimeNotificationsResult {
   notifications: AppNotification[];
@@ -15,26 +20,31 @@ export interface UseRealtimeNotificationsResult {
   refresh: () => void;
 }
 
+function wsBaseUrl(): string | null {
+  const apiUrl = getApiBaseUrl();
+  if (!apiUrl) return null;
+  return apiUrl.replace(/^http/i, 'ws');
+}
+
 export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isActiveRef = useRef(true);
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const socketRef     = useRef<Socket | null>(null);
+  const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isActiveRef   = useRef(true);
+  const inflightRef   = useRef<Promise<void> | null>(null);
+  const isPollingRef  = useRef(false);
+  const wsRetryCount  = useRef(0);
+  const wsRetryTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destroyedRef  = useRef(false);
   const notificationsRef = useRef<AppNotification[]>(notifications);
-  const unreadCountRef = useRef(unreadCount);
+  const unreadCountRef  = useRef(unreadCount);
 
-  useEffect(() => {
-    notificationsRef.current = notifications;
-  }, [notifications]);
-
-  useEffect(() => {
-    unreadCountRef.current = unreadCount;
-  }, [unreadCount]);
+  useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
+  useEffect(() => { unreadCountRef.current = unreadCount; }, [unreadCount]);
 
   const fetchAll = useCallback(async () => {
-    // Reutiliza inflight se já há uma requisição em curso
     if (inflightRef.current) return inflightRef.current;
 
     const req = (async () => {
@@ -44,11 +54,11 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
           notificationsService.getUnreadCount(),
         ]);
         notificationsRef.current = listRes.items;
-        unreadCountRef.current = countRes.count;
+        unreadCountRef.current  = countRes.count;
         setNotifications(listRes.items);
         setUnreadCount(countRes.count);
       } catch {
-        // silencia erros de rede — polling retentará no próximo ciclo
+        // polling retentará no próximo ciclo
       } finally {
         inflightRef.current = null;
       }
@@ -59,14 +69,15 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
   }, []);
 
   const schedule = useCallback(() => {
+    if (destroyedRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     const delay = isActiveRef.current ? ACTIVE_INTERVAL_MS : INACTIVE_INTERVAL_MS;
     timerRef.current = setTimeout(() => {
+      if (destroyedRef.current) return;
       void fetchAll().then(schedule);
     }, delay);
   }, [fetchAll]);
 
-  // Dispara fetchAll com debounce para absorver chamadas em rajada (foco + refresh manual)
   const debouncedFetch = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -75,32 +86,120 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
     }, DEBOUNCE_MS);
   }, [fetchAll, schedule]);
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      isActiveRef.current = document.visibilityState === 'visible';
-      if (isActiveRef.current) {
-        debouncedFetch();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
+  const startPolling = useCallback(() => {
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
     void fetchAll().then(schedule);
+  }, [fetchAll, schedule]);
 
+  const stopPolling = useCallback(() => {
+    isPollingRef.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (inflightRef.current) { inflightRef.current = null; }
+  }, []);
+
+  const wsConnectRef = useRef<() => void>(() => {});
+  const wsRetryRef   = useRef<() => void>(() => {});
+  const wsDisconnect = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  }, []);
+
+  wsConnectRef.current = () => {
+    if (destroyedRef.current) return;
+
+    const url = wsBaseUrl();
+    const token = tokenStore.get();
+    if (!url || !token) {
+      startPolling();
+      return;
+    }
+
+    const socket = io(url, {
+      path: '/socket.io',
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: false,
+      timeout: 10_000,
+    });
+
+    socketRef.current = socket;
+    let connectedOnce = false;
+
+    socket.on('connect', () => {
+      connectedOnce = true;
+      wsRetryCount.current = 0;
+      stopPolling();
+    });
+
+    socket.on('notification', (data: AppNotification) => {
+      notificationsRef.current = [data, ...notificationsRef.current];
+      unreadCountRef.current += 1;
+      setNotifications([...notificationsRef.current]);
+      setUnreadCount(unreadCountRef.current);
+    });
+
+    socket.on('disconnect', () => {
+      if (destroyedRef.current) return;
+      if (connectedOnce) {
+        wsRetryCount.current = 0;
+        wsRetryRef.current();
+      } else {
+        startPolling();
+      }
+    });
+
+    socket.on('connect_error', () => {
+      if (destroyedRef.current) return;
+      if (connectedOnce) {
+        wsRetryRef.current();
+      } else {
+        startPolling();
+      }
+    });
+  };
+
+  wsRetryRef.current = () => {
+    if (wsRetryTimer.current) clearTimeout(wsRetryTimer.current);
+    if (wsRetryCount.current >= MAX_WS_RETRIES) {
+      wsDisconnect();
+      startPolling();
+      return;
+    }
+
+    const delay = WS_RETRY_BACKOFF[wsRetryCount.current] ?? 4_000;
+    wsRetryCount.current += 1;
+    wsRetryTimer.current = setTimeout(() => {
+      if (destroyedRef.current) return;
+      wsDisconnect();
+      wsConnectRef.current();
+    }, delay);
+  };
+
+  useEffect(() => {
+    destroyedRef.current = false;
+    wsRetryCount.current = 0;
+    wsConnectRef.current();
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      destroyedRef.current = true;
+      wsDisconnect();
+      stopPolling();
+      if (wsRetryTimer.current) clearTimeout(wsRetryTimer.current);
     };
-  }, [fetchAll, schedule, debouncedFetch]);
+    // wsDisconnect e stopPolling são estáveis (useCallback []), wsConnectRef e wsRetryRef são refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const markAllRead = useCallback(async () => {
     const prevNotifications = notificationsRef.current;
     const prevCount = unreadCountRef.current;
     const ids = prevNotifications.map((n) => n.id);
 
-    if (ids.length === 0 || prevCount === 0) {
-      return;
-    }
+    if (ids.length === 0 || prevCount === 0) return;
 
     const nextNotifications = prevNotifications.map((n) => ({ ...n, read: true }));
     notificationsRef.current = nextNotifications;
@@ -112,7 +211,6 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
     try {
       await notificationsService.markAllAsRead();
     } catch {
-      // Reverte estado otimista se o backend rejeitar
       notificationsRef.current = prevNotifications;
       unreadCountRef.current = prevCount;
       setUnreadCount(prevCount);
@@ -133,9 +231,7 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
       return n;
     });
 
-    if (!changed) {
-      return;
-    }
+    if (!changed) return;
 
     const nextUnreadCount = Math.max(0, prevCount - 1);
     notificationsRef.current = nextNotifications;

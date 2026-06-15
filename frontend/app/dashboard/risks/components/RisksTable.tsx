@@ -49,10 +49,8 @@ export const RisksTable = React.memo(({
       <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={4} className="px-5 py-10 text-center">
-                <div className="flex justify-center">
-                  <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-                </div>
+              <TableCell colSpan={4} className="px-5 py-10 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Carregando riscos...
               </TableCell>
             </TableRow>
           ) : (

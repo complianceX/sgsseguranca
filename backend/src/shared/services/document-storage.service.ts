@@ -16,7 +16,6 @@ import {
   extractResilienceErrorStatus,
 } from '../resilience/resilience-error.util';
 import { S3Service } from '../storage/s3.service';
-import { StorageService } from './storage.service';
 import { TenantService } from '../tenant/tenant.service';
 import { DocumentDownloadGrantService } from './document-download-grant.service';
 import {
@@ -33,7 +32,6 @@ export class DocumentStorageService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly storageService: StorageService,
     private readonly s3Service: S3Service,
     private readonly tenantService: TenantService,
     private readonly documentDownloadGrantService: DocumentDownloadGrantService,
@@ -89,8 +87,7 @@ export class DocumentStorageService {
       }
 
       if (this.shouldUseManagedStorage()) {
-        const buffer = await this.toBuffer(file);
-        await this.storageService.uploadFile(key, buffer, contentType);
+        await this.s3Service.uploadFile(key, file, contentType, metadata);
         return;
       }
 
@@ -148,15 +145,6 @@ export class DocumentStorageService {
         );
       }
 
-      if (this.shouldUseManagedStorage()) {
-        return options?.emailLink
-          ? await this.storageService.getEmailLinkPresignedDownloadUrl(
-              key,
-              expiresIn,
-            )
-          : await this.storageService.getPresignedDownloadUrl(key, expiresIn);
-      }
-
       return options?.emailLink
         ? await this.s3Service.getEmailLinkSignedUrl(key, expiresIn)
         : await this.s3Service.getSignedUrl(key, expiresIn);
@@ -170,10 +158,6 @@ export class DocumentStorageService {
     try {
       if (this.shouldUseLocalFsStorage()) {
         return await this.readLocalFile(key);
-      }
-
-      if (this.shouldUseManagedStorage()) {
-        return await this.storageService.downloadFileBuffer(key);
       }
 
       return await this.s3Service.downloadFile(key);
@@ -190,11 +174,6 @@ export class DocumentStorageService {
         return;
       }
 
-      if (this.shouldUseManagedStorage()) {
-        await this.storageService.deleteFile(key);
-        return;
-      }
-
       await this.s3Service.deleteFile(key);
     } catch (error) {
       this.handleStorageError('delete', key, error);
@@ -206,10 +185,6 @@ export class DocumentStorageService {
     try {
       if (this.shouldUseLocalFsStorage()) {
         return await this.localFileExists(key);
-      }
-
-      if (this.shouldUseManagedStorage()) {
-        return await this.storageService.fileExists(key);
       }
 
       return await this.s3Service.fileExists(key);
@@ -226,10 +201,6 @@ export class DocumentStorageService {
     try {
       if (this.shouldUseLocalFsStorage()) {
         return await this.listLocalKeys(prefix, options);
-      }
-
-      if (this.shouldUseManagedStorage()) {
-        return await this.storageService.listKeys(prefix, options);
       }
 
       return await this.s3Service.listKeys(prefix, options);

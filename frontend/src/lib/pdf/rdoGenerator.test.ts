@@ -10,7 +10,7 @@ jest.mock("@/lib/pdf/pdfFile", () => ({
   pdfDocToBase64: jest.requireActual("@/lib/pdf/pdfBase64").pdfDocToBase64,
 }));
 
-import { buildRdoDocumentCode, generateRdoPdf } from './rdoGenerator';
+import { buildRdoDocumentCode, generateRdoPdf, maskCpfForPdf } from './rdoGenerator';
 import type { Rdo } from '@/services/rdosService';
 import { fetchImageAsDataUrl } from "@/lib/pdf/pdfFile";
 import { rdosService } from "@/services/rdosService";
@@ -78,6 +78,12 @@ describe('rdoGenerator', () => {
     expect(
       buildRdoDocumentCode(baseRdo.id, baseRdo.data),
     ).toBe('RDO-2026-12-ABCDEF12');
+  });
+
+  it('mascara CPF de assinaturas antes de inserir no PDF', () => {
+    expect(maskCpfForPdf('123.456.789-09')).toBe('***.***.***-09');
+    expect(maskCpfForPdf('12345678909')).toBe('***.***.***-09');
+    expect(maskCpfForPdf('valor-invalido')).toBe('-');
   });
 
   it('gera o PDF do RDO sem quebrar e com filename esperado', async () => {

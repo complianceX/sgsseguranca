@@ -68,7 +68,7 @@ export function useDidCatalogs({
         setCompanies(companiesData);
 
         if (!initialCompanyId && companiesData.length === 1) {
-          setValue('company_id', companiesData[0].id, {
+          setValue('company_id', companiesData[0]!.id, {
             shouldValidate: true,
           });
         }

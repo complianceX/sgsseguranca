@@ -345,7 +345,7 @@ useEffect(() => {
 
       const warnings: string[] = [];
       const workers = timelineResults.map((result, index) => {
-        const fallback = uniqueTeam[index];
+        const fallback = uniqueTeam[index]!;
 
         if (result.status === 'fulfilled') {
           return {

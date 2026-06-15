@@ -2,6 +2,7 @@
 import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -99,11 +100,11 @@ type GovernedPdfAccessState = "idle" | "loading" | "ready" | "error";
 const panelClassName =
   "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]";
 const fieldClassName =
-  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] motion-safe:transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const labelClassName =
   "mb-1 block text-sm font-medium text-[var(--color-text-secondary)]";
 const conditionalToggleClassName =
-  "flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium motion-safe:transition-all focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 
 const isGovernedChecklistPhotoReference = (value?: string | null) =>
   typeof value === "string" &&
@@ -633,14 +634,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       return;
     }
 
-    const topic = topicos[topicIndex];
+    const topic = topicos[topicIndex]!;
     const remainingTopics = topicos.filter((_, index) => index !== topicIndex);
     let remainingItems = (getValues("itens") || []).filter(
       (item) => item.topico_id !== topic.id,
     );
 
     if (!remainingItems.length && remainingTopics.length) {
-      const fallbackTopic = remainingTopics[0];
+      const fallbackTopic = remainingTopics[0]!;
       remainingItems = [
         ensureTopicHasAtLeastOneItem({
           id: fallbackTopic.id || createChecklistTopicId(),
@@ -2397,15 +2398,17 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                 aria-label="Foto do equipamento"
               />
               {equipmentPhotoValue && (
-                <div className="mt-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative mt-4">
+                  <Image
                     src={
                       resolveChecklistPhotoSrc(equipmentPhotoValue) ||
                       "/placeholder-image.png"
                     }
                     alt="Foto do Equipamento"
-                    className="h-40 w-auto rounded-lg border p-2"
+                    width={160}
+                    height={160}
+                    className="h-40 w-auto rounded-lg border p-2 object-cover"
+                    unoptimized
                   />
                   {isGovernedChecklistPhotoReference(equipmentPhotoValue) ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">

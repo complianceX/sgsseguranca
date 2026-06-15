@@ -136,22 +136,12 @@ export class PhotographicReport extends BaseAuditEntity {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
-  @OneToMany(() => PhotographicReportDay, (day) => day.report, {
-    cascade: true,
-  })
+  @OneToMany(() => PhotographicReportDay, (day) => day.report)
   days?: PhotographicReportDay[];
 
-  @OneToMany(() => PhotographicReportImage, (image) => image.report, {
-    cascade: true,
-  })
+  @OneToMany(() => PhotographicReportImage, (image) => image.report)
   images?: PhotographicReportImage[];
 
-  @OneToMany(
-    () => PhotographicReportExport,
-    (exportItem) => exportItem.report,
-    {
-      cascade: true,
-    },
-  )
+  @OneToMany(() => PhotographicReportExport, (exportItem) => exportItem.report)
   exports?: PhotographicReportExport[];
 }

@@ -1,3 +1,5 @@
+> **Nota histórica:** O Supabase foi substituído pelo Neon como provedor de banco de dados PostgreSQL. Este documento reflete o estado anterior com Supabase. O body do documento não foi alterado.
+
 # Auditoria LGPD, privacidade, termos e governanca de dados - SGS
 
 Data da auditoria: 2026-04-24  

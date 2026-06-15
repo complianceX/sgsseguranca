@@ -9,7 +9,7 @@ export const defaultJobOptions: ExtendedJobsOptions = {
     delay: 5000,
   },
   removeOnComplete: 100,
-  removeOnFail: 50,
+  removeOnFail: 500,
   timeout: 120000,
 };
 

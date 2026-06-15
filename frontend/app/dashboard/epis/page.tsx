@@ -151,10 +151,8 @@ export default function EpisPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-                  </div>
+                <TableCell colSpan={5} className="py-10 text-center text-[var(--ds-color-text-muted)]">
+                  Carregando EPIs...
                 </TableCell>
               </TableRow>
             ) : epis.length === 0 ? (

@@ -4,7 +4,7 @@
  * New Relic agent configuration.
  *
  * ATIVAÇÃO:
- *   1. Defina as variáveis de ambiente no Render (ou .env local):
+ *   1. Defina as variáveis de ambiente no provedor de runtime (ou .env local):
  *        NEW_RELIC_LICENSE_KEY=<sua-license-key>
  *        NEW_RELIC_APP_NAME=sgs-backend-web
  *        NEW_RELIC_ENABLED=true

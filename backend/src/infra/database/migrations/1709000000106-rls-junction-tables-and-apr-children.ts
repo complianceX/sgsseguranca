@@ -4,7 +4,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Segurança: RLS nas tabelas de junção M2M e filhos diretos da APR
  *
  * Problema: 8 tabelas M2M não têm `company_id` direto e estavam sem RLS.
- * Qualquer query direta (via Supabase Studio, API key, ou vazamento de JWT)
+ * Qualquer query direta (via Neon Console, API key, ou vazamento de JWT)
  * retornava dados de todos os tenants.
  *
  * Solução: políticas EXISTS delegando ao parent (aprs, dds, pts).

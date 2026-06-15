@@ -36,8 +36,12 @@ type DocumentVideoPanelProps = {
   loading?: boolean;
   uploading?: boolean;
   removingId?: string | null;
+  uploadProgress?: number;
+  uploadError?: string | null;
   onUpload: (file: File) => Promise<unknown>;
   onRemove?: (attachment: GovernedDocumentVideoAttachment) => Promise<unknown>;
+  onCancelUpload?: () => void;
+  onRetryUpload?: () => void;
   resolveAccess: (
     attachment: GovernedDocumentVideoAttachment,
   ) => Promise<GovernedDocumentVideoAccessResponse | null>;
@@ -54,8 +58,12 @@ export function DocumentVideoPanel({
   loading = false,
   uploading = false,
   removingId,
+  uploadProgress,
+  uploadError,
   onUpload,
   onRemove,
+  onCancelUpload,
+  onRetryUpload,
   resolveAccess,
 }: DocumentVideoPanelProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -162,11 +170,51 @@ export function DocumentVideoPanel({
             onClick={() => inputRef.current?.click()}
             disabled={!canUpload || uploading}
           >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {uploading ? "Enviando vídeo..." : "Adicionar vídeo"}
+            {uploading && uploadProgress !== undefined ? null : uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {uploading ? `Enviando... ${uploadProgress ?? 0}%` : "Adicionar vídeo"}
           </Button>
         </div>
       </div>
+
+      {uploading && uploadProgress !== undefined ? (
+        <div className="border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+          <div className="mb-2 flex items-center justify-between text-xs text-[var(--ds-color-text-secondary)]">
+            <span>Enviando vídeo... {uploadProgress}%</span>
+            {onCancelUpload ? (
+              <button
+                type="button"
+                onClick={onCancelUpload}
+                className="text-[var(--ds-color-danger)] hover:underline"
+              >
+                Cancelar
+              </button>
+            ) : null}
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ds-color-border-subtle)]">
+            <div
+              className="h-full rounded-full bg-[var(--ds-color-action-primary)] transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {uploadError ? (
+        <div className="border-b border-[var(--ds-color-border-subtle)] px-5 py-3">
+          <div className="flex items-center justify-between gap-3 text-xs text-[var(--ds-color-danger)]">
+            <span>{uploadError}</span>
+            {onRetryUpload ? (
+              <button
+                type="button"
+                onClick={onRetryUpload}
+                className="font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+              >
+                Tentar novamente
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
         <div className="space-y-3">

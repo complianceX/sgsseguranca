@@ -97,7 +97,7 @@ Como saber qual provedor esta ativo:
 - se existir `BREVO_API_KEY`, o `MailService` prioriza Brevo API
 - sem `BREVO_API_KEY` e com `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS`, `MAIL_PORT` e `MAIL_SECURE`, o sistema usa SMTP
 
-O que checar no provedor de runtime atual (Render):
+O que checar no provedor de runtime atual (Vultr/Coolify):
 
 - servico `Backend`
 - servico `Worker`

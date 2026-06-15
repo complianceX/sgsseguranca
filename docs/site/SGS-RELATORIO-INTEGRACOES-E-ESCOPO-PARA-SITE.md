@@ -48,7 +48,7 @@ SaaS de SST/GST para empresas que precisam controlar documentacao, rotinas de se
 | Banco | Neon PostgreSQL | Persistencia principal com migrations TypeORM e RLS para defesa multi-tenant |
 | Cache/Fila | Redis + BullMQ | Cache, rate limiting, coordenacao operacional e filas |
 | Storage | Backblaze B2 / S3 compativel | PDFs finais, anexos, videos e artefatos oficiais governados |
-| Deploy backend | Render | Servicos web, worker, ClamAV privado e job separado de migrations; Redis externo |
+| Deploy backend | Vultr/Coolify | Servicos web, worker, ClamAV privado e job separado de migrations; Redis externo |
 | Deploy frontend | Vercel | Aplicacao web em `app.sgsseguranca.com.br` |
 
 ### Fluxo simplificado
@@ -151,7 +151,7 @@ Uso principal:
 - Banco principal da aplicacao.
 - PostgreSQL gerenciado.
 - RLS como defesa adicional de isolamento por tenant.
-- Compatibilidade legada isolada para integracao com Supabase Auth.
+- Compatibilidade legada removida — autenticação migrada para Neon + JWT nativo.
 
 Pontos tecnicos:
 
@@ -579,7 +579,7 @@ Componentes:
 - Controle de sessoes.
 - MFA/TOTP e recovery codes no fluxo de seguranca.
 - Step-up MFA para operacoes sensiveis.
-- Compatibilidade legada para sincronizacao com Supabase Auth, sem tratar Supabase como banco atual.
+- Compatibilidade legada removida — autenticação migrada para Neon + JWT nativo.
 
 ### RBAC e permissoes
 
@@ -730,7 +730,7 @@ Destacar apenas se o publico for tecnico:
 - PostgreSQL/Neon.
 - Redis/BullMQ.
 - Backblaze B2 / S3 compativel.
-- Render.
+- Vultr/Coolify.
 - Vercel.
 - Sentry/OpenTelemetry.
 
@@ -759,7 +759,7 @@ Evitar ou escrever com cuidado:
 
 ## 10. Pontos de atencao antes de publicar o site
 
-1. Tratar textos antigos que citam Railway ou R2 como historicos. O desenho atual versionado e Render para backend/worker, Redis externo, Vercel para frontend, Neon para banco e Backblaze B2/S3 para storage.
+1. Tratar textos antigos que citam Railway, R2 ou Render como historicos. O desenho atual versionado e Vultr/Coolify para backend/worker, Redis externo, Vercel para frontend, Neon para banco e Backblaze B2/S3 para storage.
 2. Confirmar publicamente quais provedores de email estao ativos em producao antes de citar marca especifica como Brevo ou Resend.
 3. Se for citar dominios, usar:
    - Frontend: `https://app.sgsseguranca.com.br`
@@ -800,7 +800,6 @@ O SGS foi desenvolvido para operacao multi-tenant. Cada empresa opera em context
 ## 12. Fontes internas usadas
 
 - `README.md`
-- `render.yaml`
 - `backend/src/app.module.ts`
 - `backend/src/worker.module.ts`
 - `backend/src/infra/mail/mail.service.ts`

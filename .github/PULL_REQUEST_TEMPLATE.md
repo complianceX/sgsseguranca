@@ -22,7 +22,7 @@ Descreva o problema e a motivacao. Se houver incidente/bug em producao, inclua i
 - Rollback:
 
 ## Evidencias
-- [ ] Link de deploy Render (web/worker) quando aplicavel
+- [ ] Link de deploy Vultr/Coolify (web/worker) quando aplicavel
 - [ ] Link de deploy Vercel quando aplicavel
 - [ ] Resultado de health checks (`/health/public`, `auth/csrf`, login)
 - [ ] Logs/traces relevantes (requestId/traceId) quando houve incidente

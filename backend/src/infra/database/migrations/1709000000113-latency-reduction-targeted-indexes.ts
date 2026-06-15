@@ -51,7 +51,7 @@ export class LatencyReductionTargetedIndexes1709000000113 implements MigrationIn
       await queryRunner.query(sql);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      // Ignorar erros de permissão em ambientes gerenciados (Supabase, Railway)
+      // Ignorar erros de permissão em ambientes gerenciados (Neon, Railway)
       if (
         msg.includes('already exists') ||
         msg.includes('must be owner') ||

@@ -18,7 +18,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguraca.com.br';
+const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguranca.com.br';
 
 function resolveKeepaliveTarget(): string {
   const raw = normalizePublicApiBaseUrl(

@@ -171,18 +171,6 @@ export function MachineForm({ id }: MachineFormProps) {
         }
       />
 
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Cadastro guiado
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture identificação, vínculo empresarial e dados técnicos da máquina com leitura rápida para operação.
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          O foco aqui é rastreabilidade operacional com validação imediata e menos ambiguidade de preenchimento.
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         {submitError ? (
           <ErrorState
@@ -306,11 +294,7 @@ export function MachineForm({ id }: MachineFormProps) {
             disabled={loading || isSubmitting || !isValid}
             className="justify-center"
           >
-            {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
+            <Save className="mr-2 h-4 w-4" />
             {id ? 'Salvar alterações' : 'Criar máquina'}
           </Button>
         </div>

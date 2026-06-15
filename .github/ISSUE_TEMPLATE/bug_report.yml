@@ -14,7 +14,7 @@ body:
         - Backend (API/Worker)
         - Frontend (Next.js)
         - Banco/Neon
-        - Infra (Render/Vercel/Cloudflare)
+        - Infra (Vultr/Vercel/Cloudflare)
         - Observabilidade (Sentry/NewRelic/OTEL)
     validations:
       required: true

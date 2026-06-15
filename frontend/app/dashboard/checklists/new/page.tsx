@@ -54,7 +54,7 @@ export default function NewChecklistPage() {
           type="button"
           onClick={() => setSource("blank")}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold motion-safe:transition-all",
+            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold",
             source === "blank"
               ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-sm"
               : "text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]",
@@ -67,7 +67,7 @@ export default function NewChecklistPage() {
           type="button"
           onClick={() => setSource("model")}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold motion-safe:transition-all",
+            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold",
             source === "model"
               ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-sm"
               : "text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]",

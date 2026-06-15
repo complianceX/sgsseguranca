@@ -431,7 +431,7 @@ export const enqueueOfflineMutation = async (item: OfflineQueueInput) => {
     );
 
     if (existingIndex >= 0) {
-      const existing = queue[existingIndex];
+      const existing = queue[existingIndex]!;
       const updatedItem = normalizeQueueItem({
         ...existing,
         ...item,

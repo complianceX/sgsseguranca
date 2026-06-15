@@ -280,7 +280,7 @@ describe("DdsForm", () => {
 
     // The form should allow submission if hash is different
     expect(
-      (ddsService.getHistoricalPhotoHashes as jest.Mock).mock.results[0].value,
+      (ddsService.getHistoricalPhotoHashes as jest.Mock).mock.results[0]!.value,
     ).toBeDefined();
   });
 

@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { AuthRedisService } from '../../shared/redis/redis.service';
 import { CpfUtil } from '../../shared/utils/cpf.util';
+import { hashSensitiveValue } from '../../shared/security/field-encryption.util';
 
 @Injectable()
 export class BruteForceService {
@@ -54,11 +55,11 @@ export class BruteForceService {
   }
 
   private keyCpfCounter(cpf: string) {
-    return `auth:bf:cpf:${cpf}`;
+    return `auth:bf:cpf:${hashSensitiveValue(cpf)}`;
   }
 
   private keyCpfBlock(cpf: string) {
-    return `auth:bf:cpf:block:${cpf}`;
+    return `auth:bf:cpf:block:${hashSensitiveValue(cpf)}`;
   }
 
   async assertAllowed(tracker: string | null) {

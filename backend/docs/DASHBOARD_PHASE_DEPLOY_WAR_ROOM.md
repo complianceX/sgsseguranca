@@ -146,4 +146,4 @@ O codigo desta fase esta pronto.
 Os dois alertas reais para hoje sao:
 
 - segredos/envs corretas no provedor
-- TLS do Postgres/Supabase sem fallback inseguro permanente
+- TLS do Postgres/Neon sem fallback inseguro permanente
