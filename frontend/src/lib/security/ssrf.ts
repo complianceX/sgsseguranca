@@ -26,7 +26,7 @@ function isPrivateIPv4(hostname: string): boolean {
 
 function isPrivateIPv6(hostname: string): boolean {
   if (isIP(hostname) !== 6) return false;
-  const normalized = hostname.toLowerCase().replace('[', '').replace(']', '');
+  const normalized = hostname.toLowerCase().replace(/[[\]]/g, '');
   
   if (normalized === '::1' || normalized === '::') return true;
   

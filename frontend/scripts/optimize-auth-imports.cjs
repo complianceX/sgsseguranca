@@ -8,8 +8,10 @@ function findFiles(dir) {
   const results = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal -- entry.name é um único segmento retornado por readdirSync (sem separadores de path); script dev one-off sobre o próprio repo
       if (!IGNORE_DIRS.has(entry.name)) results.push(...findFiles(path.join(dir, entry.name)));
     } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal -- entry.name é um único segmento retornado por readdirSync (sem separadores de path); script dev one-off sobre o próprio repo
       results.push(path.join(dir, entry.name));
     }
   }
