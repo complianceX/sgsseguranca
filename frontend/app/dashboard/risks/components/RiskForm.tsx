@@ -23,7 +23,6 @@ const errorFieldClassName =
   'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
 const labelClassName =
   'block text-sm font-medium text-[var(--ds-color-text-secondary)]';
-const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
 const riskSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),

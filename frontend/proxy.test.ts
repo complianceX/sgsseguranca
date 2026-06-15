@@ -38,12 +38,12 @@ function makeRequest(pathname: string, cookieNames: string[] = []) {
 }
 
 describe("proxy auth routing", () => {
-  it("redireciona dashboard sem sinal de refresh para login expirado", () => {
+  it("redireciona dashboard sem refresh_csrf para /login com redirect param", () => {
     const response = proxy(makeRequest("/dashboard")) as ProxyResult;
 
     expect(response.kind).toBe("redirect");
     expect(response.url).toBe(
-      "https://app.sgsseguranca.com.br/login?expired=1",
+      "https://app.sgsseguranca.com.br/login?redirect=%2Fdashboard",
     );
   });
 
