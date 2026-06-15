@@ -82,8 +82,9 @@ extra: {
 
 **Solução:** Configurar chave de 32 bytes (64 chars hex, ou 32 chars UTF-8):
 ```bash
-FIELD_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-FIELD_ENCRYPTION_HASH_KEY=outra-chave-diferente-32-bytes-aqui!
+# Gere com: openssl rand -hex 32
+FIELD_ENCRYPTION_KEY=<64-chars-hex-gerado-com-openssl-rand-hex-32>
+FIELD_ENCRYPTION_HASH_KEY=<outra-chave-diferente-64-chars-hex>
 ```
 
 ---
