@@ -181,6 +181,8 @@ describe('PdfService', () => {
   it('traduz falha de renderização em ServiceUnavailableException', async () => {
     const releasePage = jest.fn().mockResolvedValue(undefined);
     const page = {
+      setRequestInterception: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
       setContent: jest.fn().mockResolvedValue(undefined),
       pdf: jest.fn().mockRejectedValue(new Error('page crashed')),
     };
@@ -196,6 +198,8 @@ describe('PdfService', () => {
   it('permite configurar orientação retrato com preferencia pelo tamanho CSS', async () => {
     const releasePage = jest.fn().mockResolvedValue(undefined);
     const page = {
+      setRequestInterception: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
       setContent: jest.fn().mockResolvedValue(undefined),
       pdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
     };
@@ -224,6 +228,8 @@ describe('PdfService', () => {
   it('encaminha templates de header e footer quando displayHeaderFooter estiver ativo', async () => {
     const releasePage = jest.fn().mockResolvedValue(undefined);
     const page = {
+      setRequestInterception: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
       setContent: jest.fn().mockResolvedValue(undefined),
       pdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
     };

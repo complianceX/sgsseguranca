@@ -31,7 +31,7 @@ export default class MinhaMigration implements MigrationInterface {
 
 **Solução:** Usar role administrativa/owner:
 ```bash
-DATABASE_MIGRATION_URL=postgresql://owner:senha@ep-example.us-east-1.aws.neon.tech/neondb
+DATABASE_MIGRATION_URL=postgresql://owner:SUA_SENHA_DDL@ep-SEU-REF.us-east-1.aws.neon.tech/neondb
 ```
 
 **Verificar:**
@@ -46,9 +46,9 @@ SELECT current_user, rolbypassrls FROM pg_roles WHERE rolname = current_user;
 **Solução:** Usar endpoint **sem** `-pooler` no runtime. Pooler só para migrations que não usam `SET LOCAL`.
 ```bash
 # ERRADO:
-DATABASE_URL=postgresql://sgs_app:...@ep-example-pooler.us-east-1.aws.neon.tech/neondb
+DATABASE_URL=postgresql://sgs_app:SUA_SENHA@ep-SEU-REF-pooler.us-east-1.aws.neon.tech/neondb
 # CERTO:
-DATABASE_URL=postgresql://sgs_app:...@ep-example.us-east-1.aws.neon.tech/neondb
+DATABASE_URL=postgresql://sgs_app:SUA_SENHA@ep-SEU-REF.us-east-1.aws.neon.tech/neondb
 ```
 
 ### Query lenta — sequential scan em tabela grande
