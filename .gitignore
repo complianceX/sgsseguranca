@@ -54,6 +54,9 @@ uploads/
 
 # Artefatos locais de dev
 backend/dev.sqlite
+backend/k6-test.sqlite
+backend/load-test-summary.json
+backend/security-attack-report.json
 artifacts/
 
 # Arquivos de build local do backend
