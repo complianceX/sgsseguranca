@@ -1,5 +1,12 @@
-import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
 
 const CSRF_EXEMPT_PATH_PATTERNS: RegExp[] = [
   /^\/auth\/csrf\/?$/i,
@@ -38,6 +45,10 @@ function resolveRequestPath(req: Request): string {
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(CsrfMiddleware.name);
+
+  constructor(private readonly configService: ConfigService) {}
+
   use(req: Request, _res: Response, next: NextFunction) {
     const method = req.method.toUpperCase();
     if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
@@ -56,10 +67,39 @@ export class CsrfMiddleware implements NestMiddleware {
       ? (headerValue[0] ?? '')
       : (headerValue ?? '');
 
-    // SECURITY: bloqueia métodos mutáveis se tokens não existirem ou não coincidirem
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-      // SECURITY: resposta 403 evita CSRF sem revelar detalhes do token
+    if (!cookieToken || !headerToken) {
       throw new ForbiddenException('CSRF token inválido');
+    }
+
+    const secret = this.configService.get<string>('CSRF_TOKEN_SECRET');
+
+    if (secret) {
+      // SECURITY: HMAC-SHA256 — cookie guarda rawToken, header deve trazer
+      // HMAC(secret, rawToken). timingSafeEqual previne timing oracle.
+      const expected = createHmac('sha256', secret)
+        .update(cookieToken)
+        .digest();
+      let provided: Buffer;
+      try {
+        provided = Buffer.from(headerToken, 'hex');
+      } catch {
+        throw new ForbiddenException('CSRF token inválido');
+      }
+      if (
+        expected.length !== provided.length ||
+        !timingSafeEqual(expected, provided)
+      ) {
+        throw new ForbiddenException('CSRF token inválido');
+      }
+    } else {
+      // Fallback para dev/test sem CSRF_TOKEN_SECRET configurado
+      this.logger.warn(
+        'CSRF_TOKEN_SECRET não configurado — usando double-submit simples. ' +
+          'Configure CSRF_TOKEN_SECRET em produção.',
+      );
+      if (cookieToken !== headerToken) {
+        throw new ForbiddenException('CSRF token inválido');
+      }
     }
 
     next();

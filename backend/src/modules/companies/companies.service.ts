@@ -214,6 +214,125 @@ export class CompaniesService {
     return this.usersRepository.save(user);
   }
 
+  /** Marca como trial_expired todos os trials expirados. Retorna a quantidade atualizada. */
+  async markExpiredTrials(): Promise<number> {
+    const result = await this.companiesRepository
+      .createQueryBuilder()
+      .update(Company)
+      .set({ account_status: 'trial_expired' as const })
+      .where('account_status = :status', { status: 'trialing' })
+      .andWhere('trial_ends_at IS NOT NULL')
+      .andWhere('trial_ends_at < :now', { now: new Date() })
+      .execute();
+
+    if ((result.affected ?? 0) > 0) {
+      await this.cacheManager.del('companies:all');
+      await this.cacheManager.del('companies:active:ids');
+    }
+
+    return result.affected ?? 0;
+  }
+
+  /** Retorna empresas em trial expirando em exatamente `daysAhead` dias (janela de 24h). */
+  async findTrialsExpiringIn(
+    daysAhead: number,
+  ): Promise<
+    Pick<Company, 'id' | 'razao_social' | 'email_contato' | 'trial_ends_at'>[]
+  > {
+    const now = new Date();
+    const windowStart = new Date(
+      now.getTime() + (daysAhead - 1) * 24 * 60 * 60 * 1000,
+    );
+    const windowEnd = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+
+    return this.companiesRepository
+      .createQueryBuilder('company')
+      .select([
+        'company.id',
+        'company.razao_social',
+        'company.email_contato',
+        'company.trial_ends_at',
+      ])
+      .where('company.account_status = :status', { status: 'trialing' })
+      .andWhere('company.status = true')
+      .andWhere('company.trial_ends_at >= :windowStart', { windowStart })
+      .andWhere('company.trial_ends_at < :windowEnd', { windowEnd })
+      .getMany();
+  }
+
+  /** Ativa uma empresa (trialing/trial_expired/suspended → active). */
+  async activateTenant(companyId: string): Promise<CompanyResponseDto> {
+    const company = await this.findOneEntity(companyId);
+
+    if (company.account_status === 'cancelled') {
+      throw new BadRequestException(
+        'Empresas canceladas não podem ser ativadas.',
+      );
+    }
+
+    company.account_status = 'active';
+    company.activated_at = new Date();
+    company.suspended_at = null;
+    company.suspension_reason = null;
+
+    const saved = await this.companiesRepository.save(company);
+
+    await this.cacheManager.del('companies:all');
+    await this.cacheManager.del('companies:active:ids');
+    await this.cacheManager.del(`company:${companyId}`);
+
+    this.logger.log({
+      event: 'tenant_activated',
+      companyId,
+      previousStatus: company.account_status,
+    });
+
+    return this.toResponseDto(saved);
+  }
+
+  /** Estende o trial de uma empresa (trialing ou trial_expired). */
+  async extendTrial(
+    companyId: string,
+    extraDays: number,
+  ): Promise<CompanyResponseDto> {
+    const company = await this.findOneEntity(companyId);
+
+    if (
+      company.account_status !== 'trialing' &&
+      company.account_status !== 'trial_expired'
+    ) {
+      throw new BadRequestException(
+        'Extensão de trial só é possível para empresas em trial ou com trial expirado.',
+      );
+    }
+
+    const now = new Date();
+    const base =
+      company.trial_ends_at && company.trial_ends_at > now
+        ? company.trial_ends_at
+        : now;
+
+    company.trial_ends_at = new Date(
+      base.getTime() + extraDays * 24 * 60 * 60 * 1000,
+    );
+    company.account_status = 'trialing';
+
+    const saved = await this.companiesRepository.save(company);
+
+    await this.cacheManager.del('companies:all');
+    await this.cacheManager.del('companies:active:ids');
+    await this.cacheManager.del(`company:${companyId}`);
+
+    this.logger.log({
+      event: 'trial_extended',
+      companyId,
+      extraDays,
+      newTrialEndsAt: saved.trial_ends_at,
+    });
+
+    return this.toResponseDto(saved);
+  }
+
   /** Retorna apenas os IDs das empresas ativas — para uso interno em cron jobs. */
   async findAllActive(): Promise<{ id: string }[]> {
     const cacheKey = 'companies:active:ids';

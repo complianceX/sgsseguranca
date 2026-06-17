@@ -240,6 +240,7 @@ export const options = {
 
 let vuToken = null;
 let vuTenant = null;
+let vuCsrfToken = null; // mantido por VU para POST/PUT/DELETE não-login
 
 /**
  * Retorna o tenant atribuído a este VU.
@@ -271,16 +272,28 @@ function invalidateVuToken() {
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
+function fetchCsrfToken() {
+  const res = http.get(`${BASE_URL}/auth/csrf`, { tags: { name: 'auth.csrf' } });
+  const token = res.json('csrfToken') || '';
+  vuCsrfToken = token; // armazena para uso em POST/PUT/DELETE subsequentes
+  return token;
+}
+
 function login(tenant) {
   if (USE_PREAUTH_TOKENS && tenant.accessToken) {
     return String(tenant.accessToken);
   }
 
+  const csrfToken = fetchCsrfToken();
+
   const res = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ cpf: tenant.cpf, password: tenant.password }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+      },
       tags: { name: 'auth.login' },
     },
   );
@@ -301,11 +314,27 @@ function login(tenant) {
   return String(res.json('accessToken'));
 }
 
+function getVuCsrfToken() {
+  // Renova o token CSRF se ainda não foi obtido (novo VU ou após invalidação)
+  if (!vuCsrfToken) {
+    fetchCsrfToken();
+  }
+  return vuCsrfToken || '';
+}
+
+function refreshCsrfIfNeeded() {
+  // Chame no início de cada cenário para garantir que o cookie jar e o header
+  // estejam sincronizados após reutilização de VU entre cenários (k6 pode limpar
+  // o cookie jar quando um VU é migrado para outro scenario executor).
+  fetchCsrfToken();
+}
+
 function authHeaders(token, companyId) {
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     'x-company-id': companyId,
+    'x-csrf-token': getVuCsrfToken(),
   };
 }
 
@@ -370,6 +399,7 @@ function nextAprNumero(tenantIdx) {
 // navegando pelo dashboard e visualizando a lista de APRs.
 
 export function normalLoadScenario() {
+  refreshCsrfIfNeeded();
   const tenant = getVuTenant();
   const token = getVuToken(tenant);
   if (!token) { sleep(2); return; }
@@ -411,6 +441,7 @@ export function normalLoadScenario() {
 // Em stress/spike, 50 APRs/segundo testam a capacidade de escrita do banco.
 
 export function aprSpikeScenario() {
+  refreshCsrfIfNeeded();
   const tenant = getVuTenant();
   const token = getVuToken(tenant);
   if (!token) { sleep(1); return; }

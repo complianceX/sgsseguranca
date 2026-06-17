@@ -1172,7 +1172,6 @@ export class AuthService {
       user: {
         id: user.id,
         nome: user.nome,
-        cpf: user.cpf,
         funcao: user.funcao,
         company_id: companyId,
         site_id: user.site_id ?? null,
@@ -1190,9 +1189,14 @@ export class AuthService {
     isAdminGeral: boolean;
   }> {
     try {
-      const payload = (await this.jwtService.verifyAsync(
-        token,
-      )) as unknown as JwtPayload;
+      const issuer =
+        this.configService.get<string>('JWT_ISSUER')?.trim() || undefined;
+      const audience =
+        this.configService.get<string>('JWT_AUDIENCE')?.trim() || undefined;
+      const payload = (await this.jwtService.verifyAsync(token, {
+        ...(issuer && { issuer }),
+        ...(audience && { audience }),
+      })) as unknown as JwtPayload;
       return {
         id: payload.sub,
         cpf: payload.cpf,

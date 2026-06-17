@@ -151,7 +151,14 @@ export class AuthController {
   @Throttle({ default: { limit: CSRF_THROTTLE_LIMIT, ttl: CSRF_THROTTLE_TTL } })
   @Get('csrf')
   getCsrfToken(@Res({ passthrough: true }) response: Response) {
-    const token = crypto.randomBytes(32).toString('hex');
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const secret = this.configService.get<string>('CSRF_TOKEN_SECRET');
+    // SECURITY: Se o secret está configurado, o cookie guarda o rawToken e o
+    // cliente deve enviar HMAC(secret, rawToken) no header x-csrf-token.
+    // Sem secret (dev/test), rawToken é usado tanto no cookie quanto no header.
+    const csrfToken = secret
+      ? crypto.createHmac('sha256', secret).update(rawToken).digest('hex')
+      : rawToken;
     response.setHeader(
       'Cache-Control',
       'no-store, no-cache, must-revalidate, proxy-revalidate, private',
@@ -162,8 +169,8 @@ export class AuthController {
       'csrf-token',
       getLegacyRequestCsrfClearCookieOptions(),
     );
-    response.cookie('csrf-token', token, getRequestCsrfCookieOptions());
-    return { csrfToken: token };
+    response.cookie('csrf-token', rawToken, getRequestCsrfCookieOptions());
+    return { csrfToken };
   }
 
   @Public()

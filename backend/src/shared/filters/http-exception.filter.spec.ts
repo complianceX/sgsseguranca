@@ -28,10 +28,8 @@ interface TestLogPayload {
   requestId?: string;
   message?: string | string[];
   responseTimeMs?: number;
-  userId?: string;
-  companyId?: string;
-  role?: string;
-  stack?: string;
+  context?: { userId?: string; companyId?: string; role?: string };
+  diagnostic?: { stack?: string };
 }
 
 const getFirstMockArg = <T>(mockFn: jest.Mock): T => {
@@ -107,10 +105,10 @@ describe('AllExceptionsFilter', () => {
     expect(logPayload.path).toBe('/documents/123/pdf');
     expect(logPayload.requestId).toBe('req-1');
     expect(typeof logPayload.responseTimeMs).toBe('number');
-    expect(logPayload.userId).toBe('user-1');
-    expect(logPayload.companyId).toBe('company-1');
-    expect(logPayload.role).toBe('TST');
-    expect(logPayload.stack).toBeUndefined();
+    expect(logPayload.context?.userId).toBe('user-1');
+    expect(logPayload.context?.companyId).toBe('company-1');
+    expect(logPayload.context?.role).toBe('TST');
+    expect(logPayload.diagnostic).toBeUndefined();
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
 
@@ -145,8 +143,8 @@ describe('AllExceptionsFilter', () => {
     expect(logPayload.path).toBe('/documents/123/pdf');
     expect(logPayload.requestId).toBe('req-2');
     expect(typeof logPayload.responseTimeMs).toBe('number');
-    expect(logPayload.userId).toBe('user-2');
-    expect(logPayload.stack).toContain('Error: boom');
+    expect(logPayload.context?.userId).toBe('user-2');
+    expect(logPayload.diagnostic?.stack).toContain('Error: boom');
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
