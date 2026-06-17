@@ -3,8 +3,10 @@ import { Dds, DdsStatus } from './entities/dds.entity';
 import { DdsSignatureInvite } from './entities/dds-signature-invite.entity';
 import { DdsSignatureInviteService } from './dds-signature-invite.service';
 import type { MailService } from '../../infra/mail/mail.service';
+import type { TurnstileService } from '../auth/turnstile.service';
 import type { TenantService } from '../../shared/tenant/tenant.service';
 import type { SignaturesService } from '../signatures/signatures.service';
+import type { ConfigService } from '@nestjs/config';
 
 type MailContextMock = { companyId?: string; userId?: string };
 type SendMailSimpleMock = jest.Mock<
@@ -67,6 +69,22 @@ describe('DdsSignatureInviteService', () => {
     >(() => Promise.resolve({})) as SendMailSimpleMock,
   };
 
+  const turnstileService = {
+    isEnabled: jest.fn(() => false),
+    assertHuman: jest.fn(() => Promise.resolve()),
+  };
+
+  const configService = {
+    get: jest.fn((key: string) => {
+      const values: Record<string, string> = {
+        FRONTEND_URL: 'https://app.sgs.test',
+        VALIDATION_TOKEN_SECRET:
+          'test-validation-token-secret-0123456789abcdef',
+      };
+      return values[key] ?? undefined;
+    }),
+  };
+
   let service: DdsSignatureInviteService;
 
   beforeEach(() => {
@@ -81,6 +99,8 @@ describe('DdsSignatureInviteService', () => {
       tenantService as unknown as TenantService,
       signaturesService as unknown as SignaturesService,
       mailService as unknown as MailService,
+      turnstileService as unknown as TurnstileService,
+      configService as unknown as ConfigService,
     );
   });
 

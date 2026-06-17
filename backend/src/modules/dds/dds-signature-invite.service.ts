@@ -6,8 +6,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'node:crypto';
 import { EntityManager, In, IsNull, Repository } from 'typeorm';
@@ -15,6 +17,7 @@ import { Dds, DdsStatus } from './entities/dds.entity';
 import { DdsSignatureInvite } from './entities/dds-signature-invite.entity';
 import { IssueDdsSignatureInvitesDto } from './dto/dds-signature-invite.dto';
 import { MailService } from '../../infra/mail/mail.service';
+import { TurnstileService } from '../auth/turnstile.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import {
@@ -29,6 +32,7 @@ const DDS_PUBLIC_SIGNATURE_PORTAL = 'dds_public_signature';
 const DEFAULT_INVITE_TTL_DAYS = 7;
 const MAX_INVITE_TTL_DAYS = 30;
 const SIGNATURE_DATA_MAX_LENGTH = 300_000;
+const INVITE_EMAIL_FROM_NAME = 'SGS — Sistema de Gestão de Segurança';
 
 type DdsSignatureInviteStatus = 'pending' | 'signed' | 'expired' | 'revoked';
 
@@ -79,7 +83,7 @@ export type PublicDdsSignatureSubmitResult = {
 };
 
 @Injectable()
-export class DdsSignatureInviteService {
+export class DdsSignatureInviteService implements OnModuleInit {
   private readonly logger = new Logger(DdsSignatureInviteService.name);
 
   constructor(
@@ -90,7 +94,20 @@ export class DdsSignatureInviteService {
     private readonly tenantService: TenantService,
     private readonly signaturesService: SignaturesService,
     private readonly mailService: MailService,
+    private readonly turnstileService: TurnstileService,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    const frontendUrl = this.resolveFrontendBaseUrl();
+    if (!frontendUrl) {
+      this.logger.warn(
+        'FRONTEND_URL (ou NEXT_PUBLIC_APP_URL / APP_URL) não está configurado. ' +
+          'Links de assinatura DDS serão gerados sem URL absoluta (signingUrl = null). ' +
+          'Defina FRONTEND_URL no ambiente para que os emails incluam links clicáveis.',
+      );
+    }
+  }
 
   async issueInvites(
     ddsId: string,
@@ -189,12 +206,34 @@ export class DdsSignatureInviteService {
       if (!email) continue;
 
       const subject = `Convite para assinar DDS: ${dds.tema}`;
-      const body = `Olá ${participant.nome || 'participante'},\n\nVocê recebeu um convite para assinar o DDS "${dds.tema}".\nClique no link abaixo para acessar a assinatura pública:\n\n${link.signingUrl ?? link.signingPath ?? ''}\n\nEste convite expira em ${expiresAt?.toISOString() ?? 'N/A'}.\n\nAtt,\nEquipe SGS`;
+      const plainText =
+        `Olá ${participant.nome || 'participante'},\n\n` +
+        `Você recebeu um convite para assinar o DDS "${dds.tema}".\n` +
+        `Acesse o link abaixo para registrar sua assinatura:\n\n` +
+        `${link.signingUrl ?? link.signingPath ?? '(link indisponível)'}\n\n` +
+        `Este convite expira em ${expiresAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.\n\n` +
+        `Att,\nEquipe SGS`;
       try {
-        await this.mailService.sendMailSimple(email, subject, body, {
-          companyId: dds.company_id,
-          userId: createdByUserId,
-        });
+        await this.mailService.sendMailSimple(
+          email,
+          subject,
+          plainText,
+          { companyId: dds.company_id, userId: createdByUserId },
+          undefined,
+          {
+            html: this.buildInviteEmailHtml({
+              participantName: participant.nome,
+              ddsTema: dds.tema,
+              ddsData: this.toDateString(dds.data),
+              companyName: dds.company?.razao_social ?? null,
+              siteName: dds.site?.nome ?? null,
+              facilitadorName: dds.facilitador?.nome ?? null,
+              signingUrl: link.signingUrl ?? link.signingPath ?? null,
+              expiresAt,
+            }),
+            filename: 'convite-assinatura-dds',
+          },
+        );
         this.logger.log({
           event: 'dds_signature_invite_email_sent',
           ddsId: dds.id,
@@ -319,6 +358,7 @@ export class DdsSignatureInviteService {
     input: {
       acceptedTerms: boolean;
       signatureData: string;
+      turnstileToken?: string | null;
       ip?: string | null;
       userAgent?: string | null;
     },
@@ -329,6 +369,11 @@ export class DdsSignatureInviteService {
       );
     }
     this.assertPublicSignatureData(input.signatureData);
+
+    await this.turnstileService.assertHuman(input.turnstileToken ?? undefined, {
+      remoteIp: input.ip,
+      expectedAction: 'dds-signing',
+    });
 
     const payload = this.verifyInviteTokenPayload(token);
     const tokenHash = this.hashToken(token);
@@ -522,9 +567,10 @@ export class DdsSignatureInviteService {
   }
 
   private resolveExpiresAt(expiresInDays?: number): Date {
-    const configuredDays = Number(
-      expiresInDays ?? process.env.DDS_SIGNATURE_INVITE_TTL_DAYS,
+    const envDays = this.configService.get<string>(
+      'DDS_SIGNATURE_INVITE_TTL_DAYS',
     );
+    const configuredDays = Number(expiresInDays ?? envDays);
     const ttlDays =
       Number.isFinite(configuredDays) && configuredDays > 0
         ? Math.min(Math.floor(configuredDays), MAX_INVITE_TTL_DAYS)
@@ -880,11 +926,17 @@ export class DdsSignatureInviteService {
     return createHash('sha256').update(normalized, 'utf8').digest('hex');
   }
 
+  private resolveFrontendBaseUrl(): string | null {
+    const raw =
+      this.configService.get<string>('FRONTEND_URL')?.trim() ||
+      this.configService.get<string>('NEXT_PUBLIC_APP_URL')?.trim() ||
+      this.configService.get<string>('APP_URL')?.trim() ||
+      '';
+    return raw || null;
+  }
+
   private resolvePublicSigningUrl(path: string): string | null {
-    const rawBase =
-      process.env.FRONTEND_URL?.trim() ||
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      process.env.APP_URL?.trim();
+    const rawBase = this.resolveFrontendBaseUrl();
     if (!rawBase) {
       return null;
     }
@@ -895,6 +947,179 @@ export class DdsSignatureInviteService {
     } catch {
       return null;
     }
+  }
+
+  async revokeInviteById(
+    ddsId: string,
+    inviteId: string,
+  ): Promise<{ inviteId: string; revokedAt: Date }> {
+    const scope = this.getSiteAccessScopeOrThrow();
+    const dds = await this.findDdsForInviteManagement(ddsId, scope.companyId);
+    this.assertDdsSiteAllowed(dds.site_id, scope);
+
+    const invite = await this.inviteRepository.findOne({
+      where: {
+        id: inviteId,
+        dds_id: ddsId,
+        company_id: dds.company_id,
+      },
+    });
+
+    if (!invite) {
+      throw new NotFoundException('Convite de assinatura não encontrado.');
+    }
+    if (invite.used_at) {
+      throw new BadRequestException(
+        'Convite já foi utilizado para assinar e não pode ser revogado.',
+      );
+    }
+    if (invite.revoked_at) {
+      throw new BadRequestException('Convite já foi revogado anteriormente.');
+    }
+
+    const revokedAt = new Date();
+    invite.revoked_at = revokedAt;
+    invite.updated_at = revokedAt;
+    await this.inviteRepository.save(invite);
+
+    this.logger.log({
+      event: 'dds_signature_invite_revoked',
+      ddsId,
+      companyId: dds.company_id,
+      inviteId,
+    });
+
+    return { inviteId: invite.id, revokedAt };
+  }
+
+  private buildInviteEmailHtml(input: {
+    participantName: string;
+    ddsTema: string;
+    ddsData: string | null;
+    companyName: string | null;
+    siteName: string | null;
+    facilitadorName: string | null;
+    signingUrl: string | null;
+    expiresAt: Date;
+  }): string {
+    const dateStr = input.expiresAt.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'America/Sao_Paulo',
+    });
+    const ddsDateStr = input.ddsData
+      ? new Date(input.ddsData + 'T12:00:00Z').toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'America/Sao_Paulo',
+        })
+      : null;
+
+    const signingButton = input.signingUrl
+      ? `<tr>
+          <td style="padding:0 32px 32px">
+            <a href="${this.escapeHtmlAttr(input.signingUrl)}"
+               style="display:inline-block;background:#2f5d46;color:#fff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px">
+              Assinar DDS agora
+            </a>
+          </td>
+        </tr>`
+      : `<tr>
+          <td style="padding:0 32px 32px">
+            <p style="margin:0;color:#b91c1c;font-size:14px">
+              Link de assinatura indisponível — entre em contato com o responsável pelo DDS.
+            </p>
+          </td>
+        </tr>`;
+
+    const metaRows = [
+      input.companyName
+        ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px">Empresa</td><td style="padding:4px 0 4px 12px;color:#111827;font-size:13px;font-weight:600">${this.escapeHtml(input.companyName)}</td></tr>`
+        : '',
+      input.siteName
+        ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px">Obra / Site</td><td style="padding:4px 0 4px 12px;color:#111827;font-size:13px;font-weight:600">${this.escapeHtml(input.siteName)}</td></tr>`
+        : '',
+      ddsDateStr
+        ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px">Data do DDS</td><td style="padding:4px 0 4px 12px;color:#111827;font-size:13px;font-weight:600">${ddsDateStr}</td></tr>`
+        : '',
+      input.facilitadorName
+        ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px">Facilitador</td><td style="padding:4px 0 4px 12px;color:#111827;font-size:13px;font-weight:600">${this.escapeHtml(input.facilitadorName)}</td></tr>`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('');
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+
+        <tr>
+          <td style="background:#2f5d46;padding:20px 32px">
+            <p style="margin:0;color:#fff;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">
+              ${this.escapeHtml(INVITE_EMAIL_FROM_NAME)}
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px 32px 16px">
+            <h1 style="margin:0 0 6px;font-size:20px;color:#111827">Convite para assinar DDS</h1>
+            <p style="margin:0;color:#6b7280;font-size:14px">${this.escapeHtml(input.ddsTema)}</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 32px 24px">
+            <p style="margin:0 0 16px;color:#374151;line-height:1.65">
+              Olá, <strong>${this.escapeHtml(input.participantName || 'participante')}</strong>.
+            </p>
+            <p style="margin:0 0 16px;color:#374151;line-height:1.65">
+              Você foi identificado como participante do DDS acima e precisa registrar sua assinatura eletrônica no SGS.
+              Clique no botão abaixo para acessar a página de assinatura pública.
+            </p>
+            ${metaRows ? `<table cellpadding="0" cellspacing="0" style="margin:16px 0;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;background:#f9fafb;width:100%">${metaRows}</table>` : ''}
+          </td>
+        </tr>
+
+        ${signingButton}
+
+        <tr>
+          <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
+            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6">
+              Este convite expira em <strong>${dateStr}</strong>.
+              Após o vencimento, solicite um novo link ao responsável pelo DDS.
+              A assinatura é vinculada exclusivamente a este DDS e a este participante.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`.trim();
+  }
+
+  private escapeHtml(value: string): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private escapeHtmlAttr(value: string): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   private toDateString(value: Date | string | null | undefined): string | null {

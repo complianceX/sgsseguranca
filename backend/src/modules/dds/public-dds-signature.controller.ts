@@ -58,6 +58,7 @@ export class PublicDdsSignatureController {
       {
         acceptedTerms: dto.accepted_terms,
         signatureData: dto.signature_data,
+        turnstileToken: dto.turnstileToken ?? null,
         ip: req.ip || req.socket.remoteAddress || null,
         userAgent: this.getRequestUserAgent(req),
       },
