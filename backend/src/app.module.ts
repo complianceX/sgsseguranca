@@ -1514,6 +1514,12 @@ export class AppModule implements OnModuleInit {
     const bullBoardPass = this.configService.get<string>('BULL_BOARD_PASS');
     const antivirusProvider =
       this.configService.get<string>('ANTIVIRUS_PROVIDER');
+    const turnstileEnabled = /^true$/i.test(
+      this.configService.get<string>('TURNSTILE_ENABLED', 'false'),
+    );
+    const turnstileSecretKey = this.configService
+      .get<string>('TURNSTILE_SECRET_KEY', '')
+      .trim();
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>(
         'PUBLIC_VALIDATION_LEGACY_COMPAT',
@@ -1714,6 +1720,13 @@ export class AppModule implements OnModuleInit {
         message:
           'ANTIVIRUS_PROVIDER é obrigatório em produção para varredura de arquivos enviados. ' +
           'Configure ANTIVIRUS_PROVIDER=clamav e as variáveis CLAMAV_*.',
+      },
+      {
+        name: 'TURNSTILE_SECRET_KEY',
+        valid: !turnstileEnabled || turnstileSecretKey.length > 0,
+        message:
+          'TURNSTILE_SECRET_KEY é obrigatória quando TURNSTILE_ENABLED=true em produção. ' +
+          'Configure via Cloudflare Turnstile dashboard.',
       },
     ];
 
