@@ -34,7 +34,8 @@ import {
 import { CompaniesService } from '../companies/companies.service';
 
 const DEFAULT_INVITE_EXPIRES_DAYS = 7;
-const TRIAL_DAYS = 30;
+const DEFAULT_TRIAL_DAYS = 30;
+const MAX_TRIAL_DAYS = 365;
 
 type InvitePublicView = {
   email: string;
@@ -128,7 +129,17 @@ export class TenantLifecycleService {
 
     const tokenHash = this.hashToken(token);
     const now = new Date();
-    const trialEndsAt = this.addDays(now, TRIAL_DAYS);
+    const configuredDays = parseInt(
+      this.configService.get<string>('TRIAL_DAYS_DEFAULT') ?? '',
+      10,
+    );
+    const trialDays =
+      Number.isFinite(configuredDays) &&
+      configuredDays >= 1 &&
+      configuredDays <= MAX_TRIAL_DAYS
+        ? configuredDays
+        : DEFAULT_TRIAL_DAYS;
+    const trialEndsAt = this.addDays(now, trialDays);
     const normalizedCnpj = CnpjUtil.normalize(dto.cnpj);
     const normalizedCpf = CpfUtil.normalize(dto.admin_cpf);
     const adminEmail = dto.admin_email.trim().toLowerCase();
@@ -258,6 +269,37 @@ export class TenantLifecycleService {
       });
 
     return result;
+  }
+
+  async revokeInvite(
+    inviteId: string,
+  ): Promise<{ id: string; revoked_at: Date }> {
+    const invite = await this.invitesRepository.findOne({
+      where: { id: inviteId },
+    });
+
+    if (!invite) {
+      throw new NotFoundException('Convite não encontrado.');
+    }
+    if (invite.used_at) {
+      throw new BadRequestException(
+        'Convite já utilizado e não pode ser revogado.',
+      );
+    }
+    if (invite.revoked_at) {
+      throw new BadRequestException('Convite já foi revogado.');
+    }
+
+    invite.revoked_at = new Date();
+    const saved = await this.invitesRepository.save(invite);
+
+    this.logger.log({
+      event: 'tenant_onboarding_invite_revoked',
+      inviteId: saved.id,
+      email: saved.email,
+    });
+
+    return { id: saved.id, revoked_at: saved.revoked_at! };
   }
 
   private async findUsableInvite(

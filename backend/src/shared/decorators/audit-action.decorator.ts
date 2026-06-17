@@ -14,7 +14,9 @@ export type AuditableAction =
   | 'role_change'
   | 'permission_change'
   | 'export'
-  | 'ai_access';
+  | 'ai_access'
+  | 'activate'
+  | 'extend_trial';
 
 export function AuditAction(action: AuditableAction, resourceType: string) {
   return applyDecorators(

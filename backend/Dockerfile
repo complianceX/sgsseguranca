@@ -112,6 +112,15 @@ RUN sed -i 's/\r$//' entrypoint.sh \
 # Porta dinâmica do provedor (process.env.PORT em runtime)
 EXPOSE 8080
 
+# Liveness probe via /health/ready (rota @Public, retorna 200)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD node -e "\
+const p=parseInt(process.env.PORT)||8080;\
+require('http').get(\
+  {hostname:'127.0.0.1',port:p,path:'/health/ready',timeout:8000},\
+  r=>process.exit(r.statusCode===200?0:1)\
+).on('error',()=>process.exit(1))"
+
 USER node
 
 ENTRYPOINT ["./entrypoint.sh"]

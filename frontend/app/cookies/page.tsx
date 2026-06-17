@@ -32,21 +32,30 @@ interface CookieRow {
 
 const cookies: CookieRow[] = [
   {
-    name: 'sb-access-token',
+    name: 'refresh_token',
     category: 'Estritamente necessário',
-    purpose: 'Token de sessão JWT emitido pelo sistema de autenticação. Identifica o usuário autenticado.',
-    duration: 'Sessão (expiração conforme token JWT, padrão 1h)',
+    purpose: 'Refresh token JWT — permite renovar a sessão sem nova autenticação. O access token é retornado via JSON e mantido em memória, não em cookie. HttpOnly, SameSite=Strict, path=/auth/refresh.',
+    duration: '30 dias (renovável)',
     thirdParty: 'Não',
     httpOnly: true,
     secure: true,
   },
   {
-    name: 'sb-refresh-token',
+    name: 'refresh_csrf',
     category: 'Estritamente necessário',
-    purpose: 'Token de renovação de sessão. Permite manter o login ativo sem nova autenticação.',
-    duration: '7 dias',
+    purpose: 'Token CSRF dedicado ao endpoint de renovação de sessão (/auth/refresh). Previne ataques CSRF na troca do refresh token.',
+    duration: '30 dias',
     thirdParty: 'Não',
-    httpOnly: true,
+    httpOnly: false,
+    secure: true,
+  },
+  {
+    name: 'csrf-token',
+    category: 'Estritamente necessário',
+    purpose: 'Token HMAC-SHA256 de proteção contra Cross-Site Request Forgery. Validado em todas as operações de escrita (POST, PUT, PATCH, DELETE).',
+    duration: 'Sessão',
+    thirdParty: 'Não',
+    httpOnly: false,
     secure: true,
   },
   {
@@ -74,15 +83,6 @@ const cookies: CookieRow[] = [
     duration: 'Sessão',
     thirdParty: 'Não',
     httpOnly: true,
-    secure: true,
-  },
-  {
-    name: 'XSRF-TOKEN',
-    category: 'Estritamente necessário',
-    purpose: 'Token de proteção contra ataques Cross-Site Request Forgery (CSRF).',
-    duration: 'Sessão',
-    thirdParty: 'Não',
-    httpOnly: false,
     secure: true,
   },
   {

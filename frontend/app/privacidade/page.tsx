@@ -69,13 +69,25 @@ const dataCategories = [
 const subprocessors = [
   {
     name: 'Neon / PostgreSQL',
-    purpose: 'Banco de dados relacional (substituiu o Supabase como provedor PostgreSQL)',
+    purpose: 'Banco de dados relacional — armazena todos os dados operacionais do tenant (SST, usuários, auditoria, documentos)',
     country: 'Conforme região do projeto',
     safeguard: 'DPA, região, backup e retenção devem ser confirmados no contrato vigente',
   },
   {
+    name: 'Backblaze B2',
+    purpose: 'Armazenamento de arquivos: documentos, evidências fotográficas, PDFs gerados, backups e DR storage (API S3-compatible)',
+    country: 'EUA (US West)',
+    safeguard: 'Dados criptografados em trânsito (TLS); sem processamento além do armazenamento; DPA e retenção devem ser confirmados no contrato',
+  },
+  {
     name: 'OpenAI',
-    purpose: 'Geração de linguagem natural nas funcionalidades de IA (quando habilitadas)',
+    purpose: 'Geração de linguagem natural nas funcionalidades de IA Sophie (quando habilitadas)',
+    country: 'EUA',
+    safeguard: 'Minimização/pseudonimização pré-envio; DPA e retenção do provedor pendentes de evidência contratual',
+  },
+  {
+    name: 'Anthropic',
+    purpose: 'Raciocínio e geração de linguagem natural (modelos Claude) nas funcionalidades de IA Sophie (quando habilitadas)',
     country: 'EUA',
     safeguard: 'Minimização/pseudonimização pré-envio; DPA e retenção do provedor pendentes de evidência contratual',
   },
@@ -113,10 +125,24 @@ const subprocessors = [
 
 const cookieRows = [
   {
-    name: 'sb-access-token / sb-refresh-token',
+    name: 'refresh_token',
     type: 'Estritamente necessário',
-    purpose: 'Manutenção de sessão autenticada',
-    duration: 'Sessão / 7 dias',
+    purpose: 'Refresh token JWT — permite renovar a sessão sem nova autenticação. HttpOnly, SameSite=Strict, path=/auth/refresh.',
+    duration: '30 dias (renovável)',
+    thirdParty: 'Não',
+  },
+  {
+    name: 'refresh_csrf',
+    type: 'Estritamente necessário',
+    purpose: 'Token CSRF dedicado ao endpoint de refresh, prevenindo CSRF na renovação de sessão.',
+    duration: '30 dias',
+    thirdParty: 'Não',
+  },
+  {
+    name: 'csrf-token',
+    type: 'Estritamente necessário',
+    purpose: 'Proteção HMAC-SHA256 contra Cross-Site Request Forgery em todas as operações de escrita.',
+    duration: 'Sessão',
     thirdParty: 'Não',
   },
   {
@@ -138,13 +164,6 @@ const cookieRows = [
     type: 'Funcional',
     purpose: 'Registro local de exibição do modal de consentimento',
     duration: '90 dias',
-    thirdParty: 'Não',
-  },
-  {
-    name: 'XSRF-TOKEN / csrf',
-    type: 'Estritamente necessário',
-    purpose: 'Proteção contra Cross-Site Request Forgery',
-    duration: 'Sessão',
     thirdParty: 'Não',
   },
 ];

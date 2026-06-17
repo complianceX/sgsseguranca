@@ -152,6 +152,16 @@ const nextConfig = {
         key: "Cross-Origin-Resource-Policy",
         value: "same-site",
       },
+      // CSP restritivo — directives que não dependem de nonces nem de URLs externas
+      {
+        key: "Content-Security-Policy",
+        value: [
+          "base-uri 'self'",
+          "form-action 'self'",
+          "object-src 'none'",
+          "frame-ancestors 'none'",
+        ].join("; "),
+      },
     ];
 
     if (isProd) {

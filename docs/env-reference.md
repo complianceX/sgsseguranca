@@ -50,8 +50,10 @@
 
 | Variável | Obrigatório | Default | Descrição |
 |----------|-------------|---------|-----------|
-| `JWT_SECRET` | Sim | — | Min 32 chars |
-| `JWT_REFRESH_SECRET` | Sim | — | Diferente do JWT_SECRET |
+| `JWT_SECRET` | Sim | — | **Min 64 chars em produção.** Gere com `openssl rand -hex 32` |
+| `JWT_REFRESH_SECRET` | Sim | — | **Min 64 chars em produção, diferente de `JWT_SECRET`.** Gere com `openssl rand -hex 32` |
+| `JWT_ISSUER` | Sim (prod) | — | **Obrigatório em produção.** URL pública da API. Ex: `https://api.seu-dominio.com.br` |
+| `JWT_AUDIENCE` | Sim (prod) | — | **Obrigatório em produção.** Identificador do app. Ex: `sgs-app` |
 | `ACCESS_TOKEN_TTL` | Não | `15m` | |
 | `REFRESH_TOKEN_TTL` | Não | `30d` | |
 | `REFRESH_BINDING` | Não | `none` | `ua` para vincular a User-Agent |
@@ -209,8 +211,10 @@
 - [ ] `MFA_ENABLED=true`
 - [ ] `REFRESH_CSRF_ENFORCED=true`
 - [ ] `CSRF_TOKEN_SECRET` = 32+ chars
-- [ ] `JWT_SECRET` = 32+ chars
-- [ ] `JWT_REFRESH_SECRET` = 32+ chars (diferente)
+- [ ] `JWT_SECRET` = 64+ chars (gerado com `openssl rand -hex 32`)
+- [ ] `JWT_REFRESH_SECRET` = 64+ chars, diferente de `JWT_SECRET` (gerado com `openssl rand -hex 32`)
+- [ ] `JWT_ISSUER` configurado (ex: `https://api.seu-dominio.com.br`)
+- [ ] `JWT_AUDIENCE` configurado (ex: `sgs-app`)
 - [ ] `VALIDATION_TOKEN_SECRET` = 32+ chars
 - [ ] `THROTTLER_FAIL_CLOSED_AUTH_ROUTES=true`
 - [ ] `REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN=true`

@@ -206,8 +206,8 @@ async function createTenants(
       );
 
       await pool.query(
-        `INSERT INTO users (id, nome, cpf, email, password, company_id, profile_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())`,
+        `INSERT INTO users (id, nome, cpf, email, password, company_id, profile_id, status, module_access_keys, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, NOW(), NOW())`,
         [
           userId,
           `K6 Admin ${padded}`,
@@ -216,6 +216,7 @@ async function createTenants(
           passwordHash,
           companyId,
           profileId,
+          JSON.stringify([]),
         ],
       );
     }
