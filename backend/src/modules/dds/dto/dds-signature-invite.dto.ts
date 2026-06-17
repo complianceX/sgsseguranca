@@ -32,4 +32,8 @@ export class SubmitPublicDdsSignatureDto {
   @IsString()
   @MaxLength(300_000)
   signature_data: string;
+
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }

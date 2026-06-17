@@ -664,6 +664,17 @@ export class DdsController {
     );
   }
 
+  @Delete(':id/signature-invites/:inviteId')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @ForensicAuditAction('delete', 'dds_signature_invite')
+  revokeSignatureInvite(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('inviteId', new ParseUUIDPipe()) inviteId: string,
+  ) {
+    return this.ddsSignatureInviteService.revokeInviteById(id, inviteId);
+  }
+
   /** Anexa PDF a um DDS existente */
   @Post(':id/file')
   @Roles(

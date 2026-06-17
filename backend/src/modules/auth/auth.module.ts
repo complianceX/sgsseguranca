@@ -86,6 +86,7 @@ import type { SignOptions } from 'jsonwebtoken';
     PdfRateLimitService,
     TokenRevocationService,
     MfaService,
+    TurnstileService,
   ],
 })
 export class AuthModule {}
