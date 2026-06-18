@@ -257,7 +257,7 @@ async function bootstrap() {
     httpAdapterInstance.set?.('trust proxy', 1);
   }
 
-  app.use(compression());
+  app.use(compression({ threshold: 1024, level: 6 }));
   httpAdapterInstance.disable?.('x-powered-by');
 
   app.use(
