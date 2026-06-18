@@ -325,7 +325,7 @@ describe('Dashboard cache orchestration', () => {
     expect(snapshotService.read).toHaveBeenCalledWith('company-1', 'tst-day');
     expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
     expect(ptsRepo.find).toHaveBeenCalledTimes(1);
-    expect(nonConformitiesRepo.find).toHaveBeenCalledTimes(1);
+    expect(nonConformitiesRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
     expect(medicalExamsRepo.find).toHaveBeenCalledTimes(1);
     expect(trainingsRepo.find).toHaveBeenCalledTimes(1);
     expect(inspectionRepo.find).not.toHaveBeenCalled();

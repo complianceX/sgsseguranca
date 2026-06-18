@@ -285,6 +285,7 @@ export class SignaturesService {
     options?: {
       companyId?: string;
       typePrefix?: string;
+      take?: number;
     },
   ): Promise<Signature[]> {
     if (documentIds.length === 0) {
@@ -324,6 +325,10 @@ export class SignaturesService {
           siteIds: scope.siteIds,
         });
       }
+    }
+
+    if (options?.take) {
+      query.take(options.take);
     }
 
     return query.getMany();
