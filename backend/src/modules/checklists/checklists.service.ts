@@ -2559,6 +2559,21 @@ export class ChecklistsService {
     // e degradar a performance da aplicação.
     // RECOMENDA�!ÒO: Mover esta lógica para um job em background (ex: usando BullMQ)
     // para não impactar a responsividade da API.
+    let logoBase64: string | null = null;
+    let logoFormat: 'PNG' | 'JPEG' = 'PNG';
+    const logoKey = checklist.company?.logo_storage_key;
+    if (logoKey) {
+      try {
+        const buf =
+          await this.documentStorageService.downloadFileBuffer(logoKey);
+        logoBase64 = buf.toString('base64');
+        logoFormat = checklist.company?.logo_content_type?.includes('png')
+          ? 'PNG'
+          : 'JPEG';
+      } catch {
+        // logo inacessível — PDF gerado sem logo
+      }
+    }
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const tableTheme = createBackendPdfTableTheme();
     drawBackendPdfHeader(doc, {
@@ -2568,6 +2583,8 @@ export class ChecklistsService {
         `Data: ${new Date(checklist.data).toLocaleDateString('pt-BR')}`,
         `Status: ${checklist.status || 'Pendente'}`,
       ],
+      logoBase64,
+      logoFormat,
     });
 
     doc.setFontSize(10);

@@ -96,6 +96,8 @@ interface EmployeeDossierPdfData {
   attachmentLines: DossierAttachmentLine[];
   governedDocumentLines: DossierGovernedDocumentLine[];
   pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
+  logoBase64?: string | null;
+  logoFormat?: 'PNG' | 'JPEG';
 }
 
 interface EmployeeDossierBundle {
@@ -469,7 +471,22 @@ export class DossiersService {
 
     // ALERTA DE PERFORMANCE: Geração de PDF é síncrona e bloqueia o event loop.
     // RECOMENDAÇÃO: Mover para um job em background (BullMQ) para não afetar a API.
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    let logoBase64: string | null = null;
+    let logoFormat: 'PNG' | 'JPEG' = 'PNG';
+    if (user.company?.logo_storage_key) {
+      try {
+        const buf = await this.storageService.downloadFileBuffer(
+          user.company.logo_storage_key,
+        );
+        logoBase64 = buf.toString('base64');
+        logoFormat = user.company.logo_content_type?.includes('png')
+          ? 'PNG'
+          : 'JPEG';
+      } catch {
+        // logo inacessível — PDF gerado sem logo
+      }
+    }
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     this.buildPdf(doc, {
       user,
       trainings,
@@ -477,6 +494,8 @@ export class DossiersService {
       attachmentLines,
       governedDocumentLines,
       pendingGovernedDocumentLines,
+      logoBase64,
+      logoFormat,
     });
 
     const filename = `dossie_colaborador_${user.id}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -771,8 +790,10 @@ export class DossiersService {
       attachmentLines,
       governedDocumentLines,
       pendingGovernedDocumentLines,
+      logoBase64,
+      logoFormat,
     } = data;
-    const marginX = 40;
+    const marginX = 14;
     const tableTheme = createBackendPdfTableTheme();
 
     drawBackendPdfHeader(doc, {
@@ -780,13 +801,15 @@ export class DossiersService {
       subtitle: `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
       metaRight: [`ID do colaborador: ${user.id}`],
       marginX,
+      logoBase64,
+      logoFormat,
     });
 
     doc.setFontSize(12);
     doc.setTextColor(...backendPdfTheme.text);
-    doc.text('Dados do colaborador', marginX, 92);
+    doc.text('Dados do colaborador', marginX, 35);
     autoTable(doc, {
-      startY: 100,
+      startY: 40,
       head: [['Campo', 'Valor']],
       body: [
         ['Nome', user.nome],
@@ -799,7 +822,7 @@ export class DossiersService {
     });
 
     autoTable(doc, {
-      startY: getBackendLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 6,
       head: [['Treinamento', 'NR', 'Conclusao', 'Vencimento', 'Status']],
       body:
         trainings.length > 0
@@ -817,7 +840,7 @@ export class DossiersService {
     });
 
     autoTable(doc, {
-      startY: getBackendLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 6,
       head: [['EPI', 'CA', 'Validade CA', 'Status', 'Entrega', 'Devolucao']],
       body:
         assignments.length > 0
@@ -1039,11 +1062,11 @@ export class DossiersService {
   ) {
     drawBackendSectionTitle(
       doc,
-      getBackendLastTableY(doc) + 8,
+      getBackendLastTableY(doc) + 4,
       'Indice de anexos de apoio',
     );
     autoTable(doc, {
-      startY: getBackendLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 6,
       head: [['Tipo', 'Referencia', 'Arquivo', 'URL/Chave']],
       body:
         attachmentLines.length > 0
@@ -1068,11 +1091,11 @@ export class DossiersService {
   ) {
     drawBackendSectionTitle(
       doc,
-      getBackendLastTableY(doc) + 8,
+      getBackendLastTableY(doc) + 4,
       'Documentos oficiais governados',
     );
     autoTable(doc, {
-      startY: getBackendLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 6,
       head: [['Modulo', 'Referencia', 'Codigo', 'Arquivo', 'Disponibilidade']],
       body:
         governedDocumentLines.length > 0
@@ -1108,11 +1131,11 @@ export class DossiersService {
   ) {
     drawBackendSectionTitle(
       doc,
-      getBackendLastTableY(doc) + 8,
+      getBackendLastTableY(doc) + 4,
       'Pendencias documentais oficiais',
     );
     autoTable(doc, {
-      startY: getBackendLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 6,
       head: [['Modulo', 'Referencia', 'Status atual', 'Pendencia']],
       body:
         pendingGovernedDocumentLines.length > 0
