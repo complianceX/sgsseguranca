@@ -197,6 +197,16 @@ export class TrainingsService {
       );
     }
     await this.assertUserInCurrentScope(createTrainingDto.user_id, scope);
+    if (
+      createTrainingDto.data_conclusao &&
+      createTrainingDto.data_vencimento &&
+      new Date(createTrainingDto.data_vencimento) <=
+        new Date(createTrainingDto.data_conclusao)
+    ) {
+      throw new BadRequestException(
+        'Data de vencimento não pode ser anterior à data de conclusão.',
+      );
+    }
     const training = this.trainingsRepository.create({
       ...createTrainingDto,
       company_id: tenantId,
@@ -580,6 +590,19 @@ export class TrainingsService {
       await this.assertUserInCurrentScope(
         updateTrainingDto.user_id,
         this.getSiteAccessScopeOrThrow(),
+      );
+    }
+    const conclusao =
+      updateTrainingDto.data_conclusao ?? training.data_conclusao;
+    const vencimento =
+      updateTrainingDto.data_vencimento ?? training.data_vencimento;
+    if (
+      conclusao &&
+      vencimento &&
+      new Date(vencimento) <= new Date(conclusao)
+    ) {
+      throw new BadRequestException(
+        'Data de vencimento não pode ser anterior à data de conclusão.',
       );
     }
     Object.assign(training, updateTrainingDto);
