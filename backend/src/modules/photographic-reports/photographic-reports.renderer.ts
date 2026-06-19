@@ -229,6 +229,7 @@ export function buildPhotographicReportHtml(
     companyName: string;
     generatedAt?: string;
     renderableImages?: PhotographicReportRenderableImage[];
+    logoDataUrl?: string | null;
   },
 ): string {
   const renderableImages = options.renderableImages || [];
@@ -304,7 +305,7 @@ export function buildPhotographicReportHtml(
       }
       .cover {
         min-height: 250mm;
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         border-radius: 18px;
         overflow: hidden;
         background:
@@ -318,6 +319,12 @@ export function buildPhotographicReportHtml(
         text-transform: uppercase;
         color: #5c7185;
         font-weight: 700;
+      }
+      .cover-logo {
+        max-height: 14mm;
+        max-width: 36mm;
+        object-fit: contain;
+        flex-shrink: 0;
       }
       .cover-top {
         display: flex;
@@ -398,7 +405,7 @@ export function buildPhotographicReportHtml(
         padding: 10px 12px;
         border-radius: 12px;
         background: rgba(255,255,255,.78);
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
       }
       .k {
         display: block;
@@ -421,7 +428,7 @@ export function buildPhotographicReportHtml(
         padding: 14mm 14mm 0;
       }
       .section-panel {
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         border-radius: 18px;
         background: #ffffff;
         box-shadow: 0 10px 24px rgba(18, 43, 68, 0.05);
@@ -474,7 +481,7 @@ export function buildPhotographicReportHtml(
         gap: 14px;
       }
       .photo-card {
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         border-radius: 16px;
         overflow: hidden;
         background: #ffffff;
@@ -543,7 +550,7 @@ export function buildPhotographicReportHtml(
         margin-top: 10mm;
         padding: 10px 14px;
         border-radius: 12px;
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         background: #f8fbff;
         color: #5c7185;
         font-size: 10px;
@@ -557,7 +564,7 @@ export function buildPhotographicReportHtml(
         padding: 10px 12px;
         border-radius: 12px;
         background: #f8fbff;
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
       }
       .photo-grid {
         margin-top: 10px;
@@ -568,7 +575,7 @@ export function buildPhotographicReportHtml(
       .detail-block {
         margin-top: 14px;
         padding: 12px 14px;
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         border-radius: 14px;
         background: #f8fbff;
         break-inside: avoid;
@@ -605,7 +612,7 @@ export function buildPhotographicReportHtml(
         margin-top: 10px;
         padding: 12px 14px;
         border-radius: 14px;
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         background: #f7fafc;
       }
       table {
@@ -614,7 +621,7 @@ export function buildPhotographicReportHtml(
         font-size: 11px;
       }
       th, td {
-        border: 1px solid #dbe3ea;
+        border: 1px solid #D3DCE6;
         padding: 8px 10px;
         text-align: left;
         vertical-align: top;
@@ -643,6 +650,7 @@ export function buildPhotographicReportHtml(
     <section class="sheet cover">
       <div class="cover-top">
         <div class="brand">SGS · Sistema de Gestão de Segurança</div>
+        ${options.logoDataUrl ? `<img class="cover-logo" src="${escapeHtml(options.logoDataUrl)}" alt="Logo" />` : ''}
         <div class="cover-tag">Gerado em ${escapeHtml(generatedAtLabel)}</div>
       </div>
 
