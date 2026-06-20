@@ -1490,7 +1490,12 @@ export class PhotographicReportsService {
       );
       const mime = company.logo_content_type ?? 'image/png';
       return `data:${mime};base64,${buf.toString('base64')}`;
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        `Logo da empresa ${companyId} indisponível durante geração de PDF: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       return null;
     }
   }

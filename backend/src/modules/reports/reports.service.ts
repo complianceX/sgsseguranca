@@ -393,22 +393,14 @@ export class ReportsService {
 
     const company = (await this.companiesService.findOne(companyId)) as {
       razao_social: string;
-      logo_storage_key?: string | null;
-      logo_content_type?: string | null;
+      logo_url?: string | null;
     };
 
-    let logoHtml: string | null = null;
-    if (company.logo_storage_key) {
-      try {
-        const logoBuf = await this.documentStorageService.downloadFileBuffer(
-          company.logo_storage_key,
-        );
-        const logoMime = company.logo_content_type ?? 'image/png';
-        logoHtml = `<img src="data:${logoMime};base64,${logoBuf.toString('base64')}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`;
-      } catch {
-        // logo inacessível — relatório gerado sem logo
-      }
-    }
+    // CompanyResponseDto exposes logo_url as a presigned URL (not logo_storage_key).
+    // Puppeteer loads the URL during HTML→PDF render; no buffer download needed here.
+    const logoHtml: string | null = company.logo_url
+      ? `<img src="${company.logo_url}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`
+      : null;
 
     const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin, siteId, siteScope },

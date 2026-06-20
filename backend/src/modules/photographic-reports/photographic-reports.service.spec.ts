@@ -99,7 +99,7 @@ describe('PhotographicReportsService', () => {
       pdfService as never,
       aiAnalysisService as never,
       fileInspectionService as never,
-      {} as never,
+      { findOne: jest.fn().mockResolvedValue(null) } as never,
     );
   });
 
