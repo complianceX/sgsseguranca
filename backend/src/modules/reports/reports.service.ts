@@ -399,7 +399,7 @@ export class ReportsService {
     // CompanyResponseDto exposes logo_url as a presigned URL (not logo_storage_key).
     // Puppeteer loads the URL during HTML→PDF render; no buffer download needed here.
     const logoHtml: string | null = company.logo_url
-      ? `<img src="${company.logo_url}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`
+      ? `<img src="${this.escapeHtml(company.logo_url)}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`
       : null;
 
     const reportData = await this.tenantService.run(

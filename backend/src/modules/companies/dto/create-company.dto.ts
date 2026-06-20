@@ -4,6 +4,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
@@ -41,8 +43,9 @@ export class CreateCompanyDto {
   @Trim()
   email_contato?: string | null;
 
-  @IsString()
   @IsOptional()
+  @IsUrl({}, { message: 'URL do logo inválida' })
+  @MaxLength(2048)
   logo_url?: string;
 
   @IsBoolean()
