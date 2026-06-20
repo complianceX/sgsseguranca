@@ -1,13 +1,13 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { companiesService } from '@/services/companiesService';
 import { useForm } from 'react-hook-form';
 import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
@@ -44,6 +44,10 @@ export function CompanyForm({ id }: CompanyFormProps) {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(!!id);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logoChanged, setLogoChanged] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -77,6 +81,9 @@ export function CompanyForm({ id }: CompanyFormProps) {
           email_contato: data.email_contato || '',
           status: data.status,
         });
+        if (data.logo_url) {
+          setLogoPreview(data.logo_url);
+        }
       } catch (error) {
         console.error('Erro ao carregar empresa:', error);
         toast.error('Erro ao carregar dados da empresa.');
@@ -91,15 +98,51 @@ export function CompanyForm({ id }: CompanyFormProps) {
     }
   }, [id, reset, router]);
 
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      toast.error('Formato não suportado. Use PNG ou JPEG.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo muito grande. O limite é 2 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setLogoPreview(dataUrl);
+      setLogoDataUrl(dataUrl);
+      setLogoChanged(true);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleLogoRemove() {
+    setLogoPreview(null);
+    setLogoDataUrl(null);
+    setLogoChanged(true);
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+  }
+
   async function onSubmit(data: CompanyFormData) {
     try {
       setLoading(true);
       setSubmitError(null);
+      const payload = {
+        ...data,
+        ...(logoChanged ? { logo_url: logoDataUrl } : {}),
+      };
       if (id) {
-        await companiesService.update(id, data);
+        await companiesService.update(id, payload);
         toast.success('Empresa atualizada com sucesso!');
       } else {
-        await companiesService.create(data);
+        await companiesService.create(payload);
         toast.success('Empresa cadastrada com sucesso!');
       }
       router.push('/dashboard/companies');
@@ -139,9 +182,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
       {fetching ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
-          <InlineLoadingState
-            label={id ? 'Carregando empresa' : 'Preparando empresa'}
-          />
+          <InlineLoadingState label={id ? 'Carregando empresa' : 'Preparando empresa'} />
         </div>
       ) : null}
 
@@ -176,11 +217,15 @@ export function CompanyForm({ id }: CompanyFormProps) {
           Estruture a empresa com dados institucionais, contato principal e estado operacional.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise razão social, CNPJ e contato institucional antes de salvar para evitar retrabalho administrativo.
+          Revise razão social, CNPJ e contato institucional antes de salvar para evitar retrabalho
+          administrativo.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+      >
         {submitError && (
           <div
             role="alert"
@@ -196,52 +241,109 @@ export function CompanyForm({ id }: CompanyFormProps) {
               Dados institucionais
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Identifique formalmente a empresa com os dados usados em cadastros, vínculos e governança.
+              Identifique formalmente a empresa com os dados usados em cadastros, vínculos e
+              governança.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="razao_social" className={labelClassName}>
-              Razão Social
-            </label>
-            <input
-              id="razao_social"
-              type="text"
-              {...register('razao_social')}
-              className={`${fieldClassName} ${
-                errors.razao_social ? errorFieldClassName : ''
-              }`}
-              aria-invalid={errors.razao_social ? 'true' : undefined}
-              placeholder="Ex: Empresa de Engenharia LTDA"
-            />
-            {errors.razao_social ? (
-              <p className={errorClassName}>{errors.razao_social.message}</p>
-            ) : (
-              <p className={helperClassName}>Use a razão social oficial para manter consistência legal e contratual.</p>
-            )}
-          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="razao_social" className={labelClassName}>
+                Razão Social
+              </label>
+              <input
+                id="razao_social"
+                type="text"
+                {...register('razao_social')}
+                className={`${fieldClassName} ${errors.razao_social ? errorFieldClassName : ''}`}
+                aria-invalid={errors.razao_social ? 'true' : undefined}
+                placeholder="Ex: Empresa de Engenharia LTDA"
+              />
+              {errors.razao_social ? (
+                <p className={errorClassName}>{errors.razao_social.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Use a razão social oficial para manter consistência legal e contratual.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="cnpj" className={labelClassName}>
-              CNPJ
-            </label>
-            <input
-              id="cnpj"
-              type="text"
-              {...register('cnpj')}
-              className={`${fieldClassName} ${
-                errors.cnpj ? errorFieldClassName : ''
-              }`}
-              aria-invalid={errors.cnpj ? 'true' : undefined}
-              placeholder="00.000.000/0000-00"
-            />
-            {errors.cnpj ? (
-              <p className={errorClassName}>{errors.cnpj.message}</p>
-            ) : (
-              <p className={helperClassName}>Informe um CNPJ válido para evitar inconsistência de tenant e relatórios.</p>
-            )}
+            <div className="space-y-2">
+              <label htmlFor="cnpj" className={labelClassName}>
+                CNPJ
+              </label>
+              <input
+                id="cnpj"
+                type="text"
+                {...register('cnpj')}
+                className={`${fieldClassName} ${errors.cnpj ? errorFieldClassName : ''}`}
+                aria-invalid={errors.cnpj ? 'true' : undefined}
+                placeholder="00.000.000/0000-00"
+              />
+              {errors.cnpj ? (
+                <p className={errorClassName}>{errors.cnpj.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Informe um CNPJ válido para evitar inconsistência de tenant e relatórios.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Identidade visual
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              A logo aparece nos PDFs emitidos pelo sistema (APRs, DDS, relatórios, checklists).
+            </p>
+          </div>
+          <div className="flex items-start gap-5">
+            {logoPreview ? (
+              <div className="relative flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={logoPreview}
+                  alt="Logo da empresa"
+                  className="h-20 w-32 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] object-contain p-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleLogoRemove}
+                  title="Remover logo"
+                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--ds-color-danger)] text-white shadow-sm hover:opacity-90"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-20 w-32 flex-shrink-0 items-center justify-center rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]">
+                <span className="text-xs text-[var(--ds-color-text-muted)]">Sem logo</span>
+              </div>
+            )}
+            <div className="flex-1 space-y-2">
+              <label htmlFor="logo_upload" className={labelClassName}>
+                Logo da empresa
+              </label>
+              <label
+                htmlFor="logo_upload"
+                className="flex cursor-pointer items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+              >
+                <Upload className="h-4 w-4 flex-shrink-0" />
+                {logoPreview ? 'Trocar logo' : 'Selecionar arquivo'}
+              </label>
+              <input
+                id="logo_upload"
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                className="sr-only"
+                onChange={handleLogoFileChange}
+              />
+              <p className={helperClassName}>PNG ou JPEG · Máximo 2 MB</p>
+            </div>
+          </div>
         </section>
 
         <section className={sectionCardClassName}>
@@ -250,91 +352,92 @@ export function CompanyForm({ id }: CompanyFormProps) {
               Contato e operação
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Dados usados para comunicação institucional e ativação operacional da empresa no sistema.
+              Dados usados para comunicação institucional e ativação operacional da empresa no
+              sistema.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="endereco" className={labelClassName}>
-              Endereço
-            </label>
-            <input
-              id="endereco"
-              type="text"
-              {...register('endereco')}
-              className={`${fieldClassName} ${
-                errors.endereco ? errorFieldClassName : ''
-              }`}
-              placeholder="Rua, Número, Bairro, Cidade - UF"
-            />
-            {errors.endereco ? (
-              <p className={errorClassName}>{errors.endereco.message}</p>
-            ) : (
-              <p className={helperClassName}>Endereço base usado como referência administrativa e operacional.</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="responsavel" className={labelClassName}>
-              Responsável
-            </label>
-            <input
-              id="responsavel"
-              type="text"
-              {...register('responsavel')}
-              className={`${fieldClassName} ${
-                errors.responsavel ? errorFieldClassName : ''
-              }`}
-              placeholder="Nome do responsável"
-            />
-            {errors.responsavel ? (
-              <p className={errorClassName}>{errors.responsavel.message}</p>
-            ) : (
-              <p className={helperClassName}>Pessoa de referência institucional para gestão e validações.</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="email_contato" className={labelClassName}>
-              E-mail institucional
-            </label>
-            <input
-              id="email_contato"
-              type="email"
-              {...register('email_contato')}
-              className={`${fieldClassName} ${
-                errors.email_contato ? errorFieldClassName : ''
-              }`}
-              aria-invalid={errors.email_contato ? 'true' : undefined}
-              placeholder="contato@empresa.com.br"
-            />
-            <p className={helperClassName}>
-              Usado como fallback dos alertas automáticos quando a lista de destinatários estiver vazia.
-            </p>
-            {errors.email_contato && (
-              <p className={errorClassName}>{errors.email_contato.message}</p>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <div className="flex items-center space-x-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="endereco" className={labelClassName}>
+                Endereço
+              </label>
               <input
-                id="status"
-                type="checkbox"
-                {...register('status')}
-                className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
+                id="endereco"
+                type="text"
+                {...register('endereco')}
+                className={`${fieldClassName} ${errors.endereco ? errorFieldClassName : ''}`}
+                placeholder="Rua, Número, Bairro, Cidade - UF"
               />
-              <div>
-                <label htmlFor="status" className={labelClassName}>
-                  Empresa ativa
-                </label>
+              {errors.endereco ? (
+                <p className={errorClassName}>{errors.endereco.message}</p>
+              ) : (
                 <p className={helperClassName}>
-                  Desative apenas quando o tenant não puder mais receber novos vínculos operacionais.
+                  Endereço base usado como referência administrativa e operacional.
                 </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="responsavel" className={labelClassName}>
+                Responsável
+              </label>
+              <input
+                id="responsavel"
+                type="text"
+                {...register('responsavel')}
+                className={`${fieldClassName} ${errors.responsavel ? errorFieldClassName : ''}`}
+                placeholder="Nome do responsável"
+              />
+              {errors.responsavel ? (
+                <p className={errorClassName}>{errors.responsavel.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Pessoa de referência institucional para gestão e validações.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="email_contato" className={labelClassName}>
+                E-mail institucional
+              </label>
+              <input
+                id="email_contato"
+                type="email"
+                {...register('email_contato')}
+                className={`${fieldClassName} ${errors.email_contato ? errorFieldClassName : ''}`}
+                aria-invalid={errors.email_contato ? 'true' : undefined}
+                placeholder="contato@empresa.com.br"
+              />
+              <p className={helperClassName}>
+                Usado como fallback dos alertas automáticos quando a lista de destinatários estiver
+                vazia.
+              </p>
+              {errors.email_contato && (
+                <p className={errorClassName}>{errors.email_contato.message}</p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="flex items-center space-x-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3">
+                <input
+                  id="status"
+                  type="checkbox"
+                  {...register('status')}
+                  className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
+                />
+                <div>
+                  <label htmlFor="status" className={labelClassName}>
+                    Empresa ativa
+                  </label>
+                  <p className={helperClassName}>
+                    Desative apenas quando o tenant não puder mais receber novos vínculos
+                    operacionais.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </section>
 
         <div className="flex justify-end space-x-4 border-t pt-6">

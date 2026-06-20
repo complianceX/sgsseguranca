@@ -1,4 +1,4 @@
-import { DeepPartial, IsNull, Repository } from 'typeorm';
+﻿import { DeepPartial, IsNull, Repository } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { PhotographicReportsService } from './photographic-reports.service';
 import {
@@ -99,6 +99,7 @@ describe('PhotographicReportsService', () => {
       pdfService as never,
       aiAnalysisService as never,
       fileInspectionService as never,
+      {} as never,
     );
   });
 

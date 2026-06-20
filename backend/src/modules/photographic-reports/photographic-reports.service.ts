@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   Logger,
@@ -57,6 +57,7 @@ import {
   PhotographicReportStatus,
   PhotographicReportTone,
 } from './entities/photographic-report.entity';
+import { Company } from '../companies/entities/company.entity';
 
 type PhotographicReportWithCounts = PhotographicReport & {
   dayCount?: number;
@@ -92,6 +93,8 @@ export class PhotographicReportsService {
     private readonly pdfService: PdfService,
     private readonly aiAnalysisService: AiAnalysisService,
     private readonly fileInspectionService: FileInspectionService,
+    @InjectRepository(Company)
+    private readonly companyRepository: Repository<Company>,
   ) {}
 
   createUploadOptions(maxFileSize = DEFAULT_IMAGE_MAX_FILE_SIZE) {
@@ -1473,6 +1476,25 @@ export class PhotographicReportsService {
     return this.findOne(persisted.id);
   }
 
+  private async resolveCompanyLogoDataUrl(
+    companyId: string,
+  ): Promise<string | null> {
+    try {
+      const company = await this.companyRepository.findOne({
+        where: { id: companyId },
+        select: ['id', 'logo_storage_key', 'logo_content_type'],
+      });
+      if (!company?.logo_storage_key) return null;
+      const buf = await this.documentStorageService.downloadFileBuffer(
+        company.logo_storage_key,
+      );
+      const mime = company.logo_content_type ?? 'image/png';
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  }
+
   private async buildPdfBuffer(
     report: PhotographicReportResponse,
   ): Promise<Buffer> {
@@ -1488,10 +1510,12 @@ export class PhotographicReportsService {
       });
     }
 
+    const logoDataUrl = await this.resolveCompanyLogoDataUrl(report.company_id);
     const html = buildPhotographicReportHtml(report, {
       companyName: report.client_name,
       generatedAt: new Date().toISOString(),
       renderableImages,
+      logoDataUrl,
     });
 
     return this.pdfService.generateFromHtml(html, {

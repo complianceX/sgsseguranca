@@ -393,7 +393,23 @@ export class ReportsService {
 
     const company = (await this.companiesService.findOne(companyId)) as {
       razao_social: string;
+      logo_storage_key?: string | null;
+      logo_content_type?: string | null;
     };
+
+    let logoHtml: string | null = null;
+    if (company.logo_storage_key) {
+      try {
+        const logoBuf = await this.documentStorageService.downloadFileBuffer(
+          company.logo_storage_key,
+        );
+        const logoMime = company.logo_content_type ?? 'image/png';
+        logoHtml = `<img src="data:${logoMime};base64,${logoBuf.toString('base64')}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`;
+      } catch {
+        // logo inacessível — relatório gerado sem logo
+      }
+    }
+
     const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin, siteId, siteScope },
       async () => this.buildMonthlyReportRecord(companyId, year, month),
@@ -405,6 +421,7 @@ export class ReportsService {
       year,
       estatisticas: reportData.estatisticas,
       analise_gandra: reportData.analise_gandra,
+      logoHtml,
     });
 
     const buffer = await this.pdfService.generateFromHtml(html, {
@@ -748,6 +765,7 @@ export class ReportsService {
     year: number;
     estatisticas: MonthlyReportStats;
     analise_gandra: string;
+    logoHtml?: string | null;
   }): string {
     const { companyName, month, year, estatisticas, analise_gandra } = data;
     const expiredEpis = Number(estatisticas.epis_expired_count ?? 0);
@@ -817,7 +835,11 @@ export class ReportsService {
       'documentTitle',
       'Fechamento mensal de conformidade',
     );
-    html = replaceToken(html, 'logo_block', this.buildMonthlyReportLogoBlock());
+    html = replaceToken(
+      html,
+      'logo_block',
+      this.buildMonthlyReportLogoBlock(data.logoHtml),
+    );
     html = replaceToken(html, 'operational_total', String(operationalTotal));
     html = replaceToken(html, 'operational_tone', operationalTone);
     html = replaceToken(html, 'trainings_count', String(trainingsCount));
