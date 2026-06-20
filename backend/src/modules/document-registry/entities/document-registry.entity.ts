@@ -1,6 +1,7 @@
-import {
+﻿import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -104,4 +105,7 @@ export class DocumentRegistryEntry {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at?: Date | null;
 }
