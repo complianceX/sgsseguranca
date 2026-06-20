@@ -1,9 +1,10 @@
-import {
+﻿import {
   Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
@@ -73,4 +74,7 @@ export class Signature {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at?: Date | null;
 }

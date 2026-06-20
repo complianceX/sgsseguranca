@@ -1,9 +1,13 @@
-/**
+﻿/**
  * Testes de validação focados em isolamento de tenant e integridade de cadastro.
  * Identity classification e role assignment já cobertos em users.service.spec.ts.
  */
 import { DeepPartial, Repository } from 'typeorm';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserSite } from './entities/user-site.entity';
@@ -244,5 +248,67 @@ describe('UsersService.create — CPF encryption', () => {
     expect(typeof created.cpf_hash).toBe('string');
     expect(created.cpf_hash).toHaveLength(64);
     expect(created.cpf_ciphertext).toMatch(/^enc:v1:/);
+  });
+});
+
+describe('UsersService.create — unicidade de email', () => {
+  it('lança ConflictException quando email já está em uso na mesma empresa', async () => {
+    const { service, userRepo } = buildService({});
+    // primeira chamada (CPF hash lookup) -> nenhum conflito
+    // segunda chamada (email lookup) -> conflito
+    (userRepo.findOne as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'existing-user' });
+
+    await expect(
+      service.create({
+        nome: 'Funcionário Duplicado',
+        cpf: '09878058433',
+        email: 'duplicado@empresa.com',
+        funcao: 'Técnico',
+        profile_id: PROFILE_ID,
+        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+      }),
+    ).rejects.toThrow('Email já está em uso nesta empresa.');
+  });
+
+  it('não lança erro quando email está vazio (campo opcional)', async () => {
+    const { service } = buildService({});
+
+    await expect(
+      service.create({
+        nome: 'Funcionário Sem Email',
+        cpf: '09878058433',
+        funcao: 'Operador',
+        profile_id: PROFILE_ID,
+        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+      }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('UsersService.create — mensagem CPF com neste sistema', () => {
+  it('lança ConflictException com "neste sistema" quando CPF já existe', async () => {
+    const { service, userRepo } = buildService({});
+    (userRepo.findOne as jest.Mock).mockResolvedValueOnce({
+      id: 'existing-user',
+    });
+
+    let caught: unknown;
+    try {
+      await service.create({
+        nome: 'Funcionário Duplicado',
+        cpf: '09878058433',
+        funcao: 'Técnico',
+        profile_id: PROFILE_ID,
+        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+      });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(ConflictException);
+    const message = (caught as ConflictException).message;
+    expect(message).toMatch(/neste sistema/i);
   });
 });
