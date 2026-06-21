@@ -1,8 +1,10 @@
-import type { JobsOptions } from 'bullmq';
+﻿import type { JobsOptions } from 'bullmq';
 
+// BullMQ v5 removeu o campo `timeout` como JobsOption. Qualquer valor passado aqui
+// e silenciosamente ignorado. Use withJobTimeout() nos processors para timeouts reais.
 export type ExtendedJobsOptions = JobsOptions & { timeout?: number };
 
-export const defaultJobOptions: ExtendedJobsOptions = {
+export const defaultJobOptions: JobsOptions = {
   attempts: 5,
   backoff: {
     type: 'exponential',
@@ -10,17 +12,18 @@ export const defaultJobOptions: ExtendedJobsOptions = {
   },
   removeOnComplete: 100,
   removeOnFail: 500,
-  timeout: 120000,
 };
 
 export function withDefaultJobOptions(
   overrides?: ExtendedJobsOptions,
-): ExtendedJobsOptions {
+): JobsOptions {
   if (!overrides) return defaultJobOptions;
+  // Desestrutura timeout (ignorado pelo BullMQ v5) antes de repassar ao broker.
+  const { timeout: _ignored, ...safeOverrides } = overrides;
   return {
     ...defaultJobOptions,
-    ...overrides,
-    backoff: overrides.backoff ?? defaultJobOptions.backoff,
+    ...safeOverrides,
+    backoff: safeOverrides.backoff ?? defaultJobOptions.backoff,
   };
 }
 

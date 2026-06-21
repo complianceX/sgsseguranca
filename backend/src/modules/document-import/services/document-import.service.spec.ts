@@ -1,4 +1,4 @@
-import {
+﻿import {
   NotFoundException,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -218,7 +218,6 @@ describe('DocumentImportService', () => {
       requestedByUserId: 'user-1',
     });
     expect(jobOptions.attempts).toEqual(expect.any(Number));
-    expect(jobOptions.timeout).toEqual(expect.any(Number));
     expect(jobOptions.jobId).toBe(`document-import-${DOCUMENT_ID}`);
     expect(repository.update).toHaveBeenCalledWith(
       { id: DOCUMENT_ID, empresaId: COMPANY_ID },

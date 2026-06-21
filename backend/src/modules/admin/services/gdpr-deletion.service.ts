@@ -1,6 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { GdprDeletionRequest } from '../entities/gdpr-deletion-request.entity';
 import {
@@ -30,6 +30,22 @@ type DeleteExpiredDataResult = {
   timestamp: string;
   error?: string;
 };
+
+export type DeleteCompanyDataResult =
+  | {
+      status: 'success';
+      company_id: string;
+      tables_affected: number;
+      total_rows_deleted: number;
+      warning: string;
+      timestamp: string;
+    }
+  | {
+      status: 'failed';
+      company_id: string;
+      failures: Array<{ table: string; error: string }>;
+      timestamp: string;
+    };
 
 @Injectable()
 export class GDPRDeletionService {
@@ -83,8 +99,8 @@ export class GDPRDeletionService {
   }
 
   /**
-   * Anônima todos os dados de um usuário (LGPD Art. 18, VI).
-   * Persiste a requisição em banco para auditoria e sobreviver a restarts.
+   * Anonima todos os dados de um usuario (LGPD Art. 18, VI).
+   * Persiste a requisicao em banco para auditoria e sobreviver a restarts.
    */
   async deleteUserData(userId: string): Promise<GdprDeletionRequest> {
     if (!this.isValidUUID(userId)) {
@@ -154,7 +170,7 @@ export class GDPRDeletionService {
   }
 
   /**
-   * Executa cleanup de dados expirados (TTL automático).
+   * Executa cleanup de dados expirados (TTL automatico).
    */
   async deleteExpiredData(
     options: DeleteExpiredDataOptions = {},
@@ -269,16 +285,10 @@ export class GDPRDeletionService {
   }
 
   /**
-   * Soft-delete de empresa e dados associados.
+   * Soft-delete atomico de empresa e todos os dados associados (LGPD offboarding).
+   * All-or-nothing: qualquer falha de tabela faz rollback completo da transacao.
    */
-  async deleteCompanyData(companyId: string): Promise<{
-    status: string;
-    company_id: string;
-    tables_affected: number;
-    total_rows_deleted: number;
-    warning: string;
-    timestamp: string;
-  }> {
+  async deleteCompanyData(companyId: string): Promise<DeleteCompanyDataResult> {
     if (!this.isValidUUID(companyId)) {
       throw new BadRequestException('Invalid company ID format');
     }
@@ -287,8 +297,7 @@ export class GDPRDeletionService {
       `[GDPR] ENTERPRISE: Soft-delete company ${companyId} initiated`,
     );
 
-    // Descoberta dinâmica: todas as tabelas públicas com colunas company_id E deleted_at.
-    // Garante que novas tabelas adicionadas ao schema sejam automaticamente cobertas.
+    // Descoberta dinamica fora da transacao (read-only, information_schema).
     const discoveredRows = await this.dataSource.query<
       { table_name: string }[]
     >(`
@@ -309,40 +318,54 @@ export class GDPRDeletionService {
 
     let totalRows = 0;
     const now = new Date();
+    let failedTable = '<unknown>';
 
-    for (const table of tables) {
-      try {
-        const result: unknown = await this.dataSource.query(
-          `UPDATE "${table}" SET deleted_at = $1 WHERE company_id = $2 AND deleted_at IS NULL`,
-          [now, companyId],
-        );
-        const affectedRows = this.getAffectedRowCount(result);
-        totalRows += affectedRows;
-        this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
-      } catch (err) {
-        this.logger.error(
-          `  ✗ ${table}: Soft-delete falhou — ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+    try {
+      await this.dataSource.transaction(async (manager: EntityManager) => {
+        for (const table of tables) {
+          failedTable = table;
+          const result: unknown = await manager.query(
+            `UPDATE "${table}" SET deleted_at = $1 WHERE company_id = $2 AND deleted_at IS NULL`,
+            [now, companyId],
+          );
+          const affectedRows = this.getAffectedRowCount(result);
+          totalRows += affectedRows;
+          this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
+        }
+      });
+
+      this.logger.warn(
+        `[GDPR] ENTERPRISE: Company ${companyId} soft-deleted — ${tables.length} tables, ${totalRows} rows affected`,
+      );
+      return {
+        status: 'success',
+        company_id: companyId,
+        tables_affected: tables.length,
+        total_rows_deleted: totalRows,
+        warning:
+          'Company soft-deleted. Hard-delete by retention policy will occur automatically.',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: unknown) {
+      const message = this.getErrorMessage(error);
+      this.logger.error(
+        `[GDPR] ENTERPRISE: Company ${companyId} soft-delete FAILED on table "${failedTable}" — transaction rolled back. ${message}`,
+      );
+      return {
+        status: 'failed',
+        company_id: companyId,
+        failures: [{ table: failedTable, error: message }],
+        timestamp: new Date().toISOString(),
+      };
     }
-
-    return {
-      status: 'success',
-      company_id: companyId,
-      tables_affected: tables.length,
-      total_rows_deleted: totalRows,
-      warning:
-        'Company soft-deleted. Hard-delete by retention policy will occur automatically.',
-      timestamp: new Date().toISOString(),
-    };
   }
 
   /**
-   * Verifica se um usuário é elegível para deleção (LGPD Art. 18, VI).
+   * Verifica se um usuario e elegivel para delecao (LGPD Art. 18, VI).
    *
    * Retorna can_delete: false se:
-   * - Usuário não existe
-   * - Já existe requisição pending/in_progress para este usuário (evita duplicatas)
+   * - Usuario nao existe
+   * - Ja existe requisicao pending/in_progress para este usuario (evita duplicatas)
    */
   async validateUserConsent(userId: string): Promise<{
     can_delete: boolean;

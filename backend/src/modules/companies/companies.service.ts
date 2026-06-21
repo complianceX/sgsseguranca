@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   Inject,
@@ -30,6 +30,7 @@ import { Site } from '../sites/entities/site.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Dds, DdsStatus } from '../dds/entities/dds.entity';
 import { DDS_THEME_LIBRARY } from '../dds/templates/dds-theme-library';
+import { detectMimeFromMagicBytes } from '../../shared/utils/detect-mime.util';
 
 type ParsedDataUrl = {
   contentType: string;
@@ -561,26 +562,26 @@ export class CompaniesService {
       return null;
     }
 
-    const match = value.match(/^data:([^;,]+);base64,(.+)$/i);
+    const match = value.match(/^data:[^;,]+;base64,(.+)$/i);
     if (!match) {
       throw new BadRequestException('Logo inline inválida.');
     }
 
-    const contentType = match[1].toLowerCase();
-    if (!COMPANY_LOGO_ALLOWED_CONTENT_TYPES.has(contentType)) {
-      throw new BadRequestException('Logo deve ser PNG, JPG ou WebP.');
-    }
-
-    const buffer = Buffer.from(match[2], 'base64');
+    const buffer = Buffer.from(match[1], 'base64');
     if (buffer.length === 0 || buffer.length > COMPANY_LOGO_MAX_BYTES) {
       throw new BadRequestException('Logo deve ter no máximo 2MB.');
     }
 
+    const detectedMime = detectMimeFromMagicBytes(buffer.subarray(0, 12));
+    if (!detectedMime || !COMPANY_LOGO_ALLOWED_CONTENT_TYPES.has(detectedMime)) {
+      throw new BadRequestException('Logo deve ser PNG, JPG ou WebP.');
+    }
+
     return {
-      contentType,
+      contentType: detectedMime,
       buffer,
       sha256: createHash('sha256').update(buffer).digest('hex'),
-      extension: this.resolveLogoExtension(contentType),
+      extension: this.resolveLogoExtension(detectedMime),
     };
   }
 

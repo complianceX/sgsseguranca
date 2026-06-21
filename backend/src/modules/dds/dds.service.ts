@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -435,10 +435,11 @@ export class DdsService {
 
     const data = await this.ddsRepository.find({
       where: this.buildTenantScopedIdsWhere(ids, tenantId),
-      relations: ['site', 'facilitador', 'participants'],
+      relations: ['site', 'facilitador'], // participants via batch count para evitar N+1
     });
 
     const ordered = this.orderByIds(ids, data);
+    await this.assignParticipantCounts(ordered, tenantId);
 
     return toOffsetPage(ordered, total, page, limit);
   }

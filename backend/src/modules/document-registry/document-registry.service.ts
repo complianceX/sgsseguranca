@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+﻿import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
@@ -199,6 +199,31 @@ export class DocumentRegistryService {
         ...(includeExpired ? {} : { status: DocumentRegistryStatus.ACTIVE }),
       },
     });
+  }
+
+  async findManyByDocuments(
+    companyId: string,
+    candidates: Array<{ module: string; entityId: string; documentType?: string }>,
+  ): Promise<DocumentRegistryEntry[]> {
+    if (candidates.length === 0) return [];
+
+    const orConditions = candidates
+      .map((_, i) => `(r.module = :mod${i} AND r.entity_id = :eid${i} AND r.document_type = :dtype${i})`)
+      .join(' OR ');
+
+    const params: Record<string, string> = {};
+    candidates.forEach((c, i) => {
+      params[`mod${i}`] = c.module;
+      params[`eid${i}`] = c.entityId;
+      params[`dtype${i}`] = c.documentType ?? 'pdf';
+    });
+
+    return this.registryRepository
+      .createQueryBuilder('r')
+      .where('r.company_id = :companyId', { companyId })
+      .andWhere('r.status = :status', { status: DocumentRegistryStatus.ACTIVE })
+      .andWhere(`(${orConditions})`, params)
+      .getMany();
   }
 
   async findByHash(hash: string): Promise<DocumentRegistryEntry | null> {
