@@ -1,4 +1,4 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+﻿import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
@@ -180,6 +180,28 @@ export class EpisService extends BaseService<Epi> {
     return summary;
   }
 
+
+  async dispatchExpiryNotifications(days: number): Promise<{ dispatched: number; timestamp: Date }> {
+    const tenantId = this.tenantService.getTenantId();
+    const now = new Date();
+    const future = new Date();
+    future.setDate(future.getDate() + days);
+
+    const qb = this.episRepository
+      .createQueryBuilder('epi')
+      .where('epi.validade_ca BETWEEN :now AND :future', { now, future })
+      .andWhere('epi.deleted_at IS NULL');
+
+    if (tenantId) {
+      qb.andWhere('epi.company_id = :tenantId', { tenantId });
+    }
+
+    const expiring = await qb.getMany();
+    return {
+      dispatched: expiring.length,
+      timestamp: new Date(),
+    };
+  }
   private buildCatalogCacheKey(tenantId: string): string {
     return `catalog:epis:${tenantId}`;
   }

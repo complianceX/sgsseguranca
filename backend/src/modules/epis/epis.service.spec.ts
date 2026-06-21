@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+﻿import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EpisService } from './epis.service';
 import { Epi } from './entities/epi.entity';
 
@@ -332,6 +332,61 @@ describe('EpisService', () => {
         }),
       );
       expect(result).toBe(5);
+    });
+  });
+
+  describe('dispatchExpiryNotifications', () => {
+    it('retorna contagem de EPIs com CA vencendo nos proximos dias', async () => {
+      const { service, queryBuilder } = makeService();
+      const expiring = [makeEpi(), makeEpi()];
+      queryBuilder.getMany.mockResolvedValueOnce(expiring);
+
+      const result = await service.dispatchExpiryNotifications(30);
+
+      expect(result.dispatched).toBe(2);
+      expect(result.timestamp).toBeInstanceOf(Date);
+    });
+
+    it('aplica filtro BETWEEN para validade_ca na janela de dias', async () => {
+      const { service, queryBuilder } = makeService();
+      queryBuilder.getMany.mockResolvedValueOnce([]);
+
+      await service.dispatchExpiryNotifications(30);
+
+      expect(queryBuilder.where).toHaveBeenCalledWith(
+        'epi.validade_ca BETWEEN :now AND :future',
+        expect.objectContaining({ now: expect.any(Date), future: expect.any(Date) }),
+      );
+    });
+
+    it('aplica filtro deleted_at IS NULL', async () => {
+      const { service, queryBuilder } = makeService();
+      queryBuilder.getMany.mockResolvedValueOnce([]);
+
+      await service.dispatchExpiryNotifications(30);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('epi.deleted_at IS NULL');
+    });
+
+    it('aplica filtro de tenant quando company_id esta definido', async () => {
+      const { service, queryBuilder } = makeService();
+      queryBuilder.getMany.mockResolvedValueOnce([]);
+
+      await service.dispatchExpiryNotifications(30);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'epi.company_id = :tenantId',
+        { tenantId: TENANT_ID },
+      );
+    });
+
+    it('retorna dispatched=0 quando nao ha EPIs vencendo', async () => {
+      const { service, queryBuilder } = makeService();
+      queryBuilder.getMany.mockResolvedValueOnce([]);
+
+      const result = await service.dispatchExpiryNotifications(7);
+
+      expect(result.dispatched).toBe(0);
     });
   });
 });

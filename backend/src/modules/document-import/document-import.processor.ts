@@ -1,4 +1,4 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+﻿import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { MetricsService } from '../../shared/observability/metrics.service';
@@ -6,6 +6,7 @@ import { captureException } from '../../shared/monitoring/sentry';
 import { getDocumentImportQueueConcurrency } from './document-import-runtime-config';
 import { DocumentImportService } from './services/document-import.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { withJobTimeout } from '../../infra/queue/job-timeout.util';
 
 type DocumentImportQueueJobData = {
   documentId: string;
@@ -54,6 +55,8 @@ const parseDocumentImportJobData = (
   };
 };
 
+const DOCUMENT_IMPORT_TIMEOUT_MS = 120_000;
+
 @Processor('document-import', {
   concurrency: getDocumentImportQueueConcurrency(),
 })
@@ -76,7 +79,7 @@ export class DocumentImportProcessor extends WorkerHost {
 
     if (!jobData) {
       throw new Error(
-        `Payload inválido para job de importação ${job.id ?? 'sem-id'}.`,
+        `Payload invalido para job de importacao ${job.id ?? 'sem-id'}.`,
       );
     }
 
@@ -89,14 +92,21 @@ export class DocumentImportProcessor extends WorkerHost {
     });
 
     try {
-      const result = await this.tenantService.run(
-        {
-          companyId: jobData.companyId,
-          isSuperAdmin: false,
-          siteScope: 'all',
-        },
-        async () =>
-          this.documentImportService.processQueuedDocument(jobData.documentId),
+      const result = await withJobTimeout(
+        () =>
+          this.tenantService.run(
+            {
+              companyId: jobData.companyId,
+              isSuperAdmin: false,
+              siteScope: 'all',
+            },
+            async () =>
+              this.documentImportService.processQueuedDocument(
+                jobData.documentId,
+              ),
+          ),
+        DOCUMENT_IMPORT_TIMEOUT_MS,
+        { jobName: job.name, jobId: job.id, logger: this.logger },
       );
 
       this.metricsService.recordQueueJob(

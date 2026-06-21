@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+﻿import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
 
@@ -98,5 +98,19 @@ describe('JwtStrategy', () => {
       ._verifOpts as { algorithms?: string[] } | undefined;
 
     expect(verifyOptions?.algorithms).toEqual(['HS256']);
+  });
+
+  it('fail-open quando isRevoked retorna false durante outage do Redis', async () => {
+    // TokenRevocationService ja implementa o fail-open internamente.
+    // Aqui validamos que JwtStrategy nao precisa de protecao adicional:
+    // se isRevoked retorna false (comportamento de fail-open), validate prossegue.
+    const { strategy, authPrincipalService } = buildStrategy();
+    // isRevoked retorna false por padrao no mock — simula o comportamento fail-open
+    authPrincipalService.resolveAccessPrincipal.mockResolvedValue({ id: 'user-ok' });
+
+    const result = await strategy.validate({} as never, { sub: 'user-ok', jti: 'jti-redis-down' });
+
+    expect(result).toEqual({ id: 'user-ok' });
+    expect(authPrincipalService.resolveAccessPrincipal).toHaveBeenCalled();
   });
 });

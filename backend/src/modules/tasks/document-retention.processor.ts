@@ -1,14 +1,17 @@
-import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+﻿import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentRetentionService } from '../../shared/storage/document-retention.service';
 import { captureException } from '../../shared/monitoring/sentry';
+import { withJobTimeout } from '../../infra/queue/job-timeout.util';
 
 type DocumentRetentionJobData = {
   tenantId: string;
   triggeredAt: string;
 };
+
+const DOCUMENT_RETENTION_TIMEOUT_MS = 120_000;
 
 @Processor('document-retention', { concurrency: 1 })
 export class DocumentRetentionProcessor extends WorkerHost {
@@ -29,20 +32,25 @@ export class DocumentRetentionProcessor extends WorkerHost {
     const tenantId = String(job.data?.tenantId || '').trim();
     if (!tenantId) {
       throw new Error(
-        `Payload inválido para document-retention ${job.id ?? 'sem-id'}.`,
+        `Payload invalido para document-retention ${job.id ?? 'sem-id'}.`,
       );
     }
 
-    await this.tenantService.run(
-      { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
-      async () => {
-        const result =
-          await this.documentRetentionService.executeTenantExpiry(tenantId);
+    await withJobTimeout(
+      () =>
+        this.tenantService.run(
+          { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
+          async () => {
+            const result =
+              await this.documentRetentionService.executeTenantExpiry(tenantId);
 
-        this.logger.log(
-          `[tenant=${tenantId}] document-retention: expired=${result.expired} failed=${result.failed}`,
-        );
-      },
+            this.logger.log(
+              `[tenant=${tenantId}] document-retention: expired=${result.expired} failed=${result.failed}`,
+            );
+          },
+        ),
+      DOCUMENT_RETENTION_TIMEOUT_MS,
+      { jobName: job.name, jobId: job.id, logger: this.logger },
     );
   }
 
