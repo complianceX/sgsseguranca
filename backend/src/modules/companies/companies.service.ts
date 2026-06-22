@@ -573,7 +573,10 @@ export class CompaniesService {
     }
 
     const detectedMime = detectMimeFromMagicBytes(buffer.subarray(0, 12));
-    if (!detectedMime || !COMPANY_LOGO_ALLOWED_CONTENT_TYPES.has(detectedMime)) {
+    if (
+      !detectedMime ||
+      !COMPANY_LOGO_ALLOWED_CONTENT_TYPES.has(detectedMime)
+    ) {
       throw new BadRequestException('Logo deve ser PNG, JPG ou WebP.');
     }
 

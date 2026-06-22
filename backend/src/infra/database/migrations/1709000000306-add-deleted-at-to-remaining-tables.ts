@@ -1,8 +1,6 @@
 ﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddDeletedAtToRemainingTables1709000000306
-  implements MigrationInterface
-{
+export class AddDeletedAtToRemainingTables1709000000306 implements MigrationInterface {
   name = 'AddDeletedAtToRemainingTables1709000000306';
 
   // CREATE INDEX CONCURRENTLY exige migration fora de transacao.

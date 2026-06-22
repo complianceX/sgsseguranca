@@ -106,9 +106,14 @@ describe('JwtStrategy', () => {
     // se isRevoked retorna false (comportamento de fail-open), validate prossegue.
     const { strategy, authPrincipalService } = buildStrategy();
     // isRevoked retorna false por padrao no mock — simula o comportamento fail-open
-    authPrincipalService.resolveAccessPrincipal.mockResolvedValue({ id: 'user-ok' });
+    authPrincipalService.resolveAccessPrincipal.mockResolvedValue({
+      id: 'user-ok',
+    });
 
-    const result = await strategy.validate({} as never, { sub: 'user-ok', jti: 'jti-redis-down' });
+    const result = await strategy.validate({} as never, {
+      sub: 'user-ok',
+      jti: 'jti-redis-down',
+    });
 
     expect(result).toEqual({ id: 'user-ok' });
     expect(authPrincipalService.resolveAccessPrincipal).toHaveBeenCalled();

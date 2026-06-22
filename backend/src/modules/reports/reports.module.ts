@@ -17,7 +17,16 @@ import { shouldUseRedisQueueInfra } from '../../infra/queue/redis-queue-infra.ut
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Report, Apr, Checklist, Dds, Epi, Pt, Training, Company]),
+    TypeOrmModule.forFeature([
+      Report,
+      Apr,
+      Checklist,
+      Dds,
+      Epi,
+      Pt,
+      Training,
+      Company,
+    ]),
     ...(shouldUseRedisQueueInfra()
       ? [BullModule.registerQueue({ name: 'pdf-generation' })]
       : []),

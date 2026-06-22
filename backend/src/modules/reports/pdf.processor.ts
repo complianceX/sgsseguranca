@@ -210,29 +210,30 @@ export class PdfProcessor extends WorkerHost {
       );
       uploadedToStorage = true;
 
-      ({ registryEntry } = await this.documentGovernanceService.registerFinalDocument({
-        companyId: artifact.report.company_id,
-        module: 'report',
-        entityId: artifact.report.id,
-        title: artifact.title,
-        documentDate: artifact.report.created_at,
-        documentCode: artifact.documentCode,
-        fileKey,
-        folderPath,
-        originalName: artifact.originalName,
-        mimeType: 'application/pdf',
-        fileBuffer: artifact.buffer,
-        createdBy: userId,
-        persistEntityMetadata: async (manager, computedHash) => {
-          await manager.getRepository('reports').update(artifact.report.id, {
-            pdf_file_key: fileKey,
-            pdf_folder_path: folderPath,
-            pdf_original_name: artifact.originalName,
-            pdf_file_hash: computedHash,
-            pdf_generated_at: new Date(),
-          });
-        },
-      }));
+      ({ registryEntry } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: artifact.report.company_id,
+          module: 'report',
+          entityId: artifact.report.id,
+          title: artifact.title,
+          documentDate: artifact.report.created_at,
+          documentCode: artifact.documentCode,
+          fileKey,
+          folderPath,
+          originalName: artifact.originalName,
+          mimeType: 'application/pdf',
+          fileBuffer: artifact.buffer,
+          createdBy: userId,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository('reports').update(artifact.report.id, {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: artifact.originalName,
+              pdf_file_hash: computedHash,
+              pdf_generated_at: new Date(),
+            });
+          },
+        }));
     } catch (error) {
       if (uploadedToStorage) {
         await cleanupUploadedFile(

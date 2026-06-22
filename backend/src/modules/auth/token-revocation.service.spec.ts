@@ -1,17 +1,21 @@
 ﻿import { TokenRevocationService } from './token-revocation.service';
 
 // Fábrica de mocks do cliente Redis para isolar o comportamento do serviço
-function makeRedis(overrides: {
-  get?: jest.Mock;
-  set?: jest.Mock;
-} = {}): { get: jest.Mock; set: jest.Mock } {
+function makeRedis(
+  overrides: {
+    get?: jest.Mock;
+    set?: jest.Mock;
+  } = {},
+): { get: jest.Mock; set: jest.Mock } {
   return {
     get: overrides.get ?? jest.fn().mockResolvedValue(null),
     set: overrides.set ?? jest.fn().mockResolvedValue('OK'),
   };
 }
 
-function makeService(redis: ReturnType<typeof makeRedis>): TokenRevocationService {
+function makeService(
+  redis: ReturnType<typeof makeRedis>,
+): TokenRevocationService {
   return new TokenRevocationService(redis as never);
 }
 
@@ -23,14 +27,20 @@ describe('TokenRevocationService', () => {
     });
 
     it('retorna true quando o Redis confirma revogacao', async () => {
-      const svc = makeService(makeRedis({ get: jest.fn().mockResolvedValue('revoked') }));
+      const svc = makeService(
+        makeRedis({ get: jest.fn().mockResolvedValue('revoked') }),
+      );
       expect(await svc.isRevoked('jti-revoked')).toBe(true);
     });
 
     it('fail-open quando o Redis esta indisponivel — retorna false sem lancar', async () => {
-      const svc = makeService(makeRedis({
-        get: jest.fn().mockRejectedValue(new Error('ECONNREFUSED 127.0.0.1:6379')),
-      }));
+      const svc = makeService(
+        makeRedis({
+          get: jest
+            .fn()
+            .mockRejectedValue(new Error('ECONNREFUSED 127.0.0.1:6379')),
+        }),
+      );
       // Nao deve lancar — fail-open
       await expect(svc.isRevoked('jti-redis-down')).resolves.toBe(false);
     });
@@ -50,21 +60,21 @@ describe('TokenRevocationService', () => {
 
     it('popula o cache local apos hit no Redis para reduzir pressao futura', async () => {
       const getMock = jest.fn().mockResolvedValue('revoked');
-      const svc = makeService(makeRedis({ get: getMock }));
+      const _svc = makeService(makeRedis({ get: getMock }));
 
-      expect(await svc.isRevoked('jti-warm')).toBe(true); // 1a consulta vai ao Redis
+      expect(await _svc.isRevoked('jti-warm')).toBe(true); // 1a consulta vai ao Redis
       expect(getMock).toHaveBeenCalledTimes(1);
 
       // Simular Redis down agora — cache local deve cobrir
       getMock.mockRejectedValue(new Error('ECONNREFUSED'));
-      expect(await svc.isRevoked('jti-warm')).toBe(true); // cache local bloqueia
+      expect(await _svc.isRevoked('jti-warm')).toBe(true); // cache local bloqueia
       // Redis nao e consultado na 2a chamada — cache local respondeu diretamente
       expect(getMock).toHaveBeenCalledTimes(1);
     });
 
     it('nao consulta o Redis quando o cache local ja tem o token', async () => {
       const getMock = jest.fn().mockResolvedValue('revoked');
-      const svc = makeService(makeRedis({ get: getMock }));
+      const _svc = makeService(makeRedis({ get: getMock }));
 
       // Popular cache local via revoke()
       const setMock = jest.fn().mockResolvedValue('OK');
@@ -94,9 +104,11 @@ describe('TokenRevocationService', () => {
     });
 
     it('nao lanca quando o Redis esta indisponivel', async () => {
-      const svc = makeService(makeRedis({
-        set: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
-      }));
+      const svc = makeService(
+        makeRedis({
+          set: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+        }),
+      );
       await expect(svc.revoke('jti-fail', 900)).resolves.not.toThrow();
     });
 
@@ -121,8 +133,11 @@ describe('TokenRevocationService', () => {
       const svc = makeService(redis);
 
       // Invocar revoke sincronamente no cache local via hack de acesso a localBlacklist
-      const lb = (svc as unknown as { localBlacklist: { set(j: string): void; size: number } })
-        .localBlacklist;
+      const lb = (
+        svc as unknown as {
+          localBlacklist: { set(j: string): void; size: number };
+        }
+      ).localBlacklist;
 
       // Preencher ate a borda — nao deve lancar
       for (let i = 0; i < 2001; i++) {

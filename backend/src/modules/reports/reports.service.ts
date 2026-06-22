@@ -652,7 +652,8 @@ export class ReportsService {
   ): Promise<string | null> {
     if (!storageKey) return null;
     try {
-      const buf = await this.documentStorageService.downloadFileBuffer(storageKey);
+      const buf =
+        await this.documentStorageService.downloadFileBuffer(storageKey);
       const mime = contentType ?? 'image/png';
       return `data:${mime};base64,${buf.toString('base64')}`;
     } catch (error) {

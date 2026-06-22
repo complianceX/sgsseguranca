@@ -355,7 +355,10 @@ describe('EpisService', () => {
 
       expect(queryBuilder.where).toHaveBeenCalledWith(
         'epi.validade_ca BETWEEN :now AND :future',
-        expect.objectContaining({ now: expect.any(Date), future: expect.any(Date) }),
+        expect.objectContaining({
+          now: expect.any(Date),
+          future: expect.any(Date),
+        }),
       );
     });
 
@@ -365,7 +368,9 @@ describe('EpisService', () => {
 
       await service.dispatchExpiryNotifications(30);
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith('epi.deleted_at IS NULL');
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'epi.deleted_at IS NULL',
+      );
     });
 
     it('aplica filtro de tenant quando company_id esta definido', async () => {

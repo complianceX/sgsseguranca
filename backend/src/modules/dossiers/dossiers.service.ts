@@ -940,10 +940,14 @@ export class DossiersService {
     });
 
     // Batch-fetch all registry entries in one query instead of one per candidate (N queries -> 1)
-    const registryBatch = await this.documentRegistryService.findManyByDocuments(
-      companyId,
-      uniqueCandidates.map((c) => ({ module: c.modulo, entityId: c.entityId })),
-    );
+    const registryBatch =
+      await this.documentRegistryService.findManyByDocuments(
+        companyId,
+        uniqueCandidates.map((c) => ({
+          module: c.modulo,
+          entityId: c.entityId,
+        })),
+      );
     const registryMap = new Map(
       registryBatch.map((e) => [`${e.module}:${e.entity_id}`, e]),
     );
@@ -952,13 +956,19 @@ export class DossiersService {
     const SIGNED_URL_CONCURRENCY = 10;
     const results: Array<
       | { kind: 'pending'; value: DossierPendingGovernedDocumentLine }
-      | { kind: 'governed'; value: DossierGovernedDocumentLine; artifact: DossierGovernedArtifact }
+      | {
+          kind: 'governed';
+          value: DossierGovernedDocumentLine;
+          artifact: DossierGovernedArtifact;
+        }
     > = [];
     for (let i = 0; i < uniqueCandidates.length; i += SIGNED_URL_CONCURRENCY) {
       const chunk = uniqueCandidates.slice(i, i + SIGNED_URL_CONCURRENCY);
       const chunkResults = await Promise.all(
         chunk.map(async (candidate) => {
-          const registryEntry =            registryMap.get(`${candidate.modulo}:${candidate.entityId}`) ?? null;
+          const registryEntry =
+            registryMap.get(`${candidate.modulo}:${candidate.entityId}`) ??
+            null;
 
           if (!registryEntry?.file_key) {
             return {
@@ -982,7 +992,8 @@ export class DossiersService {
             );
           } catch (error) {
             availability = 'registered_without_signed_url';
-            this.logger.warn(              `Falha ao validar URL segura do documento governado ${candidate.modulo}:${candidate.entityId} para composição do dossiê: ${error instanceof Error ? error.message : String(error)}`,
+            this.logger.warn(
+              `Falha ao validar URL segura do documento governado ${candidate.modulo}:${candidate.entityId} para composição do dossiê: ${error instanceof Error ? error.message : String(error)}`,
             );
           }
 

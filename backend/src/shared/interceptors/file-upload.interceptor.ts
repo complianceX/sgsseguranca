@@ -99,7 +99,6 @@ function resolveTempUploadPath(candidatePath: string): string {
   return resolvePathInsideDirectory(TEMP_UPLOAD_DIR, candidatePath);
 }
 
-
 function isCompatibleDetectedMime(
   detectedMime: string,
   allowedMimes: string[],
