@@ -356,8 +356,8 @@ describe('EpisService', () => {
       expect(queryBuilder.where).toHaveBeenCalledWith(
         'epi.validade_ca BETWEEN :now AND :future',
         expect.objectContaining({
-          now: expect.any(Date),
-          future: expect.any(Date),
+          now: expect.any(Date) as unknown,
+          future: expect.any(Date) as unknown,
         }),
       );
     });
