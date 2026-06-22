@@ -3,7 +3,6 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
-  Scope,
   Logger,
   BadRequestException,
   GoneException,
@@ -214,7 +213,7 @@ const CHECKLIST_SEGMENT_KEYWORDS = {
   ],
 } satisfies Record<ChecklistSegment, string[]>;
 
-@Injectable({ scope: Scope.REQUEST })
+@Injectable()
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
   private static readonly MAX_INLINE_IMAGE_BYTES = 1 * 1024 * 1024;
