@@ -34,12 +34,14 @@ describe('GDPRDeletionService', () => {
   beforeEach(async () => {
     mockDataSource = {
       query: jest.fn<Promise<unknown>, [string, unknown[]?]>(),
-      transaction: jest.fn().mockImplementation(
-        async (cb: (manager: { query: jest.Mock }) => Promise<void>) => {
-          const mockManager = { query: jest.fn().mockResolvedValue([3]) };
-          await cb(mockManager);
-        },
-      ),
+      transaction: jest
+        .fn()
+        .mockImplementation(
+          async (cb: (manager: { query: jest.Mock }) => Promise<void>) => {
+            const mockManager = { query: jest.fn().mockResolvedValue([3]) };
+            await cb(mockManager);
+          },
+        ),
     };
     mockRepo = {
       create: jest.fn((data) => ({ ...data })),

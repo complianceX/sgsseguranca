@@ -44,7 +44,8 @@ export class CreateCompanyDto {
 
   @IsOptional()
   @Matches(/^data:image\/(png|jpeg|webp);base64,/, {
-    message: 'Logo deve ser PNG, JPEG ou WebP em formato data URL (data:image/...;base64,...).',
+    message:
+      'Logo deve ser PNG, JPEG ou WebP em formato data URL (data:image/...;base64,...).',
   })
   logo_url?: string | null;
 

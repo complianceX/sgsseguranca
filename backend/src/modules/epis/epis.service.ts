@@ -180,8 +180,9 @@ export class EpisService extends BaseService<Epi> {
     return summary;
   }
 
-
-  async dispatchExpiryNotifications(days: number): Promise<{ dispatched: number; timestamp: Date }> {
+  async dispatchExpiryNotifications(
+    days: number,
+  ): Promise<{ dispatched: number; timestamp: Date }> {
     const tenantId = this.tenantService.getTenantId();
     const now = new Date();
     const future = new Date();

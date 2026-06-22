@@ -203,12 +203,19 @@ export class DocumentRegistryService {
 
   async findManyByDocuments(
     companyId: string,
-    candidates: Array<{ module: string; entityId: string; documentType?: string }>,
+    candidates: Array<{
+      module: string;
+      entityId: string;
+      documentType?: string;
+    }>,
   ): Promise<DocumentRegistryEntry[]> {
     if (candidates.length === 0) return [];
 
     const orConditions = candidates
-      .map((_, i) => `(r.module = :mod${i} AND r.entity_id = :eid${i} AND r.document_type = :dtype${i})`)
+      .map(
+        (_, i) =>
+          `(r.module = :mod${i} AND r.entity_id = :eid${i} AND r.document_type = :dtype${i})`,
+      )
       .join(' OR ');
 
     const params: Record<string, string> = {};

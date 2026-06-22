@@ -107,9 +107,8 @@ describe('DdsSignatureInviteService', () => {
     create: jest.fn(
       (input: Partial<DdsSignatureInvite>) => input as DdsSignatureInvite,
     ),
-    save: jest.fn(
-      (input: Partial<DdsSignatureInvite>) =>
-        Promise.resolve(input as DdsSignatureInvite),
+    save: jest.fn((input: Partial<DdsSignatureInvite>) =>
+      Promise.resolve(input as DdsSignatureInvite),
     ),
   };
 
@@ -127,9 +126,8 @@ describe('DdsSignatureInviteService', () => {
       ),
     },
     createQueryBuilder: jest.fn(() => mockQueryBuilder),
-    save: jest.fn(
-      (input: Partial<DdsSignatureInvite>) =>
-        Promise.resolve(input as DdsSignatureInvite),
+    save: jest.fn((input: Partial<DdsSignatureInvite>) =>
+      Promise.resolve(input as DdsSignatureInvite),
     ),
     find: jest.fn(() => Promise.resolve([] as DdsSignatureInvite[])),
   };
@@ -149,7 +147,9 @@ describe('DdsSignatureInviteService', () => {
   };
 
   const signaturesService = {
-    findByDocument: jest.fn<Promise<unknown[]>, [string, string]>(() => Promise.resolve([])),
+    findByDocument: jest.fn<Promise<unknown[]>, [string, string]>(() =>
+      Promise.resolve([]),
+    ),
     createWithManager: jest.fn(),
   };
 
@@ -265,11 +265,26 @@ describe('DdsSignatureInviteService', () => {
     it('gera 20 links de assinatura e envia 20 emails em lote (simulacao DDS real)', async () => {
       const TOTAL = 20;
       const cargos = [
-        'Soldador', 'Eletricista', 'Encanador', 'Carpinteiro', 'Pintor',
-        'Armador', 'Operador de Grua', 'Operador de Betoneira', 'Ajudante Geral',
-        'Mestre de Obras', 'Tecnico de Seguranca', 'Engenheiro Civil',
-        'Pedreiro', 'Servente', 'Motorista', 'Topografo', 'Almoxarife',
-        'Auxiliar Administrativo', 'Bombeiro Hidraulico', 'Instalador de Drywall',
+        'Soldador',
+        'Eletricista',
+        'Encanador',
+        'Carpinteiro',
+        'Pintor',
+        'Armador',
+        'Operador de Grua',
+        'Operador de Betoneira',
+        'Ajudante Geral',
+        'Mestre de Obras',
+        'Tecnico de Seguranca',
+        'Engenheiro Civil',
+        'Pedreiro',
+        'Servente',
+        'Motorista',
+        'Topografo',
+        'Almoxarife',
+        'Auxiliar Administrativo',
+        'Bombeiro Hidraulico',
+        'Instalador de Drywall',
       ];
 
       const funcionarios = Array.from({ length: TOTAL }, (_, i) =>
@@ -321,15 +336,23 @@ describe('DdsSignatureInviteService', () => {
 
       // Correspondencia participante <-> convite
       const nomesPorId = new Map(funcionarios.map((f) => [f.id, f.nome]));
-      const cargosPorId = new Map(funcionarios.map((f) => [f.id, f.funcao ?? null]));
+      const cargosPorId = new Map(
+        funcionarios.map((f) => [f.id, f.funcao ?? null]),
+      );
       for (const invite of result.invites) {
-        expect(invite.participantName).toBe(nomesPorId.get(invite.participantUserId));
-        expect(invite.participantRole).toBe(cargosPorId.get(invite.participantUserId));
+        expect(invite.participantName).toBe(
+          nomesPorId.get(invite.participantUserId),
+        );
+        expect(invite.participantRole).toBe(
+          cargosPorId.get(invite.participantUserId),
+        );
       }
 
       // Emails enviados a todos os 20 funcionarios
       expect(mailService.sendMailSimple).toHaveBeenCalledTimes(TOTAL);
-      const emailsEnviados = mailService.sendMailSimple.mock.calls.map(([to]) => to);
+      const emailsEnviados = mailService.sendMailSimple.mock.calls.map(
+        ([to]) => to,
+      );
       const emailsEsperados = funcionarios.map((f) => f.email);
       expect(emailsEnviados.sort()).toEqual(emailsEsperados.sort());
 
@@ -356,10 +379,16 @@ describe('DdsSignatureInviteService', () => {
 
     it('marca como signed participantes que ja possuem assinatura existente', async () => {
       const participanteJaAssinado = makeUser(
-        'user-signed', 'Maria Ja Assinou', 'maria@obra.test', 'Supervisora',
+        'user-signed',
+        'Maria Ja Assinou',
+        'maria@obra.test',
+        'Supervisora',
       );
       const participantePendente = makeUser(
-        'user-pending', 'Jose Vai Assinar', 'jose@obra.test', 'Auxiliar',
+        'user-pending',
+        'Jose Vai Assinar',
+        'jose@obra.test',
+        'Auxiliar',
       );
 
       ddsRepository.findOne.mockResolvedValue({
@@ -389,12 +418,19 @@ describe('DdsSignatureInviteService', () => {
 
       const result = await service.issueInvites(
         TEST_DDS_ID,
-        { participant_user_ids: ['user-signed', 'user-pending'], expires_in_days: 7 },
+        {
+          participant_user_ids: ['user-signed', 'user-pending'],
+          expires_in_days: 7,
+        },
         'creator-1',
       );
 
-      const signedInvite = result.invites.find((i) => i.participantUserId === 'user-signed');
-      const pendingInvite = result.invites.find((i) => i.participantUserId === 'user-pending');
+      const signedInvite = result.invites.find(
+        (i) => i.participantUserId === 'user-signed',
+      );
+      const pendingInvite = result.invites.find(
+        (i) => i.participantUserId === 'user-pending',
+      );
 
       expect(signedInvite?.status).toBe('signed');
       expect(signedInvite?.signedAt).toBeTruthy();
@@ -460,7 +496,10 @@ describe('DdsSignatureInviteService', () => {
 
       await service.getPublicContext(token);
 
-      expect(signaturesService.findByDocument).toHaveBeenCalledWith(TEST_DDS_ID, 'DDS');
+      expect(signaturesService.findByDocument).toHaveBeenCalledWith(
+        TEST_DDS_ID,
+        'DDS',
+      );
     });
 
     it('retorna status signed quando participante ja possui assinatura', async () => {
@@ -498,7 +537,7 @@ describe('DdsSignatureInviteService', () => {
       await service.getPublicContext(token);
 
       expect(inviteRepository.save).toHaveBeenCalledTimes(1);
-      const saved = inviteRepository.save.mock.calls[0]?.[0] as Partial<DdsSignatureInvite>;
+      const saved = inviteRepository.save.mock.calls[0]?.[0];
       expect(saved.last_viewed_at).toBeInstanceOf(Date);
     });
 
@@ -525,7 +564,9 @@ describe('DdsSignatureInviteService', () => {
         { expiresIn: 3600 },
       );
 
-      await expect(service.getPublicContext(badToken)).rejects.toMatchObject({ status: 403 });
+      await expect(service.getPublicContext(badToken)).rejects.toMatchObject({
+        status: 403,
+      });
     });
 
     it('regressao: findByDocument e executado dentro do escopo do tenantService.run', async () => {
@@ -537,22 +578,24 @@ describe('DdsSignatureInviteService', () => {
 
       const callOrder: string[] = [];
 
-      tenantService.run.mockImplementation(<T>(_ctx: unknown, callback: () => T): T => {
-        callOrder.push('run:enter');
-        const result = callback();
-        if (result instanceof Promise) {
-          return result.then((v) => {
-            callOrder.push('run:exit');
-            return v;
-          }) as T;
-        }
-        callOrder.push('run:exit');
-        return result;
-      });
+      tenantService.run.mockImplementation(
+        <T>(_ctx: unknown, callback: () => T): T => {
+          callOrder.push('run:enter');
+          const result = callback();
+          if (result instanceof Promise) {
+            return result.then((v: Awaited<T>) => {
+              callOrder.push('run:exit');
+              return v;
+            }) as T;
+          }
+          callOrder.push('run:exit');
+          return result;
+        },
+      );
 
-      signaturesService.findByDocument.mockImplementation(async () => {
+      signaturesService.findByDocument.mockImplementation(() => {
         callOrder.push('findByDocument');
-        return [];
+        return Promise.resolve([]);
       });
 
       await service.getPublicContext(token);

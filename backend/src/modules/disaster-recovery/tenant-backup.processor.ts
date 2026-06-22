@@ -7,7 +7,9 @@ import type { TenantBackupJobData } from './tenant-backup.types';
 import { withJobTimeout } from '../../infra/queue/job-timeout.util';
 
 // Timeouts por tipo de job: operacoes de backup/restore variam muito em duracao.
-const TENANT_BACKUP_TIMEOUT_MS: Partial<Record<TenantBackupJobData['type'], number>> = {
+const TENANT_BACKUP_TIMEOUT_MS: Partial<
+  Record<TenantBackupJobData['type'], number>
+> = {
   backup_tenant: 5 * 60_000,
   backup_all_active_tenants: 30 * 60_000,
   restore_tenant: 10 * 60_000,
