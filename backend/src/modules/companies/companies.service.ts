@@ -562,6 +562,15 @@ export class CompaniesService {
       return null;
     }
 
+    // Reject strings that are provably too large before running regex on a multi-MB string,
+    // which can throw RangeError in V8 for large inputs.
+    // Max valid base64 for 2 MB ≈ ceil(2MB * 4/3) + header overhead.
+    const MAX_DATA_URL_CHARS =
+      Math.ceil(COMPANY_LOGO_MAX_BYTES * (4 / 3)) + 100;
+    if (value.length > MAX_DATA_URL_CHARS) {
+      throw new BadRequestException('Logo deve ter no máximo 2MB.');
+    }
+
     const match = value.match(/^data:[^;,]+;base64,(.+)$/i);
     if (!match) {
       throw new BadRequestException('Logo inline inválida.');
