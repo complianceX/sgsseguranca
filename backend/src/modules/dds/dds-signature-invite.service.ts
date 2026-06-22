@@ -336,20 +336,36 @@ export class DdsSignatureInviteService implements OnModuleInit {
   }
 
   async getPublicContext(token: string): Promise<PublicDdsSignatureContext> {
-    const resolved = await this.resolveInviteByToken(token, {
-      lock: false,
-      touchLastViewed: true,
-    });
-    const existingSignature = await this.findExistingParticipantSignature(
-      resolved.invite.dds_id,
-      resolved.invite.company_id,
-      resolved.invite.participant_user_id,
-    );
+    const payload = this.verifyInviteTokenPayload(token);
+    const tokenHash = this.hashToken(token);
 
-    return this.toPublicContext(
-      resolved.invite,
-      existingSignature ? 'signed' : 'pending',
-      existingSignature?.signed_at ?? existingSignature?.created_at ?? null,
+    return this.tenantService.run(
+      { companyId: payload.companyId, isSuperAdmin: false, siteScope: 'all' },
+      async () => {
+        const invite = await this.loadInviteForToken({
+          inviteId: payload.jti,
+          companyId: payload.companyId,
+          ddsId: payload.code,
+          tokenHash,
+          lock: false,
+        });
+        this.assertInviteUsable(invite, { allowUsed: true });
+        if (!invite.used_at) {
+          invite.last_viewed_at = new Date();
+          invite.updated_at = new Date();
+          await this.inviteRepository.save(invite);
+        }
+        const existingSignature = await this.findExistingParticipantSignature(
+          invite.dds_id,
+          invite.company_id,
+          invite.participant_user_id,
+        );
+        return this.toPublicContext(
+          invite,
+          existingSignature ? 'signed' : 'pending',
+          existingSignature?.signed_at ?? existingSignature?.created_at ?? null,
+        );
+      },
     );
   }
 
