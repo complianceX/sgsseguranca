@@ -36,7 +36,7 @@ export class EmergencyDbHardeningCriticalRlsAndGdpr1709000000211 implements Migr
         `DROP POLICY IF EXISTS "rls_operational_global_runtime_access" ON "disaster_recovery_executions"`,
       );
       await queryRunner.query(
-        `CREATE POLICY "rls_operational_global_runtime_access" ON "disaster_recovery_executions" FOR ALL USING (true) WITH CHECK (true)`,
+        `CREATE POLICY "rls_operational_global_runtime_access" ON "disaster_recovery_executions" FOR ALL USING (is_super_admin() = true) WITH CHECK (is_super_admin() = true)`,
       );
     }
 
@@ -45,7 +45,7 @@ export class EmergencyDbHardeningCriticalRlsAndGdpr1709000000211 implements Migr
         `DROP POLICY IF EXISTS "rls_operational_global_runtime_access" ON "gdpr_retention_cleanup_runs"`,
       );
       await queryRunner.query(
-        `CREATE POLICY "rls_operational_global_runtime_access" ON "gdpr_retention_cleanup_runs" FOR ALL USING (true) WITH CHECK (true)`,
+        `CREATE POLICY "rls_operational_global_runtime_access" ON "gdpr_retention_cleanup_runs" FOR ALL USING (is_super_admin() = true) WITH CHECK (is_super_admin() = true)`,
       );
     }
   }

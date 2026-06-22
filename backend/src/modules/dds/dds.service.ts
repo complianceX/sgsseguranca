@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -41,6 +41,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import {
   CursorPaginatedResponse,
   decodeCursorToken,
@@ -511,7 +512,7 @@ export class DdsService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
@@ -600,7 +601,7 @@ export class DdsService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')

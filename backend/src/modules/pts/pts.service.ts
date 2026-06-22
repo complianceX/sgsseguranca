@@ -17,6 +17,7 @@ import {
   Repository,
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 import { TenantService } from '../../shared/tenant/tenant.service';
@@ -616,7 +617,7 @@ export class PtsService {
     }
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
-        search: `%${opts.search}%`,
+        search: `%${escapeLikePattern(opts.search)}%`,
       });
     }
     if (opts?.status) {
@@ -681,7 +682,7 @@ export class PtsService {
 
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
-        search: `%${opts.search}%`,
+        search: `%${escapeLikePattern(opts.search)}%`,
       });
     }
 

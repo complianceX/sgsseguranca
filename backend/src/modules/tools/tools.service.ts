@@ -12,6 +12,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 
 @Injectable()
 export class ToolsService extends BaseService<Tool> {
@@ -104,7 +105,7 @@ export class ToolsService extends BaseService<Tool> {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const clause = `(
         LOWER(tool.nome) LIKE :search
         OR LOWER(COALESCE(tool.numero_serie, '')) LIKE :search

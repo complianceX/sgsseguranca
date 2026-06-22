@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Injectable,
   Logger,
@@ -58,6 +58,7 @@ import {
   PhotographicReportTone,
 } from './entities/photographic-report.entity';
 import { Company } from '../companies/entities/company.entity';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 
 type PhotographicReportWithCounts = PhotographicReport & {
   dayCount?: number;
@@ -616,7 +617,7 @@ export class PhotographicReportsService {
 
     const searchTerm = this.normalizeSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       query.andWhere(
         `(
           LOWER(report.client_name) LIKE :search OR
