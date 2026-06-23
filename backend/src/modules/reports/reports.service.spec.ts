@@ -153,6 +153,10 @@ describe('ReportsService monthly report rendering', () => {
       'training.data_conclusao < :nextMonth',
       { nextMonth: '2026-04-01' },
     );
+    // New: soft-delete filter for integrity (from corrections)
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'training.deleted_at IS NULL',
+    );
   });
 
   it('rejects invalid monthly ranges before querying the repository', async () => {
@@ -183,5 +187,88 @@ describe('ReportsService monthly report rendering', () => {
     ).rejects.toThrow('Mês do relatório mensal deve estar entre 1 e 12.');
 
     expect(repository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+  // === NEW TESTS FOR IMPLEMENTED CORRECTIONS ===
+
+  it('sets generated_by when building monthly report record', async () => {
+    const fakeReport = {
+      id: 'r-123',
+      titulo: 'test',
+      mes: 3,
+      ano: 2026,
+      estatisticas: {},
+      company_id: 'c-1',
+      generated_by: null,
+    };
+
+    const reportRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockReturnValue(fakeReport),
+      save: jest.fn().mockResolvedValue({
+        ...fakeReport,
+        generated_by: 'user-42',
+      }),
+    };
+
+    // Inject minimal mocks for private method access
+    (service as any).reportRepository = reportRepo;
+    (service as any).getTenantContextOrThrow = jest.fn().mockReturnValue({
+      siteId: undefined,
+      siteScope: 'all',
+      isSuperAdmin: true,
+    });
+    (service as any).countByMonth = jest.fn().mockResolvedValue(0);
+
+    const result = await (service as any).buildMonthlyReportRecord(
+      'c-1',
+      2026,
+      3,
+      'user-42',
+    );
+
+    expect(reportRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ generated_by: 'user-42' }),
+    );
+    expect(result.generated_by).toBe('user-42');
+  });
+
+  it('throws on companyId mismatch in generateMonthlyReport', async () => {
+    (service as any).getTenantContextOrThrow = jest.fn().mockReturnValue({
+      companyId: 'real-company',
+      siteId: undefined,
+      siteScope: 'all',
+      isSuperAdmin: false,
+    });
+
+    await expect(
+      (service as any).generateMonthlyReport('wrong-company', 2026, 3),
+    ).rejects.toThrow('Company context mismatch for report generation');
+  });
+
+  it('includes deleted_at IS NULL in countByMonth for all entities', async () => {
+    const queryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(5),
+    };
+    const repository = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    };
+
+    await (service as any).countByMonth(
+      repository,
+      'apr',
+      'data_inicio',
+      'company-1',
+      2026,
+      3,
+      undefined,
+    );
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'apr.deleted_at IS NULL',
+    );
   });
 });

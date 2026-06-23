@@ -187,8 +187,18 @@ export class PdfProcessor extends WorkerHost {
       concurrency: PDF_GENERATION_CONCURRENCY,
     });
 
+    // Use original requester's site scope from job (propagated from controller) for correct scoped counts in reports
+    const jobData = data as unknown as Record<string, unknown>;
+    const jobSiteScope = jobData?.siteScope as 'single' | 'all' | undefined;
+    const jobSiteId = jobData?.siteId as string | undefined;
+
     const artifact = await this.tenantService.run(
-      { companyId, isSuperAdmin: false, siteScope: 'all' },
+      {
+        companyId,
+        isSuperAdmin: false,
+        siteScope: jobSiteScope ?? 'all',
+        siteId: jobSiteId,
+      },
       async () => this.reportsService.generateBuffer(reportType, params),
     );
     const previousFileKey = artifact.report.pdf_file_key || null;
