@@ -4,6 +4,7 @@ import { User } from './entities/user.entity';
 import { UserSite } from './entities/user-site.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { PasswordService } from '../../shared/services/password.service';
+import { PwnedPasswordService } from '../auth/services/pwned-password.service';
 import { AuditService } from '../audit-trail/audit.service';
 import { AuditAction } from '../audit-trail/enums/audit-action.enum';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -141,6 +142,9 @@ describe('UsersService.gdprErasure', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -254,6 +258,9 @@ describe('UsersService.exportMyData', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -398,6 +405,9 @@ describe('UsersService.updateModuleAccess', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -516,6 +526,9 @@ describe('UsersService.findPaginated', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -784,6 +797,7 @@ describe('UsersService.create identity classification', () => {
     };
     passwordService = {
       hash: passwordHashMock,
+      validate: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
     auditService = {
       log: jest.fn(),
@@ -799,6 +813,9 @@ describe('UsersService.create identity classification', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -933,6 +950,7 @@ describe('UsersService.create role assignment hardening', () => {
 
     passwordService = {
       hash: jest.fn().mockResolvedValue('hashed-password'),
+      validate: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
 
     auditService = {
@@ -965,6 +983,9 @@ describe('UsersService.create role assignment hardening', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -1077,6 +1098,7 @@ describe('UsersService.update site binding', () => {
     };
     passwordService = {
       hash: jest.fn(),
+      validate: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
     auditService = {
       log: jest.fn(),
@@ -1091,6 +1113,9 @@ describe('UsersService.update site binding', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
@@ -1242,6 +1267,9 @@ describe('UsersService.findAuthSessionUser', () => {
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
       auditService as AuditService,
       rbacService as RbacService,
       {
