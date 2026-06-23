@@ -177,7 +177,7 @@ export class ClassifyWritableRuntimeRls1709000000187 implements MigrationInterfa
     await this.enablePolicies(queryRunner, tableName, [
       {
         name: 'rls_operational_global_runtime_access',
-        sql: `CREATE POLICY "rls_operational_global_runtime_access" ON ${table} FOR ALL USING (true) WITH CHECK (true)`,
+        sql: `CREATE POLICY "rls_operational_global_runtime_access" ON ${table} FOR ALL USING (is_super_admin() = true) WITH CHECK (is_super_admin() = true)`,
       },
     ]);
   }

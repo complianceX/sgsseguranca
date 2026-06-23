@@ -1,9 +1,10 @@
-import {
+﻿import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
@@ -41,9 +42,12 @@ export class CreateCompanyDto {
   @Trim()
   email_contato?: string | null;
 
-  @IsString()
   @IsOptional()
-  logo_url?: string;
+  @Matches(/^data:image\/(png|jpeg|webp);base64,/, {
+    message:
+      'Logo deve ser PNG, JPEG ou WebP em formato data URL (data:image/...;base64,...).',
+  })
+  logo_url?: string | null;
 
   @IsBoolean()
   @IsOptional()

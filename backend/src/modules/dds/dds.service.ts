@@ -41,6 +41,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import {
   CursorPaginatedResponse,
   decodeCursorToken,
@@ -435,10 +436,11 @@ export class DdsService {
 
     const data = await this.ddsRepository.find({
       where: this.buildTenantScopedIdsWhere(ids, tenantId),
-      relations: ['site', 'facilitador', 'participants'],
+      relations: ['site', 'facilitador'], // participants via batch count para evitar N+1
     });
 
     const ordered = this.orderByIds(ids, data);
+    await this.assignParticipantCounts(ordered, tenantId);
 
     return toOffsetPage(ordered, total, page, limit);
   }
@@ -510,7 +512,7 @@ export class DdsService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
@@ -599,7 +601,7 @@ export class DdsService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       idsQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')

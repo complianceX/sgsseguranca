@@ -3,7 +3,7 @@ import type { UserResponseDto } from '../../users/dto/user-response.dto';
 export interface AuthSessionUserDto {
   id: string;
   nome: string;
-  cpf: string | null;
+  cpf?: string | null;
   funcao: string | null;
   company_id: string;
   site_id?: string | null;

@@ -548,7 +548,17 @@ export class UsersService {
       select: { id: true },
     });
     if (existingUser) {
-      throw new ConflictException('CPF já cadastrado');
+      throw new ConflictException('CPF já cadastrado neste sistema.');
+    }
+
+    if (typeof rest.email === 'string' && rest.email) {
+      const emailConflict = await this.usersRepository.findOne({
+        where: { email: rest.email, company_id: companyId },
+        select: { id: true },
+      });
+      if (emailConflict) {
+        throw new ConflictException('Email já está em uso nesta empresa.');
+      }
     }
 
     let hashedPassword = '';
@@ -982,7 +992,17 @@ export class UsersService {
         select: { id: true },
       });
       if (existingCpfOwner && existingCpfOwner.id !== user.id) {
-        throw new ConflictException('CPF já cadastrado');
+        throw new ConflictException('CPF já cadastrado neste sistema.');
+      }
+    }
+
+    if (typeof rest.email === 'string' && rest.email) {
+      const emailConflict = await this.usersRepository.findOne({
+        where: { email: rest.email, company_id: user.company_id },
+        select: { id: true },
+      });
+      if (emailConflict && emailConflict.id !== id) {
+        throw new ConflictException('Email já está em uso nesta empresa.');
       }
     }
 
@@ -1053,6 +1073,8 @@ export class UsersService {
     if (password && typeof password === 'string') {
       user.password = await this.passwordService.hash(password);
     }
+    // site_ids só é sincronizado se o payload incluir 'site_ids' ou 'site_id' explicitamente.
+    // PATCH parcial sem esses campos mantém os sites anteriores do usuário inalterados.
     const shouldSyncSites =
       Array.isArray(requestedSiteIdsRaw) || 'site_id' in rest;
     const requestedSiteIds = shouldSyncSites

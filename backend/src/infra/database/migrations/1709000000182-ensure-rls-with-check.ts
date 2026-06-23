@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 type InformationSchemaTableRow = {
   table_name: string;
@@ -52,11 +52,11 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
         WITH CHECK (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
       `);
@@ -87,7 +87,7 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
       `);

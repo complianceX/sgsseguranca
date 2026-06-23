@@ -721,10 +721,12 @@ export class RbacService {
       return cached;
     }
 
-    const normalizedAccess = await this.getAccessFromNormalizedRoles(userId);
+    const [normalizedAccess, modulePermissions] = await Promise.all([
+      this.getAccessFromNormalizedRoles(userId),
+      this.getModuleAccessPermissionsFromUser(userId),
+    ]);
+
     if (normalizedAccess) {
-      const modulePermissions =
-        await this.getModuleAccessPermissionsFromUser(userId);
       const access = this.normalizeAccessBundle({
         roles: normalizedAccess.roles,
         permissions: [
@@ -738,8 +740,6 @@ export class RbacService {
 
     const access = await this.getFallbackAccessFromProfile(userId);
     if (access.roles.length > 0 || access.permissions.length > 0) {
-      const modulePermissions =
-        await this.getModuleAccessPermissionsFromUser(userId);
       const mergedAccess = this.normalizeAccessBundle({
         roles: access.roles,
         permissions: [
@@ -755,8 +755,6 @@ export class RbacService {
     // Nunca deve ter prioridade sobre RBAC/Profiles persistidos no banco.
     const hintedAccess = this.getAccessFromProfileName(options?.profileName);
     if (hintedAccess) {
-      const modulePermissions =
-        await this.getModuleAccessPermissionsFromUser(userId);
       const mergedHintedAccess = this.normalizeAccessBundle({
         roles: hintedAccess.roles,
         permissions: [
@@ -770,8 +768,6 @@ export class RbacService {
       return mergedHintedAccess;
     }
 
-    const modulePermissions =
-      await this.getModuleAccessPermissionsFromUser(userId);
     const mergedEmptyAccess = this.normalizeAccessBundle({
       roles: access.roles,
       permissions: [

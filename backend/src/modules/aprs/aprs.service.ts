@@ -75,6 +75,7 @@ import {
 } from './services/apr-rules-engine.service';
 import { AprFeatureFlagService } from './services/apr-feature-flag.service';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 
 const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
 const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 30;
@@ -1484,7 +1485,7 @@ export class AprsService {
           OR elaborador.nome ILIKE :search
           OR auditado_por.nome ILIKE :search
           OR aprovado_por.nome ILIKE :search)`,
-        { search: `%${searchTerm}%` },
+        { search: `%${escapeLikePattern(searchTerm)}%` },
       );
     }
 

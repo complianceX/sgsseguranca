@@ -9,8 +9,8 @@ describe('AppModule production environment validation', () => {
     DATABASE_SSL: true,
     DATABASE_POOLER_ALLOW_SESSION_RLS: true,
     REDIS_DISABLED: 'true',
-    JWT_SECRET: 'a'.repeat(32),
-    JWT_REFRESH_SECRET: 'b'.repeat(32),
+    JWT_SECRET: 'a'.repeat(64),
+    JWT_REFRESH_SECRET: 'b'.repeat(64),
     MFA_TOTP_ENCRYPTION_KEY: 'c'.repeat(32),
     AWS_BUCKET_NAME: 'sgs-01',
     AWS_ENDPOINT:
@@ -22,6 +22,10 @@ describe('AppModule production environment validation', () => {
     DR_STORAGE_REPLICA_ENDPOINT:
       'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com',
     DR_STORAGE_REPLICA_FORCE_PATH_STYLE: true,
+    // Campos de segurança obrigatórios em produção
+    CSRF_TOKEN_SECRET: 'a'.repeat(32),
+    BULL_BOARD_PASS: 'admin-secure-pass',
+    ANTIVIRUS_PROVIDER: 'clamav',
   };
 
   const originalEnv = process.env;

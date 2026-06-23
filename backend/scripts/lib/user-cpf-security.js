@@ -5,7 +5,6 @@ const {
 } = require('crypto');
 
 const ENCRYPTION_PREFIX = 'enc:v1:';
-const FALLBACK_HASH_KEY = 'sgs-dev-field-hash-key';
 const FIELD_ENCRYPTION_IV_LENGTH_BYTES = 12;
 const FIELD_ENCRYPTION_AUTH_TAG_LENGTH_BYTES = 16;
 
@@ -92,7 +91,7 @@ function resolveHashKey() {
     );
   }
 
-  return FALLBACK_HASH_KEY;
+  return 'sgs-dev-only-no-encryption';
 }
 
 function normalizeCpf(value) {

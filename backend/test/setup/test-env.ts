@@ -70,11 +70,14 @@ export function bootstrapBackendTestEnvironment() {
     applyForced('LOCAL_DOCUMENT_STORAGE_DIR', '');
   }
 
-  // JWT — valores de teste, min 32 chars para passar validação Joi
-  applyForced('JWT_SECRET', 'test-jwt-secret-for-e2e-testing-only-0123456789');
+  // JWT — valores de teste, min 64 chars (schema Joi exige 64 em todos os ambientes)
+  applyForced(
+    'JWT_SECRET',
+    'test-jwt-secret-for-e2e-testing-only-0123456789-padded-to-64-chars',
+  );
   applyForced(
     'JWT_REFRESH_SECRET',
-    'test-refresh-secret-for-e2e-testing-only-0123456789',
+    'test-refresh-secret-for-e2e-testing-only-0123456789-padded-64chars',
   );
 
   // bcrypt: 4 rounds = rápido em testes

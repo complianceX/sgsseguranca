@@ -14,8 +14,8 @@ applyDefault('TZ', 'UTC');
 applyDefault('LOG_LEVEL', 'error');
 applyDefault('OTEL_ENABLED', 'false');
 applyDefault('NEW_RELIC_ENABLED', 'false');
-applyDefault('JWT_SECRET', 'test-jwt-secret');
-applyDefault('JWT_REFRESH_SECRET', 'test-refresh-secret');
+applyDefault('JWT_SECRET', 'test-jwt-secret-unit-tests-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+applyDefault('JWT_REFRESH_SECRET', 'test-refresh-secret-unit-tests-only-bbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 applyDefault('BCRYPT_SALT_ROUNDS', '4');
 
 const isE2EConfig = args.some((arg) => /jest-e2e/i.test(arg));

@@ -1,6 +1,8 @@
 import api from '@/lib/api';
 import { authService } from '@/services/authService';
 
+const mockRefreshCsrfToken = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('@/lib/api', () => ({
   __esModule: true,
   default: {
@@ -10,6 +12,7 @@ jest.mock('@/lib/api', () => ({
     put: jest.fn(),
     delete: jest.fn(),
   },
+  refreshCsrfToken: (...args: unknown[]) => mockRefreshCsrfToken(...args),
 }));
 
 describe('authService', () => {
@@ -232,17 +235,10 @@ describe('authService', () => {
   });
 
   describe('getCsrfToken', () => {
-    it('chama endpoint de CSRF com parâmetro de timestamp', async () => {
-      (api.get as jest.Mock).mockResolvedValue({ data: null });
-      const beforeCall = Date.now();
-
+    it('delega para refreshCsrfToken do api module', async () => {
       await authService.getCsrfToken();
 
-      expect(api.get).toHaveBeenCalledWith('/auth/csrf', {
-        params: { ts: expect.any(Number) },
-      });
-      const calledTs = (api.get as jest.Mock).mock.calls[0][1].params.ts;
-      expect(calledTs).toBeGreaterThanOrEqual(beforeCall);
+      expect(mockRefreshCsrfToken).toHaveBeenCalledTimes(1);
     });
   });
 });

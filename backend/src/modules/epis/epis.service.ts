@@ -12,6 +12,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 
 @Injectable()
 export class EpisService extends BaseService<Epi> {
@@ -104,7 +105,7 @@ export class EpisService extends BaseService<Epi> {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition = `(
         LOWER(epi.nome) LIKE :search
         OR LOWER(COALESCE(epi.ca, '')) LIKE :search
@@ -180,6 +181,29 @@ export class EpisService extends BaseService<Epi> {
     return summary;
   }
 
+  async dispatchExpiryNotifications(
+    days: number,
+  ): Promise<{ dispatched: number; timestamp: Date }> {
+    const tenantId = this.tenantService.getTenantId();
+    const now = new Date();
+    const future = new Date();
+    future.setDate(future.getDate() + days);
+
+    const qb = this.episRepository
+      .createQueryBuilder('epi')
+      .where('epi.validade_ca BETWEEN :now AND :future', { now, future })
+      .andWhere('epi.deleted_at IS NULL');
+
+    if (tenantId) {
+      qb.andWhere('epi.company_id = :tenantId', { tenantId });
+    }
+
+    const expiring = await qb.getMany();
+    return {
+      dispatched: expiring.length,
+      timestamp: new Date(),
+    };
+  }
   private buildCatalogCacheKey(tenantId: string): string {
     return `catalog:epis:${tenantId}`;
   }

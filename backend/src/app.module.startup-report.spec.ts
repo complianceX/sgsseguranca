@@ -18,8 +18,8 @@ describe('AppModule startup report', () => {
       ...originalEnv,
       NODE_ENV: 'development',
       DATABASE_URL: fakeDatabaseUrl,
-      JWT_SECRET: 'a'.repeat(32),
-      JWT_REFRESH_SECRET: 'b'.repeat(32),
+      JWT_SECRET: 'a'.repeat(64),
+      JWT_REFRESH_SECRET: 'b'.repeat(64),
       REDIS_DISABLED: 'true',
     };
   });

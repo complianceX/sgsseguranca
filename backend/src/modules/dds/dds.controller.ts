@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -321,10 +321,8 @@ export class DdsController {
     @Query('limit') limit?: string,
     @Query('exclude_id') excludeId?: string,
   ) {
-    return this.ddsService.getHistoricalPhotoHashes(
-      limit ? Number(limit) : 100,
-      excludeId,
-    );
+    const clampedLimit = Math.min(Math.max(Number(limit) || 100, 1), 100);
+    return this.ddsService.getHistoricalPhotoHashes(clampedLimit, excludeId);
   }
 
   @Get('files/list')
@@ -662,6 +660,17 @@ export class DdsController {
       dto,
       this.getAuthenticatedUserIdOrThrow(req),
     );
+  }
+
+  @Delete(':id/signature-invites/:inviteId')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @ForensicAuditAction('delete', 'dds_signature_invite')
+  revokeSignatureInvite(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('inviteId', new ParseUUIDPipe()) inviteId: string,
+  ) {
+    return this.ddsSignatureInviteService.revokeInviteById(id, inviteId);
   }
 
   /** Anexa PDF a um DDS existente */

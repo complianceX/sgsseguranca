@@ -1,4 +1,4 @@
-import {
+﻿import {
   CallHandler,
   ExecutionContext,
   INestApplication,
@@ -351,6 +351,70 @@ describe('DdsController (http)', () => {
       companyId: 'spoofed',
       year: 2026,
       week: 12,
+    });
+  });
+
+  describe('clamp de limit em historical-photo-hashes (achado B1)', () => {
+    beforeEach(() => {
+      ddsService.getHistoricalPhotoHashes.mockResolvedValue([]);
+    });
+
+    it('clampeia limit acima de 100 para 100', async () => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+      await request(httpServer)
+        .get('/dds/historical-photo-hashes?limit=999999')
+        .expect(200);
+
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        undefined,
+      );
+    });
+
+    it('clampeia limit negativo para 1', async () => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+      await request(httpServer)
+        .get('/dds/historical-photo-hashes?limit=-50')
+        .expect(200);
+
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        1,
+        undefined,
+      );
+    });
+
+    it('usa 100 como padrão quando limit não é fornecido', async () => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+      await request(httpServer).get('/dds/historical-photo-hashes').expect(200);
+
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        undefined,
+      );
+    });
+
+    it('preserva limit válido dentro do intervalo', async () => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+      await request(httpServer)
+        .get('/dds/historical-photo-hashes?limit=50')
+        .expect(200);
+
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        50,
+        undefined,
+      );
+    });
+
+    it('encaminha exclude_id corretamente com clamp', async () => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+      await request(httpServer)
+        .get('/dds/historical-photo-hashes?limit=200&exclude_id=some-id')
+        .expect(200);
+
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        'some-id',
+      );
     });
   });
 });

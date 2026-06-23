@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+﻿import { Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -130,6 +130,7 @@ export class CreateAprDto {
    * normaliza internamente via buildAprRiskItemSnapshots.
    */
   @IsArray()
+  @ArrayMaxSize(200, { message: 'Máximo 200 itens de risco por requisição.' })
   @IsOptional()
   itens_risco?: Array<Record<string, unknown>>;
 
