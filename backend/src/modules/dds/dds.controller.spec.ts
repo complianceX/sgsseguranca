@@ -365,7 +365,10 @@ describe('DdsController (http)', () => {
         .get('/dds/historical-photo-hashes?limit=999999')
         .expect(200);
 
-      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(100, undefined);
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        undefined,
+      );
     });
 
     it('clampeia limit negativo para 1', async () => {
@@ -374,16 +377,20 @@ describe('DdsController (http)', () => {
         .get('/dds/historical-photo-hashes?limit=-50')
         .expect(200);
 
-      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(1, undefined);
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        1,
+        undefined,
+      );
     });
 
     it('usa 100 como padrão quando limit não é fornecido', async () => {
       const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-      await request(httpServer)
-        .get('/dds/historical-photo-hashes')
-        .expect(200);
+      await request(httpServer).get('/dds/historical-photo-hashes').expect(200);
 
-      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(100, undefined);
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        undefined,
+      );
     });
 
     it('preserva limit válido dentro do intervalo', async () => {
@@ -392,7 +399,10 @@ describe('DdsController (http)', () => {
         .get('/dds/historical-photo-hashes?limit=50')
         .expect(200);
 
-      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(50, undefined);
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        50,
+        undefined,
+      );
     });
 
     it('encaminha exclude_id corretamente com clamp', async () => {
@@ -401,7 +411,10 @@ describe('DdsController (http)', () => {
         .get('/dds/historical-photo-hashes?limit=200&exclude_id=some-id')
         .expect(200);
 
-      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(100, 'some-id');
+      expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+        100,
+        'some-id',
+      );
     });
   });
 });

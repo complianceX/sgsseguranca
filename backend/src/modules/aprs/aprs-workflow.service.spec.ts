@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await */
 import {
   BadRequestException,
   InternalServerErrorException,
@@ -1285,6 +1285,7 @@ describe('AprWorkflowService', () => {
       );
 
       for (const call of updateMock.mock.calls) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const criteria = call[0];
         expect(typeof criteria).not.toBe('string');
         expect(criteria).toHaveProperty('company_id');

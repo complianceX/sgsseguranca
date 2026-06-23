@@ -1,12 +1,10 @@
-﻿import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const isSqlite = (qr: QueryRunner) =>
   qr.connection.options.type === 'sqlite' ||
   qr.connection.options.type === 'better-sqlite3';
 
-export class EpiAssignmentsGdprErasure1709000000314
-  implements MigrationInterface
-{
+export class EpiAssignmentsGdprErasure1709000000314 implements MigrationInterface {
   name = 'EpiAssignmentsGdprErasure1709000000314';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -171,7 +169,7 @@ export class EpiAssignmentsGdprErasure1709000000314
     `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(_queryRunner: QueryRunner): Promise<void> {
     // Não há rollback seguro da função GDPR — a versão anterior foi substituída via CREATE OR REPLACE.
     // Para reverter, re-execute a migration 312 (pts_gdpr_erasure_and_temporal_check).
   }

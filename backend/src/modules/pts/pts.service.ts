@@ -737,7 +737,11 @@ export class PtsService {
     const { executantes, status, ...rest } = updatePtDto;
     const effectiveInicio = rest.data_hora_inicio ?? pt.data_hora_inicio;
     const effectiveFim = rest.data_hora_fim ?? pt.data_hora_fim;
-    if (effectiveFim && effectiveInicio && new Date(effectiveFim) <= new Date(effectiveInicio)) {
+    if (
+      effectiveFim &&
+      effectiveInicio &&
+      new Date(effectiveFim) <= new Date(effectiveInicio)
+    ) {
       throw new BadRequestException(
         'A data/hora de término deve ser posterior à data/hora de início.',
       );

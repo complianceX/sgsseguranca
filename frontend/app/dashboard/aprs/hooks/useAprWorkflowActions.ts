@@ -472,9 +472,14 @@ export function useAprWorkflowActions({
       toast.error("Informe o hash SHA-256 para validar.");
       return;
     }
-    toast.error("Verificação de hash não disponível nesta versão.");
-    setVerificationResult({ verified: false, matchedIn: undefined, message: "Funcionalidade não disponível." });
-  }, [hashToVerify, setVerificationResult]);
+    setVerifyingHash(true);
+    try {
+      toast.error("Verificação de hash não disponível nesta versão.");
+      setVerificationResult({ verified: false, matchedIn: undefined, message: "Funcionalidade não disponível." });
+    } finally {
+      setVerifyingHash(false);
+    }
+  }, [hashToVerify, setVerificationResult, setVerifyingHash]);
 
   return {
     handleSuggestControls,

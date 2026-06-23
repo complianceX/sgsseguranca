@@ -1,6 +1,5 @@
-﻿import api, { TIMEOUT_PDF } from "@/lib/api";
+import api, { TIMEOUT_PDF } from "@/lib/api";
 import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
-import { AxiosResponse } from "axios";
 import { AxiosError } from "axios";
 import { Activity } from "./activitiesService";
 import { Risk } from "./risksService";

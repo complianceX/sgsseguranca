@@ -25,22 +25,30 @@ describe('ReplaceDdsSignaturesDto — limites de array (achado M1)', () => {
     it('aceita exatamente 60 assinaturas', async () => {
       const dto = plainToInstance(ReplaceDdsSignaturesDto, {
         participant_signatures: Array.from({ length: 60 }, (_, i) =>
-          makeSignature(`${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`),
+          makeSignature(
+            `${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`,
+          ),
         ),
       });
       const errors = await validate(dto);
-      const sigErrors = errors.filter((e) => e.property === 'participant_signatures');
+      const sigErrors = errors.filter(
+        (e) => e.property === 'participant_signatures',
+      );
       expect(sigErrors).toHaveLength(0);
     });
 
     it('rejeita 61 assinaturas com mensagem clara', async () => {
       const dto = plainToInstance(ReplaceDdsSignaturesDto, {
         participant_signatures: Array.from({ length: 61 }, (_, i) =>
-          makeSignature(`${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`),
+          makeSignature(
+            `${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`,
+          ),
         ),
       });
       const errors = await validate(dto);
-      const sigErrors = errors.filter((e) => e.property === 'participant_signatures');
+      const sigErrors = errors.filter(
+        (e) => e.property === 'participant_signatures',
+      );
       expect(sigErrors.length).toBeGreaterThan(0);
       const constraints = sigErrors[0]?.constraints ?? {};
       const messages = Object.values(constraints).join(' ');
@@ -50,11 +58,15 @@ describe('ReplaceDdsSignaturesDto — limites de array (achado M1)', () => {
     it('rejeita 100 assinaturas (potencial DoS)', async () => {
       const dto = plainToInstance(ReplaceDdsSignaturesDto, {
         participant_signatures: Array.from({ length: 100 }, (_, i) =>
-          makeSignature(`${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`),
+          makeSignature(
+            `${String(i + 1).padStart(8, '1')}-1111-4111-8111-111111111111`,
+          ),
         ),
       });
       const errors = await validate(dto);
-      const sigErrors = errors.filter((e) => e.property === 'participant_signatures');
+      const sigErrors = errors.filter(
+        (e) => e.property === 'participant_signatures',
+      );
       expect(sigErrors.length).toBeGreaterThan(0);
     });
   });

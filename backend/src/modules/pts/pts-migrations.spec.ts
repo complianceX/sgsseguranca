@@ -1,10 +1,7 @@
 ﻿import * as fs from 'fs';
 import * as path from 'path';
 
-const MIGRATIONS_DIR = path.join(
-  __dirname,
-  '../../infra/database/migrations',
-);
+const MIGRATIONS_DIR = path.join(__dirname, '../../infra/database/migrations');
 
 describe('Migration 1709000000312 — pts CHECK temporal + LGPD erasure', () => {
   let content: string;
@@ -94,7 +91,8 @@ describe('Migration 1709000000313 — pts índice único (company_id, numero)', 
 
   it('nome do índice é consistente entre up() e down()', () => {
     const indexName = 'UQ_pts_company_numero';
-    const occurrences = (content.match(new RegExp(indexName, 'g')) ?? []).length;
+    const occurrences = (content.match(new RegExp(indexName, 'g')) ?? [])
+      .length;
     expect(occurrences).toBeGreaterThanOrEqual(2);
   });
 });

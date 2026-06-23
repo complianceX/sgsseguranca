@@ -19,10 +19,7 @@ import { UpdateEpiAssignmentDto } from './dto/update-epi-assignment.dto';
 import { ReturnEpiAssignmentDto } from './dto/return-epi-assignment.dto';
 import type { TenantContext } from '../../shared/tenant/tenant.service';
 
-const MIGRATIONS_DIR = path.join(
-  __dirname,
-  '../../infra/database/migrations',
-);
+const MIGRATIONS_DIR = path.join(__dirname, '../../infra/database/migrations');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -34,7 +31,9 @@ function makeService(overrides: {
 }) {
   const assignmentsRepository = {
     create: jest.fn((dto: Partial<EpiAssignment>) => ({ ...dto })),
-    save: jest.fn((e: Partial<EpiAssignment>) => Promise.resolve(e as EpiAssignment)),
+    save: jest.fn((e: Partial<EpiAssignment>) =>
+      Promise.resolve(e as EpiAssignment),
+    ),
     findOne: jest.fn().mockResolvedValue(null),
     createQueryBuilder: jest.fn().mockReturnValue({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -71,7 +70,9 @@ function makeService(overrides: {
     getContext: jest.fn().mockReturnValue(defaultContext),
   } as unknown as TenantService;
 
-  const auditService = { log: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+  const auditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditService;
 
   const signatureTimestampService = {
     issueFromRaw: jest.fn().mockReturnValue({
@@ -251,11 +252,17 @@ describe('EpiAssignmentsService.create() — achado Q1 (site_id fallback)', () =
           savedSiteId = dto.site_id;
           return { ...dto } as EpiAssignment;
         }),
-        save: jest.fn((e: Partial<EpiAssignment>) => Promise.resolve(e as EpiAssignment)),
+        save: jest.fn((e: Partial<EpiAssignment>) =>
+          Promise.resolve(e as EpiAssignment),
+        ),
       } as unknown as Partial<Repository<EpiAssignment>>,
     });
 
-    await service.create({ epi_id: 'epi-1', user_id: 'u1', assinatura_entrega: validSig as never });
+    await service.create({
+      epi_id: 'epi-1',
+      user_id: 'u1',
+      assinatura_entrega: validSig as never,
+    });
 
     expect(savedSiteId).toBe('site-abc');
   });
@@ -339,7 +346,10 @@ describe('Migration 1709000000315 — epis RLS WITH CHECK', () => {
   let content: string;
 
   beforeAll(() => {
-    const file = path.join(MIGRATIONS_DIR, '1709000000315-epis-rls-with-check.ts');
+    const file = path.join(
+      MIGRATIONS_DIR,
+      '1709000000315-epis-rls-with-check.ts',
+    );
     content = fs.readFileSync(file, 'utf8');
   });
 

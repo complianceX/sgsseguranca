@@ -74,8 +74,12 @@ describe('CreateAprDto — @ArrayMaxSize em itens_risco (achado M1)', () => {
       itens_risco: Array.from({ length: 201 }, (_, i) => ({ id: `ri-${i}` })),
     });
 
-    const errs200 = (await validate(dto200)).filter((e) => e.property === 'itens_risco');
-    const errs201 = (await validate(dto201)).filter((e) => e.property === 'itens_risco');
+    const errs200 = (await validate(dto200)).filter(
+      (e) => e.property === 'itens_risco',
+    );
+    const errs201 = (await validate(dto201)).filter(
+      (e) => e.property === 'itens_risco',
+    );
 
     expect(errs200).toHaveLength(0);
     expect(errs201.length).toBeGreaterThan(0);

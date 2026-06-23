@@ -1,12 +1,10 @@
-﻿import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const isSqlite = (qr: QueryRunner) =>
   qr.connection.options.type === 'sqlite' ||
   qr.connection.options.type === 'better-sqlite3';
 
-export class PtsGdprErasureAndTemporalCheck1709000000312
-  implements MigrationInterface
-{
+export class PtsGdprErasureAndTemporalCheck1709000000312 implements MigrationInterface {
   name = 'PtsGdprErasureAndTemporalCheck1709000000312';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,4 +1,10 @@
-﻿import { IsNotEmpty, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+﻿import {
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { EpiSignatureInputDto } from './create-epi-assignment.dto';
 
 export class ReturnEpiAssignmentDto {

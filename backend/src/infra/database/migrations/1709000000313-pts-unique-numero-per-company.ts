@@ -1,8 +1,6 @@
-﻿import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PtsUniqueNumeroPerCompany1709000000313
-  implements MigrationInterface
-{
+export class PtsUniqueNumeroPerCompany1709000000313 implements MigrationInterface {
   name = 'PtsUniqueNumeroPerCompany1709000000313';
 
   // CONCURRENTLY exige transaction = false
