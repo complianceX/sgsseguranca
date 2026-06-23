@@ -6,16 +6,14 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { Trim } from 'class-sanitizer';
 import { IsCNPJ } from '../../../shared/validators/cnpj.validator';
 import { IsCPF } from '../../../shared/validators/cpf.validator';
+import { Transform } from 'class-transformer';
 
 export class CompleteOnboardingDto {
   @IsString()
   @Trim()
-  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Razão social é obrigatória' })
   @MaxLength(255)
   razao_social: string;
@@ -29,13 +27,11 @@ export class CompleteOnboardingDto {
 
   @IsString()
   @Trim()
-  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Endereço é obrigatório' })
   endereco: string;
 
   @IsString()
   @Trim()
-  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Responsável é obrigatório' })
   responsavel: string;
 
@@ -45,7 +41,6 @@ export class CompleteOnboardingDto {
 
   @IsString()
   @Trim()
-  @Transform(sanitizePlainTextTransform)
   @IsNotEmpty({ message: 'Nome do administrador é obrigatório' })
   admin_nome: string;
 

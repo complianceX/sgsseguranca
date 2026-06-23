@@ -4,11 +4,13 @@
   Inject,
   Logger,
   BadRequestException,
+  ConflictException,
   InternalServerErrorException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial, QueryFailedError } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -31,6 +33,8 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { Dds, DdsStatus } from '../dds/entities/dds.entity';
 import { DDS_THEME_LIBRARY } from '../dds/templates/dds-theme-library';
 import { detectMimeFromMagicBytes } from '../../shared/utils/detect-mime.util';
+import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
 
 type ParsedDataUrl = {
   contentType: string;
@@ -67,6 +71,8 @@ export class CompaniesService {
     private ddsRepository: Repository<Dds>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly storageService: StorageService,
+    private readonly gdprDeletionService: GDPRDeletionService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   async create(
@@ -76,16 +82,65 @@ export class CompaniesService {
       ? CnpjUtil.normalize(createCompanyDto.cnpj)
       : undefined;
 
+    if (cnpj) {
+      const existing = await this.companiesRepository.findOne({
+        where: { cnpj },
+        select: ['id'],
+        withDeleted: true,
+      });
+      if (existing) {
+        throw new ConflictException('CNPJ já cadastrado no sistema.');
+      }
+    }
+
     const parsedLogo = this.parseLogoDataUrl(createCompanyDto.logo_url);
-    const company = this.companiesRepository.create({
-      ...createCompanyDto,
-      cnpj,
-      logo_url: parsedLogo ? null : createCompanyDto.logo_url,
-    });
-    let saved = await this.companiesRepository.save(company);
+
     if (parsedLogo) {
-      await this.persistCompanyLogo(saved, parsedLogo);
-      saved = await this.companiesRepository.save(saved);
+      await this.scanLogoBuffer(parsedLogo.buffer, parsedLogo.extension);
+    }
+
+    // Pré-gerar o UUID da empresa para calcular o storage key definitivo
+    // antes da persistência no banco, evitando dois saves.
+    const companyId = randomUUID();
+    let logoStorageKey: string | null = null;
+
+    if (parsedLogo) {
+      logoStorageKey = `companies/${companyId}/logo-${parsedLogo.sha256.slice(0, 16)}.${parsedLogo.extension}`;
+      await this.storageService.uploadFile(
+        logoStorageKey,
+        parsedLogo.buffer,
+        parsedLogo.contentType,
+      );
+    }
+
+    let saved: Company;
+    try {
+      const company = this.companiesRepository.create({
+        ...createCompanyDto,
+        id: companyId,
+        cnpj,
+        logo_url: null,
+        logo_storage_key: logoStorageKey,
+        logo_content_type: parsedLogo?.contentType ?? null,
+        logo_sha256: parsedLogo?.sha256 ?? null,
+      });
+      saved = await this.companiesRepository.save(company);
+    } catch (error) {
+      if (logoStorageKey) {
+        void this.storageService
+          .deleteFile(logoStorageKey)
+          .catch((deleteErr: unknown) => {
+            this.logger.warn({
+              event: 'company_logo_cleanup_failed',
+              key: logoStorageKey,
+              error:
+                deleteErr instanceof Error
+                  ? deleteErr.message
+                  : String(deleteErr),
+            });
+          });
+      }
+      throw error;
     }
 
     try {
@@ -271,6 +326,8 @@ export class CompaniesService {
       );
     }
 
+    const previousStatus = company.account_status;
+
     company.account_status = 'active';
     company.activated_at = new Date();
     company.suspended_at = null;
@@ -285,7 +342,7 @@ export class CompaniesService {
     this.logger.log({
       event: 'tenant_activated',
       companyId,
-      previousStatus: company.account_status,
+      previousStatus,
     });
 
     return this.toResponseDto(saved);
@@ -422,7 +479,15 @@ export class CompaniesService {
       return cached;
     }
 
-    const companies = await this.companiesRepository.find();
+    const companies = await this.companiesRepository.find({ take: 1000 });
+
+    if (companies.length >= 1000) {
+      this.logger.warn({
+        event: 'companies_findall_limit_reached',
+        count: companies.length,
+      });
+    }
+
     const result = await Promise.all(
       companies.map((company) => this.toResponseDto(company)),
     );
@@ -467,10 +532,24 @@ export class CompaniesService {
     updateCompanyDto: DeepPartial<Company>,
   ): Promise<CompanyResponseDto> {
     const company = await this.findOneEntity(id);
+
+    if (updateCompanyDto.cnpj) {
+      const normalizedCnpj = CnpjUtil.normalize(updateCompanyDto.cnpj);
+      const existing = await this.companiesRepository.findOne({
+        where: { cnpj: normalizedCnpj },
+        select: ['id'],
+        withDeleted: true,
+      });
+      if (existing && existing.id !== id) {
+        throw new ConflictException('CNPJ já cadastrado para outra empresa.');
+      }
+    }
+
     const parsedLogo = this.parseLogoDataUrl(updateCompanyDto.logo_url);
     const nextValues = { ...updateCompanyDto };
 
     if (parsedLogo) {
+      await this.scanLogoBuffer(parsedLogo.buffer, parsedLogo.extension);
       nextValues.logo_url = null;
       await this.persistCompanyLogo(company, parsedLogo);
     } else if (Object.prototype.hasOwnProperty.call(nextValues, 'logo_url')) {
@@ -501,7 +580,7 @@ export class CompaniesService {
   }
 
   async remove(id: string): Promise<void> {
-    const company = await this.findOneEntity(id);
+    await this.findOneEntity(id); // lança NotFoundException se empresa não existir
     const linkedUsers = await this.companiesRepository.manager
       .getRepository(User)
       .count({ where: { company_id: id } });
@@ -512,21 +591,19 @@ export class CompaniesService {
       );
     }
 
-    try {
-      await this.companiesRepository.remove(company);
-    } catch (error) {
-      if (error instanceof QueryFailedError) {
-        const driverError = (
-          error as QueryFailedError & { driverError?: unknown }
-        ).driverError as { code?: string } | undefined;
-        if (driverError?.code === '23503') {
-          throw new BadRequestException(
-            'Não é possível excluir a empresa porque existem registros vinculados a ela.',
-          );
-        }
-      }
-      throw error;
+    const gdprResult = await this.gdprDeletionService.deleteCompanyData(id);
+    if (gdprResult.status === 'failed') {
+      this.logger.error({
+        event: 'company_gdpr_delete_failed',
+        companyId: id,
+        gdprResult,
+      });
+      throw new InternalServerErrorException(
+        'Falha ao processar exclusão de dados vinculados à empresa.',
+      );
     }
+
+    await this.companiesRepository.softDelete(id);
 
     // Invalidar caches
     await this.cacheManager.del('companies:all');
@@ -595,6 +672,21 @@ export class CompaniesService {
       sha256: createHash('sha256').update(buffer).digest('hex'),
       extension: this.resolveLogoExtension(detectedMime),
     };
+  }
+
+  private async scanLogoBuffer(
+    buffer: Buffer,
+    extension: string,
+  ): Promise<void> {
+    const inspection = await this.fileInspectionService.inspect(
+      buffer,
+      `logo.${extension}`,
+    );
+    if (!inspection.clean) {
+      throw new UnprocessableEntityException(
+        `Logo rejeitada: ameaça detectada${inspection.threat ? ` (${inspection.threat})` : ''}.`,
+      );
+    }
   }
 
   private async persistCompanyLogo(

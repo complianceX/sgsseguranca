@@ -7,9 +7,15 @@ import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Dds } from '../dds/entities/dds.entity';
+import { AdminModule } from '../admin/admin.module';
+import { FileInspectionModule } from '../../shared/security/file-inspection.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Company, Site, User, Profile, Dds])],
+  imports: [
+    TypeOrmModule.forFeature([Company, Site, User, Profile, Dds]),
+    AdminModule,
+    FileInspectionModule,
+  ],
   controllers: [CompaniesController],
   providers: [CompaniesService],
   exports: [CompaniesService],

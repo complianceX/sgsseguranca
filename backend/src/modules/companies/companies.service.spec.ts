@@ -8,6 +8,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Cache } from 'cache-manager';
 import { StorageService } from '../../shared/services/storage.service';
+import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -55,7 +57,24 @@ describe('CompaniesService', () => {
           provide: StorageService,
           useValue: {
             uploadFile: jest.fn(),
+            deleteFile: jest.fn().mockResolvedValue(undefined),
             getPresignedInlineViewUrl: jest.fn(),
+          },
+        },
+        {
+          provide: FileInspectionService,
+          useValue: {
+            inspect: jest
+              .fn()
+              .mockResolvedValue({ clean: true, provider: 'mock' }),
+          },
+        },
+        {
+          provide: GDPRDeletionService,
+          useValue: {
+            deleteCompanyData: jest
+              .fn()
+              .mockResolvedValue({ status: 'success' }),
           },
         },
       ],
