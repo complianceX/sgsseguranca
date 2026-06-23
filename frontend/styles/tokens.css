@@ -19,6 +19,71 @@
      DANGER     #B3261E
      INFO       #416E96
   ══════════════════════════════════════════════════════════════ */
+
+  /* ─── Escala Brand (SGS Blue — #1D5B8D) ─────────────────────
+     Escala de 10 passos do azul primário do SGS.
+     Use para fundos sutis (50–100), bordas (200–300),
+     interação (400–600) e contraste (700–900).
+  ─────────────────────────────────────────────────────────────── */
+  --color-brand-50:  #f0f7fd;
+  --color-brand-100: #daeaf8;
+  --color-brand-200: #bdd8f2;
+  --color-brand-300: #93bde9;
+  --color-brand-400: #5e99dc;
+  --color-brand-500: #3a7bcf;
+  --color-brand-600: #1d5b8d;
+  --color-brand-700: #174a73;
+  --color-brand-800: #0d3457;
+  --color-brand-900: #081e35;
+
+  /* ─── Escala Neutral (slate frio, harmônico com brand) ───────── */
+  --color-neutral-50:  #f8fafc;
+  --color-neutral-100: #f0f4f8;
+  --color-neutral-200: #e2eaf2;
+  --color-neutral-300: #c6d7e8;
+  --color-neutral-400: #96b0ca;
+  --color-neutral-500: #617b95;
+  --color-neutral-600: #3d5470;
+  --color-neutral-700: #263a52;
+  --color-neutral-800: #1c2d3e;
+  --color-neutral-900: #0f172a;
+
+  /* ─── Escala Success ─────────────────────────────────────────── */
+  --color-success-50:  #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-500: #22c55e;
+  --color-success-600: #15803d;
+  --color-success-700: #166534;
+  --color-success-900: #052e16;
+
+  /* ─── Escala Warning ─────────────────────────────────────────── */
+  --color-warning-50:  #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #a96a00;
+  --color-warning-700: #7b4800;
+  --color-warning-900: #3d2100;
+
+  /* ─── Escala Danger ──────────────────────────────────────────── */
+  --color-danger-50:  #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-200: #fecaca;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #b42318;
+  --color-danger-700: #8f241d;
+  --color-danger-900: #450a0a;
+
+  /* ─── Escala Info ────────────────────────────────────────────── */
+  --color-info-50:  #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #1f5f95;
+  --color-info-700: #174e7c;
+  --color-info-900: #082044;
+
   --brand-background: #fcfeff;
   --brand-sidebar: #0d3457;
   --brand-sidebar-border: #174a73;
@@ -43,10 +108,11 @@
   --brand-danger: #b3261e;
   --brand-info: #1d5b8d;
 
-  --ds-radius-sm: 0.5rem;
-  --ds-radius-md: 0.75rem;
-  --ds-radius-lg: 1rem;
-  --ds-radius-xl: 1.25rem;
+  --ds-radius-sm:   0.5rem;
+  --ds-radius-md:   0.75rem;
+  --ds-radius-lg:   1rem;
+  --ds-radius-xl:   1.25rem;
+  --ds-radius-full: 9999px;
 
   --ds-space-1: 0.25rem;
   --ds-space-2: 0.5rem;

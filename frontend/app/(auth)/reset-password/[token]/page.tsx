@@ -313,7 +313,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className={styles.page}>
+      <main id="main-content" className={styles.page}>
         <div className={styles.card}>
           <div className={styles.invalidLink}>
             <p className={styles.invalidLinkText}>Link inválido ou expirado.</p>
@@ -326,13 +326,13 @@ export default function ResetPasswordPage() {
             </button>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className={styles.page}>
+    <main id="main-content" className={styles.page}>
       <ResetPasswordForm token={token} />
-    </div>
+    </main>
   );
 }

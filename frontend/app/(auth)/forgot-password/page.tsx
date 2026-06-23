@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
   const nonce = getBodyNonce();
 
   return (
-    <div className={styles.page}>
+    <main id="main-content" className={styles.page}>
       {turnstileEnabled && (
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -226,6 +226,6 @@ export default function ForgotPasswordPage() {
           </>
         )}
       </div>
-    </div>
+    </main>
   );
 }
