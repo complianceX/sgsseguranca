@@ -88,6 +88,19 @@ export const metadata: Metadata = {
     capable: true,
     title: "SGS",
     statusBarStyle: "default",
+    startupImage: "/icon-512.svg",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.svg", type: "image/svg+xml", sizes: "192x192" },
+      { url: "/icon-512.svg", type: "image/svg+xml", sizes: "512x512" },
+    ],
+    apple: [
+      { url: "/icon-192.svg", type: "image/svg+xml", sizes: "192x192" },
+    ],
+    other: [
+      { rel: "mask-icon", url: "/icon-maskable.svg", color: "#1D5B8D" },
+    ],
   },
 };
 
@@ -142,3 +155,4 @@ export default async function RootLayout({
     </html>
   );
 }
+

@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { refreshCsrfToken } from "@/lib/api";
 import type { User } from "./usersService";
 
 const APR_DRAFT_KEY_PREFIXES = [
@@ -132,8 +132,6 @@ export const authService = {
   },
 
   getCsrfToken: async (): Promise<void> => {
-    await api.get("/auth/csrf", {
-      params: { ts: Date.now() },
-    });
+    await refreshCsrfToken();
   },
 };

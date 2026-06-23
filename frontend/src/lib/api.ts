@@ -247,6 +247,9 @@ const refreshClient = axios.create({
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 30_000;
 let csrfBootstrapInFlight: Promise<void> | null = null;
+// Cache do CSRF token computado pelo backend (HMAC quando CSRF_TOKEN_SECRET está configurado,
+// rawToken quando não está). Nunca lido diretamente do cookie em memória.
+let _csrfTokenCache: string | undefined;
 
 function readCookie(name: string): string | undefined {
   if (typeof document === 'undefined') {
@@ -438,24 +441,41 @@ async function refreshAccessToken(): Promise<string> {
 async function ensureCsrfToken(
   forceRefresh = false,
 ): Promise<string | undefined> {
-  const current = readCookie('csrf-token');
-  if (current && !forceRefresh) {
-    return current;
+  if (_csrfTokenCache && !forceRefresh) {
+    return _csrfTokenCache;
+  }
+
+  if (forceRefresh) {
+    _csrfTokenCache = undefined;
   }
 
   if (!csrfBootstrapInFlight) {
     csrfBootstrapInFlight = refreshClient
-      .get('/auth/csrf', {
+      .get<{ csrfToken?: string }>('/auth/csrf', {
         params: { ts: Date.now() },
       })
-      .then(() => undefined)
+      .then((res) => {
+        // Quando CSRF_TOKEN_SECRET está configurado no backend, o body contém
+        // HMAC(secret, rawToken) que o middleware espera no header x-csrf-token.
+        // Sem secret, csrfToken === rawToken (mesmo valor do cookie) — compatível.
+        const bodyToken = res.data?.csrfToken;
+        _csrfTokenCache = bodyToken || readCookie('csrf-token') || undefined;
+      })
+      .catch(() => {
+        _csrfTokenCache = readCookie('csrf-token') || undefined;
+      })
       .finally(() => {
         csrfBootstrapInFlight = null;
       });
   }
 
   await csrfBootstrapInFlight;
-  return readCookie('csrf-token');
+  return _csrfTokenCache;
+}
+
+/** Força refresh do CSRF token: limpa cache, busca novo token e atualiza cookie. */
+export async function refreshCsrfToken(): Promise<void> {
+  await ensureCsrfToken(true);
 }
 
 /** Timeouts específicos para operações longas — use via config override por request. */
@@ -672,3 +692,5 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+

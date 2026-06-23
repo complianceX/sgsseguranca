@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+﻿import { BadRequestException } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { PtsService } from './pts.service';
 import { Pt, PtStatus } from './entities/pt.entity';
@@ -968,5 +968,165 @@ describe('PtsService', () => {
     await expect(service.approve('pt-1', 'approver-1')).rejects.toThrow(
       BadRequestException,
     );
+  });
+  describe('validação temporal — achado M1', () => {
+    it('create: rejeita quando data_hora_fim é igual a data_hora_inicio', async () => {
+      await expect(
+        service.create({
+          numero: 'PT-TEMP-01',
+          titulo: 'PT com datas iguais',
+          data_hora_inicio: '2026-06-15T08:00:00.000Z',
+          data_hora_fim: '2026-06-15T08:00:00.000Z',
+          site_id: 'site-1',
+          responsavel_id: 'user-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(ptsSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('create: rejeita quando data_hora_fim é anterior a data_hora_inicio', async () => {
+      await expect(
+        service.create({
+          numero: 'PT-TEMP-02',
+          titulo: 'PT com datas invertidas',
+          data_hora_inicio: '2026-06-15T18:00:00.000Z',
+          data_hora_fim: '2026-06-15T08:00:00.000Z',
+          site_id: 'site-1',
+          responsavel_id: 'user-1',
+        }),
+      ).rejects.toThrow(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+      expect(ptsSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('create: aceita quando data_hora_fim é posterior a data_hora_inicio', async () => {
+      getRepositoryMock.mockImplementation((entity: unknown) => {
+        if (entity === User) {
+          return {
+            exist: jest.fn().mockResolvedValue(true),
+            count: jest.fn().mockResolvedValue(1),
+          };
+        }
+        if (entity === Site || entity === Apr) {
+          return { exist: jest.fn().mockResolvedValue(true) };
+        }
+        return defaultScopedRepository;
+      });
+
+      await expect(
+        service.create({
+          numero: 'PT-TEMP-03',
+          titulo: 'PT com datas válidas',
+          data_hora_inicio: '2026-06-15T08:00:00.000Z',
+          data_hora_fim: '2026-06-15T18:00:00.000Z',
+          site_id: 'site-1',
+          responsavel_id: 'user-1',
+        }),
+      ).resolves.toBeTruthy();
+      expect(ptsSaveMock).toHaveBeenCalled();
+    });
+
+    it('update: rejeita quando data_hora_fim atualizada é anterior ao data_hora_inicio existente', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-temporal',
+        company_id: 'company-1',
+        status: PtStatus.PENDENTE,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-15T08:00:00.000Z'),
+        data_hora_fim: new Date('2026-06-15T18:00:00.000Z'),
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        apr_id: null,
+        auditado_por_id: null,
+        executantes: [],
+        probability: 2,
+        severity: 2,
+        exposure: 2,
+        residual_risk: 'LOW',
+        control_evidence: false,
+      } as unknown as Pt);
+
+      await expect(
+        service.update('pt-temporal', {
+          data_hora_fim: '2026-06-15T06:00:00.000Z',
+        }),
+      ).rejects.toThrow(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+      expect(ptsSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('update: rejeita quando novo data_hora_inicio é posterior ao data_hora_fim existente', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-temporal',
+        company_id: 'company-1',
+        status: PtStatus.PENDENTE,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-15T08:00:00.000Z'),
+        data_hora_fim: new Date('2026-06-15T18:00:00.000Z'),
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        apr_id: null,
+        auditado_por_id: null,
+        executantes: [],
+        probability: 2,
+        severity: 2,
+        exposure: 2,
+        residual_risk: 'LOW',
+        control_evidence: false,
+      } as unknown as Pt);
+
+      await expect(
+        service.update('pt-temporal', {
+          data_hora_inicio: '2026-06-15T20:00:00.000Z',
+        }),
+      ).rejects.toThrow(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+      expect(ptsSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('update: aceita quando ambas as datas são atualizadas com intervalo válido', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-temporal',
+        company_id: 'company-1',
+        status: PtStatus.PENDENTE,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-15T08:00:00.000Z'),
+        data_hora_fim: new Date('2026-06-15T18:00:00.000Z'),
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        apr_id: null,
+        auditado_por_id: null,
+        executantes: [],
+        probability: 2,
+        severity: 2,
+        exposure: 2,
+        residual_risk: 'LOW',
+        control_evidence: false,
+      } as unknown as Pt);
+
+      getRepositoryMock.mockImplementation((entity: unknown) => {
+        if (entity === User) {
+          return {
+            exist: jest.fn().mockResolvedValue(true),
+            count: jest.fn().mockResolvedValue(1),
+          };
+        }
+        if (entity === Site || entity === Apr) {
+          return { exist: jest.fn().mockResolvedValue(true) };
+        }
+        return defaultScopedRepository;
+      });
+
+      await expect(
+        service.update('pt-temporal', {
+          data_hora_inicio: '2026-06-16T08:00:00.000Z',
+          data_hora_fim: '2026-06-16T18:00:00.000Z',
+        }),
+      ).resolves.toBeTruthy();
+      expect(ptsSaveMock).toHaveBeenCalled();
+    });
   });
 });

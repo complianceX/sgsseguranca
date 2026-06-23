@@ -1,24 +1,29 @@
-import {
+﻿import {
   IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
 export class EpiSignatureInputDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(400_000)
   signature_data: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   signature_type: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   signer_name?: string;
 }
 
@@ -38,10 +43,12 @@ export class CreateEpiAssignmentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(10000)
   quantidade?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   observacoes?: string;
 
   @IsObject()
