@@ -1,13 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { CleanupTask } from './cleanup.task';
 import { DocumentRetentionScheduler } from './document-retention.scheduler';
 import { GdprRetentionCleanupScheduler } from './gdpr-retention-cleanup.scheduler';
+import { TrialLifecycleScheduler } from './trial-lifecycle.scheduler';
 import { AuditLog } from '../audit-trail/entities/audit-log.entity';
 import { AdminModule } from '../admin/admin.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { QueueServicesModule } from '../../infra/queue/queue-services.module';
+import { MailModule } from '../../infra/mail/mail.module';
 
 /**
  * Worker-only module.
@@ -16,6 +18,7 @@ import { QueueServicesModule } from '../../infra/queue/queue-services.module';
  * Este módulo concentra tasks agendadas que:
  * - limpam dados temporários/logs
  * - enfileiram jobs por tenant
+ * - executam o ciclo de vida de trial (expiração + notificações D-7/D-3/D-1)
  */
 @Module({
   imports: [
@@ -29,11 +32,13 @@ import { QueueServicesModule } from '../../infra/queue/queue-services.module';
     QueueServicesModule,
     CompaniesModule,
     AdminModule,
+    forwardRef(() => MailModule),
   ],
   providers: [
     CleanupTask,
     DocumentRetentionScheduler,
     GdprRetentionCleanupScheduler,
+    TrialLifecycleScheduler,
   ],
 })
 export class TasksWorkerModule {}

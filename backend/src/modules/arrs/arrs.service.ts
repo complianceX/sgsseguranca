@@ -17,6 +17,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
@@ -160,7 +161,7 @@ export class ArrsService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition =
         "(LOWER(arr.titulo) LIKE :search OR LOWER(arr.atividade_principal) LIKE :search OR LOWER(COALESCE(arr.frente_trabalho, '')) LIKE :search OR LOWER(arr.risco_identificado) LIKE :search)";
       idsQuery.andWhere(condition, { search });

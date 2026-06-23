@@ -800,8 +800,9 @@ export class DashboardService {
     companyId: string;
     warningLimit: Date;
   }): Promise<Record<string, unknown> | null> {
-    const statsRow = await this.querySingleRow<DashboardSummarySqlStatsRow>(
-      `
+    const [statsRow, detailsRow] = await Promise.all([
+      this.querySingleRow<DashboardSummarySqlStatsRow>(
+        `
         SELECT
           (SELECT COUNT(*)::int
              FROM "users" u
@@ -952,15 +953,10 @@ export class DashboardService {
             ) evidence_totals
           ) AS "evidenceSummary"
       `,
-      [input.companyId, AprStatus.PENDENTE, input.warningLimit],
-    );
-
-    if (!statsRow) {
-      return null;
-    }
-
-    const detailsRow = await this.querySingleRow<DashboardSummarySqlDetailsRow>(
-      `
+        [input.companyId, AprStatus.PENDENTE, input.warningLimit],
+      ),
+      this.querySingleRow<DashboardSummarySqlDetailsRow>(
+        `
         SELECT
           COALESCE((
             SELECT jsonb_agg(action_item ORDER BY action_item."sort_date" ASC NULLS LAST)
@@ -1194,10 +1190,11 @@ export class DashboardService {
             ) report
           ), '[]'::jsonb) AS "recentReports"
       `,
-      [input.companyId],
-    );
+        [input.companyId],
+      ),
+    ]);
 
-    if (!detailsRow) {
+    if (!statsRow || !detailsRow) {
       return null;
     }
 
@@ -1333,6 +1330,8 @@ export class DashboardService {
       incidents,
       blockedPts,
       unreadAlerts,
+      monthlyRiskTrend,
+      monthlyNc,
     ] = await Promise.all([
       safe(
         this.aprsRepository.count({
@@ -1454,22 +1453,6 @@ export class DashboardService {
           : Promise.resolve([]),
         [],
       ),
-    ]);
-
-    const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprCount);
-
-    const trainingCompliance = this.toPercent(
-      validTrainingsCount,
-      trainingsCount,
-    );
-
-    const recurringNc = recurringNcRows.reduce(
-      (accumulator: number, row: { total: string }) =>
-        accumulator + Number(row.total),
-      0,
-    );
-
-    const [monthlyRiskTrend, monthlyNc] = await Promise.all([
       safe(
         this.monthlySnapshotsRepository.find({
           where: { company_id: companyId },
@@ -1496,6 +1479,19 @@ export class DashboardService {
         [],
       ),
     ]);
+
+    const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprCount);
+
+    const trainingCompliance = this.toPercent(
+      validTrainingsCount,
+      trainingsCount,
+    );
+
+    const recurringNc = recurringNcRows.reduce(
+      (accumulator: number, row: { total: string }) =>
+        accumulator + Number(row.total),
+      0,
+    );
 
     return {
       leading: {
@@ -1834,7 +1830,7 @@ export class DashboardService {
 
     const [
       pendingPts,
-      nonConformities,
+      criticalNonConformities,
       expiringMedicalExams,
       expiringTrainings,
     ] = await Promise.all([
@@ -1861,22 +1857,31 @@ export class DashboardService {
         [],
       ),
       safe(
-        this.nonConformitiesRepository.find({
-          where: siteScopedWhere as never,
-          relations: { site: true },
-          select: {
-            id: true,
-            codigo_nc: true,
-            status: true,
-            risco_nivel: true,
-            local_setor_area: true,
-            site: {
-              nome: true,
-            },
-          },
-          order: { created_at: 'DESC' },
-          take: 30,
-        }),
+        this.nonConformitiesRepository
+          .createQueryBuilder('nc')
+          .leftJoinAndSelect('nc.site', 'site')
+          .select([
+            'nc.id',
+            'nc.codigo_nc',
+            'nc.status',
+            'nc.risco_nivel',
+            'nc.local_setor_area',
+            'site.nome',
+          ])
+          .where('nc.company_id = :companyId', { companyId })
+          .andWhere(
+            isSingleScope ? 'nc.site_id = :siteId' : '1=1',
+            isSingleScope ? { siteId: scope.siteId } : {},
+          )
+          .andWhere(
+            "(LOWER(nc.risco_nivel) LIKE '%alto%' OR LOWER(nc.risco_nivel) LIKE '%crít%' OR LOWER(nc.risco_nivel) LIKE '%crit%')",
+          )
+          .andWhere('LOWER(nc.status) NOT IN (:...closedStatuses)', {
+            closedStatuses: ['encerrada', 'concluída', 'concluida', 'fechada'],
+          })
+          .orderBy('nc.created_at', 'DESC')
+          .take(10)
+          .getMany(),
         [],
       ),
       safe(
@@ -1919,6 +1924,7 @@ export class DashboardService {
                 },
               },
               order: { data_vencimento: 'ASC' },
+              take: 20,
             }),
         [],
       ),
@@ -1964,20 +1970,6 @@ export class DashboardService {
       ),
     ]);
 
-    const criticalNonConformities = nonConformities.filter((item) => {
-      const status = (item.status || '').toLowerCase();
-      const risk = (item.risco_nivel || '').toLowerCase();
-      const isClosed = [
-        'encerrada',
-        'concluída',
-        'concluida',
-        'fechada',
-      ].includes(status);
-      const isCritical =
-        risk.includes('alto') || risk.includes('crít') || risk.includes('crit');
-      return !isClosed && isCritical;
-    });
-
     return {
       summary: {
         pendingPtApprovals: pendingPts.length,
@@ -1995,16 +1987,14 @@ export class DashboardService {
         responsavel: pt.responsavel?.nome || null,
         residual_risk: pt.residual_risk || null,
       })),
-      criticalNonConformities: criticalNonConformities
-        .slice(0, 10)
-        .map((item) => ({
-          id: item.id,
-          codigo_nc: item.codigo_nc,
-          status: item.status,
-          risco_nivel: item.risco_nivel,
-          local_setor_area: item.local_setor_area,
-          site: item.site?.nome || null,
-        })),
+      criticalNonConformities: criticalNonConformities.map((item) => ({
+        id: item.id,
+        codigo_nc: item.codigo_nc,
+        status: item.status,
+        risco_nivel: item.risco_nivel,
+        local_setor_area: item.local_setor_area,
+        site: item.site?.nome || null,
+      })),
       overdueInspections: [],
       expiringDocuments: {
         medicalExams: expiringMedicalExams.slice(0, 10).map((exam) => ({

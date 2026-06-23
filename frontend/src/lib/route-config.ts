@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Fonte única de verdade para configuração de rotas do dashboard.
  *
  * ADMIN_ROUTES        — requer isAdminGeral para acesso direto.
@@ -23,6 +23,7 @@ export const ADMIN_ROUTES = [
   '/dashboard/epi-fichas',
   '/dashboard/tools',
   '/dashboard/machines',
+  '/dashboard/dds',
 ] as const;
 
 export type AdminRoute = (typeof ADMIN_ROUTES)[number];
@@ -45,6 +46,7 @@ export const PERMISSION_ROUTE_EXCEPTIONS: Array<{
   { route: '/dashboard/machines', permission: 'can_manage_catalogs' },
   { route: '/dashboard/sites', permission: 'can_manage_sites' },
   { route: '/dashboard/users', permission: 'can_manage_users' },
+  { route: '/dashboard/dds', permission: 'can_view_dds' },
 ];
 
 /**

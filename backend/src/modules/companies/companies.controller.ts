@@ -11,6 +11,8 @@ import {
   Req,
   ParseUUIDPipe,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,6 +29,7 @@ import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponses } from '../../shared/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audit-action.decorator';
 import { CompanyResponseDto } from './dto/company-response.dto';
+import { ExtendTrialDto } from './dto/extend-trial.dto';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -152,6 +155,29 @@ export class CompaniesController {
     @Body() updateCompanyDto: UpdateCompanyDto,
   ) {
     return this.companiesService.update(id, updateCompanyDto);
+  }
+
+  @Post(':id/activate')
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  @ForensicAuditAction('activate', 'company')
+  activateTenant(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.companiesService.activateTenant(id);
+  }
+
+  @Post(':id/extend-trial')
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  @ForensicAuditAction('extend_trial', 'company')
+  extendTrial(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ExtendTrialDto,
+  ) {
+    return this.companiesService.extendTrial(id, dto.extraDays);
   }
 
   @Delete(':id')

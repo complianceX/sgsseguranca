@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Inject,
   Injectable,
@@ -17,6 +17,7 @@ import {
   Repository,
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 import { TenantService } from '../../shared/tenant/tenant.service';
@@ -420,6 +421,11 @@ export class PtsService {
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
+    if (new Date(rest.data_hora_fim) <= new Date(rest.data_hora_inicio)) {
+      throw new BadRequestException(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+    }
     const { companyId, siteId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const effectiveSiteId =
@@ -616,7 +622,7 @@ export class PtsService {
     }
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
-        search: `%${opts.search}%`,
+        search: `%${escapeLikePattern(opts.search)}%`,
       });
     }
     if (opts?.status) {
@@ -681,7 +687,7 @@ export class PtsService {
 
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
-        search: `%${opts.search}%`,
+        search: `%${escapeLikePattern(opts.search)}%`,
       });
     }
 
@@ -729,6 +735,17 @@ export class PtsService {
     this.assertPtEditableStatus(pt.status);
     this.assertPtDocumentMutable(pt);
     const { executantes, status, ...rest } = updatePtDto;
+    const effectiveInicio = rest.data_hora_inicio ?? pt.data_hora_inicio;
+    const effectiveFim = rest.data_hora_fim ?? pt.data_hora_fim;
+    if (
+      effectiveFim &&
+      effectiveInicio &&
+      new Date(effectiveFim) <= new Date(effectiveInicio)
+    ) {
+      throw new BadRequestException(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+    }
     const before = { ...pt };
 
     await this.validateRelatedEntityScope({

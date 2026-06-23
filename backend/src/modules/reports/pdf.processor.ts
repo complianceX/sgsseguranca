@@ -1,4 +1,4 @@
-import {
+﻿import {
   InjectQueue,
   Processor,
   WorkerHost,
@@ -14,6 +14,8 @@ import { getPdfGenerationConcurrency } from '../../shared/services/pdf-runtime-c
 import { captureException } from '../../shared/monitoring/sentry';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
+import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 
 interface PdfGenerationJobData {
   reportType: string;
@@ -198,36 +200,51 @@ export class PdfProcessor extends WorkerHost {
     );
     const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
-    await this.documentStorageService.uploadFile(
-      fileKey,
-      artifact.buffer,
-      'application/pdf',
-    );
-
-    const { registryEntry } =
-      await this.documentGovernanceService.registerFinalDocument({
-        companyId: artifact.report.company_id,
-        module: 'report',
-        entityId: artifact.report.id,
-        title: artifact.title,
-        documentDate: artifact.report.created_at,
-        documentCode: artifact.documentCode,
+    let uploadedToStorage = false;
+    let registryEntry!: DocumentRegistryEntry;
+    try {
+      await this.documentStorageService.uploadFile(
         fileKey,
-        folderPath,
-        originalName: artifact.originalName,
-        mimeType: 'application/pdf',
-        fileBuffer: artifact.buffer,
-        createdBy: userId,
-        persistEntityMetadata: async (manager, computedHash) => {
-          await manager.getRepository('reports').update(artifact.report.id, {
-            pdf_file_key: fileKey,
-            pdf_folder_path: folderPath,
-            pdf_original_name: artifact.originalName,
-            pdf_file_hash: computedHash,
-            pdf_generated_at: new Date(),
-          });
-        },
-      });
+        artifact.buffer,
+        'application/pdf',
+      );
+      uploadedToStorage = true;
+
+      ({ registryEntry } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: artifact.report.company_id,
+          module: 'report',
+          entityId: artifact.report.id,
+          title: artifact.title,
+          documentDate: artifact.report.created_at,
+          documentCode: artifact.documentCode,
+          fileKey,
+          folderPath,
+          originalName: artifact.originalName,
+          mimeType: 'application/pdf',
+          fileBuffer: artifact.buffer,
+          createdBy: userId,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository('reports').update(artifact.report.id, {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: artifact.originalName,
+              pdf_file_hash: computedHash,
+              pdf_generated_at: new Date(),
+            });
+          },
+        }));
+    } catch (error) {
+      if (uploadedToStorage) {
+        await cleanupUploadedFile(
+          this.logger,
+          `pdf-report:${artifact.report.id}`,
+          fileKey,
+          (key) => this.documentStorageService.deleteFile(key),
+        );
+      }
+      throw error;
+    }
 
     if (previousFileKey && previousFileKey !== fileKey) {
       await this.documentStorageService

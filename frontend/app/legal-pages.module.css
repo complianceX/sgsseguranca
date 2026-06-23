@@ -17,11 +17,12 @@
     color-mix(in srgb, var(--component-card-bg) 88%, white 12%) 100%
   );
   --legal-panel-bg-soft: color-mix(in srgb, var(--component-card-bg-muted) 82%, white 18%);
-  --legal-panel-shadow: 0 18px 42px rgba(13, 52, 87, 0.08);
-  --legal-panel-shadow-strong: 0 30px 72px rgba(13, 52, 87, 0.14);
+  --legal-panel-shadow: 0 8px 24px rgba(13, 52, 87, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --legal-panel-shadow-strong: 0 20px 52px rgba(13, 52, 87, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --legal-accent-gradient: linear-gradient(90deg, var(--ds-color-action-primary), color-mix(in srgb, var(--ds-color-accent) 60%, white 40%));
   --legal-shell-bg:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent), transparent 32%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--ds-color-accent) 12%, transparent), transparent 28%),
+    radial-gradient(ellipse at 10% 0%, color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent), transparent 36%),
+    radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--ds-color-accent) 10%, transparent), transparent 30%),
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--component-shell-backdrop) 84%, white 16%) 0%,
@@ -33,6 +34,8 @@
   color: var(--text-primary);
   background: var(--legal-shell-bg);
 }
+
+/* ─── Ambient glows ──────────────────────────────────────────────────── */
 
 .ambientGlow,
 .ambientGlowSecondary {
@@ -61,10 +64,12 @@
   animation-delay: 1.5s;
 }
 
+/* ─── Privacy page overrides ─────────────────────────────────────────── */
+
 .privacyPage {
   --legal-shell-bg:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent), transparent 24%),
-    radial-gradient(circle at 84% 12%, color-mix(in srgb, var(--ds-color-info) 7%, transparent), transparent 20%),
+    radial-gradient(ellipse at 8% 0%, color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent), transparent 28%),
+    radial-gradient(ellipse at 88% 10%, color-mix(in srgb, var(--ds-color-info) 7%, transparent), transparent 22%),
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--component-shell-backdrop) 90%, white 10%) 0%,
@@ -92,13 +97,17 @@
   background: color-mix(in srgb, var(--ds-color-info) 14%, transparent);
 }
 
+/* ─── Shell / layout ─────────────────────────────────────────────────── */
+
 .shell {
   position: relative;
   z-index: 1;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 32px 20px 72px;
+  padding: 32px 20px 80px;
 }
+
+/* ─── Back link ──────────────────────────────────────────────────────── */
 
 .backLink {
   display: inline-flex;
@@ -108,25 +117,27 @@
   color: var(--legal-ink-soft);
   text-decoration: none;
   font-size: 0.9rem;
-  transition: color 0.25s ease, transform 0.25s ease;
+  font-weight: 500;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .backLink:hover {
   color: var(--legal-ink);
-  transform: translateX(-2px);
+  transform: translateX(-3px);
 }
+
+/* ─── Hero ───────────────────────────────────────────────────────────── */
 
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 28px;
+  padding: 32px;
   border: 1px solid var(--legal-panel-border);
   border-radius: 28px;
   background: var(--legal-panel-bg-strong);
-  backdrop-filter: none;
   box-shadow: var(--legal-panel-shadow-strong);
-  margin-bottom: 28px;
-  animation: riseIn 0.8s ease;
+  margin-bottom: 24px;
+  animation: riseIn 0.7s ease both;
 }
 
 .hero::before {
@@ -134,9 +145,10 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  border-radius: inherit;
   background:
-    linear-gradient(180deg, color-mix(in srgb, white 12%, transparent), transparent 22%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--ds-color-action-primary) 8%, transparent), transparent 30%);
+    linear-gradient(180deg, color-mix(in srgb, white 10%, transparent), transparent 20%),
+    radial-gradient(ellipse at top right, color-mix(in srgb, var(--ds-color-action-primary) 7%, transparent), transparent 32%);
 }
 
 .heroMain,
@@ -148,9 +160,9 @@
 .quickNav,
 .warningCard {
   transition:
-    transform 0.35s ease,
-    box-shadow 0.35s ease,
-    border-color 0.35s ease;
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .heroMain {
@@ -163,7 +175,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
   background: color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent);
@@ -188,6 +200,7 @@
   background: color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--ds-color-info) 25%, transparent);
   margin-bottom: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .heroGrid {
@@ -202,7 +215,7 @@
   margin: 18px 0 10px;
   font-size: clamp(2.3rem, 5vw, 4.2rem);
   line-height: 1.02;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   font-weight: 900;
   color: var(--legal-ink);
 }
@@ -211,7 +224,7 @@
   margin: 0;
   max-width: 760px;
   font-size: 1.05rem;
-  line-height: 1.75;
+  line-height: 1.78;
   color: var(--legal-ink-soft);
 }
 
@@ -226,12 +239,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--component-card-border) 42%, transparent);
   background: color-mix(in srgb, var(--component-card-bg) 20%, transparent);
   color: color-mix(in srgb, white 90%, var(--ds-color-info) 10%);
-  font-size: 0.93rem;
+  font-size: 0.9rem;
+  font-weight: 500;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -239,7 +253,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 24px;
 }
 
 .primaryButton,
@@ -249,36 +263,38 @@
   justify-content: center;
   gap: 8px;
   min-height: 46px;
-  padding: 0 18px;
+  padding: 0 22px;
   border-radius: 999px;
   text-decoration: none;
   font-weight: 700;
-  transition: none;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
 }
 
 .primaryButton {
   color: var(--ds-color-text-primary);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--ds-color-info) 18%, white 82%), color-mix(in srgb, var(--ds-color-accent) 28%, white 72%));
-  box-shadow: 0 16px 36px rgba(29, 91, 141, 0.16);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--ds-color-info) 18%, white 82%),
+    color-mix(in srgb, var(--ds-color-accent) 28%, white 72%)
+  );
+  box-shadow: 0 8px 24px rgba(29, 91, 141, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.primaryButton:hover {
+  box-shadow: 0 14px 32px rgba(29, 91, 141, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
 }
 
 .secondaryButton {
   color: color-mix(in srgb, var(--legal-ink) 94%, var(--ds-color-info) 6%);
-  border: 1px solid color-mix(in srgb, var(--component-card-border) 40%, transparent);
-  background: var(--legal-panel-bg);
-}
-
-.primaryButton:hover,
-.secondaryButton:hover {
-  transform: none;
-}
-
-.primaryButton:hover {
-  box-shadow: 0 22px 44px rgba(29, 91, 141, 0.2);
+  border: 1px solid color-mix(in srgb, var(--component-card-border) 44%, transparent);
+  background: color-mix(in srgb, var(--component-card-bg) 18%, transparent);
 }
 
 .secondaryButton:hover {
-  border-color: color-mix(in srgb, var(--component-card-border) 62%, transparent);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--component-card-border) 66%, transparent);
   background: color-mix(in srgb, var(--component-card-bg) 28%, transparent);
 }
 
@@ -309,29 +325,32 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  border-radius: inherit;
   background: linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent 28%);
 }
 
+/* ─── Privacy hero overrides ─────────────────────────────────────────── */
+
 .privacyHero {
-  padding: 34px;
-  border-color: color-mix(in srgb, var(--ds-color-action-primary) 22%, var(--component-card-border) 78%);
+  padding: 36px;
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 20%, var(--component-card-border) 80%);
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--component-card-bg-elevated) 94%, white 6%) 0%,
+      color-mix(in srgb, var(--component-card-bg-elevated) 95%, white 5%) 0%,
       color-mix(in srgb, var(--component-card-bg) 88%, white 12%) 58%,
-      color-mix(in srgb, var(--component-card-bg-muted) 78%, var(--ds-color-action-primary) 22%) 100%
+      color-mix(in srgb, var(--component-card-bg-muted) 80%, var(--ds-color-action-primary) 20%) 100%
     );
   box-shadow:
-    0 34px 76px rgba(13, 52, 87, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    0 28px 72px rgba(13, 52, 87, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   animation: none;
 }
 
 .privacyHero::before {
   background:
-    linear-gradient(180deg, color-mix(in srgb, white 18%, transparent), transparent 22%),
-    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent), transparent 26%);
+    linear-gradient(180deg, color-mix(in srgb, white 16%, transparent), transparent 20%),
+    radial-gradient(ellipse at 88% 12%, color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent), transparent 28%);
 }
 
 .privacyHeroGrid {
@@ -351,7 +370,7 @@
 }
 
 .privacyHeroTitle {
-  max-width: 10ch;
+  max-width: 12ch;
   margin-top: 16px;
   color: color-mix(in srgb, var(--legal-ink) 94%, var(--ds-color-action-primary) 6%);
 }
@@ -369,7 +388,7 @@
   color: color-mix(in srgb, var(--legal-ink) 92%, var(--ds-color-info) 8%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 12px 26px rgba(13, 52, 87, 0.06);
+    0 4px 12px rgba(13, 52, 87, 0.05);
 }
 
 .privacyHeroPanel {
@@ -377,19 +396,19 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--component-card-bg) 95%, white 5%) 0%,
+      color-mix(in srgb, var(--component-card-bg) 96%, white 4%) 0%,
       color-mix(in srgb, var(--component-card-bg-muted) 84%, white 16%) 100%
     );
   box-shadow:
-    0 22px 54px rgba(13, 52, 87, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 16px 40px rgba(13, 52, 87, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
   animation: none;
 }
 
 .privacyHeroPanel::before {
   background:
-    linear-gradient(180deg, color-mix(in srgb, white 22%, transparent), transparent 30%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--ds-color-action-primary) 9%, transparent), transparent 36%);
+    linear-gradient(180deg, color-mix(in srgb, white 20%, transparent), transparent 28%),
+    radial-gradient(ellipse at top right, color-mix(in srgb, var(--ds-color-action-primary) 8%, transparent), transparent 36%);
 }
 
 .privacyTrustStrip {
@@ -405,8 +424,8 @@
     );
   border-color: color-mix(in srgb, var(--component-card-border) 78%, var(--ds-color-action-primary) 22%);
   box-shadow:
-    0 18px 42px rgba(13, 52, 87, 0.09),
-    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    0 8px 24px rgba(13, 52, 87, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .privacyQuickNav {
@@ -418,8 +437,8 @@
       color-mix(in srgb, var(--component-card-bg-muted) 86%, white 14%) 100%
     );
   box-shadow:
-    0 22px 48px rgba(13, 52, 87, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    0 8px 24px rgba(13, 52, 87, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .privacyQuickNavHeader {
@@ -427,24 +446,23 @@
 }
 
 .privacyQuickNavList {
-  gap: 12px;
+  gap: 10px;
 }
 
 .privacyQuickNavLink {
   min-height: 40px;
   background: color-mix(in srgb, var(--component-card-bg) 78%, white 22%);
   border-color: color-mix(in srgb, var(--ds-color-action-primary) 18%, var(--component-card-border) 82%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 10px 20px rgba(13, 52, 87, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .privacyQuickNavLink:hover {
-  background: color-mix(in srgb, var(--component-card-bg) 70%, white 30%);
-  border-color: color-mix(in srgb, var(--ds-color-action-primary) 26%, var(--component-card-border) 74%);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 12%, var(--component-card-bg) 88%);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 34%, var(--component-card-border) 66%);
+  color: var(--ds-color-action-primary);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 14px 24px rgba(13, 52, 87, 0.06);
+    0 4px 12px rgba(13, 52, 87, 0.08);
 }
 
 .privacySummaryGrid {
@@ -457,13 +475,13 @@
   border-color: color-mix(in srgb, var(--component-card-border) 76%, var(--ds-color-action-primary) 24%);
   background:
     linear-gradient(
-      180deg,
+      160deg,
       color-mix(in srgb, var(--component-card-bg) 96%, white 4%) 0%,
       color-mix(in srgb, var(--component-card-bg-muted) 86%, white 14%) 100%
     );
   box-shadow:
-    0 20px 46px rgba(13, 52, 87, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    0 8px 24px rgba(13, 52, 87, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .privacySummaryCard::before {
@@ -471,7 +489,8 @@
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--ds-color-action-primary) 84%, white 16%), color-mix(in srgb, var(--ds-color-accent) 52%, white 48%));
+  background: var(--legal-accent-gradient);
+  border-radius: 999px 999px 0 0;
 }
 
 .privacyWarningCard {
@@ -479,27 +498,29 @@
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--ds-color-warning) 18%, white 82%) 0%,
-      color-mix(in srgb, #fff7e3 88%, white 12%) 100%
+      color-mix(in srgb, var(--ds-color-warning) 16%, white 84%) 0%,
+      color-mix(in srgb, #fff7e3 90%, white 10%) 100%
     );
   color: color-mix(in srgb, #69410f 86%, var(--legal-ink) 14%);
   box-shadow:
-    0 18px 42px rgba(135, 86, 22, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    0 8px 24px rgba(135, 86, 22, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .privacyWarningCard p {
   color: color-mix(in srgb, #7c4f16 84%, var(--legal-ink-soft) 16%);
 }
 
+/* ─── Panel inner ────────────────────────────────────────────────────── */
+
 .panelEyebrow {
   position: relative;
   z-index: 1;
   margin: 0 0 8px;
   color: var(--legal-ink-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -525,9 +546,9 @@
 .sideLabel {
   margin: 0;
   color: var(--legal-ink-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -551,25 +572,30 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .sideItem {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 
 .sideIcon {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--ds-color-action-primary) 18%, transparent),
+    color-mix(in srgb, var(--ds-color-accent) 10%, transparent)
+  );
   color: var(--legal-link);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
 }
 
 .sideItem strong {
@@ -583,27 +609,33 @@
   margin: 0;
   color: var(--legal-ink-softer);
   font-size: 0.86rem;
-  line-height: 1.6;
+  line-height: 1.62;
 }
+
+/* ─── Trust strip ────────────────────────────────────────────────────── */
 
 .trustStrip {
   margin-top: 4px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .trustCard {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
-  border-radius: 22px;
-  padding: 18px 18px 16px;
+  border-radius: 20px;
+  padding: 18px;
   border: 1px solid var(--legal-panel-border);
   background: var(--legal-panel-bg);
   box-shadow: var(--legal-panel-shadow);
-  color: color-mix(in srgb, var(--ds-color-info) 34%, white 66%);
+  color: var(--ds-color-action-primary);
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .trustCard p,
@@ -615,7 +647,8 @@
   display: block;
   margin-bottom: 4px;
   color: var(--legal-ink);
-  font-size: 0.94rem;
+  font-size: 0.93rem;
+  font-weight: 650;
 }
 
 .trustCard p {
@@ -624,7 +657,12 @@
   line-height: 1.6;
 }
 
-.trustCard:hover,
+.trustCard:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 28%, var(--component-card-border) 72%);
+  box-shadow: 0 16px 40px rgba(13, 52, 87, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .summaryCard:hover,
 .section:hover,
 .quickNav:hover,
@@ -632,17 +670,23 @@
 .heroPanel:hover,
 .heroSide:hover {
   transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--component-card-border) 68%, rgba(147, 197, 253, 0.3));
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.24);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 22%, var(--component-card-border) 78%);
+  box-shadow: 0 20px 48px rgba(13, 52, 87, 0.12);
 }
+
+/* ─── Quick nav ──────────────────────────────────────────────────────── */
 
 .quickNav {
   margin-top: 20px;
   border-radius: 24px;
-  padding: 18px 20px;
+  padding: 20px 22px;
   border: 1px solid var(--legal-panel-border);
   background: var(--legal-panel-bg);
   box-shadow: var(--legal-panel-shadow);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .quickNavHeader {
@@ -652,37 +696,42 @@
   margin-bottom: 14px;
   color: color-mix(in srgb, var(--legal-ink) 94%, var(--ds-color-info) 6%);
   font-weight: 700;
+  font-size: 0.94rem;
 }
 
 .quickNavList {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .quickNavLink {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
   text-decoration: none;
+  font-size: 0.87rem;
+  font-weight: 500;
   color: color-mix(in srgb, var(--legal-ink) 88%, var(--ds-color-info) 12%);
-  background: color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ds-color-info) 18%, transparent);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-color-info) 16%, transparent);
   transition:
-    transform 0.25s ease,
-    background 0.25s ease,
-    border-color 0.25s ease,
-    color 0.25s ease;
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .quickNavLink:hover {
   transform: translateY(-2px);
-  color: var(--legal-ink);
-  background: color-mix(in srgb, var(--ds-color-action-primary) 18%, transparent);
-  border-color: color-mix(in srgb, var(--ds-color-info) 28%, transparent);
+  color: var(--ds-color-action-primary);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 34%, transparent);
 }
+
+/* ─── Summary grid ───────────────────────────────────────────────────── */
 
 .summaryGrid {
   margin-top: 22px;
@@ -693,18 +742,22 @@
 
 .summaryCard {
   border-radius: 22px;
-  padding: 20px;
+  padding: 22px;
   border: 1px solid var(--legal-panel-border);
   background: color-mix(in srgb, var(--component-card-bg) 24%, transparent);
   box-shadow: var(--legal-panel-shadow);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .summaryLabel {
   margin: 0 0 10px;
   color: var(--legal-ink-muted);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -720,23 +773,32 @@
   margin: 0;
   color: var(--legal-ink-soft);
   font-size: 0.88rem;
-  line-height: 1.65;
+  line-height: 1.68;
 }
+
+/* ─── Warning card ───────────────────────────────────────────────────── */
 
 .warningCard {
   margin-top: 22px;
   border-radius: 22px;
-  padding: 18px 20px;
+  padding: 18px 22px;
   border: 1px solid color-mix(in srgb, var(--ds-color-warning) 34%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--ds-color-warning) 22%, transparent), color-mix(in srgb, var(--ds-color-elevated) 16%, transparent));
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--ds-color-warning) 20%, transparent),
+    color-mix(in srgb, var(--ds-color-elevated) 14%, transparent)
+  );
   color: #fde68a;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .warningCard strong {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 0.94rem;
 }
 
 .warningCard p {
@@ -744,33 +806,57 @@
   line-height: 1.7;
 }
 
+/* ─── Content sections ───────────────────────────────────────────────── */
+
 .content {
-  margin-top: 26px;
+  margin-top: 28px;
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .section {
   border-radius: 24px;
-  padding: 24px;
+  padding: 28px;
   border: 1px solid var(--legal-panel-border);
   background: var(--legal-panel-bg);
   box-shadow: var(--legal-panel-shadow);
+  scroll-margin-top: 24px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .section h2 {
-  margin: 0 0 14px;
-  font-size: 1.16rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding-bottom: 14px;
+  font-size: 1.18rem;
   line-height: 1.3;
-  font-weight: 650;
-  letter-spacing: -0.03em;
+  font-weight: 750;
+  letter-spacing: -0.02em;
   color: var(--legal-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--legal-panel-border) 60%, transparent);
+}
+
+.section h2::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  min-width: 4px;
+  height: 1.2em;
+  border-radius: 999px;
+  background: var(--legal-accent-gradient);
+  margin-right: 2px;
 }
 
 .section p {
   margin: 0;
   color: var(--legal-ink-soft);
-  line-height: 1.76;
+  line-height: 1.78;
 }
 
 .section p + p {
@@ -779,134 +865,254 @@
 
 .section strong {
   color: var(--legal-ink);
+  font-weight: 650;
 }
+
+/* ─── Inline link ────────────────────────────────────────────────────── */
 
 .inlineLink {
   color: var(--legal-link);
   text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid color-mix(in srgb, var(--legal-link) 32%, transparent);
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
 
 .inlineLink:hover {
   color: var(--legal-link-hover);
+  border-color: var(--legal-link-hover);
 }
 
+/* ─── Bullet list ────────────────────────────────────────────────────── */
+
 .bulletList {
-  margin: 14px 0 0;
-  padding-left: 20px;
+  margin: 16px 0 0;
+  padding-left: 0;
+  list-style: none;
   display: grid;
   gap: 10px;
   color: var(--legal-ink-soft);
 }
 
 .bulletList li {
-  line-height: 1.7;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  line-height: 1.72;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--component-card-bg-muted) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--legal-panel-border) 40%, transparent);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
+.bulletList li:hover {
+  background: color-mix(in srgb, var(--ds-color-action-primary) 6%, var(--component-card-bg-muted) 60%);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 16%, transparent);
+}
+
+.bulletList li::before {
+  content: '';
+  display: inline-block;
+  min-width: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--legal-accent-gradient);
+  margin-top: 0.4em;
+  flex-shrink: 0;
+}
+
+/* ─── Feature cards ──────────────────────────────────────────────────── */
+
 .featureGrid {
-  margin-top: 14px;
+  margin-top: 16px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
 .featureCard {
+  position: relative;
+  overflow: hidden;
   border-radius: 18px;
   border: 1px solid var(--legal-panel-border);
   background: var(--legal-panel-bg-soft);
-  padding: 16px;
+  padding: 18px;
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.featureCard::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: var(--legal-accent-gradient);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 24%, var(--component-card-border) 76%);
+  box-shadow: 0 12px 30px rgba(13, 52, 87, 0.1);
+}
+
+.featureCard:hover::before {
+  opacity: 1;
 }
 
 .featureCard h3 {
   margin: 0 0 8px;
   font-size: 0.94rem;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--legal-ink);
 }
 
 .featureCard p {
-  font-size: 0.86rem;
-  line-height: 1.62;
+  font-size: 0.87rem;
+  line-height: 1.65;
   color: var(--legal-ink-softer);
 }
 
+/* ─── Data tables ────────────────────────────────────────────────────── */
+
 .tableWrap {
-  margin-top: 14px;
+  margin-top: 16px;
   overflow-x: auto;
   border-radius: 18px;
   border: 1px solid var(--legal-panel-border);
   background: color-mix(in srgb, var(--component-card-bg) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .dataTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.dataTable th,
-.dataTable td {
-  padding: 12px 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--component-card-border) 38%, transparent);
-  text-align: left;
-  vertical-align: top;
+  font-size: 0.89rem;
 }
 
 .dataTable th {
+  padding: 12px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--component-card-border) 52%, transparent);
+  text-align: left;
+  vertical-align: middle;
   color: var(--legal-ink);
-  background: color-mix(in srgb, var(--component-card-bg) 18%, transparent);
-  font-weight: 650;
+  background: color-mix(in srgb, var(--component-card-bg) 22%, transparent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .dataTable td {
+  padding: 12px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--component-card-border) 30%, transparent);
+  text-align: left;
+  vertical-align: top;
   color: var(--legal-ink-soft);
   line-height: 1.65;
+  transition: background 0.18s ease;
 }
+
+.dataTable tr:last-child td {
+  border-bottom: none;
+}
+
+.dataTable tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--component-card-bg-muted) 18%, transparent);
+}
+
+.dataTable tbody tr:hover td {
+  background: color-mix(in srgb, var(--ds-color-action-primary) 6%, transparent);
+  color: var(--legal-ink);
+}
+
+/* ─── Callout ────────────────────────────────────────────────────────── */
 
 .callout {
-  margin-top: 14px;
-  border-left: 3px solid color-mix(in srgb, var(--ds-color-info) 52%, transparent);
-  padding: 10px 0 10px 14px;
-  background: color-mix(in srgb, var(--ds-color-action-primary) 6%, transparent);
-  border-radius: 0 16px 16px 0;
+  position: relative;
+  margin-top: 16px;
+  padding: 14px 16px 14px 18px;
+  border-left: 3px solid var(--ds-color-action-primary);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 6%, var(--component-card-bg-muted) 4%);
+  border-radius: 0 14px 14px 0;
+  color: var(--legal-ink-soft);
+  line-height: 1.72;
+  font-size: 0.92rem;
 }
 
+.callout code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 0.84em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--component-card-bg) 60%, transparent);
+  color: var(--ds-color-action-primary);
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 20%, transparent);
+}
+
+/* ─── Footer nav ─────────────────────────────────────────────────────── */
+
 .footerNav {
-  margin-top: 28px;
-  padding-top: 22px;
+  margin-top: 32px;
+  padding-top: 24px;
   border-top: 1px solid var(--legal-panel-border);
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
 }
 
 .footerNav a {
-  color: var(--legal-ink-softer);
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--legal-ink-soft);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--legal-panel-border) 60%, transparent);
+  background: color-mix(in srgb, var(--component-card-bg) 12%, transparent);
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .footerNav a:hover {
   color: var(--legal-ink);
+  background: color-mix(in srgb, var(--component-card-bg) 28%, transparent);
+  border-color: var(--legal-panel-border);
 }
 
 .footnote {
-  margin-top: 18px;
-  color: color-mix(in srgb, var(--legal-ink-muted) 92%, transparent);
+  margin-top: 20px;
+  color: color-mix(in srgb, var(--legal-ink-muted) 88%, transparent);
   font-size: 0.82rem;
-  line-height: 1.7;
+  line-height: 1.72;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--legal-panel-border) 40%, transparent);
+  background: color-mix(in srgb, var(--component-card-bg-muted) 20%, transparent);
 }
+
+/* ─── Terms hero ─────────────────────────────────────────────────────── */
 
 .termsHero {
   position: relative;
   overflow: hidden;
   display: grid;
   margin-top: 1.5rem;
-  padding: 2rem;
+  padding: 2.25rem;
   border-radius: 28px;
   border: 1px solid color-mix(in srgb, var(--component-card-border) 48%, transparent);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent), transparent 30%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--ds-color-accent) 10%, transparent), transparent 28%),
+    radial-gradient(ellipse at 8% 0%, color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent), transparent 32%),
+    radial-gradient(ellipse at 94% 96%, color-mix(in srgb, var(--ds-color-accent) 10%, transparent), transparent 28%),
     linear-gradient(
       145deg,
       color-mix(in srgb, var(--component-card-bg-elevated) 96%, white 4%) 0%,
@@ -914,8 +1120,8 @@
       color-mix(in srgb, var(--component-card-bg-muted) 76%, white 24%) 100%
     );
   box-shadow:
-    0 24px 58px rgba(13, 52, 87, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 20px 52px rgba(13, 52, 87, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .termsHeroGlow,
@@ -924,7 +1130,7 @@
   border-radius: 999px;
   filter: blur(54px);
   pointer-events: none;
-  opacity: 0.36;
+  opacity: 0.34;
 }
 
 .termsHeroGlow {
@@ -965,11 +1171,11 @@
   z-index: 1;
   display: grid;
   gap: 1rem;
-  padding: 1.35rem;
+  padding: 1.5rem;
   border-radius: 24px;
   border: 1px solid var(--legal-panel-border);
   background: var(--legal-panel-bg-strong);
-  backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: riseFade 1s ease both;
 }
 
@@ -977,13 +1183,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.8rem;
+  padding: 0.5rem 0.9rem;
   border-radius: 999px;
   color: color-mix(in srgb, var(--legal-ink) 88%, var(--ds-color-info) 12%);
   background: color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--ds-color-info) 18%, transparent);
   font-size: 0.86rem;
   font-weight: 600;
+  width: fit-content;
 }
 
 .termsHeroTitle {
@@ -997,7 +1204,7 @@
 
 .termsHeroAccent {
   display: block;
-  background: linear-gradient(90deg, var(--legal-link), color-mix(in srgb, var(--ds-color-accent) 58%, white 42%));
+  background: var(--legal-accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1007,7 +1214,7 @@
   max-width: 68ch;
   color: var(--legal-ink-soft);
   font-size: 1.02rem;
-  line-height: 1.7;
+  line-height: 1.72;
 }
 
 .termsHeroMeta {
@@ -1022,9 +1229,11 @@
   background: color-mix(in srgb, var(--component-card-bg) 82%, white 18%);
   color: color-mix(in srgb, var(--legal-ink) 92%, var(--ds-color-info) 8%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    0 10px 22px rgba(13, 52, 87, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 4px 10px rgba(13, 52, 87, 0.05);
 }
+
+/* ─── Terms trust strip ──────────────────────────────────────────────── */
 
 .termsTrustStrip {
   display: grid;
@@ -1034,26 +1243,27 @@
 }
 
 .termsTrustItem {
-  padding: 0.95rem 1rem;
-  border-radius: 18px;
+  padding: 1rem 1.05rem;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--component-card-bg) 90%, white 10%);
-  border: 1px solid color-mix(in srgb, var(--component-card-border) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--component-card-border) 34%, transparent);
   transition:
     transform 0.25s ease,
     border-color 0.25s ease,
-    background 0.25s ease;
+    box-shadow 0.25s ease;
 }
 
 .termsTrustItem:hover {
   transform: translateY(-4px);
-  border-color: color-mix(in srgb, var(--component-card-border) 56%, transparent);
-  background: color-mix(in srgb, var(--component-card-bg) 86%, white 14%);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 28%, transparent);
+  box-shadow: 0 10px 24px rgba(13, 52, 87, 0.1);
 }
 
 .termsTrustItem strong {
   display: block;
   color: var(--legal-ink);
   font-size: 0.92rem;
+  font-weight: 700;
   margin-bottom: 0.2rem;
 }
 
@@ -1061,6 +1271,8 @@
   color: var(--legal-ink-softer);
   font-size: 0.84rem;
 }
+
+/* ─── Terms panel inner ──────────────────────────────────────────────── */
 
 .termsPanelTop {
   display: grid;
@@ -1074,7 +1286,8 @@
   gap: 0.45rem;
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--component-card-bg) 14%, transparent);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 20%, transparent);
   color: color-mix(in srgb, var(--legal-ink) 88%, var(--ds-color-info) 12%);
   font-size: 0.82rem;
   font-weight: 700;
@@ -1085,18 +1298,22 @@
   color: var(--legal-ink);
   font-size: 1.4rem;
   line-height: 1.15;
+  font-weight: 750;
 }
 
 .termsPanelText {
   margin: 0;
   color: var(--legal-ink-soft);
-  line-height: 1.7;
+  line-height: 1.72;
+  font-size: 0.93rem;
 }
 
 .termsMiniList {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
+
+/* ─── Executive grid (Terms) ─────────────────────────────────────────── */
 
 .executiveGrid {
   display: grid;
@@ -1108,12 +1325,15 @@
 .executiveCard {
   position: relative;
   overflow: hidden;
-  padding: 1.25rem;
+  padding: 1.4rem;
   border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--component-card-border) 72%, transparent);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--component-card-bg) 90%, white 10%), color-mix(in srgb, var(--component-card-bg-muted) 82%, white 18%));
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--component-card-bg) 92%, white 8%),
+      color-mix(in srgb, var(--component-card-bg-muted) 84%, white 16%)
+    );
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
   animation: riseFade 0.9s ease both;
   transition:
     transform 0.25s ease,
@@ -1127,52 +1347,70 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, var(--ds-color-action-primary), var(--ds-color-accent));
+  background: var(--legal-accent-gradient);
+}
+
+.executiveCard:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 26%, transparent);
+  box-shadow: 0 16px 40px rgba(13, 52, 87, 0.12);
 }
 
 .executiveIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--ds-color-action-primary) 8%, transparent);
-  color: var(--ds-color-text-primary);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--ds-color-action-primary) 14%, transparent),
+    color-mix(in srgb, var(--ds-color-accent) 8%, transparent)
+  );
+  color: var(--ds-color-action-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .executiveLabel {
-  margin: 0.9rem 0 0.35rem;
-  font-size: 0.8rem;
+  margin: 1rem 0 0.35rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--ds-color-text-muted);
   font-weight: 700;
 }
 
 .executiveTitle {
   margin: 0;
-  font-size: 1.12rem;
+  font-size: 1.1rem;
   color: var(--ds-color-text-primary);
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .executiveText {
-  margin: 0.55rem 0 0;
+  margin: 0.6rem 0 0;
   color: var(--ds-color-text-secondary);
   line-height: 1.7;
+  font-size: 0.9rem;
 }
+
+/* ─── Impact band ────────────────────────────────────────────────────── */
 
 .impactBand {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
   gap: 1rem;
   margin-top: 1.35rem;
-  padding: 1.3rem;
+  padding: 1.5rem;
   border-radius: 26px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--component-card-bg-muted) 74%, white 26%), color-mix(in srgb, var(--component-card-bg) 92%, white 8%));
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--component-card-bg-muted) 74%, white 26%),
+      color-mix(in srgb, var(--component-card-bg) 92%, white 8%)
+    );
   border: 1px solid color-mix(in srgb, var(--component-card-border) 72%, transparent);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .impactBandMain {
@@ -1180,10 +1418,11 @@
 }
 
 .impactBandTitle {
-  margin: 0.35rem 0 0.7rem;
+  margin: 0.4rem 0 0.75rem;
   font-size: clamp(1.5rem, 2.2vw, 2.2rem);
   color: var(--ds-color-text-primary);
   line-height: 1.1;
+  font-weight: 800;
 }
 
 .glanceGrid {
@@ -1192,42 +1431,48 @@
 }
 
 .glanceCard {
-  padding: 1rem 1.05rem;
+  padding: 1.1rem 1.15rem;
   border-radius: 18px;
   background: var(--component-card-bg);
   border: 1px solid color-mix(in srgb, var(--component-card-border) 76%, transparent);
   transition:
     transform 0.25s ease,
+    border-color 0.25s ease,
     box-shadow 0.25s ease;
 }
 
 .glanceCard:hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
+  box-shadow: 0 12px 28px rgba(13, 52, 87, 0.09);
 }
 
 .glanceCard h3 {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.4rem;
   font-size: 1rem;
+  font-weight: 700;
   color: var(--ds-color-text-primary);
 }
 
 .glanceCard p {
   margin: 0;
   color: var(--ds-color-text-secondary);
-  line-height: 1.65;
+  line-height: 1.66;
+  font-size: 0.9rem;
 }
+
+/* ─── Clause overview ────────────────────────────────────────────────── */
 
 .clauseOverview {
   margin-top: 1.35rem;
-  padding: 1.2rem;
+  padding: 1.4rem;
   border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--component-card-border) 72%, transparent);
   background: color-mix(in srgb, var(--component-card-bg-muted) 82%, white 18%);
 }
 
 .clauseOverviewHeader {
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .clauseGrid {
@@ -1238,26 +1483,29 @@
 
 .clauseCard {
   display: flex;
-  gap: 0.8rem;
+  gap: 0.85rem;
   align-items: flex-start;
-  padding: 0.95rem;
-  border-radius: 18px;
+  padding: 1rem;
+  border-radius: 16px;
   background: var(--component-card-bg);
   border: 1px solid color-mix(in srgb, var(--component-card-border) 72%, transparent);
   transition:
     transform 0.25s ease,
-    border-color 0.25s ease;
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .clauseCard:hover {
   transform: translateY(-4px);
   border-color: color-mix(in srgb, var(--ds-color-action-primary) 28%, transparent);
+  box-shadow: 0 10px 24px rgba(13, 52, 87, 0.09);
 }
 
 .clauseCard p {
   margin: 0;
   color: var(--ds-color-text-secondary);
-  line-height: 1.6;
+  line-height: 1.62;
+  font-size: 0.88rem;
 }
 
 .clauseNumber {
@@ -1265,14 +1513,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--component-card-bg-elevated) 18%, black 82%), color-mix(in srgb, var(--component-card-bg) 24%, black 76%));
+  min-width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--ds-color-action-primary) 18%, var(--component-card-bg-elevated) 82%),
+    color-mix(in srgb, var(--ds-color-accent) 12%, var(--component-card-bg) 88%)
+  );
   color: var(--legal-ink);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 16%, transparent);
 }
+
+/* ─── CTA band ───────────────────────────────────────────────────────── */
 
 .ctaBand {
   display: flex;
@@ -1280,32 +1534,40 @@
   justify-content: space-between;
   gap: 1.5rem;
   margin-top: 1.5rem;
-  padding: 1.4rem;
+  padding: 1.6rem;
   border-radius: 26px;
   color: var(--legal-ink);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 25%, transparent), transparent 28%),
-    linear-gradient(135deg, color-mix(in srgb, var(--component-card-bg-elevated) 84%, black 16%), color-mix(in srgb, var(--component-card-bg) 76%, black 24%) 58%, color-mix(in srgb, var(--ds-color-accent) 28%, var(--ds-color-bg-canvas) 72%));
-  box-shadow: 0 24px 55px rgba(2, 6, 23, 0.22);
+    radial-gradient(ellipse at 8% 0%, color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent), transparent 32%),
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--component-card-bg-elevated) 86%, black 14%),
+      color-mix(in srgb, var(--component-card-bg) 78%, black 22%) 58%,
+      color-mix(in srgb, var(--ds-color-accent) 26%, var(--ds-color-bg-canvas) 74%)
+    );
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 18%, var(--component-card-border) 82%);
+  box-shadow: 0 20px 50px rgba(2, 6, 23, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .ctaTitle {
   margin: 0.35rem 0 0.6rem;
   font-size: clamp(1.4rem, 2.3vw, 2.2rem);
   line-height: 1.08;
+  font-weight: 800;
 }
 
 .ctaText {
   margin: 0;
   max-width: 62ch;
   color: var(--legal-ink-soft);
-  line-height: 1.7;
+  line-height: 1.72;
+  font-size: 0.94rem;
 }
 
 .ctaActions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .ctaPrimary,
@@ -1314,77 +1576,61 @@
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  padding: 0.85rem 1.1rem;
+  padding: 0 1.2rem;
   border-radius: 14px;
   font-weight: 700;
+  font-size: 0.92rem;
   text-decoration: none;
-  transition: none;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .ctaPrimary {
   background: var(--component-card-bg);
   color: var(--ds-color-text-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ctaPrimary:hover {
-  transform: none;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
 }
 
 .ctaSecondary {
   color: var(--legal-ink);
-  border: 1px solid color-mix(in srgb, var(--component-card-border) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--component-card-border) 36%, transparent);
   background: color-mix(in srgb, var(--component-card-bg) 10%, transparent);
 }
 
 .ctaSecondary:hover {
-  background: color-mix(in srgb, var(--component-card-bg) 14%, transparent);
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--component-card-bg) 18%, transparent);
+  border-color: color-mix(in srgb, var(--component-card-border) 52%, transparent);
 }
 
-@keyframes floatGlow {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+/* ─── Animations ─────────────────────────────────────────────────────── */
 
-  50% {
-    transform: translate3d(18px, -14px, 0) scale(1.06);
-  }
+@keyframes floatGlow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%       { transform: translate3d(18px, -14px, 0) scale(1.06); }
 }
 
 @keyframes riseIn {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0%   { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes riseFade {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes floatBlob {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-
-  50% {
-    transform: translate3d(0, 18px, 0) scale(1.05);
-  }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%       { transform: translate3d(0, 18px, 0) scale(1.05); }
 }
+
+/* ─── Responsive ─────────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {
   .hero,
@@ -1416,18 +1662,21 @@
 
 @media (max-width: 640px) {
   .shell {
-    padding: 26px 16px 44px;
+    padding: 24px 16px 48px;
   }
 
   .hero {
-    padding: 20px;
+    padding: 22px;
+  }
+
+  .section {
+    padding: 22px 20px;
   }
 
   .heroMain,
   .heroSide,
   .heroPanel,
   .summaryCard,
-  .section,
   .warningCard {
     border-radius: 20px;
     padding: 20px;
@@ -1448,7 +1697,7 @@
 
 @media (max-width: 720px) {
   .termsHero {
-    padding: 1.2rem;
+    padding: 1.4rem;
     border-radius: 22px;
   }
 
@@ -1462,6 +1711,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Reduced motion ─────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .ambientGlow,
@@ -1487,7 +1738,10 @@
   .ctaBand,
   .featureCard,
   .termsHeroPanel,
-  .backLink {
+  .backLink,
+  .bulletList li,
+  .termsTrustItem,
+  .dataTable tbody tr {
     animation: none;
     transition: none;
     transform: none;
@@ -1503,8 +1757,13 @@
   .termsTrustItem:hover,
   .glanceCard:hover,
   .clauseCard:hover,
+  .executiveCard:hover,
   .backLink:hover,
-  .quickNavLink:hover {
+  .quickNavLink:hover,
+  .featureCard:hover,
+  .bulletList li:hover,
+  .ctaPrimary:hover,
+  .ctaSecondary:hover {
     transform: none;
   }
 }

@@ -9,7 +9,7 @@ import { PdfService } from '../../shared/services/pdf.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
-import { CompaniesService } from '../companies/companies.service';
+import { Company } from '../companies/entities/company.entity';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { Dds } from '../dds/entities/dds.entity';
@@ -105,7 +105,8 @@ export class ReportsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
     private readonly tenantService: TenantService,
-    private readonly companiesService: CompaniesService,
+    @InjectRepository(Company)
+    private readonly companyRepository: Repository<Company>,
   ) {
     this.loadTemplates();
   }
@@ -391,9 +392,23 @@ export class ReportsService {
       `Iniciando geração de relatório mensal para empresa ${companyId} (Período: ${month}/${year})`,
     );
 
-    const company = (await this.companiesService.findOne(companyId)) as {
-      razao_social: string;
-    };
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+      select: ['id', 'razao_social', 'logo_storage_key', 'logo_content_type'],
+    });
+    if (!company) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    const logoDataUrl = await this.resolveLogoDataUrl(
+      companyId,
+      company.logo_storage_key,
+      company.logo_content_type,
+    );
+    const logoHtml: string | null = logoDataUrl
+      ? `<img src="${logoDataUrl}" alt="Logo" style="max-height:30px;max-width:120px;object-fit:contain;" />`
+      : null;
+
     const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin, siteId, siteScope },
       async () => this.buildMonthlyReportRecord(companyId, year, month),
@@ -405,6 +420,7 @@ export class ReportsService {
       year,
       estatisticas: reportData.estatisticas,
       analise_gandra: reportData.analise_gandra,
+      logoHtml,
     });
 
     const buffer = await this.pdfService.generateFromHtml(html, {
@@ -629,6 +645,27 @@ export class ReportsService {
     return `RELATORIO_MENSAL_${String(report.mes).padStart(2, '0')}-${report.ano}.pdf`;
   }
 
+  private async resolveLogoDataUrl(
+    companyId: string,
+    storageKey: string | null | undefined,
+    contentType: string | null | undefined,
+  ): Promise<string | null> {
+    if (!storageKey) return null;
+    try {
+      const buf =
+        await this.documentStorageService.downloadFileBuffer(storageKey);
+      const mime = contentType ?? 'image/png';
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch (error) {
+      this.logger.warn(
+        `Logo da empresa ${companyId} indisponivel durante geracao de PDF: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
   private escapeHtml(value: string | number | null | undefined): string {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -748,6 +785,7 @@ export class ReportsService {
     year: number;
     estatisticas: MonthlyReportStats;
     analise_gandra: string;
+    logoHtml?: string | null;
   }): string {
     const { companyName, month, year, estatisticas, analise_gandra } = data;
     const expiredEpis = Number(estatisticas.epis_expired_count ?? 0);
@@ -817,7 +855,11 @@ export class ReportsService {
       'documentTitle',
       'Fechamento mensal de conformidade',
     );
-    html = replaceToken(html, 'logo_block', this.buildMonthlyReportLogoBlock());
+    html = replaceToken(
+      html,
+      'logo_block',
+      this.buildMonthlyReportLogoBlock(data.logoHtml),
+    );
     html = replaceToken(html, 'operational_total', String(operationalTotal));
     html = replaceToken(html, 'operational_tone', operationalTone);
     html = replaceToken(html, 'trainings_count', String(trainingsCount));

@@ -319,7 +319,7 @@ export const validationSchema = Joi.object({
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
-  JWT_SECRET: Joi.string().min(32).required(),
+  JWT_SECRET: Joi.string().min(64).required(),
   MFA_ENABLED: Joi.boolean().default(true),
   MFA_ISSUER: Joi.string().optional().allow(''),
   MFA_JWT_SECRET: Joi.string().min(32).optional().allow(''),
@@ -357,7 +357,7 @@ export const validationSchema = Joi.object({
     .optional()
     .allow(''),
   ADMIN_EMPRESA_STEP_UP_PASSWORD_FALLBACK_ENABLED: Joi.boolean().default(true),
-  JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+  JWT_REFRESH_SECRET: Joi.string().min(64).required(),
   FIELD_ENCRYPTION_ENABLED: Joi.boolean().default(true),
   FIELD_ENCRYPTION_KEY: Joi.string().optional().allow(''),
   FIELD_ENCRYPTION_HASH_KEY: Joi.string().optional().allow(''),
@@ -656,6 +656,25 @@ export const validationSchema = Joi.object({
   WORKER_HEARTBEAT_REQUIRED: Joi.boolean().default(false),
   WORKER_HEARTBEAT_KEY: Joi.string().default('worker:heartbeat:queue-runtime'),
   WORKER_HEARTBEAT_TTL_SECONDS: Joi.number().default(90),
+
+  // Bull Board — painel de filas /admin/queues
+  BULL_BOARD_USER: Joi.string().optional().allow(''),
+  BULL_BOARD_PASS: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(8).required(),
+    otherwise: Joi.string().optional().allow(''),
+  }),
+
+  // Antivírus (ClamAV) — varredura de uploads
+  ANTIVIRUS_PROVIDER: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().valid('clamav').required(),
+    otherwise: Joi.string().optional().allow(''),
+  }),
+  CLAMAV_HOST: Joi.string().optional().allow(''),
+  CLAMAV_PORT: Joi.number().integer().min(1).max(65535).optional(),
+  CLAMAV_TIMEOUT_MS: Joi.number().integer().min(1000).optional(),
+
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
@@ -703,7 +722,11 @@ export const validationSchema = Joi.object({
   THROTTLER_DASHBOARD_LIMIT: Joi.number().integer().min(1).max(500).default(50),
 
   // CSRF Protection
-  CSRF_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
+  CSRF_TOKEN_SECRET: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().min(32).optional().allow(''),
+  }),
   CSRF_TOKEN_TTL_SECONDS: Joi.number()
     .integer()
     .min(300)
@@ -1359,6 +1382,13 @@ export class AppModule implements OnModuleInit {
       this.validateProductionSecurity();
     } else {
       this.logger.warn('⚠️  Ambiente de DESENVOLVIMENTO detectado');
+      const devJwtIssuer = this.configService.get<string>('JWT_ISSUER');
+      const devJwtAudience = this.configService.get<string>('JWT_AUDIENCE');
+      if (!devJwtIssuer || !devJwtAudience) {
+        this.logger.warn(
+          'JWT_ISSUER / JWT_AUDIENCE não configurados. Aceitável em desenvolvimento, obrigatório em produção.',
+        );
+      }
     }
 
     if (/^true$/i.test(process.env.REDIS_DISABLED || '')) {
@@ -1404,6 +1434,10 @@ export class AppModule implements OnModuleInit {
       this.configService.get<string>('REDIS_DISABLED', 'false'),
     );
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtRefreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET');
+    const jwtIssuer = this.configService.get<string>('JWT_ISSUER');
+    const jwtAudience = this.configService.get<string>('JWT_AUDIENCE');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
     const databaseSSLAllowInsecure = this.configService.get<boolean>(
       'DATABASE_SSL_ALLOW_INSECURE',
@@ -1476,6 +1510,16 @@ export class AppModule implements OnModuleInit {
     const tenantBackupEncryptionKey = this.configService.get<string>(
       'TENANT_BACKUP_ENCRYPTION_KEY',
     );
+    const csrfTokenSecret = this.configService.get<string>('CSRF_TOKEN_SECRET');
+    const bullBoardPass = this.configService.get<string>('BULL_BOARD_PASS');
+    const antivirusProvider =
+      this.configService.get<string>('ANTIVIRUS_PROVIDER');
+    const turnstileEnabled = /^true$/i.test(
+      this.configService.get<string>('TURNSTILE_ENABLED', 'false'),
+    );
+    const turnstileSecretKey = this.configService
+      .get<string>('TURNSTILE_SECRET_KEY', '')
+      .trim();
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>(
         'PUBLIC_VALIDATION_LEGACY_COMPAT',
@@ -1495,8 +1539,22 @@ export class AppModule implements OnModuleInit {
     const checks = [
       {
         name: 'JWT_SECRET',
-        valid: jwtSecret && jwtSecret.length >= 32,
-        message: 'JWT_SECRET deve ter no mínimo 32 caracteres',
+        valid: Boolean(jwtSecret && jwtSecret.length >= 64),
+        message:
+          'JWT_SECRET deve ter no mínimo 64 caracteres em produção. Gere com: openssl rand -hex 32',
+      },
+      {
+        name: 'JWT_REFRESH_SECRET',
+        valid: Boolean(jwtRefreshSecret && jwtRefreshSecret.length >= 64),
+        message:
+          'JWT_REFRESH_SECRET deve ter no mínimo 64 caracteres em produção. Gere com: openssl rand -hex 32',
+      },
+      {
+        name: 'JWT_REFRESH_SECRET_UNIQUE',
+        valid:
+          !jwtRefreshSecret || !jwtSecret || jwtRefreshSecret !== jwtSecret,
+        message:
+          'JWT_REFRESH_SECRET deve ser diferente de JWT_SECRET para manter isolamento criptográfico dos tokens.',
       },
       {
         name: 'ACCESS_TOKEN_TTL',
@@ -1630,6 +1688,46 @@ export class AppModule implements OnModuleInit {
         message:
           'TENANT_BACKUP_ENCRYPTION_KEY é obrigatória em produção para criptografar backups de tenant.',
       },
+      {
+        name: 'JWT_ISSUER',
+        valid: Boolean(jwtIssuer?.trim()),
+        message:
+          'JWT_ISSUER obrigatório em produção para vincular tokens ao emissor. Exemplo: https://api.sgsseguranca.com.br',
+      },
+      {
+        name: 'JWT_AUDIENCE',
+        valid: Boolean(jwtAudience?.trim()),
+        message:
+          'JWT_AUDIENCE obrigatório em produção para limitar o escopo dos tokens. Exemplo: sgs-app',
+      },
+      {
+        name: 'CSRF_TOKEN_SECRET',
+        valid: Boolean(csrfTokenSecret?.trim()),
+        message:
+          'CSRF_TOKEN_SECRET é obrigatório em produção para HMAC-SHA256 do CSRF token. ' +
+          'Sem ele o middleware usa double-submit simples, vulnerável a sub-domain takeover. ' +
+          'Gere com: openssl rand -hex 16',
+      },
+      {
+        name: 'BULL_BOARD_PASS',
+        valid: Boolean(bullBoardPass?.trim()),
+        message:
+          'BULL_BOARD_PASS é obrigatório em produção para proteger o painel /admin/queues com Basic Auth.',
+      },
+      {
+        name: 'ANTIVIRUS_PROVIDER',
+        valid: Boolean(antivirusProvider?.trim()),
+        message:
+          'ANTIVIRUS_PROVIDER é obrigatório em produção para varredura de arquivos enviados. ' +
+          'Configure ANTIVIRUS_PROVIDER=clamav e as variáveis CLAMAV_*.',
+      },
+      {
+        name: 'TURNSTILE_SECRET_KEY',
+        valid: !turnstileEnabled || turnstileSecretKey.length > 0,
+        message:
+          'TURNSTILE_SECRET_KEY é obrigatória quando TURNSTILE_ENABLED=true em produção. ' +
+          'Configure via Cloudflare Turnstile dashboard.',
+      },
     ];
 
     const failures = checks.filter((check) => !check.valid);
@@ -1655,17 +1753,6 @@ export class AppModule implements OnModuleInit {
       this.logger.warn(
         'AVISO DE SEGURANÇA: MAIL_ENABLED=true sem credenciais de provedor completas. ' +
           'O runtime vai iniciar, mas os envios de e-mail permanecerão desativados até configurar MAIL_HOST, MAIL_USER, MAIL_PASS, BREVO_API_KEY ou RESEND_API_KEY.',
-      );
-    }
-
-    // Avisos de segurança (não bloqueantes — podem ser habilitados gradualmente)
-    const jwtIssuer = this.configService.get<string>('JWT_ISSUER');
-    const jwtAudience = this.configService.get<string>('JWT_AUDIENCE');
-    if (!jwtIssuer || !jwtAudience) {
-      this.logger.warn(
-        'AVISO DE SEGURANÇA: JWT_ISSUER e JWT_AUDIENCE não configurados. ' +
-          'Tokens emitidos sem claim binding ao emissor. ' +
-          'Configure ambas as variáveis para ativar validação de issuer/audience no JwtStrategy.',
       );
     }
 

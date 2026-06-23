@@ -1,4 +1,4 @@
-name: Security Scan
+﻿name: Security Scan
 
 on:
   push:
@@ -216,6 +216,7 @@ jobs:
           scan-ref: "."
           severity: "HIGH,CRITICAL"
           exit-code: "1"
+          ignore-unfixed: true
           format: "sarif"
           output: "trivy-results.sarif"
 

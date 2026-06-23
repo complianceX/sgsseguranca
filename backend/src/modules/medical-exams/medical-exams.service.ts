@@ -186,6 +186,15 @@ export class MedicalExamsService {
       );
     }
     await this.assertUserInCurrentScope(dto.user_id, scope);
+    if (
+      dto.data_realizacao &&
+      dto.data_vencimento &&
+      new Date(dto.data_vencimento) <= new Date(dto.data_realizacao)
+    ) {
+      throw new BadRequestException(
+        'Data de vencimento deve ser posterior à data de realização.',
+      );
+    }
     const encryptedPayload = this.encryptExamSensitiveFields(dto);
     const exam = this.medicalExamsRepository.create({
       ...encryptedPayload,
@@ -396,6 +405,17 @@ export class MedicalExamsService {
       await this.assertUserInCurrentScope(
         dto.user_id,
         this.getSiteAccessScopeOrThrow(),
+      );
+    }
+    const realizacao = dto.data_realizacao ?? exam.data_realizacao;
+    const vencimento = dto.data_vencimento ?? exam.data_vencimento;
+    if (
+      realizacao &&
+      vencimento &&
+      new Date(vencimento) <= new Date(realizacao)
+    ) {
+      throw new BadRequestException(
+        'Data de vencimento deve ser posterior à data de realização.',
       );
     }
     Object.assign(exam, this.encryptExamSensitiveFields(dto));

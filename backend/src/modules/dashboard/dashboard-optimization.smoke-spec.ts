@@ -277,7 +277,7 @@ describe('DashboardOptimization (Smoke Test)', () => {
         responsavel: { nome: 'Responsavel 1' },
       },
     ]);
-    nonConformityRepo.find.mockResolvedValueOnce([
+    nonConformityRepo.queryBuilder.getMany.mockResolvedValueOnce([
       {
         id: 'nc-1',
         codigo_nc: 'NC-001',

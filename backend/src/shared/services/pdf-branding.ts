@@ -1,4 +1,4 @@
-﻿import { jsPDF } from 'jspdf';
+import { jsPDF } from 'jspdf';
 
 type PdfWithAutoTable = jsPDF & {
   lastAutoTable?: {
@@ -22,6 +22,8 @@ type HeaderOptions = {
   subtitle?: string;
   metaRight?: string[];
   marginX?: number;
+  logoBase64?: string | null;
+  logoFormat?: 'PNG' | 'JPEG';
 };
 
 export function drawBackendPdfHeader(doc: jsPDF, options: HeaderOptions) {
@@ -33,14 +35,35 @@ export function drawBackendPdfHeader(doc: jsPDF, options: HeaderOptions) {
   doc.setFillColor(...backendPdfTheme.accent);
   doc.rect(0, 26.8, pageWidth, 1.8, 'F');
 
+  // Logo: canto esquerdo do header, deslocando o titulo para a direita
+  const logoW = 28;
+  const logoH = 16;
+  let titleX = marginX;
+
+  if (options.logoBase64) {
+    try {
+      doc.addImage(
+        options.logoBase64,
+        options.logoFormat ?? 'PNG',
+        marginX,
+        6,
+        logoW,
+        logoH,
+      );
+      titleX = marginX + logoW + 4;
+    } catch {
+      // logo invalida -- ignora e mantém layout sem logo
+    }
+  }
+
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(options.title, marginX, 14);
+  doc.text(options.title, titleX, 14);
 
   if (options.subtitle) {
     doc.setFontSize(9);
     doc.setTextColor(...backendPdfTheme.softText);
-    doc.text(options.subtitle, marginX, 20);
+    doc.text(options.subtitle, titleX, 20);
   }
 
   if (options.metaRight?.length) {
@@ -93,13 +116,13 @@ export function drawBackendSectionTitle(
   doc.text(title, marginX + 6, y + 1.8);
 }
 
-export function applyBackendPdfFooter(
-  doc: jsPDF,
-  options?: {
-    marginX?: number;
-    systemLabel?: string;
-  },
-) {
+type FooterOptions = {
+  marginX?: number;
+  systemLabel?: string;
+  verificationCode?: string | null;
+};
+
+export function applyBackendPdfFooter(doc: jsPDF, options?: FooterOptions) {
   const marginX = options?.marginX ?? 16;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -117,6 +140,12 @@ export function applyBackendPdfFooter(
       marginX,
       pageHeight - 8,
     );
+    if (options?.verificationCode) {
+      const centerX = pageWidth / 2;
+      doc.text(`Código: ${options.verificationCode}`, centerX, pageHeight - 8, {
+        align: 'center',
+      });
+    }
     doc.text(
       `Página ${page} de ${pages}`,
       pageWidth - marginX,

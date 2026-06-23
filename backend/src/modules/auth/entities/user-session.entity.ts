@@ -1,4 +1,4 @@
-import {
+﻿import {
   Index,
   Entity,
   PrimaryGeneratedColumn,
@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  DeleteDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
@@ -67,4 +68,7 @@ export class UserSession {
 
   @UpdateDateColumn()
   last_active: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at?: Date | null;
 }

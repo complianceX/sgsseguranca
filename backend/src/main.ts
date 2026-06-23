@@ -1,4 +1,4 @@
-import * as path from 'path';
+﻿import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -257,7 +257,7 @@ async function bootstrap() {
     httpAdapterInstance.set?.('trust proxy', 1);
   }
 
-  app.use(compression());
+  app.use(compression({ threshold: 1024, level: 6 }));
   httpAdapterInstance.disable?.('x-powered-by');
 
   app.use(
@@ -310,8 +310,8 @@ async function bootstrap() {
     res.send('User-agent: *\nDisallow: /\n');
   });
 
-  app.use(json({ limit: '2mb' }));
-  app.use(urlencoded({ extended: true, limit: '2mb' }));
+  app.use(json({ limit: '5mb' }));
+  app.use(urlencoded({ extended: true, limit: '5mb' }));
 
   // Proteção contra prototype pollution — rejeita body com __proto__/constructor/prototype.
   // Deve rodar APÓS body-parser (que converte JSON string → objeto) e ANTES dos guards.

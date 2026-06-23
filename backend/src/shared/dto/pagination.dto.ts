@@ -39,23 +39,6 @@ export class PaginationDto {
   limit?: number = 10;
 
   @ApiPropertyOptional({
-    description: 'Campo para ordenação',
-    example: 'created_at',
-  })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({
-    description: 'Direção da ordenação (asc ou desc)',
-    example: 'desc',
-    enum: ['asc', 'desc'],
-  })
-  @IsOptional()
-  @IsString()
-  sortOrder?: 'asc' | 'desc' = 'desc';
-
-  @ApiPropertyOptional({
     description: 'Termo de busca',
     example: 'João',
   })

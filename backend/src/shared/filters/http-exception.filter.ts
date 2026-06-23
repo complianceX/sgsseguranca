@@ -111,6 +111,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message = 'Erro ao processar consulta no banco de dados';
         }
       }
+    } else if (
+      exception instanceof Error &&
+      'status' in exception &&
+      typeof (exception as { status?: unknown }).status === 'number'
+    ) {
+      // Erros nativos de middleware Express (body-parser entity.too.large, multer, etc.)
+      // que carregam `status`/`type` mas não são HttpException.
+      const expErr = exception as unknown as { status: number; type?: string };
+      status =
+        expErr.status >= 400 && expErr.status < 600
+          ? expErr.status
+          : HttpStatus.BAD_REQUEST;
+      code = expErr.type || exception.name;
+      message = isProduction
+        ? status >= HttpStatus.INTERNAL_SERVER_ERROR
+          ? 'Erro interno do servidor'
+          : 'Requisição inválida'
+        : this.sanitizeMessage(exception.message);
     } else if (exception instanceof Error) {
       // Em produção, evitar vazar mensagens internas (stack traces, libs, infra, SQL, etc.).
       message = isProduction
@@ -160,19 +178,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof request.requestStartAt === 'number'
           ? Date.now() - request.requestStartAt
           : undefined,
-      userId: user?.id || user?.userId,
-      companyId: user?.company_id,
-      role:
-        user?.role ||
-        (typeof user?.profile === 'object' ? user.profile?.nome : undefined),
-      stack:
-        status >= HttpStatus.INTERNAL_SERVER_ERROR && exception instanceof Error
-          ? exception.stack
-          : undefined,
+      context: {
+        userId: user?.id || user?.userId,
+        companyId: user?.company_id,
+        role:
+          user?.role ||
+          (typeof user?.profile === 'object' ? user.profile?.nome : undefined),
+      },
     };
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(logMeta);
+      this.logger.error({
+        ...logMeta,
+        diagnostic:
+          exception instanceof Error ? { stack: exception.stack } : undefined,
+      });
     } else {
       this.logger.warn(logMeta);
     }

@@ -44,6 +44,7 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
 import { DocumentVideosService } from '../document-videos/document-videos.service';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
@@ -936,8 +937,8 @@ export class RdosService {
     const search = normalizeOptionalSearchQuery(opts?.search);
     if (search) {
       appendClause(
-        '(rdo.numero ILIKE :search OR site.nome ILIKE :search OR responsavel.nome ILIKE :search)',
-        { search: `%${search}%` },
+        "(rdo.numero ILIKE :search ESCAPE '\\\\' OR site.nome ILIKE :search ESCAPE '\\\\' OR responsavel.nome ILIKE :search ESCAPE '\\\\'",
+        { search: `%${escapeLikePattern(search)}%` },
       );
     }
   }

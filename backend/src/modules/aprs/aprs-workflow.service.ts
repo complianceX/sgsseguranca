@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -858,12 +858,15 @@ export class AprWorkflowService {
       const allDone = steps.every((s) => newCompleted.has(s.stepOrder));
 
       if (allDone) {
-        await this.aprsRepository.update(apr.id, {
-          status: AprStatus.APROVADA,
-          aprovado_por_id: approverId,
-          aprovado_em: new Date(),
-          aprovado_motivo: reason ?? undefined,
-        });
+        await this.aprsRepository.update(
+          { id: apr.id, company_id: apr.company_id },
+          {
+            status: AprStatus.APROVADA,
+            aprovado_por_id: approverId,
+            aprovado_em: new Date(),
+            aprovado_motivo: reason ?? undefined,
+          },
+        );
       }
     } else if (action === ApprovalRecordAction.REPROVADO) {
       const lastApproved = history
@@ -883,9 +886,10 @@ export class AprWorkflowService {
         }),
       );
 
-      await this.aprsRepository.update(apr.id, {
-        status: AprStatus.PENDENTE,
-      });
+      await this.aprsRepository.update(
+        { id: apr.id, company_id: apr.company_id },
+        { status: AprStatus.PENDENTE },
+      );
     } else if (action === ApprovalRecordAction.REABERTO) {
       const lastApproved = history
         .filter((r) => r.action === ApprovalRecordAction.APROVADO)
@@ -910,9 +914,10 @@ export class AprWorkflowService {
         }),
       );
 
-      await this.aprsRepository.update(apr.id, {
-        status: AprStatus.PENDENTE,
-      });
+      await this.aprsRepository.update(
+        { id: apr.id, company_id: apr.company_id },
+        { status: AprStatus.PENDENTE },
+      );
     }
   }
 

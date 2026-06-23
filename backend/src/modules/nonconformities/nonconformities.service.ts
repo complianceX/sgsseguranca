@@ -39,6 +39,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
+import { escapeLikePattern } from '../../shared/utils/sql.util';
 import {
   coerceDocumentDate,
   getIsoWeekNumber,
@@ -892,7 +893,7 @@ export class NonConformitiesService {
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
-      const search = `%${searchTerm.toLowerCase()}%`;
+      const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition = `(
         LOWER(nc.codigo_nc) LIKE :search
         OR LOWER(nc.local_setor_area) LIKE :search

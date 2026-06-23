@@ -1,8 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UseGuards,
@@ -60,5 +64,14 @@ export class TenantLifecycleController {
       assertValidBase64UrlToken(token, 'Token de onboarding inválido.'),
       dto,
     );
+  }
+
+  @Delete('invites/:id/revoke')
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  revokeInvite(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.service.revokeInvite(id);
   }
 }

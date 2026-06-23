@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+﻿import api from "@/lib/api";
 import { aprsService } from "@/services/aprsService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 
@@ -427,6 +427,34 @@ describe("aprsService", () => {
         due_filter: "next-7-days",
         sort: "deadline-asc",
       },
+    });
+  });
+
+  describe('métodos órfãos removidos (achado B2)', () => {
+    it('verifyEvidenceHash não existe no serviço', () => {
+      expect(
+        (aprsService as Record<string, unknown>)['verifyEvidenceHash'],
+      ).toBeUndefined();
+    });
+
+    it('getEvidenceCustodyReport não existe no serviço', () => {
+      expect(
+        (aprsService as Record<string, unknown>)['getEvidenceCustodyReport'],
+      ).toBeUndefined();
+    });
+
+    it('downloadEvidenceCustodyPdf não existe no serviço', () => {
+      expect(
+        (aprsService as Record<string, unknown>)['downloadEvidenceCustodyPdf'],
+      ).toBeUndefined();
+    });
+
+    it('delete ainda existe (não foi removido por engano)', () => {
+      expect(typeof (aprsService as Record<string, unknown>)['delete']).toBe('function');
+    });
+
+    it('listAprEvidences ainda existe (não foi removido por engano)', () => {
+      expect(typeof (aprsService as Record<string, unknown>)['listAprEvidences']).toBe('function');
     });
   });
 });

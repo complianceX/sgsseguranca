@@ -105,18 +105,18 @@ function createService(configOverrides: Record<string, string> = {}) {
 }
 
 describe('MfaService', () => {
-  it('exige MFA de login para ADMIN_GERAL por padrão', () => {
+  it('nao exige MFA de login para ADMIN_GERAL por padrao', () => {
     const { service } = createService();
 
-    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(true);
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
   });
 
-  it('permite desligar MFA de login para ADMIN_GERAL somente com flag explícita', () => {
+  it('exige MFA de login para ADMIN_GERAL quando flag ADMIN_GERAL_MFA_REQUIRED=true', () => {
     const { service } = createService({
-      ADMIN_GERAL_MFA_REQUIRED: 'false',
+      ADMIN_GERAL_MFA_REQUIRED: 'true',
     });
 
-    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(true);
   });
 
   it('reutiliza segredo TOTP pendente no bootstrap para nao invalidar QR ja escaneado', async () => {
