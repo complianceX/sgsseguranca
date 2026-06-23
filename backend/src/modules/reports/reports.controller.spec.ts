@@ -97,7 +97,6 @@ describe('ReportsController - tenant queue isolation', () => {
     controller = new ReportsController(
       queue as unknown as Queue,
       reportsService as unknown as ReportsService,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockTenantService as unknown as TenantService,
     );
   });
@@ -171,6 +170,7 @@ describe('ReportsController - tenant queue isolation', () => {
 
     await controller['enqueueMonthlyReport']('company-1', 'user-99', 2026, 5);
 
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
     expect(add).toHaveBeenCalledWith(
       'generate',
       expect.objectContaining({
@@ -179,6 +179,7 @@ describe('ReportsController - tenant queue isolation', () => {
       }),
       expect.any(Object),
     );
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment */
   });
 
   it('permite consultar o proprio job', async () => {
