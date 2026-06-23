@@ -29,6 +29,8 @@ import {
 } from '../../infra/queue/default-job-options';
 import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { TenantService } from '../../shared/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { GenerateReportDto } from './dto/generate-report.dto';
 import { getPdfQueueJobTimeoutMs } from '../../shared/services/pdf-runtime-config';
 import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audit-action.decorator';
@@ -81,6 +83,7 @@ export class ReportsController {
   constructor(
     @InjectQueue('pdf-generation') private readonly pdfQueue: Queue,
     private readonly reportsService: ReportsService,
+    private readonly tenantService: TenantService,
   ) {}
 
   @Get()
@@ -96,6 +99,9 @@ export class ReportsController {
   @Post('generate')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 10, requestsPerHour: 30 })
+  @ForensicAuditAction('generate', 'report')
   generate(
     @Request() req: { user: { company_id: string; userId: string } },
     @Body() body: GenerateReportDto,
@@ -111,6 +117,9 @@ export class ReportsController {
   @Get('monthly')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 10, requestsPerHour: 30 })
+  @ForensicAuditAction('generate', 'report')
   async generateMonthlyReport(
     @Request() req: { user: { company_id: string; userId: string } },
     @Query() query: MonthlyReportQueryDto,
@@ -135,6 +144,7 @@ export class ReportsController {
   @Get(':id/pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @ForensicAuditAction('view_pdf', 'report')
   getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.reportsService.getPdfAccess(id);
   }
@@ -145,13 +155,21 @@ export class ReportsController {
     year: number,
     month: number,
   ) {
+    // Capture original requester scope for correct site filtering in worker
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'relatorios',
+      { allowMissingSiteScope: true },
+    );
     const job = await this.pdfQueue.add(
       'generate',
       {
         reportType: 'monthly',
-        params: { companyId, year, month },
+        params: { companyId, year, month, generatedBy: userId },
         userId,
         companyId,
+        siteId: scope.siteId,
+        siteScope: scope.siteScope,
       },
       {
         ...pdfJobOptions,

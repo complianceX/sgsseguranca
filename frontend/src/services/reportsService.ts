@@ -16,6 +16,7 @@ export interface Report {
   };
   analise_gandra: string;
   created_at: string;
+  generated_by?: string | null;
 }
 
 export interface ReportPdfAccess {
