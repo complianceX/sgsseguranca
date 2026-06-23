@@ -9,16 +9,36 @@ export class GranularFunctionGrants1709000000309 implements MigrationInterface {
       return;
     }
 
-    await queryRunner.query(`REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`);
-    await queryRunner.query(`REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION current_company() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION is_super_admin() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION current_user_role() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION current_app_user_id() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION current_site_id() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION current_site_scope() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION update_updated_at_column() TO sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON FUNCTION try_parse_uuid(text) TO sgs_app`);
+    await queryRunner.query(
+      `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`,
+    );
+    await queryRunner.query(
+      `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION current_company() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION is_super_admin() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION current_user_role() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION current_app_user_id() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION current_site_id() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION current_site_scope() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION update_updated_at_column() TO sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON FUNCTION try_parse_uuid(text) TO sgs_app`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -27,8 +47,12 @@ export class GranularFunctionGrants1709000000309 implements MigrationInterface {
       return;
     }
 
-    await queryRunner.query(`REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`);
-    await queryRunner.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO sgs_app`);
+    await queryRunner.query(
+      `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`,
+    );
+    await queryRunner.query(
+      `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO sgs_app`,
+    );
   }
 
   private async roleExists(

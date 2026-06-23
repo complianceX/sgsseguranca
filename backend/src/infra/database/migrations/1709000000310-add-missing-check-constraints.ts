@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddMissingCheckConstraints1709000000310
-  implements MigrationInterface
-{
+export class AddMissingCheckConstraints1709000000310 implements MigrationInterface {
   name = 'AddMissingCheckConstraints1709000000310';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

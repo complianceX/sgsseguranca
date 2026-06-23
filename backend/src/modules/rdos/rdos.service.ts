@@ -937,7 +937,7 @@ export class RdosService {
     const search = normalizeOptionalSearchQuery(opts?.search);
     if (search) {
       appendClause(
-        '(rdo.numero ILIKE :search ESCAPE \'\\\\\' OR site.nome ILIKE :search ESCAPE \'\\\\\' OR responsavel.nome ILIKE :search ESCAPE \'\\\\\'',
+        "(rdo.numero ILIKE :search ESCAPE '\\\\' OR site.nome ILIKE :search ESCAPE '\\\\' OR responsavel.nome ILIKE :search ESCAPE '\\\\'",
         { search: `%${escapeLikePattern(search)}%` },
       );
     }
