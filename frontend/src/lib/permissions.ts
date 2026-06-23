@@ -30,6 +30,7 @@ export const Permission = {
   CAN_VIEW_EXPENSES: 'can_view_expenses',
   CAN_VIEW_PHOTOGRAPHIC_REPORTS: 'can_view_photographic_reports',
   CAN_VIEW_RDOS: 'can_view_rdos',
+  CAN_VIEW_COMPANIES: 'can_view_companies',
 
   // Gestão
   CAN_MANAGE_ARRS: 'can_manage_arrs',
@@ -48,6 +49,7 @@ export const Permission = {
   CAN_MANAGE_EXPENSES: 'can_manage_expenses',
   CAN_CLOSE_EXPENSES: 'can_close_expenses',
   CAN_MANAGE_CATALOGS: 'can_manage_catalogs',
+  CAN_MANAGE_COMPANIES: 'can_manage_companies',
   CAN_MANAGE_PHOTOGRAPHIC_REPORTS: 'can_manage_photographic_reports',
   CAN_GENERATE_PHOTOGRAPHIC_REPORT_AI: 'can_generate_photographic_report_ai',
   CAN_EXPORT_PHOTOGRAPHIC_REPORT_PDF: 'can_export_photographic_report_pdf',

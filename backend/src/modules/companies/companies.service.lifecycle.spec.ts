@@ -9,7 +9,9 @@ import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Dds } from '../dds/entities/dds.entity';
-import { QueryFailedError } from 'typeorm';
+import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
+import { InternalServerErrorException } from '@nestjs/common';
 
 const COMPANY_ID = 'company-uuid-1';
 
@@ -32,6 +34,7 @@ const makeMockRepo = () => ({
   save: jest.fn((e: unknown) => Promise.resolve(e as Company)),
   create: jest.fn((d: unknown) => d as Company),
   remove: jest.fn().mockResolvedValue(undefined),
+  softDelete: jest.fn().mockResolvedValue(undefined),
   count: jest.fn().mockResolvedValue(0),
   createQueryBuilder: jest.fn().mockReturnValue({
     select: jest.fn().mockReturnThis(),
@@ -57,6 +60,7 @@ describe('CompaniesService — lifecycle e validação', () => {
   let service: CompaniesService;
   let companyRepo: ReturnType<typeof makeMockRepo>;
   let cacheManager: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
+  let gdprService: { deleteCompanyData: jest.Mock };
 
   beforeEach(async () => {
     companyRepo = makeMockRepo();
@@ -64,6 +68,9 @@ describe('CompaniesService — lifecycle e validação', () => {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
+    };
+    gdprService = {
+      deleteCompanyData: jest.fn().mockResolvedValue({ status: 'success' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -79,8 +86,21 @@ describe('CompaniesService — lifecycle e validação', () => {
           provide: StorageService,
           useValue: {
             uploadFile: jest.fn().mockResolvedValue({ key: 'logo/key.png' }),
+            deleteFile: jest.fn().mockResolvedValue(undefined),
             getPresignedInlineViewUrl: jest.fn().mockResolvedValue(null),
           },
+        },
+        {
+          provide: FileInspectionService,
+          useValue: {
+            inspect: jest
+              .fn()
+              .mockResolvedValue({ clean: true, provider: 'mock' }),
+          },
+        },
+        {
+          provide: GDPRDeletionService,
+          useValue: gdprService,
         },
       ],
     }).compile();
@@ -103,23 +123,20 @@ describe('CompaniesService — lifecycle e validação', () => {
       expect(companyRepo.remove).not.toHaveBeenCalled();
     });
 
-    it('lança BadRequestException com mensagem de FK quando DB retorna code 23503', async () => {
+    it('lança InternalServerErrorException quando pipeline GDPR falha', async () => {
       companyRepo.findOne.mockResolvedValueOnce(makeCompany());
       companyRepo.manager.getRepository.mockReturnValueOnce({
         count: jest.fn().mockResolvedValue(0),
       });
-
-      const fkError = new QueryFailedError('DELETE', [], {
-        code: '23503',
-      } as never);
-      companyRepo.remove.mockRejectedValueOnce(fkError);
+      gdprService.deleteCompanyData.mockResolvedValueOnce({ status: 'failed' });
 
       await expect(service.remove(COMPANY_ID)).rejects.toThrow(
-        BadRequestException,
+        InternalServerErrorException,
       );
+      expect(companyRepo.softDelete).not.toHaveBeenCalled();
     });
 
-    it('remove empresa sem usuários vinculados e invalida caches', async () => {
+    it('soft-deleta empresa sem usuários e invalida caches', async () => {
       companyRepo.findOne.mockResolvedValueOnce(makeCompany());
       companyRepo.manager.getRepository.mockReturnValueOnce({
         count: jest.fn().mockResolvedValue(0),
@@ -127,7 +144,9 @@ describe('CompaniesService — lifecycle e validação', () => {
 
       await service.remove(COMPANY_ID);
 
-      expect(companyRepo.remove).toHaveBeenCalledTimes(1);
+      expect(gdprService.deleteCompanyData).toHaveBeenCalledWith(COMPANY_ID);
+      expect(companyRepo.softDelete).toHaveBeenCalledWith(COMPANY_ID);
+      expect(companyRepo.remove).not.toHaveBeenCalled();
       expect(cacheManager.del).toHaveBeenCalledWith('companies:all');
       expect(cacheManager.del).toHaveBeenCalledWith('companies:active:ids');
       expect(cacheManager.del).toHaveBeenCalledWith(`company:${COMPANY_ID}`);

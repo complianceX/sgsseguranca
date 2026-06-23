@@ -11,6 +11,8 @@ import { ArrowLeft, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { logger } from '@/lib/logger';
+import { isValidCnpj, formatCnpj } from '@/lib/cnpj';
 import { PageHeader } from '@/components/layout';
 import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -26,7 +28,10 @@ const sectionCardClassName =
 
 const companySchema = z.object({
   razao_social: z.string().min(3, 'A razão social deve ter pelo menos 3 caracteres'),
-  cnpj: z.string().min(14, 'CNPJ inválido'),
+  cnpj: z
+    .string()
+    .min(14, 'CNPJ inválido')
+    .refine((v) => isValidCnpj(v), 'CNPJ inválido (dígitos verificadores incorretos)'),
   endereco: z.string().min(5, 'O endereço deve ter pelo menos 5 caracteres'),
   responsavel: z.string().min(3, 'O responsável deve ter pelo menos 3 caracteres'),
   email_contato: z.union([z.string().trim().email('E-mail inválido'), z.literal('')]),
@@ -85,7 +90,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
           setLogoPreview(data.logo_url);
         }
       } catch (error) {
-        console.error('Erro ao carregar empresa:', error);
+        logger.error('Erro ao carregar empresa:', error);
         toast.error('Erro ao carregar dados da empresa.');
         router.push('/dashboard/companies');
       } finally {
@@ -101,8 +106,8 @@ export function CompanyForm({ id }: CompanyFormProps) {
   function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      toast.error('Formato não suportado. Use PNG ou JPEG.');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      toast.error('Formato não suportado. Use PNG, JPEG ou WebP.');
       e.target.value = '';
       return;
     }
@@ -148,7 +153,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
       router.push('/dashboard/companies');
       router.refresh();
     } catch (error) {
-      console.error('Erro ao salvar empresa:', error);
+      logger.error('Erro ao salvar empresa:', error);
       const errorMessage = getFormErrorMessage(error, {
         badRequest: 'Dados inválidos. Revise os campos obrigatórios.',
         unauthorized: 'Sessão expirada. Faça login novamente.',
@@ -274,10 +279,15 @@ export function CompanyForm({ id }: CompanyFormProps) {
               <input
                 id="cnpj"
                 type="text"
-                {...register('cnpj')}
+                {...register('cnpj', {
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                    e.target.value = formatCnpj(e.target.value);
+                  },
+                })}
                 className={`${fieldClassName} ${errors.cnpj ? errorFieldClassName : ''}`}
                 aria-invalid={errors.cnpj ? 'true' : undefined}
                 placeholder="00.000.000/0000-00"
+                maxLength={18}
               />
               {errors.cnpj ? (
                 <p className={errorClassName}>{errors.cnpj.message}</p>
@@ -337,11 +347,11 @@ export function CompanyForm({ id }: CompanyFormProps) {
                 id="logo_upload"
                 ref={logoInputRef}
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/png,image/jpeg,image/webp"
                 className="sr-only"
                 onChange={handleLogoFileChange}
               />
-              <p className={helperClassName}>PNG ou JPEG · Máximo 2 MB</p>
+              <p className={helperClassName}>PNG, JPEG ou WebP · Máximo 2 MB</p>
             </div>
           </div>
         </section>
