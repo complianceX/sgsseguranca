@@ -6,6 +6,7 @@
 :root {
   --font-dm-sans: var(--font-sans);
   --font-syne: var(--font-sans);
+  scroll-behavior: smooth;
 }
 
 * {
@@ -13,6 +14,12 @@
   /* Scrollbar Firefox */
   scrollbar-width: thin;
   scrollbar-color: var(--component-scrollbar-thumb) transparent;
+}
+
+/* Seleção de texto com cor primária do DS */
+::selection {
+  background: var(--ds-color-action-primary);
+  color: var(--ds-color-text-inverse);
 }
 
 /* Scrollbar Webkit (Chrome, Edge, Safari) */
@@ -77,6 +84,14 @@ html[data-theme="light"] {
 .animate-scale-in  { animation: scale-in 0.3s cubic-bezier(0.16,1,0.3,1) both; }
 
 @layer base {
+  /* Focus-visible global — fallback para elementos sem anel explícito.
+     Utilitários Tailwind (focus-visible:outline-none) sobrescrevem esta
+     regra por terem maior especificidade dentro de @layer utilities. */
+  :focus-visible {
+    outline: 2px solid var(--ds-color-focus-ring);
+    outline-offset: 2px;
+  }
+
   h1,
   h2,
   h3,
@@ -155,8 +170,9 @@ html[data-theme="light"] {
   }
 
   input::placeholder,
-  textarea::placeholder {
-    color: var(--ds-color-text-muted) !important;
+  textarea::placeholder,
+  select::placeholder {
+    color: var(--component-field-placeholder, var(--ds-color-text-muted)) !important;
     opacity: 1 !important;
   }
 
@@ -1472,6 +1488,9 @@ html[data-theme="light"] {
     border-radius: var(--ds-radius-lg);
     background: var(--chrome-topbar-chip-bg);
     padding: 0 0.875rem;
+    transition:
+      background-color var(--ds-motion-fast) ease,
+      border-color var(--ds-motion-fast) ease;
   }
 
   .ds-topbar-search:hover {
@@ -1498,6 +1517,10 @@ html[data-theme="light"] {
     font-weight: 600;
     color: var(--component-navbar-chip-text);
     letter-spacing: 0.01em;
+    transition:
+      background-color var(--ds-motion-fast) ease,
+      border-color var(--ds-motion-fast) ease,
+      color var(--ds-motion-fast) ease;
   }
 
   .ds-topbar-chip:hover {
@@ -1551,7 +1574,9 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     font-weight: 600;
     box-shadow: none;
-    transition: none;
+    transition:
+      background-color var(--ds-motion-fast) ease,
+      border-color var(--ds-motion-fast) ease;
   }
 
   .ds-topbar-action:hover {
@@ -2352,6 +2377,13 @@ html[data-theme="light"] {
     gap: 1rem;
   }
 
+  /* Em mobile, reserva espaco para o ds-form-sticky-bar fixo no rodape */
+  @media (max-width: 639px) {
+    .ds-form-page:has(.ds-form-sticky-bar) {
+      padding-bottom: 5.5rem;
+    }
+  }
+
   .ds-form-section {
     border: 1px solid var(--component-card-border);
     border-radius: var(--ds-radius-xl);
@@ -2372,6 +2404,14 @@ html[data-theme="light"] {
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--component-card-border);
     margin-bottom: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .ds-form-section__header {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
   }
 
   .ds-form-divider {
@@ -2396,6 +2436,10 @@ html[data-theme="light"] {
     position: sticky;
     bottom: 1rem;
     z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
     border: 1px solid var(--component-card-border);
     border-radius: var(--ds-radius-xl);
     background: color-mix(
@@ -2406,6 +2450,21 @@ html[data-theme="light"] {
     padding: 1rem 1.1rem;
     box-shadow: var(--component-card-shadow-elevated);
     backdrop-filter: blur(12px);
+  }
+
+  @media (max-width: 639px) {
+    .ds-form-sticky-bar {
+      /* Em mobile o bar fica fixo no rodape da viewport */
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+      border-bottom: none;
+      padding: 0.85rem 1rem;
+      /* Garante que o conteudo nao fique sob o safe area em iOS */
+      padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+    }
   }
 
   /* ── Form Grid ─────────────────────────────────────────────────────────── */

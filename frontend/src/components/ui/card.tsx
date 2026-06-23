@@ -3,9 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  [
-    'relative overflow-hidden rounded-[var(--ds-radius-lg)] border',
-  ],
+  ['relative overflow-hidden rounded-[var(--ds-radius-lg)] border'],
   {
     variants: {
       tone: {
@@ -16,17 +14,33 @@ const cardVariants = cva(
         muted:
           'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)] shadow-[var(--component-card-shadow)]',
         accent:
-          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--color-primary)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--ds-color-action-primary)]',
         ghost:
           'border-[var(--component-card-border)]/60 bg-transparent shadow-none',
         stat:
           'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow)]',
+        /** Variante de sucesso — borda esquerda verde */
+        success:
+          'border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--ds-color-success)]',
+        /** Variante de aviso — borda esquerda amarela */
+        warning:
+          'border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--ds-color-warning)]',
+        /** Variante de perigo — borda esquerda vermelha */
+        danger:
+          'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--ds-color-danger)]',
+        /** Variante de info — borda esquerda azul */
+        info:
+          'border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--ds-color-info)]',
       },
       interactive: {
         true: [
-          'cursor-pointer select-none',
+          'cursor-pointer select-none transition-colors duration-[120ms]',
           'hover:border-[var(--component-card-hover-border)]',
           'hover:bg-[color:var(--component-card-bg-elevated)]',
+          // Focus ring para cards clicáveis via teclado
+          'focus-visible:outline-none focus-visible:ring-2',
+          'focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-2',
+          'focus-visible:ring-offset-[var(--ds-color-bg-canvas)]',
         ],
         false: '',
       },
@@ -52,10 +66,12 @@ export interface CardProps
     VariantProps<typeof cardVariants> {}
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, tone, interactive, padding, ...props }, ref) => (
+  ({ className, tone, interactive, padding, tabIndex, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(cardVariants({ tone, interactive, padding }), className)}
+      // Quando interativo e sem tabIndex definido, torna focável por teclado
+      tabIndex={interactive && tabIndex === undefined ? 0 : tabIndex}
       {...props}
     />
   ),
@@ -80,7 +96,7 @@ const CardEyebrow = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     <p
       ref={ref}
       className={cn(
-        'text-[0.6875rem] font-semibold uppercase tracking-[0.04em] text-[var(--color-primary)]',
+        'text-[0.6875rem] font-semibold uppercase tracking-[0.04em] text-[var(--ds-color-action-primary)]',
         className,
       )}
       {...props}
@@ -94,7 +110,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <h3
       ref={ref}
       className={cn(
-        'text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--color-text-primary)]',
+        'text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--ds-color-text-primary)]',
         className,
       )}
       {...props}
@@ -109,7 +125,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-[0.8125rem] leading-[1.45] text-[var(--color-text-muted)]', className)}
+    className={cn('text-[0.8125rem] leading-[1.45] text-[var(--ds-color-text-muted)]', className)}
     {...props}
   />
 ));
@@ -127,7 +143,7 @@ const CardDivider = React.forwardRef<HTMLHRElement, React.HTMLAttributes<HTMLHRE
   ({ className, ...props }, ref) => (
     <hr
       ref={ref}
-      className={cn('my-4 border-0 border-t border-[var(--color-border-subtle)]', className)}
+      className={cn('my-4 border-0 border-t border-[var(--ds-color-border-subtle)]', className)}
       {...props}
     />
   ),
@@ -139,7 +155,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       className={cn(
-        'mt-5 flex items-center gap-2.5 border-t border-[var(--color-border-subtle)] pt-4',
+        'mt-5 flex items-center gap-2.5 border-t border-[var(--ds-color-border-subtle)] pt-4',
         className,
       )}
       {...props}

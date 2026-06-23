@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -320,6 +320,8 @@ export function CommandPalette() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const INPUT_ID = 'command-palette-input';
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -469,10 +471,37 @@ export function CommandPalette() {
     }
   };
 
+  const handleFocusTrap = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[color:var(--component-command-overlay)] px-4 pt-[10vh] backdrop-blur-md">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={INPUT_ID}
+      ref={dialogRef}
+      onKeyDown={handleFocusTrap}
+      className="fixed inset-0 z-[70] flex items-start justify-center bg-[color:var(--component-command-overlay)] px-4 pt-[10vh] backdrop-blur-md"
+    >
       <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-[var(--component-command-border)] bg-[color:var(--component-command-bg)] shadow-[var(--ds-shadow-xl)]">
         <div className="flex items-center gap-3 border-b border-[var(--color-border-subtle)] px-4 py-3.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--component-command-muted)]">
@@ -484,8 +513,13 @@ export function CommandPalette() {
           </div>
           <div className="min-w-0 flex-1">
             <input
+              id={INPUT_ID}
               autoFocus
               type="text"
+              role="combobox"
+              aria-expanded={allItems.length > 0}
+              aria-autocomplete="list"
+              aria-controls="command-palette-listbox"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -509,7 +543,7 @@ export function CommandPalette() {
           </button>
         </div>
 
-        <div className="max-h-[28rem] overflow-y-auto p-2.5">
+        <div id="command-palette-listbox" role="listbox" aria-label="Resultados" className="max-h-[28rem] overflow-y-auto p-2.5">
           {/* Resultados de busca real */}
           {hasQuery && searchResults.length > 0 && (
             <div className="mb-3 space-y-1">

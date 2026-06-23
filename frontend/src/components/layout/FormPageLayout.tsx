@@ -105,7 +105,11 @@ export function FormPageLayout({
       />
       {summary}
       {children}
-      {footer ? <div className="ds-form-sticky-bar">{footer}</div> : null}
+      {footer ? (
+        <div className="ds-form-sticky-bar" role="toolbar" aria-label="Acoes do formulario">
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -136,7 +140,8 @@ export function FormSection({
 }: FormSectionProps) {
   return (
     <section className={cn('ds-form-section', className)}>
-      <div className="ds-form-section__header md:flex-row md:items-start md:justify-between">
+      {/* Responsive: column em mobile, row em md+ (definido em globals.css) */}
+      <div className="ds-form-section__header">
         <div className="flex gap-3">
           {icon ? (
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--ds-color-border-default)] text-[var(--ds-color-text-secondary)]">
