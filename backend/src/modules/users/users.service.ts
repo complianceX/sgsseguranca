@@ -16,6 +16,7 @@ import { UserSite } from './entities/user-site.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { PasswordService } from '../../shared/services/password.service';
+import { PwnedPasswordService } from '../auth/services/pwned-password.service';
 import { CpfUtil } from '../../shared/utils/cpf.util';
 import { USER_WITH_PASSWORD_FIELDS } from './constants/user-fields.constant';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -120,6 +121,7 @@ export class UsersService {
     private profilesRepository: Repository<Profile>,
     private tenantService: TenantService,
     private passwordService: PasswordService,
+    private pwnedPasswordService: PwnedPasswordService,
     private auditService: AuditService,
     private rbacService: RbacService,
     private redisService: AuthRedisService,
@@ -563,6 +565,13 @@ export class UsersService {
 
     let hashedPassword = '';
     if (password && typeof password === 'string') {
+      const validation = this.passwordService.validate(password);
+      if (!validation.valid) {
+        throw new BadRequestException(
+          `A senha não atende aos critérios de segurança: ${validation.errors.join(', ')}`,
+        );
+      }
+      await this.pwnedPasswordService.assertNotPwned(password);
       hashedPassword = await this.passwordService.hash(password);
     }
     const userId =
@@ -1071,6 +1080,13 @@ export class UsersService {
     }
 
     if (password && typeof password === 'string') {
+      const validation = this.passwordService.validate(password);
+      if (!validation.valid) {
+        throw new BadRequestException(
+          `A senha não atende aos critérios de segurança: ${validation.errors.join(', ')}`,
+        );
+      }
+      await this.pwnedPasswordService.assertNotPwned(password);
       user.password = await this.passwordService.hash(password);
     }
     // site_ids só é sincronizado se o payload incluir 'site_ids' ou 'site_id' explicitamente.
