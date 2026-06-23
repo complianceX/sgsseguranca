@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await */
+﻿/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await */
 import {
   BadRequestException,
   InternalServerErrorException,
@@ -1147,6 +1147,148 @@ describe('AprWorkflowService', () => {
         makeApr() as never,
       );
       expect(result).toBe('wf-config-1');
+    });
+  });
+
+  // ─── processApproval — company_id no where (achado B1) ───────────────────
+
+  describe('processApproval — company_id no criteria de update (achado B1)', () => {
+    const workflowConfig = {
+      id: 'wf-1',
+      steps: [
+        {
+          stepOrder: 1,
+          roleName: 'Técnico de Segurança do Trabalho (TST)',
+          isRequired: true,
+        },
+      ],
+    };
+
+    function buildServiceWithUpdate() {
+      const updateMock = jest.fn().mockResolvedValue({ affected: 1 });
+
+      const repoWithUpdate = {
+        update: updateMock,
+        manager: {
+          transaction: jest.fn(),
+          query: jest.fn(),
+          getRepository: jest.fn().mockReturnValue({
+            findOne: jest.fn().mockResolvedValue(workflowConfig),
+          }),
+        },
+      };
+
+      const svc = new AprWorkflowService(
+        repoWithUpdate as never,
+        aprLogsRepository as never,
+        approvalRecordRepo as never,
+        tenantService as never,
+        forensicTrailService as never,
+        { resolveWorkflow: jest.fn(), isFallback: jest.fn() } as never,
+      );
+
+      return { svc, updateMock };
+    }
+
+    it('REPROVADO: update usa { id, company_id } como criteria (não só id)', async () => {
+      const { svc, updateMock } = buildServiceWithUpdate();
+      const apr = makeApr({ workflowConfigId: 'wf-1' });
+
+      approvalRecordRepo.find.mockResolvedValue([
+        {
+          aprId: apr.id,
+          action: ApprovalRecordAction.APROVADO,
+          stepOrder: 1,
+          occurredAt: new Date(),
+        },
+      ]);
+
+      await svc.processApproval(
+        apr as never,
+        'user-1',
+        'Técnico de Segurança do Trabalho (TST)',
+        ApprovalRecordAction.REPROVADO,
+        'Motivo de reprovação suficientemente longo',
+      );
+
+      expect(updateMock).toHaveBeenCalledWith(
+        { id: apr.id, company_id: apr.company_id },
+        expect.objectContaining({ status: expect.any(String) }),
+      );
+    });
+
+    it('REABERTO: update usa { id, company_id } como criteria (não só id)', async () => {
+      const { svc, updateMock } = buildServiceWithUpdate();
+      const apr = makeApr({ workflowConfigId: 'wf-1' });
+
+      approvalRecordRepo.find.mockResolvedValue([
+        {
+          aprId: apr.id,
+          action: ApprovalRecordAction.APROVADO,
+          stepOrder: 1,
+          occurredAt: new Date(),
+        },
+      ]);
+
+      await svc.processApproval(
+        apr as never,
+        'user-1',
+        'Técnico de Segurança do Trabalho (TST)',
+        ApprovalRecordAction.REABERTO,
+        'Motivo de reabertura suficientemente longo',
+      );
+
+      expect(updateMock).toHaveBeenCalledWith(
+        { id: apr.id, company_id: apr.company_id },
+        expect.objectContaining({ status: expect.any(String) }),
+      );
+    });
+
+    it('APROVADO (último passo): update usa { id, company_id } ao marcar APROVADA', async () => {
+      const { svc, updateMock } = buildServiceWithUpdate();
+      const apr = makeApr({ workflowConfigId: 'wf-1' });
+
+      approvalRecordRepo.find.mockResolvedValue([]);
+
+      await svc.processApproval(
+        apr as never,
+        'user-1',
+        'Técnico de Segurança do Trabalho (TST)',
+        ApprovalRecordAction.APROVADO,
+      );
+
+      expect(updateMock).toHaveBeenCalledWith(
+        { id: apr.id, company_id: apr.company_id },
+        expect.objectContaining({ status: expect.any(String) }),
+      );
+    });
+
+    it('update NUNCA recebe apenas string de id como criteria', async () => {
+      const { svc, updateMock } = buildServiceWithUpdate();
+      const apr = makeApr({ workflowConfigId: 'wf-1' });
+
+      approvalRecordRepo.find.mockResolvedValue([
+        {
+          aprId: apr.id,
+          action: ApprovalRecordAction.APROVADO,
+          stepOrder: 1,
+          occurredAt: new Date(),
+        },
+      ]);
+
+      await svc.processApproval(
+        apr as never,
+        'user-1',
+        null,
+        ApprovalRecordAction.REPROVADO,
+        'Motivo de reprovação suficientemente longo',
+      );
+
+      for (const call of updateMock.mock.calls) {
+        const criteria = call[0];
+        expect(typeof criteria).not.toBe('string');
+        expect(criteria).toHaveProperty('company_id');
+      }
     });
   });
 });

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -321,10 +321,8 @@ export class DdsController {
     @Query('limit') limit?: string,
     @Query('exclude_id') excludeId?: string,
   ) {
-    return this.ddsService.getHistoricalPhotoHashes(
-      limit ? Number(limit) : 100,
-      excludeId,
-    );
+    const clampedLimit = Math.min(Math.max(Number(limit) || 100, 1), 100);
+    return this.ddsService.getHistoricalPhotoHashes(clampedLimit, excludeId);
   }
 
   @Get('files/list')

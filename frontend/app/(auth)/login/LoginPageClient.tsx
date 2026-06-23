@@ -84,12 +84,21 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
   const { login, finalizeLogin } = useAuth();
   const { theme } = useTheme();
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState(false);
   const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
   const turnstileEnabled = turnstileSiteKey.length > 0;
   const shouldRenderTurnstile = turnstileEnabled && mfaStage === 'none';
   const currentTurnstileTheme = theme === 'dark' ? 'dark' : 'light';
   const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = React.useRef<string | null>(null);
+
+  const resetTurnstile = React.useCallback(() => {
+    setTurnstileError(false);
+    setTurnstileToken('');
+    if (turnstileWidgetIdRef.current && window.turnstile?.reset) {
+      window.turnstile.reset(turnstileWidgetIdRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (
@@ -108,9 +117,9 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
         sitekey: turnstileSiteKey,
         action: 'login',
         theme: currentTurnstileTheme,
-        callback: (token: string) => setTurnstileToken(token),
-        'expired-callback': () => setTurnstileToken(''),
-        'error-callback': () => setTurnstileToken(''),
+        callback: (token: string) => { setTurnstileToken(token); setTurnstileError(false); },
+        'expired-callback': () => { setTurnstileToken(''); setTurnstileError(false); },
+        'error-callback': () => { setTurnstileToken(''); setTurnstileError(true); },
       },
     );
 
@@ -120,6 +129,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
       }
       turnstileWidgetIdRef.current = null;
       setTurnstileToken('');
+      setTurnstileError(false);
     };
   }, [currentTurnstileTheme, shouldRenderTurnstile, turnstileScriptReady, turnstileSiteKey]);
 
@@ -400,6 +410,22 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
             {shouldRenderTurnstile ? (
               <div className={styles.turnstileWrap}>
                 <div ref={turnstileContainerRef} />
+                {turnstileError ? (
+                  <div className={`${styles.noticeBanner} ${styles.errorBanner}`} role="alert">
+                    <AlertCircle size={16} aria-hidden="true" />
+                    <span>
+                      Falha no verificador de segurança (Cloudflare).{' '}
+                      <button
+                        type="button"
+                        onClick={resetTurnstile}
+                        style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
+                      >
+                        Tentar novamente
+                      </button>
+                      {' '}ou recarregue a página. VPN/proxy pode bloquear esta verificação.
+                    </span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -556,3 +582,5 @@ export default function LoginPageClient(props: LoginPageClientProps) {
     </Suspense>
   );
 }
+
+

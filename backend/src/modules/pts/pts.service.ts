@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Inject,
   Injectable,
@@ -421,6 +421,11 @@ export class PtsService {
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
+    if (new Date(rest.data_hora_fim) <= new Date(rest.data_hora_inicio)) {
+      throw new BadRequestException(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+    }
     const { companyId, siteId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const effectiveSiteId =
@@ -730,6 +735,13 @@ export class PtsService {
     this.assertPtEditableStatus(pt.status);
     this.assertPtDocumentMutable(pt);
     const { executantes, status, ...rest } = updatePtDto;
+    const effectiveInicio = rest.data_hora_inicio ?? pt.data_hora_inicio;
+    const effectiveFim = rest.data_hora_fim ?? pt.data_hora_fim;
+    if (effectiveFim && effectiveInicio && new Date(effectiveFim) <= new Date(effectiveInicio)) {
+      throw new BadRequestException(
+        'A data/hora de término deve ser posterior à data/hora de início.',
+      );
+    }
     const before = { ...pt };
 
     await this.validateRelatedEntityScope({

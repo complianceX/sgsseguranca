@@ -1,4 +1,4 @@
-import api, { TIMEOUT_PDF } from "@/lib/api";
+﻿import api, { TIMEOUT_PDF } from "@/lib/api";
 import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosResponse } from "axios";
 import { AxiosError } from "axios";
@@ -790,69 +790,6 @@ export const aprsService = {
     return response.data;
   },
 
-  verifyEvidenceHash: async (hash: string) => {
-    const response = await api.get<{
-      verified: boolean;
-      matchedIn?: "original" | "watermarked";
-      message?: string;
-      evidence?: {
-        id: string;
-        apr_id: string;
-        apr_numero?: string | null;
-        apr_versao?: number | null;
-        risk_item_id: string;
-        risk_item_ordem?: number | null;
-        uploaded_at: string;
-        uploaded_by_id?: string | null;
-        uploaded_by_name?: string | null;
-        original_hash: string;
-        watermarked_hash?: string | null;
-        integrity_flags?: Record<string, unknown>;
-      };
-    }>("/aprs/evidence/verify", { params: { hash } });
-    return response.data;
-  },
-
-  getEvidenceCustodyReport: async (aprId: string, riskItemId?: string) => {
-    const response = await api.get<{
-      report_generated_at: string;
-      apr: { id: string; numero: string; versao: number; status: string };
-      scope: {
-        apr_id: string;
-        apr_risk_item_id: string | null;
-        evidence_count: number;
-      };
-      chain_digest_sha256: string;
-      timeline: Array<{
-        evidence_id: string;
-        timestamp: string;
-        event: "EVIDENCE_STORED";
-        actor_id?: string | null;
-        actor_name?: string | null;
-        risk_item_id: string;
-        risk_item_ordem?: number | null;
-        original_hash: string;
-        watermarked_hash?: string | null;
-        file_key: string;
-        watermarked_file_key?: string | null;
-        integrity_flags?: Record<string, unknown>;
-      }>;
-    }>(`/aprs/${aprId}/evidence/report`, {
-      params: riskItemId ? { riskItemId } : undefined,
-    });
-    return response.data;
-  },
-
-  downloadEvidenceCustodyPdf: async (aprId: string, riskItemId?: string) => {
-    const response = await api.get<Blob, AxiosResponse<Blob>>(
-      `/aprs/${aprId}/evidence/report/pdf`,
-      {
-        params: riskItemId ? { riskItemId } : undefined,
-        responseType: "blob",
-      },
-    );
-    return response;
-  },
 
   delete: async (id: string) => {
     await api.delete(`/aprs/${id}`);

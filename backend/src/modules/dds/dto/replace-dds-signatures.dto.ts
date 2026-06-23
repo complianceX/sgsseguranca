@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+﻿import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsDateString,
   IsNotEmpty,
@@ -74,12 +75,14 @@ class DdsTeamPhotoDto {
 
 export class ReplaceDdsSignaturesDto {
   @IsArray()
+  @ArrayMaxSize(60, { message: 'Máximo 60 assinaturas por requisição.' })
   @ValidateNested({ each: true })
   @Type(() => DdsParticipantSignatureDto)
   participant_signatures: DdsParticipantSignatureDto[];
 
   @IsArray()
   @IsOptional()
+  @ArrayMaxSize(10, { message: 'Máximo 10 fotos de equipe por requisição.' })
   @ValidateNested({ each: true })
   @Type(() => DdsTeamPhotoDto)
   team_photos?: DdsTeamPhotoDto[];

@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -50,7 +50,10 @@ export class EpiAssignmentsService {
   ): Promise<EpiAssignment> {
     const scope = this.getSiteAccessScopeOrThrow();
     const companyId = scope.companyId;
-    if (!scope.hasCompanyWideAccess && dto.site_id !== scope.siteId) {
+    const effectiveSiteId = !scope.hasCompanyWideAccess
+      ? (dto.site_id ?? scope.siteId)
+      : dto.site_id;
+    if (!scope.hasCompanyWideAccess && effectiveSiteId !== scope.siteId) {
       throw new BadRequestException(
         'Ficha EPI deve ser lançada na obra atual.',
       );
@@ -82,7 +85,7 @@ export class EpiAssignmentsService {
       company_id: companyId,
       epi_id: dto.epi_id,
       user_id: dto.user_id,
-      site_id: dto.site_id,
+      site_id: effectiveSiteId,
       ca: epi.ca,
       validade_ca: epi.validade_ca,
       quantidade: dto.quantidade || 1,
