@@ -458,7 +458,7 @@ describe('NonConformitiesService', () => {
         where: expect.objectContaining({
           id: 'checklist-xyz',
           company_id: 'company-1',
-        }),
+        }) as unknown,
       }),
     );
     expect(repository.create).toHaveBeenCalledWith(
@@ -466,9 +466,11 @@ describe('NonConformitiesService', () => {
     );
     expect(result).toBeDefined();
     // SECURITY: main responses must not leak internal storage keys
-    expect((result as any).pdf_file_key).toBeUndefined();
-    expect((result as any).pdf_folder_path).toBeUndefined();
-    expect((result as any).pdf_original_name).toBeUndefined();
+    expect((result as Record<string, unknown>).pdf_file_key).toBeUndefined();
+    expect((result as Record<string, unknown>).pdf_folder_path).toBeUndefined();
+    expect(
+      (result as Record<string, unknown>).pdf_original_name,
+    ).toBeUndefined();
     expect(result).toBeInstanceOf(NonConformityResponseDto); // via plainToClass shape
   });
 
@@ -557,7 +559,9 @@ describe('NonConformitiesService', () => {
     expect(result.attachment.originalName).toBe('foto.png');
     // SECURITY: attach response must use governed ref pattern (no raw fileKey)
     expect(result.attachmentReference).toContain('gst:nc-attachment:');
-    expect((result.attachment as any).fileKey).toBeUndefined();
+    expect(
+      (result.attachment as Record<string, unknown>).fileKey,
+    ).toBeUndefined();
   });
 
   it('getAttachmentAccess: sinaliza modo degradado quando a URL segura do anexo falha', async () => {
@@ -661,9 +665,14 @@ describe('NonConformitiesService', () => {
       status: 'ENCERRADA',
     };
 
-    repository.save.mockResolvedValue({ ...validNc, id: 'nc-test' } as any);
+    repository.save.mockResolvedValue({
+      ...validNc,
+      id: 'nc-test',
+    } as unknown as NonConformity);
 
-    const result = await service.create(validNc as any);
+    const result = await service.create(
+      validNc as Parameters<NonConformitiesService['create']>[0],
+    );
     expect(result.status).toBe('ENCERRADA');
     expect(repository.save).toHaveBeenCalled();
   });

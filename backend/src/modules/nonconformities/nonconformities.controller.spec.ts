@@ -99,7 +99,7 @@ describe('NonConformitiesController (http)', () => {
       .expect(200);
 
     // SECURITY: responses from service use NonConformityResponseDto (no raw internal storage keys)
-    expect(res.body.data).toBeDefined();
+    expect((res.body as { data?: unknown }).data).toBeDefined();
     expect(nonConformitiesService.findPaginated).toHaveBeenCalledWith({
       page: 2,
       limit: 30,

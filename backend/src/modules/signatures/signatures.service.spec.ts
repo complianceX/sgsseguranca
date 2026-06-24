@@ -405,7 +405,7 @@ describe('SignaturesService', () => {
         document_id: 'dds-1',
         document_type: 'DDS',
         company_id: 'company-1',
-        deleted_at: expect.anything(),
+        deleted_at: expect.anything() as unknown,
       },
       relations: { user: true },
       select: {

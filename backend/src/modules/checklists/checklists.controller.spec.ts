@@ -297,7 +297,9 @@ describe('ChecklistsController (http)', () => {
   });
 
   it('aceita chamada ao delete (guard override permite; BFLA validado em E2E)', async () => {
-    (checklistsService as any).remove = jest.fn().mockResolvedValue(undefined);
+    (checklistsService as { remove: jest.Mock }).remove = jest
+      .fn()
+      .mockResolvedValue(undefined);
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     await request(httpServer)
       .delete('/checklists/11111111-1111-4111-8111-111111111111')
