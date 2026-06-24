@@ -15,6 +15,7 @@ import {
   Repository,
   DataSource,
   FindOptionsSelect,
+  FindOptionsWhere,
   DeepPartial,
   In,
   IsNull,
@@ -2058,7 +2059,8 @@ export class ChecklistsService {
     }
 
     // Reforçado: usar select parcial (checklistListSelect) para evitar carregar JSONB "itens" completo desnecessariamente em listagens.
-    let findWhere: any = { ...filter, deleted_at: IsNull() };
+    let findWhere: FindOptionsWhere<Checklist> | FindOptionsWhere<Checklist>[] =
+      { ...filter, deleted_at: IsNull() };
     if (applySiteFilter && options?.onlyTemplates) {
       // Do not skip site filters improperly for templates: global templates (null site) + site-matching ones
       findWhere = [

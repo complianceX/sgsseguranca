@@ -182,8 +182,9 @@ describe('ChecklistsService', () => {
       repository as unknown as Repository<Checklist>,
       tenantService,
       {
-        transaction: jest.fn(async (cb: any) =>
-          cb({ getRepository: () => repository }),
+        transaction: jest.fn(
+          (cb: (m: { getRepository: () => typeof repository }) => unknown) =>
+            cb({ getRepository: () => repository }),
         ),
       } as unknown as DataSource,
       { sendMailSimple: jest.fn() } as unknown as MailService,
@@ -756,7 +757,10 @@ describe('ChecklistsService', () => {
     const manager = { getRepository: jest.fn(() => ({ softDelete })) };
     jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
     jest
-      .spyOn(service as any, 'getGovernedChecklistPhotoEntries')
+      .spyOn(
+        service as unknown as Record<string, jest.Mock>,
+        'getGovernedChecklistPhotoEntries',
+      )
       .mockReturnValue([
         {
           scope: 'equipment',
@@ -767,14 +771,20 @@ describe('ChecklistsService', () => {
       ]);
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
-    ).mockImplementation(async (input: any) => {
-      await input.removeEntityState?.(manager as never);
+    ).mockImplementation(async (input: Record<string, unknown>) => {
+      const fn = input.removeEntityState as
+        | ((m: unknown) => Promise<void>)
+        | undefined;
+      if (fn) await fn(manager);
     });
     (signaturesService.removeByDocumentSystem as jest.Mock).mockResolvedValue(
       2,
     );
     const cleanupSpy = jest
-      .spyOn(service as any, 'cleanupGovernedChecklistPhotoFiles')
+      .spyOn(
+        service as unknown as Record<string, jest.Mock>,
+        'cleanupGovernedChecklistPhotoFiles',
+      )
       .mockResolvedValue(undefined);
 
     await service.remove('checklist-1');
@@ -797,7 +807,7 @@ describe('ChecklistsService', () => {
       { id: 't-global', is_modelo: true, site_id: null, titulo: 'Global' },
       { id: 't-site1', is_modelo: true, site_id: 'site-1', titulo: 'Site1' },
     ];
-    const qbMock: any = {
+    const qbMock = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -857,8 +867,8 @@ describe('ChecklistsService', () => {
     // sanitizePlainText remove tags
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        titulo: expect.not.stringContaining('<script>'),
-        categoria: expect.not.stringContaining('<img>'),
+        titulo: expect.not.stringContaining('<script>') as unknown,
+        categoria: expect.not.stringContaining('<img>') as unknown,
       }),
     );
     expect(result).toBeDefined();
@@ -1775,8 +1785,9 @@ describe('ChecklistsService', () => {
       repository as unknown as Repository<Checklist>,
       tenantService,
       {
-        transaction: jest.fn(async (cb: any) =>
-          cb({ getRepository: () => repository }),
+        transaction: jest.fn(
+          (cb: (m: { getRepository: () => typeof repository }) => unknown) =>
+            cb({ getRepository: () => repository }),
         ),
       } as unknown as DataSource,
       { sendStoredDocument } as unknown as MailService,
@@ -2748,8 +2759,11 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({});
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const callArg: any = repository.findAndCount.mock.calls.at(-1)?.[0];
+      const callArg = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown> }]
+        >
+      ).at(-1)?.[0];
       expect(callArg?.where?.site_id).toBeDefined();
     });
 
@@ -2763,8 +2777,11 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({});
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const callArg: any = repository.findAndCount.mock.calls.at(-1)?.[0];
+      const callArg = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown> }]
+        >
+      ).at(-1)?.[0];
       expect(callArg?.where?.site_id).toBeUndefined();
     });
   });
@@ -2796,12 +2813,18 @@ describe('ChecklistsService', () => {
         if (fn) await fn(manager);
       });
 
-      const cleanupSpy = jest
-        .spyOn(service as any, 'cleanupGovernedChecklistPhotoFiles')
+      const _cleanupSpy = jest
+        .spyOn(
+          service as unknown as Record<string, jest.Mock>,
+          'cleanupGovernedChecklistPhotoFiles',
+        )
         .mockResolvedValue(undefined);
 
       const resetSpy = jest
-        .spyOn(service as any, 'resetChecklistSignatures')
+        .spyOn(
+          service as unknown as Record<string, jest.Mock>,
+          'resetChecklistSignatures',
+        )
         .mockResolvedValue(undefined);
 
       await service.remove('checklist-del');
@@ -2823,8 +2846,11 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({ page: 1, limit: 20 });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const lastCall: any = repository.findAndCount.mock.calls.at(-1)?.[0];
+      const lastCall = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown>; order?: Record<string, string> }]
+        >
+      ).at(-1)?.[0];
       expect(lastCall?.where?.company_id).toBe('company-1');
       expect(lastCall?.order).toMatchObject({ created_at: 'DESC' });
     });
@@ -2840,7 +2866,7 @@ describe('ChecklistsService', () => {
         select: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       };
-      repository.createQueryBuilder.mockReturnValue(qb as any);
+      repository.createQueryBuilder.mockReturnValue(qb);
 
       (tenantService.getContext as jest.Mock).mockReturnValue({
         companyId: 'company-1',
