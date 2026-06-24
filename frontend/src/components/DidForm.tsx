@@ -19,6 +19,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/lib/permissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { getDidReadOnlyReason } from '@/app/dashboard/dids/didMeta';
 import { didSchema, type DidFormData } from '@/app/dashboard/dids/didForm.schema';
@@ -51,7 +52,7 @@ function getInitialCompanyId() {
 export function DidForm({ id }: DidFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canManageDids = hasPermission('can_manage_dids');
+  const canManageDids = hasPermission(Permission.CAN_MANAGE_DIDS);
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
-import { Permission } from '@/lib/permissions';
+import { Permission, type AppPermission } from '@/lib/permissions';
 import {
   AlertCircle,
   AlertTriangle,
@@ -49,7 +49,7 @@ type MenuEntry = {
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   requiresAi?: boolean;
-  permission?: string;
+  permission?: AppPermission;
 };
 
 type MenuSection = {
@@ -67,10 +67,10 @@ const menuSections: MenuSection[] = [
     items: [
       { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
       { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: 'can_manage_sites' },
+      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: Permission.CAN_MANAGE_SITES },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: 'can_manage_users' },
-      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: 'can_view_calendar' },
+      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: Permission.CAN_MANAGE_USERS },
+      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: Permission.CAN_VIEW_CALENDAR },
     ],
   },
   {
@@ -83,18 +83,23 @@ const menuSections: MenuSection[] = [
         icon: CalendarDays,
         label: 'Início do Dia',
         href: '/dashboard/dids',
-        permission: 'can_view_dids',
+        permission: Permission.CAN_VIEW_DIDS,
       },
       {
         icon: AlertTriangle,
         label: 'ARR',
         href: '/dashboard/arrs',
-        permission: 'can_view_arrs',
+        permission: Permission.CAN_VIEW_ARRS,
       },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: 'can_view_expenses' },
-      { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
+      { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: Permission.CAN_VIEW_EXPENSES },
+      {
+        icon: AlertTriangle,
+        label: 'Não conformidades',
+        href: '/dashboard/nonconformities',
+        permission: Permission.CAN_VIEW_NC,
+      },
       { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
       { icon: Sparkles, label: 'SOPHIE', href: '/dashboard/sst-agent', requiresAi: true },
     ],
@@ -181,37 +186,37 @@ const menuSections: MenuSection[] = [
         icon: FileText,
         label: 'Normativos',
         href: '/dashboard/checklist-models/normativos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: FileText,
         label: 'Operacionais',
         href: '/dashboard/checklist-models/operacionais',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: Settings,
         label: 'Equipamentos',
         href: '/dashboard/checklist-models/equipamentos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: MapPin,
         label: 'Veículos',
         href: '/dashboard/checklist-models/veiculos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: Shield,
         label: 'Modelos de EPI',
         href: '/dashboard/checklist-models/epis',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: ClipboardCheck,
         label: 'Execuções',
         href: '/dashboard/checklists',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
     ],
   },
@@ -282,15 +287,15 @@ export function Sidebar({
             '/dashboard/document-pendencies',
           ].includes(href);
 
-          if (needsDashboardPermission && !hasPermission('can_view_dashboard')) {
+          if (needsDashboardPermission && !hasPermission(Permission.CAN_VIEW_DASHBOARD)) {
             return false;
           }
 
-          if (href === '/dashboard/risks' && !hasPermission('can_view_risks')) {
+          if (href === '/dashboard/risks' && !hasPermission(Permission.CAN_VIEW_RISKS)) {
             return false;
           }
 
-          if (href === '/dashboard/document-registry' && !hasPermission('can_view_documents_registry')) {
+          if (href === '/dashboard/document-registry' && !hasPermission(Permission.CAN_VIEW_DOCUMENTS_REGISTRY)) {
             return false;
           }
 

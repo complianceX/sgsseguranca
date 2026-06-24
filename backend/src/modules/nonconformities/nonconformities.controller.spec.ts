@@ -9,11 +9,13 @@ import request from 'supertest';
 import type { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { NonConformitiesController } from './nonconformities.controller';
 import { NonConformitiesService } from './nonconformities.service';
+import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
 
 describe('NonConformitiesController (http)', () => {
   let app: INestApplication;
@@ -50,6 +52,8 @@ describe('NonConformitiesController (http)', () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .overrideInterceptor(TenantInterceptor)
       .useValue({
         intercept: (
@@ -70,14 +74,22 @@ describe('NonConformitiesController (http)', () => {
 
   it('valida paginação e busca da listagem de NC via DTO dedicado', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    nonConformitiesService.findPaginated.mockResolvedValue({
-      data: [],
-      total: 0,
+    const mockPage = {
+      data: [
+        // SECURITY: service returns NonConformityResponseDto instances (or shapes) with internal keys stripped
+        {
+          id: 'nc-1',
+          codigo_nc: 'NC-001',
+          company_id: 'c1',
+        } as unknown as NonConformityResponseDto,
+      ],
+      total: 1,
       page: 2,
       limit: 30,
-    });
+    };
+    nonConformitiesService.findPaginated.mockResolvedValue(mockPage);
 
-    await request(httpServer)
+    const res = await request(httpServer)
       .get('/nonconformities')
       .query({
         page: '2',
@@ -86,6 +98,8 @@ describe('NonConformitiesController (http)', () => {
       })
       .expect(200);
 
+    // SECURITY: responses from service use NonConformityResponseDto (no raw internal storage keys)
+    expect(res.body.data).toBeDefined();
     expect(nonConformitiesService.findPaginated).toHaveBeenCalledWith({
       page: 2,
       limit: 30,

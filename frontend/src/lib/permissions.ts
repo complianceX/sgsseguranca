@@ -5,9 +5,12 @@
  * Isso garante que erros de digitação sejam detectados em compile-time,
  * e que uma busca por Permission.CAN_VIEW_RISKS encontre todos os usos.
  *
+ * SEMPRE: import { Permission } from '@/lib/permissions';
+ *         hasPermission(Permission.CAN_XXX)
+ *
  * Exemplo:
  *   hasPermission(Permission.CAN_VIEW_RISKS)   ← correto
- *   hasPermission('can_view_risks')            ← ainda funciona (backward compat)
+ *   hasPermission('can_view_risks')            ← EVITAR (legacy, será removido)
  */
 
 export const Permission = {
@@ -25,12 +28,17 @@ export const Permission = {
   CAN_VIEW_DOSSIERS: 'can_view_dossiers',
   CAN_VIEW_DOCUMENTS_REGISTRY: 'can_view_documents_registry',
   CAN_VIEW_CHECKLISTS: 'can_view_checklists',
+  CAN_VIEW_NC: 'can_view_nc',
   CAN_VIEW_SITES: 'can_view_sites',
   CAN_VIEW_USERS: 'can_view_users',
   CAN_VIEW_EXPENSES: 'can_view_expenses',
   CAN_VIEW_PHOTOGRAPHIC_REPORTS: 'can_view_photographic_reports',
   CAN_VIEW_RDOS: 'can_view_rdos',
   CAN_VIEW_COMPANIES: 'can_view_companies',
+  CAN_VIEW_DDS: 'can_view_dds',
+  CAN_VIEW_CALENDAR: 'can_view_calendar',
+  CAN_VIEW_APR: 'can_view_apr',
+  CAN_VIEW_CATS: 'can_view_cats',
 
   // Gestão
   CAN_MANAGE_ARRS: 'can_manage_arrs',
@@ -50,6 +58,9 @@ export const Permission = {
   CAN_CLOSE_EXPENSES: 'can_close_expenses',
   CAN_MANAGE_CATALOGS: 'can_manage_catalogs',
   CAN_MANAGE_COMPANIES: 'can_manage_companies',
+  CAN_MANAGE_DDS: 'can_manage_dds',
+  CAN_MANAGE_CATS: 'can_manage_cats',
+  CAN_MANAGE_RDOS: 'can_manage_rdos',
   CAN_MANAGE_PHOTOGRAPHIC_REPORTS: 'can_manage_photographic_reports',
   CAN_GENERATE_PHOTOGRAPHIC_REPORT_AI: 'can_generate_photographic_report_ai',
   CAN_EXPORT_PHOTOGRAPHIC_REPORT_PDF: 'can_export_photographic_report_pdf',
@@ -60,6 +71,15 @@ export const Permission = {
   CAN_APPROVE_PT: 'can_approve_pt',
   CAN_IMPORT_DOCUMENTS: 'can_import_documents',
   CAN_USE_AI: 'can_use_ai',
+
+  // APRs granulares
+  CAN_CREATE_APR: 'can_create_apr',
+  CAN_UPDATE_APR: 'can_update_apr',
+  CAN_APPROVE_APR: 'can_approve_apr',
+  CAN_REJECT_APR: 'can_reject_apr',
+  CAN_FINALIZE_APR: 'can_finalize_apr',
+  CAN_DELETE_APR: 'can_delete_apr',
+  CAN_GENERATE_APR_PDF: 'can_generate_apr_pdf',
 } as const;
 
 export const PermissionPrefix = {

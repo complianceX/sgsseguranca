@@ -18,6 +18,7 @@ const VISUALIZADOR_FALLBACK_PERMISSIONS = [
   'can_view_apr',
   'can_view_pt',
   'can_view_checklists',
+  'can_view_nc',
   'can_view_signatures',
   'can_manage_signatures',
   'can_view_dds',

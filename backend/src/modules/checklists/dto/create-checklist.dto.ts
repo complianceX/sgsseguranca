@@ -120,14 +120,17 @@ export class CreateChecklistDto {
   ativo?: boolean;
 
   @IsString()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   categoria?: string;
 
   @IsString()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   periodicidade?: string;
 
   @IsString()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   nivel_risco_padrao?: string;
 

@@ -22,6 +22,7 @@ import {
 } from "./components/aprListingUtils";
 import { aprsService } from "@/services/aprsService";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
@@ -51,7 +52,7 @@ const StoredFilesPanel = dynamic(
 
 export default function AprsPage() {
   const { hasPermission } = useAuth();
-  const canCreate = hasPermission("can_create_apr");
+  const canCreate = hasPermission(Permission.CAN_CREATE_APR);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

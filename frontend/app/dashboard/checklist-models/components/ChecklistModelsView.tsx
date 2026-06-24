@@ -35,7 +35,8 @@ import { cn } from "@/lib/utils";
 import { checklistsService, type Checklist } from "@/services/checklistsService";
 import { signaturesService } from "@/services/signaturesService";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/context/AuthContext";
+import { Permission } from "@/lib/permissions";
 
 const SendMailModal = dynamic(
   () =>
@@ -57,8 +58,10 @@ export function ChecklistModelsView({
   area,
   showBootstrapAction = false,
 }: ChecklistModelsViewProps) {
-  const { hasPermission } = usePermissions();
-  const canManageChecklists = hasPermission("can_manage_checklists");
+  const { hasPermission } = useAuth();
+  const canViewChecklists = hasPermission(Permission.CAN_VIEW_CHECKLISTS);
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
+
   const [models, setModels] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,8 +107,13 @@ export function ChecklistModelsView({
   }, [area.category, area.segment, page]);
 
   useEffect(() => {
-    void loadModels();
-  }, [loadModels]);
+    if (canViewChecklists || canManageChecklists) {
+      void loadModels();
+    } else {
+      setLoading(false);
+      setModels([]);
+    }
+  }, [loadModels, canViewChecklists, canManageChecklists]);
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir este modelo?")) {
@@ -190,6 +198,15 @@ export function ChecklistModelsView({
       ),
     [models, searchTerm],
   );
+
+  if (!canViewChecklists && !canManageChecklists) {
+    return (
+      <EmptyState
+        title="Acesso restrito"
+        description="Sem permissão para visualizar modelos de checklist."
+      />
+    );
+  }
 
   return (
     <>

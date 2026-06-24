@@ -66,6 +66,7 @@ import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
 import type { AprLogEntry } from "./AprTimeline";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import type {
   SophieDraftChecklistSuggestion,
   SophieDraftRiskSuggestion,
@@ -300,13 +301,13 @@ export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, hasPermission } = useAuth();
-  const canCreate = hasPermission("can_create_apr");
-  const canUpdate = hasPermission("can_update_apr");
-  const canApprove = hasPermission("can_approve_apr");
-  const canGenerateAprPdf = hasPermission("can_generate_apr_pdf");
-  const canView = hasPermission("can_view_apr");
-  const canViewSignatures = hasPermission("can_view_signatures");
-  const canManageSignatures = hasPermission("can_manage_signatures");
+  const canCreate = hasPermission(Permission.CAN_CREATE_APR);
+  const canUpdate = hasPermission(Permission.CAN_UPDATE_APR);
+  const canApprove = hasPermission(Permission.CAN_APPROVE_APR);
+  const canGenerateAprPdf = hasPermission(Permission.CAN_GENERATE_APR_PDF);
+  const canView = hasPermission(Permission.CAN_VIEW_APR);
+  const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
   const isCreateMode = !id;
   const canWriteApr = isCreateMode ? canCreate : canUpdate;
   const lacksWritePermission = !canWriteApr;

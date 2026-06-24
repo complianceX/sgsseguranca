@@ -26,6 +26,7 @@ import { usersService, User } from "@/services/usersService";
 import { openUrlInNewTab } from "@/lib/print-utils";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import { useCachedFetch } from "@/hooks/useCachedFetch";
 import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 import {
@@ -49,8 +50,8 @@ const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function CatsPage() {
   const { loading: authLoading, hasPermission } = useAuth();
-  const canViewCats = hasPermission("can_view_cats");
-  const canManageCats = hasPermission("can_manage_cats");
+  const canViewCats = hasPermission(Permission.CAN_VIEW_CATS);
+  const canManageCats = hasPermission(Permission.CAN_MANAGE_CATS);
   const catsSummaryCache = useCachedFetch(
     CACHE_KEYS.catsSummary,
     catsService.getSummary,

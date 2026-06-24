@@ -76,14 +76,9 @@ export class ChecklistResponseDto {
   @Expose()
   notas_auditoria: string;
 
-  @Expose()
-  pdf_file_key: string;
-
-  @Expose()
-  pdf_folder_path: string;
-
-  @Expose()
-  pdf_original_name: string;
+  // SECURITY: do not expose raw internal storage keys in checklist responses.
+  // Use dedicated governed access endpoints (GET /:id/pdf , /photos/.../access) which return temporary signed URLs.
+  // pdf_file_key / pdf_folder_path / pdf_original_name are stored internally but stripped from API JSON output.
 
   @Expose()
   created_at: Date;
