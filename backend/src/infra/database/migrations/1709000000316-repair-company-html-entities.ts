@@ -4,6 +4,12 @@ export class RepairCompanyHtmlEntities1709000000316 implements MigrationInterfac
   name = 'RepairCompanyHtmlEntities1709000000316';
 
   async up(queryRunner: QueryRunner): Promise<void> {
+    const isSqlite =
+      queryRunner.connection.options.type === 'sqlite' ||
+      queryRunner.connection.options.type === 'better-sqlite3';
+    if (isSqlite) {
+      return;
+    }
     const unescape = `
       replace(replace(replace(replace(replace(
         %s,

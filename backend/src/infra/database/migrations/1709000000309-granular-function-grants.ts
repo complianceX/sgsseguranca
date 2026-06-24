@@ -13,9 +13,6 @@ export class GranularFunctionGrants1709000000309 implements MigrationInterface {
       `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`,
     );
     await queryRunner.query(
-      `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM sgs_app`,
-    );
-    await queryRunner.query(
       `GRANT EXECUTE ON FUNCTION current_company() TO sgs_app`,
     );
     await queryRunner.query(

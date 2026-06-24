@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import {
   checklistRecordsAreas,
   getChecklistRecordsArea,
@@ -59,7 +60,8 @@ export function ChecklistsPageView({
   area?: ChecklistRecordsArea;
 }) {
   const { user, hasPermission } = useAuth();
-  const canManageChecklists = hasPermission('can_manage_checklists');
+  const canViewChecklists = hasPermission(Permission.CAN_VIEW_CHECKLISTS);
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
   const {
     loading,
     loadError,
@@ -280,6 +282,15 @@ export function ChecklistsPageView({
   ).map(([id, name]) => ({ id, name }));
 
   const hasCriticalFindings = insights.naoConforme > 0;
+
+  if (!canViewChecklists && !canManageChecklists) {
+    return (
+      <ErrorState
+        title="Acesso restrito"
+        description="Você não possui permissão para visualizar checklists e inspeções."
+      />
+    );
+  }
 
   if (loadError) {
     return (

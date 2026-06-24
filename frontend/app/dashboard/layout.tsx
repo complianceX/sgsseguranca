@@ -93,8 +93,9 @@ function DashboardShell({
     }
 
     const permissionException = getRoutePermissionException(pathname);
-    const hasExceptionPermission =
-      !!permissionException && hasPermission(permissionException);
+    const hasExceptionPermission = permissionException
+      ? hasPermission(permissionException)
+      : false;
 
     if (
       !loading &&

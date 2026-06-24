@@ -39,6 +39,7 @@ import {
 } from '@/services/didsService';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 import { getDidTurnoLabel } from './didMeta';
 import { useDids } from './hooks/useDids';
@@ -53,7 +54,7 @@ const inputClassName =
 
 export default function DidsPage() {
   const { hasPermission } = usePermissions();
-  const canManageDids = hasPermission('can_manage_dids');
+  const canManageDids = hasPermission(Permission.CAN_MANAGE_DIDS);
   const {
     dids,
     loading,

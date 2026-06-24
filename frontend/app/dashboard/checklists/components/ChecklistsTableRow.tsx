@@ -9,6 +9,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { ChecklistColumnKey } from '../columns';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
 interface ChecklistsTableRowProps {
@@ -57,7 +58,8 @@ export const ChecklistsTableRow = React.memo(({
   onDelete
 }: ChecklistsTableRowProps) => {
   const { hasPermission } = useAuth();
-  const canManageChecklists = hasPermission('can_manage_checklists');
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const sophieNcHref = (() => {
     const params = new URLSearchParams();
     params.set('documentType', 'nc');
@@ -76,6 +78,8 @@ export const ChecklistsTableRow = React.memo(({
     );
     return `/dashboard/sst-agent?${params.toString()}`;
   })();
+
+  const directNcHref = `/dashboard/nonconformities/new?checklist_id=${checklist.id}&title=${encodeURIComponent(checklist.titulo || 'Não conformidade oriunda de checklist')}${checklist.site_id ? `&site_id=${checklist.site_id}` : ''}`;
 
   const renderCell = (column: ChecklistColumnKey) => {
     switch (column) {
@@ -229,14 +233,26 @@ export const ChecklistsTableRow = React.memo(({
               <Mail className="h-4 w-4" />
             </Button>
           ) : null}
-          <Link
-            href={sophieNcHref}
-            className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-            title="Abrir NC com SOPHIE"
-            aria-label={`Abrir não conformidade com SOPHIE para checklist ${checklist.titulo}`}
-          >
-            <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
-          </Link>
+          {canManageNc ? (
+            <>
+              <Link
+                href={sophieNcHref}
+                className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                title="Abrir NC com SOPHIE"
+                aria-label={`Abrir não conformidade com SOPHIE para checklist ${checklist.titulo}`}
+              >
+                <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              </Link>
+              <Link
+                href={directNcHref}
+                className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                title="Criar NC manual vinculada a este checklist"
+                aria-label={`Criar não conformidade manual para checklist ${checklist.titulo}`}
+              >
+                <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />
+              </Link>
+            </>
+          ) : null}
           {canManageChecklists ? (
             <>
               <Link

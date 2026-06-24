@@ -16,10 +16,13 @@ import {
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
 import { NonConformity } from './entities/nonconformity.entity';
+import { Checklist } from '../checklists/entities/checklist.entity';
 import {
   CreateNonConformityDto,
   UpdateNonConformityDto,
 } from './dto/create-nonconformity.dto';
+import { plainToClass } from 'class-transformer';
+import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
@@ -44,6 +47,7 @@ import {
   coerceDocumentDate,
   getIsoWeekNumber,
 } from '../../shared/utils/document-calendar.util';
+import { sanitizePlainText } from '../../shared/utils/plain-text-sanitizer.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import {
   GovernedPdfAccessAvailability,
@@ -92,9 +96,12 @@ export type NonConformityAttachmentAttachResponse = {
   storageMode: 'governed-storage';
   degraded: false;
   message: string;
+  // SECURITY: use governed reference (like photoReference in checklists) for attach responses.
+  // Do not include raw fileKey here. Access file via the governed ref in attachments[] + dedicated /access endpoint.
+  attachmentReference: string;
   attachment: {
     index: number;
-    fileKey: string;
+    // fileKey intentionally omitted (raw keys never in attach responses; only in /access responses)
     originalName: string;
     mimeType: string;
   };
@@ -129,6 +136,8 @@ export class NonConformitiesService {
     private nonConformitiesRepository: Repository<NonConformity>,
     @InjectRepository(Site)
     private sitesRepository: Repository<Site>,
+    @InjectRepository(Checklist)
+    private checklistsRepository: Repository<Checklist>,
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentBundleService: DocumentBundleService,
@@ -147,7 +156,7 @@ export class NonConformitiesService {
   }
 
   private normalizeRequiredText(value: string): string {
-    return value.trim();
+    return (sanitizePlainText(value) as string).trim();
   }
 
   private normalizeNcCode(value: string): string {
@@ -165,7 +174,9 @@ export class NonConformitiesService {
   }
 
   private normalizeOptionalText(value?: string | null): string | undefined {
-    const normalized = value?.trim();
+    const sanitized =
+      value != null ? (sanitizePlainText(value) as string) : undefined;
+    const normalized = sanitized?.trim();
     return normalized ? normalized : undefined;
   }
 
@@ -179,7 +190,11 @@ export class NonConformitiesService {
 
   private normalizeStringArray(values?: string[]): string[] {
     return Array.from(
-      new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+      new Set(
+        (values ?? [])
+          .map((value) => (sanitizePlainText(value) as string).trim())
+          .filter(Boolean),
+      ),
     );
   }
 
@@ -448,6 +463,24 @@ export class NonConformitiesService {
     );
   }
 
+  private toNonConformityResponse(
+    nonConformity: NonConformity,
+  ): NonConformityResponseDto {
+    // SECURITY: explicitly strip raw internal storage keys from main responses.
+    // These are only for governed access endpoints that return temporary signed URLs.
+    const {
+      pdf_file_key: _pdfKey,
+      pdf_folder_path: _pdfPath,
+      pdf_original_name: _pdfName,
+      ...rest
+    } = nonConformity as NonConformity & Record<string, unknown>;
+
+    // For anexos, the governed refs are already used (gst:); no raw fileKey in main payload.
+    return plainToClass(NonConformityResponseDto, rest, {
+      excludeExtraneousValues: true,
+    });
+  }
+
   private canonicalizeStatus(value?: string | null): string {
     return (
       value
@@ -571,6 +604,7 @@ export class NonConformitiesService {
         dto.assinatura_tecnico_auditor,
       ),
       assinatura_gestao: this.normalizeOptionalText(dto.assinatura_gestao),
+      checklist_id: dto.checklist_id,
     };
   }
 
@@ -802,7 +836,33 @@ export class NonConformitiesService {
     }
   }
 
-  async create(createNonConformityDto: CreateNonConformityDto) {
+  private async validateChecklistLink(
+    payload: Partial<NonConformity>,
+    tenantId: string,
+  ): Promise<void> {
+    if (!payload.checklist_id) {
+      return;
+    }
+
+    const checklist = await this.checklistsRepository.findOne({
+      where: {
+        id: payload.checklist_id,
+        company_id: tenantId,
+        deleted_at: IsNull(),
+      },
+      select: ['id', 'site_id'],
+    });
+
+    if (!checklist) {
+      throw new BadRequestException(
+        'O checklist informado não foi encontrado ou não pertence à empresa atual.',
+      );
+    }
+  }
+
+  async create(
+    createNonConformityDto: CreateNonConformityDto,
+  ): Promise<NonConformityResponseDto> {
     const tenantId = this.getTenantIdOrThrow();
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
@@ -819,6 +879,7 @@ export class NonConformitiesService {
       payload.resolved_by = RequestContext.getUserId() || null;
     }
     await this.validateLinkedRecords(payload, tenantId);
+    await this.validateChecklistLink(payload, tenantId);
     await this.ensureUniqueCodigoNc(tenantId, payload.codigo_nc!);
 
     const nonConformity = this.nonConformitiesRepository.create(payload);
@@ -842,15 +903,18 @@ export class NonConformitiesService {
       });
     }
     await this.logAudit(AuditAction.CREATE, saved.id, null, saved);
-    return saved;
+    return this.toNonConformityResponse(saved);
   }
 
-  async findAll(options?: { take?: number; select?: (keyof NonConformity)[] }) {
+  async findAll(options?: {
+    take?: number;
+    select?: (keyof NonConformity)[];
+  }): Promise<NonConformityResponseDto[]> {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'nao conformidades',
     );
-    return this.nonConformitiesRepository.find({
+    const entities = await this.nonConformitiesRepository.find({
       where: {
         company_id: scope.companyId,
         deleted_at: IsNull(),
@@ -862,13 +926,14 @@ export class NonConformitiesService {
       order: { created_at: 'DESC' },
       ...(options?.take !== undefined && { take: options.take }),
     });
+    return entities.map((e) => this.toNonConformityResponse(e));
   }
 
   async findPaginated(opts?: {
     page?: number;
     limit?: number;
     search?: string;
-  }): Promise<OffsetPage<NonConformity>> {
+  }): Promise<OffsetPage<NonConformityResponseDto>> {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'nao conformidades',
@@ -904,7 +969,8 @@ export class NonConformitiesService {
     }
 
     const [data, total] = await query.getManyAndCount();
-    return toOffsetPage(data, total, page, limit);
+    const transformed = data.map((e) => this.toNonConformityResponse(e));
+    return toOffsetPage(transformed, total, page, limit);
   }
 
   async countPendingActionItems(companyId?: string): Promise<number> {
@@ -994,7 +1060,12 @@ export class NonConformitiesService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<NonConformityResponseDto> {
+    const entity = await this.findOneEntity(id);
+    return this.toNonConformityResponse(entity);
+  }
+
+  async findOneEntity(id: string): Promise<NonConformity> {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'nao conformidades',
@@ -1018,8 +1089,11 @@ export class NonConformitiesService {
     return nonConformity;
   }
 
-  async update(id: string, updateNonConformityDto: UpdateNonConformityDto) {
-    const nonConformity = await this.findOne(id);
+  async update(
+    id: string,
+    updateNonConformityDto: UpdateNonConformityDto,
+  ): Promise<NonConformityResponseDto> {
+    const nonConformity = await this.findOneEntity(id);
     this.assertNcDocumentMutable(nonConformity);
     const before = { ...nonConformity };
     const previousGovernedAttachments = this.getGovernedAttachmentEntries(
@@ -1043,6 +1117,7 @@ export class NonConformitiesService {
       );
     }
     await this.validateLinkedRecords(payload, nonConformity.company_id);
+    await this.validateChecklistLink(payload, nonConformity.company_id);
     if (payload.codigo_nc) {
       await this.ensureUniqueCodigoNc(
         nonConformity.company_id,
@@ -1081,11 +1156,11 @@ export class NonConformitiesService {
       });
     }
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
-    return saved;
+    return this.toNonConformityResponse(saved);
   }
 
   async remove(id: string) {
-    const nonConformity = await this.findOne(id);
+    const nonConformity = await this.findOneEntity(id);
     const before = { ...nonConformity };
     const governedAttachments = this.getGovernedAttachmentEntries(
       nonConformity.anexos,
@@ -1157,7 +1232,7 @@ export class NonConformitiesService {
   }
 
   async getPdfAccess(id: string): Promise<NonConformityPdfAccessResponse> {
-    const nc = await this.findOne(id);
+    const nc = await this.findOneEntity(id);
     if (!nc.pdf_file_key) {
       const response: NonConformityPdfAccessResponse = {
         entityId: nc.id,
@@ -1224,7 +1299,7 @@ export class NonConformitiesService {
     originalName: string,
     mimetype: string,
   ): Promise<NonConformityAttachmentAttachResponse> {
-    const nc = await this.findOne(id);
+    const nc = await this.findOneEntity(id);
     this.assertNcDocumentMutable(nc);
 
     const fileKey = this.documentStorageService.generateDocumentKey(
@@ -1301,9 +1376,9 @@ export class NonConformitiesService {
       degraded: false,
       message:
         'Anexo governado salvo no storage oficial. URLs manuais e anexos inline permanecem como caminho degradado.',
+      attachmentReference: reference,
       attachment: {
         index: (saved.anexos ?? []).findIndex((item) => item === reference),
-        fileKey,
         originalName,
         mimeType: mimetype,
       },
@@ -1314,7 +1389,7 @@ export class NonConformitiesService {
     id: string,
     index: number,
   ): Promise<NonConformityAttachmentAccessResponse> {
-    const nc = await this.findOne(id);
+    const nc = await this.findOneEntity(id);
     const attachmentValue = nc.anexos?.[index];
     const governedAttachment =
       this.parseGovernedAttachmentReference(attachmentValue);
@@ -1377,8 +1452,8 @@ export class NonConformitiesService {
     buffer: Buffer,
     originalName: string,
     mimetype: string,
-  ) {
-    const nc = await this.findOne(id);
+  ): Promise<NonConformityResponseDto> {
+    const nc = await this.findOneEntity(id);
     this.assertNcDocumentMutable(nc);
     const documentDate =
       coerceDocumentDate(nc.data_identificacao) || new Date();
@@ -1489,8 +1564,11 @@ export class NonConformitiesService {
     };
   }
 
-  async updateStatus(id: string, newStatus: NcStatus): Promise<NonConformity> {
-    const nc = await this.findOne(id);
+  async updateStatus(
+    id: string,
+    newStatus: NcStatus,
+  ): Promise<NonConformityResponseDto> {
+    const nc = await this.findOneEntity(id);
     this.assertNcDocumentMutable(nc);
     const before = { ...nc };
     const current = this.normalizeStatus(nc.status);
@@ -1510,7 +1588,7 @@ export class NonConformitiesService {
     }
     const saved = await this.nonConformitiesRepository.save(nc);
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
-    return saved;
+    return this.toNonConformityResponse(saved);
   }
 
   async count(options?: FindManyOptions<NonConformity>): Promise<number> {
