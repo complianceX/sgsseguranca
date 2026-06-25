@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Delete,
+  Logger,
   UseGuards,
   UseInterceptors,
   Req,
@@ -43,6 +44,7 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { AprResponseDto, toAprResponseDto } from './dto/apr-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { APR_PERMISSIONS } from './apr-permissions.constants';
 import { TenantThrottle } from '../../shared/decorators/tenant-throttle.decorator';
 import { UserThrottle } from '../../shared/decorators/user-throttle.decorator';
 import { OffsetPage } from '../../shared/utils/offset-pagination.util';
@@ -103,11 +105,17 @@ const APR_LIST_USER_THROTTLE_LIMIT = parseRateLimit(
 type AprListSortOption = (typeof APR_LIST_SORT_OPTIONS)[number];
 
 const resolveAprFinalPdfRequestTimeoutMs = (): number => {
-  const configured = Number(process.env.APR_FINAL_PDF_REQUEST_TIMEOUT_MS);
+  const raw = process.env.APR_FINAL_PDF_REQUEST_TIMEOUT_MS;
+  const configured = Number(raw);
   if (Number.isFinite(configured) && configured > 0) {
     return configured;
   }
-
+  if (raw !== undefined && raw !== '') {
+    Logger.warn(
+      `APR_FINAL_PDF_REQUEST_TIMEOUT_MS="${raw}" rejeitado (deve ser número positivo); usando default 180000ms`,
+      'AprController',
+    );
+  }
   return 180_000;
 };
 
@@ -187,7 +195,7 @@ export class AprsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.COLABORADOR)
-  @Authorize('can_create_apr')
+  @Authorize(APR_PERMISSIONS.CREATE)
   @RequestTimeout(120_000)
   @UserThrottle({ requestsPerMinute: APR_CREATE_USER_THROTTLE_LIMIT })
   @TenantThrottle({
@@ -207,7 +215,7 @@ export class AprsController {
   }
 
   @Get()
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @UserThrottle({ requestsPerMinute: APR_LIST_USER_THROTTLE_LIMIT })
   @TenantThrottle({
     requestsPerMinute: APR_LIST_TENANT_THROTTLE_LIMIT,
@@ -310,7 +318,7 @@ export class AprsController {
   }
 
   @Get('files/list')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.aprsService.listStoredFiles({
       year: year ? Number(year) : undefined,
@@ -319,7 +327,7 @@ export class AprsController {
   }
 
   @Get('files/weekly-bundle')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @PdfRequestTimeout()
   async getWeeklyBundle(
     @Query('year') year?: string,
@@ -336,7 +344,7 @@ export class AprsController {
   }
 
   @Get('export/excel')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -348,7 +356,7 @@ export class AprsController {
   }
 
   @Get('export/excel/template')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @HttpCache({ maxAge: 3600, visibility: 'private' })
   @Header(
     'Content-Type',
@@ -364,7 +372,7 @@ export class AprsController {
   }
 
   @Post('import/excel/preview')
-  @Authorize('can_create_apr')
+  @Authorize(APR_PERMISSIONS.CREATE)
   @UseInterceptors(
     FileInterceptor(
       'file',
@@ -391,26 +399,26 @@ export class AprsController {
 
   /** Lista todos os tipos de atividade com templates de risco disponíveis */
   @Get('activity-templates')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   listActivityTemplates() {
     return this.aprsService.listActivityTemplates();
   }
 
   /** Retorna o template de itens de risco para um tipo de atividade */
   @Get('activity-templates/:tipoAtividade')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   getActivityTemplate(@Param('tipoAtividade') tipoAtividade: string) {
     return this.aprsService.getActivityTemplate(tipoAtividade);
   }
 
   @Get('risks/matrix')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   getRiskMatrix(@Query('site_id') siteId?: string) {
     return this.aprsService.getRiskMatrix(siteId || undefined);
   }
 
   @Post('risk-controls/suggestions')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   getControlSuggestions(
     @Body()
     payload: {
@@ -426,14 +434,14 @@ export class AprsController {
 
   /** Analytics overview para o dashboard */
   @Get('analytics/overview')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @AprFeatureFlag('APR_ANALYTICS')
   getAnalyticsOverview() {
     return this.aprsService.getAnalyticsOverview();
   }
 
   @Get(':id/export/excel')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -449,7 +457,7 @@ export class AprsController {
   }
 
   @Get(':id')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @UseInterceptors(AprMetricsInterceptor)
   async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -458,7 +466,7 @@ export class AprsController {
   }
 
   @Get(':id/validate')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   @AprFeatureFlag('APR_RULES_ENGINE')
   async validateApr(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.validateCompliance(id);
@@ -467,7 +475,7 @@ export class AprsController {
   @Post(':id/submit')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_approve_apr')
+  @Authorize(APR_PERMISSIONS.APPROVE)
   @ForensicAuditAction('approve', 'apr')
   async submitApr(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -492,7 +500,7 @@ export class AprsController {
   }
 
   @Get(':id/workflow-status')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   async getWorkflowStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -516,7 +524,7 @@ export class AprsController {
   @Post(':id/reopen')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_update_apr')
+  @Authorize(APR_PERMISSIONS.UPDATE)
   @AprFeatureFlag('APR_WORKFLOW_CONFIGURAVEL')
   async reopenApr(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -550,7 +558,7 @@ export class AprsController {
 
   /** Retorna URL assinada (S3) ou null do PDF armazenado */
   @Get(':id/pdf')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   async getPdfAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -577,20 +585,20 @@ export class AprsController {
 
   /** Histórico de ações/logs da APR */
   @Get(':id/logs')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   getLogs(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.getLogs(id);
   }
 
   /** Histórico de versões (todas as versões da mesma raiz) */
   @Get(':id/versions')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   getVersionHistory(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.getVersionHistory(id);
   }
 
   @Get(':id/compare/:targetId')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   compareVersions(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('targetId', new ParseUUIDPipe()) targetId: string,
@@ -600,14 +608,14 @@ export class AprsController {
 
   /** Evidências de risco com URLs assinadas quando disponíveis */
   @Get(':id/evidence')
-  @Authorize('can_view_apr')
+  @Authorize(APR_PERMISSIONS.VIEW)
   listAprEvidences(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.listAprEvidences(id);
   }
 
   /** Upload de evidência fotográfica vinculada a um item de risco */
   @Post(':id/risk-items/:riskItemId/evidence')
-  @Authorize('can_update_apr')
+  @Authorize(APR_PERMISSIONS.UPDATE)
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async uploadRiskEvidence(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -652,7 +660,7 @@ export class AprsController {
   /** Fluxo descontinuado: PDF final oficial da APR e gerado somente pelo backend. */
   @Post(':id/file')
   @Roles(Role.ADMIN_GERAL)
-  @Authorize('can_import_apr_pdf')
+  @Authorize(APR_PERMISSIONS.IMPORT_PDF)
   attachFile(@Param('id', new ParseUUIDPipe()) _id: string) {
     throw new GoneException(
       'O anexo manual de PDF final da APR foi descontinuado. Gere o PDF final oficial pelo endpoint /aprs/:id/generate-final-pdf.',
@@ -661,7 +669,7 @@ export class AprsController {
 
   @Post(':id/generate-final-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_generate_apr_pdf')
+  @Authorize(APR_PERMISSIONS.GENERATE_PDF)
   @RequestTimeout(resolveAprFinalPdfRequestTimeoutMs())
   async generateFinalPdf(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -681,7 +689,7 @@ export class AprsController {
   @Post(':id/approve')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_approve_apr')
+  @Authorize(APR_PERMISSIONS.APPROVE)
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('approve'))
@@ -700,7 +708,7 @@ export class AprsController {
 
   @Patch(':id/approve')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_approve_apr')
+  @Authorize(APR_PERMISSIONS.APPROVE)
   @ForensicAuditAction('approve', 'apr')
   async approvePatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -717,7 +725,7 @@ export class AprsController {
   @Post(':id/reject')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_reject_apr')
+  @Authorize(APR_PERMISSIONS.REJECT)
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('reject'))
@@ -741,7 +749,7 @@ export class AprsController {
    */
   @Patch(':id/reject')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_reject_apr')
+  @Authorize(APR_PERMISSIONS.REJECT)
   @ForensicAuditAction('reject', 'apr')
   async rejectPatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -762,7 +770,7 @@ export class AprsController {
   @Post(':id/finalize')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_finalize_apr')
+  @Authorize(APR_PERMISSIONS.FINALIZE)
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('finalize'))
@@ -780,7 +788,7 @@ export class AprsController {
 
   @Patch(':id/finalize')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_finalize_apr')
+  @Authorize(APR_PERMISSIONS.FINALIZE)
   @ForensicAuditAction('finalize', 'apr')
   async finalizePatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -801,7 +809,7 @@ export class AprsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  @Authorize('can_update_apr')
+  @Authorize(APR_PERMISSIONS.UPDATE)
   async createNewVersion(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -824,7 +832,7 @@ export class AprsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  @Authorize('can_update_apr')
+  @Authorize(APR_PERMISSIONS.UPDATE)
   @RequestTimeout(120_000)
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -841,7 +849,7 @@ export class AprsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  @Authorize('can_delete_apr')
+  @Authorize(APR_PERMISSIONS.DELETE)
   @ForensicAuditAction('delete', 'apr')
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,

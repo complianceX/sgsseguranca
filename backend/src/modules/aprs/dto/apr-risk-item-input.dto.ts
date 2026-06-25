@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { AprControlHierarchy } from '../entities/apr-risk-item.entity';
@@ -34,10 +35,12 @@ export class AprRiskItemInputDto {
   /** Alias legado aceito por compatibilidade retroativa. Prefira `atividade`. */
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   atividade_processo?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   atividade?: string;
 
   /**
@@ -46,34 +49,41 @@ export class AprRiskItemInputDto {
    */
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   etapa?: string;
 
   // ── Identificação do perigo ──────────────────────────────────────────────
 
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   agente_ambiental?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(5000)
   condicao_perigosa?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   fonte_circunstancia?: string;
 
   /** Alias legado aceito por compatibilidade retroativa. */
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   fontes_circunstancias?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   lesao?: string;
 
   /** Alias legado aceito por compatibilidade retroativa. Prefira `lesao`. */
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   possiveis_lesoes?: string;
 
   // ── Avaliação de risco bruto ─────────────────────────────────────────────
@@ -102,28 +112,34 @@ export class AprRiskItemInputDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   categoria_risco?: string;
 
   // ── Controles e hierarquia ───────────────────────────────────────────────
 
   @IsString()
   @IsOptional()
+  @MaxLength(5000)
   medidas_prevencao?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   epc?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   epi?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   permissao_trabalho?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   normas_relacionadas?: string;
 
   /**
@@ -157,6 +173,7 @@ export class AprRiskItemInputDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   responsavel?: string;
 
   @Transform(emptyStringToUndefined)
@@ -166,5 +183,6 @@ export class AprRiskItemInputDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
   status_acao?: string;
 }
