@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+﻿import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TrainingsService } from './trainings.service';
 import { Training } from './entities/training.entity';
 
@@ -43,6 +43,7 @@ const makeService = (opts: { companyWideAccess?: boolean } = {}) => {
     create: jest.fn((d: Partial<Training>) => d as Training),
     save: jest.fn((e: Training) => Promise.resolve({ ...e })),
     remove: jest.fn().mockResolvedValue(undefined),
+    softDelete: jest.fn().mockResolvedValue(undefined),
     count: jest.fn().mockResolvedValue(0),
     createQueryBuilder: jest.fn().mockReturnValue(queryBuilderBase),
     manager,
@@ -279,7 +280,7 @@ describe('TrainingsService — validações de cadastro', () => {
 
       await service.remove(training.id);
 
-      expect(trainingsRepository.remove).toHaveBeenCalledWith(training);
+      expect(trainingsRepository.softDelete).toHaveBeenCalledWith(training.id);
     });
 
     it('lança NotFoundException ao remover treinamento inexistente', async () => {

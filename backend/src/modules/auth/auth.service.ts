@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
@@ -51,10 +51,6 @@ const FORGOT_PASSWORD_JITTER_MS = 200;
 const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
 const FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS = 12;
 const FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS = 6;
-const AUTH_DUMMY_PASSWORD_HASH_FALLBACK = [
-  '$2b$10$tV1AhMRqCdZTnSEV18aoR.',
-  'MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
-].join('');
 
 // Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
 const authTracer = trace.getTracer('auth-service');
@@ -146,9 +142,15 @@ export class AuthService {
     private readonly pwnedPasswordService: PwnedPasswordService,
     private readonly tenantService: TenantService,
   ) {
+    const _envDummyHash = this.configService.get<string>(
+      'AUTH_DUMMY_PASSWORD_HASH',
+    );
+    if (!_envDummyHash && process.env.NODE_ENV === 'production') {
+      throw new Error('AUTH_DUMMY_PASSWORD_HASH é obrigatório em produção');
+    }
     this.DUMMY_HASH =
-      this.configService.get<string>('AUTH_DUMMY_PASSWORD_HASH') ||
-      AUTH_DUMMY_PASSWORD_HASH_FALLBACK;
+      _envDummyHash ??
+      '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2';
   }
 
   private resolveFromAddress() {

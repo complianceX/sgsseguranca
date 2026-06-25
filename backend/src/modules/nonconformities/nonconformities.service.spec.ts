@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+﻿import { Repository } from 'typeorm';
 import { NonConformitiesService } from './nonconformities.service';
 import { NonConformity } from './entities/nonconformity.entity';
 import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
@@ -466,10 +466,14 @@ describe('NonConformitiesService', () => {
     );
     expect(result).toBeDefined();
     // SECURITY: main responses must not leak internal storage keys
-    expect((result as Record<string, unknown>).pdf_file_key).toBeUndefined();
-    expect((result as Record<string, unknown>).pdf_folder_path).toBeUndefined();
     expect(
-      (result as Record<string, unknown>).pdf_original_name,
+      (result as unknown as Record<string, unknown>).pdf_file_key,
+    ).toBeUndefined();
+    expect(
+      (result as unknown as Record<string, unknown>).pdf_folder_path,
+    ).toBeUndefined();
+    expect(
+      (result as unknown as Record<string, unknown>).pdf_original_name,
     ).toBeUndefined();
     expect(result).toBeInstanceOf(NonConformityResponseDto); // via plainToClass shape
   });

@@ -1,11 +1,11 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const isSqlite = (qr: QueryRunner) =>
   qr.connection.options.type === 'sqlite' ||
   qr.connection.options.type === 'better-sqlite3';
 
-export class HardenRlsFunctionsSearchPath1709000000205 implements MigrationInterface {
-  name = 'HardenRlsFunctionsSearchPath1709000000205';
+export class HardenRlsFunctionsSearchPath1709000000340 implements MigrationInterface {
+  name = 'HardenRlsFunctionsSearchPath1709000000340';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (isSqlite(queryRunner)) {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -23,6 +23,7 @@ import {
   resolveSiteAccessScopeFromTenantService,
 } from '../../shared/tenant/site-access-scope.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { Role } from '../auth/enums/roles.enum';
 import { resolveRegistryModuleForSignatureDocumentType } from '../document-registry/document-governance.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
@@ -1692,19 +1693,12 @@ export class SignaturesService {
     if (!roleName) {
       return false;
     }
-
-    const normalized = roleName.trim().toLowerCase();
-    const privilegedRoles = new Set([
-      'admin',
-      'manager',
-      'super_admin',
-      'administrador geral',
-      'administrador da empresa',
-      'admin empresa',
-      'supervisor / encarregado',
+    const privilegedRoles = new Set<string>([
+      Role.ADMIN_GERAL,
+      Role.ADMIN_EMPRESA,
+      Role.SUPERVISOR,
     ]);
-
-    return privilegedRoles.has(normalized);
+    return privilegedRoles.has(roleName.trim());
   }
 
   private normalizeLegacyReadDocumentType(documentType: string): string {

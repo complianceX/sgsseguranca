@@ -1,7 +1,21 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class UpdateSystemThemeGraphiteNeutral1709000000050 implements MigrationInterface {
+/**
+ * Garante que o tema graphite-neutral esteja aplicado.
+ *
+ * Resolve o conflito de timestamp com 1709000000050-update-system-theme-graphite-neutral.ts,
+ * que pode nunca ter sido executado em ambientes que já tinham
+ * 1709000000050-add-signature-pin-to-users.ts registrado.
+ *
+ * O UPDATE é idempotente — pode ser re-executado sem efeitos colaterais.
+ */
+export class EnsureThemeGraphiteNeutral1709000000328 implements MigrationInterface {
+  name = 'EnsureThemeGraphiteNeutral1709000000328';
+
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const hasTable = await queryRunner.hasTable('system_theme');
+    if (!hasTable) return;
+
     await queryRunner.query(`
       UPDATE system_theme
       SET
@@ -22,6 +36,9 @@ export class UpdateSystemThemeGraphiteNeutral1709000000050 implements MigrationI
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const hasTable = await queryRunner.hasTable('system_theme');
+    if (!hasTable) return;
+
     await queryRunner.query(`
       UPDATE system_theme
       SET

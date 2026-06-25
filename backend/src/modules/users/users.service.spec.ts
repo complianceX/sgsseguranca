@@ -1228,7 +1228,7 @@ describe('UsersService.update site binding', () => {
     const savedUser = saveMock.mock.calls[0]?.[0];
     expect(savedUser).toBeDefined();
     expectEncryptedCpfPayload(savedUser);
-    expect(result.cpf).toBe('09878058433');
+    expect((result as unknown as Record<string, unknown>).cpf).toBeUndefined(); // LGPD: CPF removido do UserResponseDto
   });
 });
 
