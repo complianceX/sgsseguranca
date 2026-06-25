@@ -960,10 +960,10 @@ export class NonConformitiesService {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition = `(
-        LOWER(nc.codigo_nc) LIKE :search
-        OR LOWER(nc.local_setor_area) LIKE :search
-        OR LOWER(nc.tipo) LIKE :search
-        OR LOWER(nc.status) LIKE :search
+        LOWER(nc.codigo_nc) LIKE :search ESCAPE '\\'
+        OR LOWER(nc.local_setor_area) LIKE :search ESCAPE '\\'
+        OR LOWER(nc.tipo) LIKE :search ESCAPE '\\'
+        OR LOWER(nc.status) LIKE :search ESCAPE '\\'
       )`;
       query.andWhere(condition, { search });
     }

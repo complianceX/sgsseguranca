@@ -91,8 +91,8 @@ export class ActivitiesService {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition = `(
-        LOWER(activity.nome) LIKE :search
-        OR LOWER(COALESCE(activity.descricao, '')) LIKE :search
+        LOWER(activity.nome) LIKE :search ESCAPE '\\'
+        OR LOWER(COALESCE(activity.descricao, '')) LIKE :search ESCAPE '\\'
       )`;
       if (tenantId || opts?.companyId) {
         query.andWhere(condition, { search });
