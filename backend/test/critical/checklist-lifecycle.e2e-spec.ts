@@ -1,4 +1,4 @@
-import { Role } from '../../src/modules/auth/enums/roles.enum';
+﻿import { Role } from '../../src/modules/auth/enums/roles.enum';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 import request from 'supertest';
 
@@ -500,7 +500,9 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         contentType: 'application/pdf',
       });
     expect(pdfNoSig.status).toBe(400);
-    expect(String(pdfNoSig.body.message || '')).toContain('assinatura');
+    expect((pdfNoSig.body as { message?: string }).message ?? '').toContain(
+      'assinatura',
+    );
 
     // agora assina e finaliza ok (ordem foto -> sig -> pdf)
     await testApp
@@ -582,7 +584,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         checklist_id: cid,
       });
     const hasNc = ncCreate.status === 201;
-    const ncid = hasNc ? String(ncCreate.body.id || '') : null;
+    const ncid = hasNc ? ((ncCreate.body as { id?: string }).id ?? null) : null;
 
     // delete por admin (permitido)
     const delRes = await testApp
@@ -608,7 +610,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         .set(testApp.authHeaders(adminSession));
       expect(ncGet.status).toBe(200);
       // link pode ser null por SET NULL no hard delete, mas soft mantem; aceitamos ambos
-      const ncBody = ncGet.body;
+      const ncBody: unknown = ncGet.body;
       expect(ncBody).toBeDefined();
     }
   });
