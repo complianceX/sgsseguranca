@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
+import { secureOfflineDB } from "./offline-db-secure";
 
 export type OfflineQueueState = "queued" | "retry_waiting";
 
@@ -184,23 +185,6 @@ async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
   }
 }
 
-async function encryptPayload(plaintext: string): Promise<string | null> {
-  const key = await getOrCreateCryptoKey();
-  if (!key) return null;
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plaintext);
-  const ciphertext = await window.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encoded,
-  );
-  const combined = new Uint8Array(
-    iv.length + new Uint8Array(ciphertext).length,
-  );
-  combined.set(iv);
-  combined.set(new Uint8Array(ciphertext), iv.length);
-  return "enc:" + btoa(String.fromCharCode(...combined));
-}
 
 async function decryptPayload(data: string): Promise<string> {
   if (!data.startsWith("enc:")) return data;
@@ -263,22 +247,40 @@ async function readQueue(): Promise<OfflineQueueItem[]> {
   }
 
   try {
+    // Tenta ler do IndexedDB seguro
+    const cached = await secureOfflineDB.get<OfflineQueueItem[]>("sgs-queue", STORAGE_KEY);
+    if (cached) {
+      return normalizeQueue(cached);
+    }
+
+    // Fallback: se houver dados legados no localStorage (ex: migração de sessões anteriores)
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      if (!raw.startsWith("enc:")) {
+      try {
+        const decrypted = await decryptPayload(raw);
+        const parsed = normalizeQueue(JSON.parse(decrypted));
+        if (parsed.length > 0) {
+          await writeQueue(parsed); // Migra para IndexedDB
+        }
         window.localStorage.removeItem(STORAGE_KEY);
-        return [];
+        return parsed;
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
       }
-      const decrypted = await decryptPayload(raw);
-      return normalizeQueue(JSON.parse(decrypted));
     }
 
     const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyRaw) {
-      const migrated = normalizeQueue(JSON.parse(legacyRaw));
-      await writeQueue(migrated);
-      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-      return migrated;
+      try {
+        const migrated = normalizeQueue(JSON.parse(legacyRaw));
+        if (migrated.length > 0) {
+          await writeQueue(migrated); // Migra para IndexedDB
+        }
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+        return migrated;
+      } catch {
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
     }
 
     return [];
@@ -293,14 +295,18 @@ async function writeQueue(items: OfflineQueueItem[]) {
   }
 
   const normalized = normalizeQueue(items);
-  const encrypted = await encryptPayload(JSON.stringify(normalized));
-  if (!encrypted) {
+  
+  // Grava de forma segura e criptografada no IndexedDB
+  await secureOfflineDB.set("sgs-queue", STORAGE_KEY, normalized);
+  
+  // Limpa o localStorage legado
+  try {
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-    return;
+  } catch {
+    /* ignore */
   }
-  window.localStorage.setItem(STORAGE_KEY, encrypted);
-  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+
   window.dispatchEvent(
     new CustomEvent("app:offline-queue-updated", {
       detail: {

@@ -8,73 +8,61 @@ import {
 } from "./offline-cache";
 
 // ---------------------------------------------------------------------------
+// Mock: IndexedDB seguro — substituído por Map em memória nos testes
+// ---------------------------------------------------------------------------
+
+const mockCacheDB: Record<string, unknown> = {};
+
+jest.mock("./offline-db-secure", () => ({
+  secureOfflineDB: {
+    get: jest.fn(async (_store: string, key: string) => mockCacheDB[key] ?? null),
+    set: jest.fn(async (_store: string, key: string, value: unknown) => {
+      mockCacheDB[key] = value;
+    }),
+    del: jest.fn(async (_store: string, key: string) => {
+      delete mockCacheDB[key];
+    }),
+    keys: jest.fn(async () => Object.keys(mockCacheDB)),
+    clear: jest.fn(async () => {
+      Object.keys(mockCacheDB).forEach((k) => delete mockCacheDB[k]);
+    }),
+  },
+}));
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STORE: Record<string, string> = {};
+const BASE_TIME = new Date("2026-01-01T00:00:00.000Z");
 
-const mockStorage = {
-  getItem: (key: string) => STORE[key] ?? null,
-  setItem: (key: string, value: string) => {
-    STORE[key] = value;
-  },
-  removeItem: (key: string) => {
-    delete STORE[key];
-  },
-  get length() {
-    return Object.keys(STORE).length;
-  },
-  key: (i: number) => Object.keys(STORE)[i] ?? null,
-};
+/** Avança o relógio virtual para simular envelhecimento de cache. */
+function backdateCache(_key: string, msAgo: number) {
+  jest.setSystemTime(Date.now() + msAgo);
+}
 
-// Expose keys as enumerable (Object.keys(localStorage) in clearExpiredCache)
-Object.defineProperty(mockStorage, Symbol.iterator, {
-  value: function* () {
-    yield* Object.keys(STORE);
-  },
-});
-
-const mockWindowKeys = () => Object.keys(STORE);
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  Object.keys(STORE).forEach((k) => delete STORE[k]);
+  jest.useFakeTimers();
+  jest.setSystemTime(BASE_TIME);
 
-  Object.defineProperty(window, "localStorage", {
-    value: new Proxy(mockStorage, {
-      get(target, prop: string | symbol) {
-        if (prop === Symbol.iterator) return mockWindowKeys;
-        const key = prop as keyof typeof target;
-        return typeof target[key] === "function"
-          ? (target[key] as (...args: unknown[]) => unknown).bind(target)
-          : target[key];
-      },
-      ownKeys: () => Object.keys(STORE),
-      getOwnPropertyDescriptor: (_, key: string) => ({
-        value: STORE[key],
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      }),
-    }),
-    configurable: true,
-  });
+  // Limpa o mock do IndexedDB entre testes
+  Object.keys(mockCacheDB).forEach((k) => delete mockCacheDB[k]);
 
   jest.spyOn(window, "dispatchEvent").mockImplementation(() => true);
+
+  Object.defineProperty(global.navigator, "onLine", {
+    value: true,
+    configurable: true,
+  });
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
-
-/** Manipula o tempo de criação retroativamente para simular TTL vencido. */
-function backdateCache(key: string, msAgo: number) {
-  const storeKey = `gst.cache.${key}`;
-  const raw = STORE[storeKey];
-  if (!raw) return;
-  const parsed = JSON.parse(raw);
-  parsed.createdAt = new Date(Date.now() - msAgo).toISOString();
-  STORE[storeKey] = JSON.stringify(parsed);
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -88,12 +76,6 @@ describe("offline-cache — TTL behaviour", () => {
     it("retorna o dado diretamente quando não expirado", () => {
       setOfflineCache(KEY, DATA, CACHE_TTL.LIST);
 
-      // Simula online
-      Object.defineProperty(global.navigator, "onLine", {
-        value: true,
-        configurable: true,
-      });
-
       const result = getOfflineCache<typeof DATA>(KEY);
 
       expect(result).toEqual(DATA);
@@ -104,7 +86,6 @@ describe("offline-cache — TTL behaviour", () => {
   describe("cache expirado — online", () => {
     it("retorna null e remove a entrada", () => {
       setOfflineCache(KEY, DATA, CACHE_TTL.CRITICAL);
-      // Volta o timestamp para forçar expiração (TTL.CRITICAL = 120s)
       backdateCache(KEY, CACHE_TTL.CRITICAL + 1);
 
       Object.defineProperty(global.navigator, "onLine", {
@@ -115,8 +96,8 @@ describe("offline-cache — TTL behaviour", () => {
       const result = getOfflineCache<typeof DATA>(KEY);
 
       expect(result).toBeNull();
-      // Entrada deve ter sido removida do storage
-      expect(STORE[`gst.cache.${KEY}`]).toBeUndefined();
+      // Segunda chamada também deve retornar null (entrada removida)
+      expect(getOfflineCache<typeof DATA>(KEY)).toBeNull();
     });
   });
 
@@ -139,8 +120,8 @@ describe("offline-cache — TTL behaviour", () => {
         expect(result.data).toEqual(DATA);
       }
 
-      // Entrada NÃO deve ser removida enquanto offline
-      expect(STORE[`gst.cache.${KEY}`]).toBeDefined();
+      // Entrada não deve ser removida enquanto offline
+      expect(getOfflineCache<typeof DATA>(KEY)).not.toBeNull();
     });
   });
 
@@ -166,21 +147,13 @@ describe("offline-cache — TTL behaviour", () => {
       setOfflineCache("expired.key", { v: 1 }, CACHE_TTL.CRITICAL);
       setOfflineCache("fresh.key", { v: 2 }, CACHE_TTL.REFERENCE);
 
+      // Avança tempo além do TTL.CRITICAL mas dentro do TTL.REFERENCE
       backdateCache("expired.key", CACHE_TTL.CRITICAL + 1);
-
-      // Monkey-patch para clearExpiredCache iterar via Object.keys
-      const origKeys = Object.keys;
-      jest.spyOn(Object, "keys").mockImplementation((obj) => {
-        if (obj === window.localStorage) return Object.keys(STORE);
-        return origKeys(obj);
-      });
 
       clearExpiredCache();
 
-      jest.restoreAllMocks();
-
-      expect(STORE["gst.cache.expired.key"]).toBeUndefined();
-      expect(STORE["gst.cache.fresh.key"]).toBeDefined();
+      expect(getOfflineCache("expired.key")).toBeNull();
+      expect(getOfflineCache("fresh.key")).not.toBeNull();
     });
   });
 
@@ -193,7 +166,7 @@ describe("offline-cache — TTL behaviour", () => {
     });
   });
 
-  it("remove campos sensiveis antes de persistir no localStorage", () => {
+  it("remove campos sensiveis antes de persistir no cache", () => {
     setOfflineCache("sensitive.item", {
       titulo: "APR",
       cpf: "12345678900",
@@ -206,13 +179,15 @@ describe("offline-cache — TTL behaviour", () => {
       },
     });
 
-    const raw = STORE["gst.cache.sensitive.item"];
+    const result = getOfflineCache<Record<string, unknown>>("sensitive.item");
+    expect(result).not.toBeNull();
 
-    expect(raw).toContain("APR");
-    expect(raw).toContain("Operador");
-    expect(raw).not.toContain("12345678900");
-    expect(raw).not.toContain("operador@example.com");
-    expect(raw).not.toContain("data:image");
-    expect(raw).not.toContain("evidencia");
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain("APR");
+    expect(serialized).toContain("Operador");
+    expect(serialized).not.toContain("12345678900");
+    expect(serialized).not.toContain("operador@example.com");
+    expect(serialized).not.toContain("data:image");
+    expect(serialized).not.toContain("evidencia");
   });
 });

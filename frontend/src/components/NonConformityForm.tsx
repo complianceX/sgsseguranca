@@ -34,6 +34,9 @@ import {
 import { PageHeader } from "@/components/layout";
 import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
+import { Button } from "@/components/ui/button";
+import { InlineCallout } from "@/components/ui/inline-callout";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -196,6 +199,19 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     name: "anexos",
   });
   const watchedAnexos = watch("anexos") || [];
+
+  const currentValues = watch();
+  const { hasDraft, restoreDraft, discardDraft, clearDraft } =
+    useFormAutosave<NonConformityFormData>({
+      formId: id ? `edit-${id}` : "new-nc",
+      currentValues,
+      onRestore: (draft) => {
+        reset(draft);
+        if (draft.anexos) {
+          replaceAnexos(draft.anexos);
+        }
+      },
+    });
 
   const startCamera = async () => {
     try {
@@ -420,6 +436,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         );
         toast.success("Não conformidade criada com sucesso");
       }
+      await clearDraft();
       router.push("/dashboard/nonconformities");
     } catch (error) {
       console.error("Error saving non conformity:", error);
@@ -510,6 +527,25 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="ds-form-page space-y-8 pb-12"
     >
+      {hasDraft && !fetching ? (
+        <InlineCallout
+          title="Rascunho não salvo encontrado"
+          description="Existe um rascunho salvo localmente para este formulário de Não Conformidade. Deseja recuperar os dados preenchidos anteriormente?"
+          tone="info"
+          icon={<Save className="h-4 w-4" />}
+          action={
+            <div className="flex gap-2">
+              <Button size="sm" variant="primary" onClick={restoreDraft}>
+                Recuperar
+              </Button>
+              <Button size="sm" variant="outline" onClick={discardDraft}>
+                Descartar
+              </Button>
+            </div>
+          }
+        />
+      ) : null}
+
       {fetching ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
           <InlineLoadingState
