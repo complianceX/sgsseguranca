@@ -1,4 +1,5 @@
 import { sanitizeSensitiveDraftValue } from "./sensitive-draft-sanitizer";
+import { secureOfflineDB } from "./offline-db-secure";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +34,7 @@ export function isStaleResult<T>(
 /** Pre-defined TTL values to be passed to setOfflineCache(). */
 export const CACHE_TTL = {
   /** 2 min — dados críticos de segurança (APRs ativas). */
+  CACHE_TTL_CRITICAL: 120_000, // keep generic name mapping
   CRITICAL: 120_000,
   /** 5 min — listas paginadas (findAll / findPaginated). */
   LIST: 300_000,
@@ -57,62 +59,43 @@ const isBrowser = () => typeof window !== "undefined";
 const isOnline = () =>
   typeof navigator !== "undefined" ? navigator.onLine : true;
 
-const isQuotaExceededError = (error: unknown) => {
-  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
-    return (
-      error.name === "QuotaExceededError" ||
-      error.code === 22 ||
-      error.code === 1014
-    );
-  }
-
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    (error as { name?: string }).name === "QuotaExceededError"
-  );
-};
-
 const isManagedCacheKey = (key: string) =>
   CACHE_PREFIXES.some((prefix) => key.startsWith(prefix));
 
+// Espelho em memória para suportar chamadas síncronas rápidas (getOfflineCache)
+const _memoryCache = new Map<string, CacheEnvelope<unknown>>();
+
+// Inicialização assíncrona: carrega chaves do IndexedDB para a memória no boot
+if (isBrowser()) {
+  secureOfflineDB.keys("sgs-cache")
+    .then(async (keys) => {
+      for (const dbKey of keys) {
+        const envelope = await secureOfflineDB.get<CacheEnvelope<unknown>>("sgs-cache", dbKey);
+        if (envelope) {
+          _memoryCache.set(dbKey, envelope);
+        }
+      }
+      // Limpeza de cache legado no localStorage para liberar espaço
+      try {
+        for (const rawKey of Object.keys(window.localStorage)) {
+          if (isManagedCacheKey(rawKey)) {
+            window.localStorage.removeItem(rawKey);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    })
+    .catch((err) => {
+      console.warn("Falha ao inicializar cache do IndexedDB em memoria:", err);
+    });
+}
+
 const removeCacheKey = (key: string) => {
-  if (!isBrowser()) return;
-
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Best effort cleanup only.
+  _memoryCache.delete(key);
+  if (isBrowser()) {
+    void secureOfflineDB.del("sgs-cache", key);
   }
-};
-
-const getCacheEntryTimestamp = (key: string): number => {
-  if (!isBrowser()) return 0;
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return 0;
-
-    const parsed = JSON.parse(raw) as Partial<CacheEnvelope<unknown>>;
-    if (!parsed?.createdAt) return 0;
-
-    const timestamp = new Date(parsed.createdAt).getTime();
-    return Number.isFinite(timestamp) ? timestamp : 0;
-  } catch {
-    return 0;
-  }
-};
-
-const getEvictionCandidates = (excludeKeys: string[]) => {
-  if (!isBrowser()) return [];
-
-  return Object.keys(window.localStorage)
-    .filter((key) => isManagedCacheKey(key) && !excludeKeys.includes(key))
-    .sort(
-      (left, right) =>
-        getCacheEntryTimestamp(left) - getCacheEntryTimestamp(right),
-    );
 };
 
 // ---------------------------------------------------------------------------
@@ -140,60 +123,12 @@ export const setOfflineCache = <T>(
     ...(maxAgeMs !== undefined ? { maxAgeMs } : {}),
   };
   const primaryKey = buildKey(key);
-  const legacyKey = buildKey(key, LEGACY_PREFIX);
 
-  let serialized: string;
-  try {
-    serialized = JSON.stringify(payload);
-  } catch (error) {
-    console.warn(
-      "Nao foi possivel serializar o cache offline (%s).",
-      primaryKey,
-      error,
-    );
-    return;
-  }
+  // Atualiza síncronamente na memória
+  _memoryCache.set(primaryKey, payload);
 
-  const persist = () => {
-    window.localStorage.setItem(primaryKey, serialized);
-    window.localStorage.removeItem(legacyKey);
-  };
-
-  try {
-    persist();
-    return;
-  } catch (error) {
-    if (!isQuotaExceededError(error)) {
-      console.warn(
-        "Nao foi possivel gravar o cache offline (%s).",
-        primaryKey,
-        error,
-      );
-      return;
-    }
-  }
-
-  for (const cacheKey of getEvictionCandidates([primaryKey, legacyKey])) {
-    removeCacheKey(cacheKey);
-
-    try {
-      persist();
-      return;
-    } catch (error) {
-      if (!isQuotaExceededError(error)) {
-        console.warn(
-          "Nao foi possivel gravar o cache offline (%s).",
-          primaryKey,
-          error,
-        );
-        return;
-      }
-    }
-  }
-
-  console.warn(
-    `Cache offline ignorado para ${primaryKey}: quota do storage atingida mesmo apos limpeza.`,
-  );
+  // Persiste assíncronamente no IndexedDB criptografado
+  void secureOfflineDB.set("sgs-cache", primaryKey, payload);
 };
 
 /**
@@ -211,41 +146,30 @@ export const setOfflineCache = <T>(
 export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
   if (!isBrowser()) return null;
   const primaryKey = buildKey(key);
-  const legacyKey = buildKey(key, LEGACY_PREFIX);
 
-  const raw =
-    window.localStorage.getItem(primaryKey) ||
-    window.localStorage.getItem(legacyKey);
-  if (!raw) return null;
+  // Leitura síncrona super rápida da memória
+  const parsed = _memoryCache.get(primaryKey) as CacheEnvelope<T> | undefined;
+  if (!parsed) return null;
 
-  try {
-    const parsed = JSON.parse(raw) as CacheEnvelope<T>;
-    if (!parsed?.createdAt) {
-      removeCacheKey(primaryKey);
-      removeCacheKey(legacyKey);
-      return null;
-    }
-
-    if (parsed.maxAgeMs !== undefined) {
-      const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
-      if (ageMs > parsed.maxAgeMs) {
-        if (isOnline()) {
-          // Online: remover entrada expirada e forçar fetch
-          removeCacheKey(primaryKey);
-          removeCacheKey(legacyKey);
-          return null;
-        }
-        // Offline: dado expirado é melhor que nenhum dado — retorna com flag stale
-        return { stale: true, data: parsed.value };
-      }
-    }
-
-    return parsed.value as T;
-  } catch {
+  if (!parsed.createdAt) {
     removeCacheKey(primaryKey);
-    removeCacheKey(legacyKey);
     return null;
   }
+
+  if (parsed.maxAgeMs !== undefined) {
+    const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
+    if (ageMs > parsed.maxAgeMs) {
+      if (isOnline()) {
+        // Online: remover entrada expirada e forçar fetch
+        removeCacheKey(primaryKey);
+        return null;
+      }
+      // Offline: dado expirado é melhor que nenhum dado — retorna com flag stale
+      return { stale: true, data: parsed.value };
+    }
+  }
+
+  return parsed.value as T;
 };
 
 /**
@@ -277,27 +201,12 @@ export const consumeOfflineCache = <T>(key: string): T | null => {
 export const clearExpiredCache = (): void => {
   if (!isBrowser()) return;
 
-  for (const rawKey of Object.keys(window.localStorage)) {
-    if (!isManagedCacheKey(rawKey)) continue;
+  for (const [rawKey, parsed] of _memoryCache.entries()) {
+    if (!isManagedCacheKey(rawKey) || !parsed?.createdAt || !parsed?.maxAgeMs) continue;
 
-    try {
-      const raw = window.localStorage.getItem(rawKey);
-      if (!raw) continue;
-
-      const parsed = JSON.parse(raw) as Partial<CacheEnvelope<unknown>>;
-      if (!parsed?.createdAt || !parsed?.maxAgeMs) continue;
-
-      const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
-      if (ageMs > parsed.maxAgeMs) {
-        window.localStorage.removeItem(rawKey);
-      }
-    } catch {
-      // Entrada corrompida — remover defensivamente
-      try {
-        window.localStorage.removeItem(rawKey);
-      } catch {
-        /* ignore */
-      }
+    const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
+    if (ageMs > parsed.maxAgeMs) {
+      removeCacheKey(rawKey);
     }
   }
 };
@@ -311,3 +220,4 @@ export const isOfflineRequestError = (error: unknown) => {
     code === "ETIMEDOUT"
   );
 };
+

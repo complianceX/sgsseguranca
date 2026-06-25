@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
 import { StatusPill } from '@/components/ui/status-pill';
 import { InlineLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
+import { useFormAutosave } from '@/hooks/useFormAutosave';
 import {
   FormFieldGroup,
   FormGrid,
@@ -196,6 +198,16 @@ export function ArrForm({ id }: ArrFormProps) {
   const selectedTurno = watch('turno');
   const selectedTitle = watch('titulo');
   const selectedMainActivity = watch('atividade_principal');
+
+  const currentValues = watch();
+  const { hasDraft, restoreDraft, discardDraft, clearDraft } =
+    useFormAutosave<ArrFormData>({
+      formId: id ? `edit-${id}` : 'new-arr',
+      currentValues,
+      onRestore: (draft) => {
+        reset(draft);
+      },
+    });
   const selectedRiskLevel = watch('nivel_risco');
   const selectedProbability = watch('probabilidade');
   const selectedSeverity = watch('severidade');
@@ -519,6 +531,7 @@ export function ArrForm({ id }: ArrFormProps) {
         toast.success('Análise de Risco Rápida criada com sucesso.');
       }
 
+      await clearDraft();
       router.push('/dashboard/arrs');
       router.refresh();
     } catch (error) {
@@ -558,6 +571,25 @@ export function ArrForm({ id }: ArrFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-10">
+      {hasDraft && !fetching ? (
+        <InlineCallout
+          title="Rascunho não salvo encontrado"
+          description="Existe um rascunho salvo localmente para este formulário de ARR. Deseja recuperar os dados preenchidos anteriormente?"
+          tone="info"
+          icon={<Save className="h-4 w-4" />}
+          action={
+            <div className="flex gap-2">
+              <Button size="sm" variant="primary" onClick={restoreDraft}>
+                Recuperar
+              </Button>
+              <Button size="sm" variant="outline" onClick={discardDraft}>
+                Descartar
+              </Button>
+            </div>
+          }
+        />
+      ) : null}
+
       {fetching ? (
         <div className="mx-auto mb-6 max-w-4xl rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
           <InlineLoadingState
