@@ -34,6 +34,7 @@ import {
 } from '../dto/apr-workflow-config.dto';
 import { TenantService } from '../../../shared/tenant/tenant.service';
 import { Site } from '../../sites/entities/site.entity';
+import { AuthzOptional } from '../../auth/authz-optional.decorator';
 
 @Controller('apr-workflow-configs')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -116,6 +117,7 @@ export class AprWorkflowConfigsController {
   }
 
   @Post()
+  @AuthzOptional()
   async create(@Body() dto: CreateWorkflowConfigDto) {
     const tenantId = this.getTenantIdOrThrow();
 
@@ -171,6 +173,7 @@ export class AprWorkflowConfigsController {
   }
 
   @Patch(':id')
+  @AuthzOptional()
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateWorkflowConfigDto,
@@ -191,6 +194,7 @@ export class AprWorkflowConfigsController {
   }
 
   @Delete(':id')
+  @AuthzOptional()
   async softDelete(@Param('id', new ParseUUIDPipe()) id: string) {
     const tenantId = this.getTenantIdOrThrow();
     await this.findOneScopedOrFail(id, tenantId);
@@ -199,6 +203,7 @@ export class AprWorkflowConfigsController {
   }
 
   @Post(':id/steps')
+  @AuthzOptional()
   async addStep(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReplaceWorkflowStepsDto,
@@ -212,6 +217,7 @@ export class AprWorkflowConfigsController {
   }
 
   @Put(':id/steps')
+  @AuthzOptional()
   async replaceSteps(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReplaceWorkflowStepsDto,

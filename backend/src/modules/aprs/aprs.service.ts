@@ -176,14 +176,21 @@ export class AprsService {
   }
 
   private getAprOverviewCacheTtlSeconds(): number {
-    const parsed = Number(process.env.APR_OVERVIEW_CACHE_TTL_SECONDS);
+    const raw = process.env.APR_OVERVIEW_CACHE_TTL_SECONDS;
+    const parsed = Number(raw);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS;
     }
-    return Math.min(
+    const clamped = Math.min(
       Math.max(Math.floor(parsed), APR_OVERVIEW_CACHE_TTL_MIN_SECONDS),
       APR_OVERVIEW_CACHE_TTL_MAX_SECONDS,
     );
+    if (clamped !== Math.floor(parsed)) {
+      this.logger.warn(
+        `APR_OVERVIEW_CACHE_TTL_SECONDS=${raw} ajustado para ${clamped}s (limites: ${APR_OVERVIEW_CACHE_TTL_MIN_SECONDS}–${APR_OVERVIEW_CACHE_TTL_MAX_SECONDS})`,
+      );
+    }
+    return clamped;
   }
 
   private buildAprOverviewCacheKey(tenantId: string): string {
@@ -1442,6 +1449,7 @@ export class AprsService {
         'apr.pdf_file_key',
         'apr.pdf_original_name',
         'apr.classificacao_resumo',
+        'apr.itens_risco',
         'apr.created_at',
         'apr.updated_at',
         'company.id',
@@ -1647,7 +1655,7 @@ export class AprsService {
                   COUNT(DISTINCT s.user_id)::int AS total_count
                 FROM signatures s
                 LEFT JOIN apr_participants ap
-                  ON ap.apr_id::text = s.document_id
+                  ON ap.apr_id = s.document_id::uuid
                   AND ap.user_id = s.user_id
                 WHERE s.document_type = 'APR'
                   AND s.document_id = ANY($1::text[])

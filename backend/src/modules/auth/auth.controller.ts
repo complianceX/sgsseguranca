@@ -140,9 +140,9 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {
     if (isProd && isRefreshCsrfReportOnly()) {
-      this.logger.warn(
-        'SECURITY: REFRESH_CSRF_REPORT_ONLY=true em producao — validacao CSRF do refresh token esta desabilitada. ' +
-          'Defina REFRESH_CSRF_REPORT_ONLY=false para reabilitar a protecao.',
+      throw new Error(
+        'SECURITY: REFRESH_CSRF_REPORT_ONLY=true em producao e proibido. ' +
+          'Defina REFRESH_CSRF_REPORT_ONLY=false (ou remova a variavel) para iniciar o servidor.',
       );
     }
   }
@@ -249,6 +249,7 @@ export class AuthController {
             profile: { nome: profileName || null },
             auth_user_id: user.auth_user_id || null,
           });
+        await this.addAuthResponseJitter();
         return {
           mfaEnrollRequired: true,
           challengeToken: bootstrap.challengeToken,
@@ -263,6 +264,7 @@ export class AuthController {
         userId: user.id,
         companyId: user.company_id || '',
       });
+      await this.addAuthResponseJitter();
       return {
         mfaRequired: true,
         challengeToken: challenge.challengeToken,
@@ -271,6 +273,7 @@ export class AuthController {
       };
     }
 
+    await this.addAuthResponseJitter();
     return this.issueAuthenticatedSession(user, req, response);
   }
 
@@ -284,14 +287,20 @@ export class AuthController {
     @Body() body: VerifyLoginMfaDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponseDto> {
-    const result = await this.mfaService.verifyLoginChallenge({
-      challengeToken: body.challengeToken,
-      code: body.code,
-    });
-    const user = (await this.usersService.findAuthSessionUser(
-      result.userId,
-    )) as unknown as User;
-    return this.issueAuthenticatedSession(user, req, response);
+    const tracker = getRequestIp(req);
+    try {
+      const result = await this.mfaService.verifyLoginChallenge({
+        challengeToken: body.challengeToken,
+        code: body.code,
+      });
+      const user = (await this.usersService.findAuthSessionUser(
+        result.userId,
+      )) as unknown as User;
+      return this.issueAuthenticatedSession(user, req, response);
+    } catch (err) {
+      void this.bruteForceService.registerFailure(tracker);
+      throw err;
+    }
   }
 
   @Public()
@@ -304,14 +313,20 @@ export class AuthController {
     @Body() body: ActivateBootstrapMfaDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponseDto> {
-    const result = await this.mfaService.activateBootstrapChallenge({
-      challengeToken: body.challengeToken,
-      code: body.code,
-    });
-    const user = (await this.usersService.findAuthSessionUser(
-      result.userId,
-    )) as unknown as User;
-    return this.issueAuthenticatedSession(user, req, response);
+    const tracker = getRequestIp(req);
+    try {
+      const result = await this.mfaService.activateBootstrapChallenge({
+        challengeToken: body.challengeToken,
+        code: body.code,
+      });
+      const user = (await this.usersService.findAuthSessionUser(
+        result.userId,
+      )) as unknown as User;
+      return this.issueAuthenticatedSession(user, req, response);
+    } catch (err) {
+      void this.bruteForceService.registerFailure(tracker);
+      throw err;
+    }
   }
 
   @Public()
@@ -796,6 +811,18 @@ export class AuthController {
       dto.current_password,
     );
     return { ok: true, message: 'PIN de assinatura configurado com sucesso.' };
+  }
+
+  /**
+   * Adiciona jitter aleatório (50–150ms) para reduzir oracle de timing após
+   * autenticação de primeiro fator. Não elimina o oracle de shape de resposta
+   * (mfaRequired vs accessToken), mas equaliza latência entre os caminhos.
+   * Mitigação completa exige protocolo de 2 etapas com opaque session token.
+   */
+  private addAuthResponseJitter(): Promise<void> {
+    return new Promise((resolve) =>
+      setTimeout(resolve, crypto.randomInt(50, 151)),
+    );
   }
 
   private async issueAuthenticatedSession(
