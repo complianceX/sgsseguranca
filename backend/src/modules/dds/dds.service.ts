@@ -517,14 +517,14 @@ export class DdsService {
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
         .andWhere(
-          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          "(LOWER(dds.tema) LIKE :search ESCAPE '\\' OR LOWER(search_site.nome) LIKE :search ESCAPE '\\' OR LOWER(search_facilitador.nome) LIKE :search ESCAPE '\\')",
           { search },
         );
       countQuery
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
         .andWhere(
-          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          "(LOWER(dds.tema) LIKE :search ESCAPE '\\' OR LOWER(search_site.nome) LIKE :search ESCAPE '\\' OR LOWER(search_facilitador.nome) LIKE :search ESCAPE '\\')",
           { search },
         );
     }
@@ -606,7 +606,7 @@ export class DdsService {
         .leftJoin('dds.site', 'search_site')
         .leftJoin('dds.facilitador', 'search_facilitador')
         .andWhere(
-          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          "(LOWER(dds.tema) LIKE :search ESCAPE '\\' OR LOWER(search_site.nome) LIKE :search ESCAPE '\\' OR LOWER(search_facilitador.nome) LIKE :search ESCAPE '\\')",
           { search },
         );
     }

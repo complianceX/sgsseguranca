@@ -121,3 +121,12 @@ output/security/
 # Arquivos temporários de diagnóstico/ferramentas
 diagnostic-queries.sql
 playwright_cli.tmp.sh
+
+# MCP tool definitions (geradas por ferramentas de IA, não versionar)
+mcps/
+
+# Relatórios de auditoria gerados por agentes (artefatos temporários)
+AUDITORIA*.md
+RELATORIO*.md
+RESUMO-AUDITORIA*.md
+docs/site/AUDITORIA*.md
