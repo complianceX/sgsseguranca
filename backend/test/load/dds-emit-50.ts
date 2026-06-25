@@ -63,12 +63,7 @@ const MFA_CACHE_PATH = path.resolve(
   '../../../temp/dds-mfa-cache.json',
 );
 
-const EMIT_COUNT = clampInt(
-  process.env.DDS_EMIT_COUNT,
-  50,
-  1,
-  200,
-);
+const EMIT_COUNT = clampInt(process.env.DDS_EMIT_COUNT, 50, 1, 200);
 
 type MfaCache = {
   secret?: string;
@@ -441,7 +436,7 @@ async function loginWithMfa(csrf: CsrfSession): Promise<AuthSessionResponse> {
   );
 }
 
-async function requestMultipart(
+async function _requestMultipart(
   endpoint: string,
   opts: {
     token: string;
@@ -478,7 +473,7 @@ async function requestMultipart(
   return { status: res.status, raw };
 }
 
-function buildMinimalPdfBytes(tag: string): Uint8Array {
+function _buildMinimalPdfBytes(tag: string): Uint8Array {
   const padding = 'x'.repeat(256);
   const content = [
     '%PDF-1.4',
@@ -546,15 +541,11 @@ async function main(): Promise<void> {
 
   // Also try to get authoritative site from /auth/me if available (some users have primary site)
   try {
-    const meRes = await requestJson<{ site_id?: string; user?: { site_id?: string } }>(
-      'GET',
-      '/auth/me',
-      { token, companyId },
-    );
-    const meSite =
-      meRes.body?.site_id ||
-      (meRes.body?.user as any)?.site_id ||
-      null;
+    const meRes = await requestJson<{
+      site_id?: string;
+      user?: { site_id?: string };
+    }>('GET', '/auth/me', { token, companyId });
+    const meSite = meRes.body?.site_id || meRes.body?.user?.site_id || null;
     if (meSite) {
       siteId = meSite;
     }
@@ -629,7 +620,9 @@ async function main(): Promise<void> {
   const elapsedMs = Date.now() - startedAt;
 
   console.log('\n===== RESULTADO DDS EMIT 50 =====');
-  console.log(`Total: ${results.length} | Sucesso: ${ok.length} | Falhas: ${failed.length}`);
+  console.log(
+    `Total: ${results.length} | Sucesso: ${ok.length} | Falhas: ${failed.length}`,
+  );
   console.log(`Tempo: ${elapsedMs}ms`);
 
   if (failed.length > 0) {
