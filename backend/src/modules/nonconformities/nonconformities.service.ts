@@ -1535,18 +1535,23 @@ export class NonConformitiesService {
   }
 
   async getMonthlyAnalytics(): Promise<{ mes: string; total: number }[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nonconformities',
+      { allowMissingSiteScope: true },
+    );
     const qb = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .select("TO_CHAR(DATE_TRUNC('month', nc.created_at), 'YYYY-MM')", 'mes')
       .addSelect('COUNT(*)', 'total')
       .where('nc.deleted_at IS NULL')
       .andWhere("nc.created_at >= NOW() - INTERVAL '12 months'")
+      .andWhere('nc.company_id = :companyId', { companyId: scope.companyId })
       .groupBy("DATE_TRUNC('month', nc.created_at)")
       .orderBy("DATE_TRUNC('month', nc.created_at)", 'ASC');
 
-    if (tenantId) {
-      qb.andWhere('nc.company_id = :tenantId', { tenantId });
+    if (!scope.hasCompanyWideAccess && scope.siteId) {
+      qb.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
     }
 
     const rows = await qb.getRawMany<{ mes: string; total: string }>();
@@ -1596,7 +1601,11 @@ export class NonConformitiesService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nonconformities',
+      { allowMissingSiteScope: true },
+    );
     const qb = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .select([
@@ -1606,8 +1615,13 @@ export class NonConformitiesService {
         'nc.data_identificacao',
         'nc.created_at',
       ])
-      .orderBy('nc.created_at', 'DESC');
-    if (tenantId) qb.where('nc.company_id = :tenantId', { tenantId });
+      .where('nc.deleted_at IS NULL')
+      .andWhere('nc.company_id = :companyId', { companyId: scope.companyId })
+      .orderBy('nc.created_at', 'DESC')
+      .take(5000);
+    if (!scope.hasCompanyWideAccess && scope.siteId) {
+      qb.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
+    }
     const ncs = await qb.getMany();
 
     const rows = ncs.map((n) => ({

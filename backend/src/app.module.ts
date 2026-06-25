@@ -1,4 +1,4 @@
-import {
+﻿import {
   Module,
   MiddlewareConsumer,
   Logger,
@@ -346,11 +346,8 @@ export const validationSchema = Joi.object({
     .default(900),
   MFA_STEP_UP_TTL_SECONDS: Joi.number().integer().min(60).max(900).default(300),
   MFA_MAX_CHALLENGE_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
-  ADMIN_GERAL_MFA_REQUIRED: Joi.boolean().when('NODE_ENV', {
-    is: 'production',
-    then: Joi.boolean().default(true),
-    otherwise: Joi.boolean().default(false),
-  }),
+  ADMIN_GERAL_MFA_REQUIRED: Joi.boolean().default(true),
+
   ADMIN_EMPRESA_MFA_REQUIRED: Joi.boolean().default(false),
   ADMIN_EMPRESA_MFA_ENFORCEMENT_DATE: Joi.string()
     .isoDate()
@@ -358,6 +355,11 @@ export const validationSchema = Joi.object({
     .allow(''),
   ADMIN_EMPRESA_STEP_UP_PASSWORD_FALLBACK_ENABLED: Joi.boolean().default(true),
   JWT_REFRESH_SECRET: Joi.string().min(64).required(),
+  AUTH_DUMMY_PASSWORD_HASH: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().optional().allow(''),
+  }),
   FIELD_ENCRYPTION_ENABLED: Joi.boolean().default(true),
   FIELD_ENCRYPTION_KEY: Joi.string().optional().allow(''),
   FIELD_ENCRYPTION_HASH_KEY: Joi.string().optional().allow(''),

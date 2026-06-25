@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class ExternalizeCompanyLogo1709000000183 implements MigrationInterface {
-  name = 'ExternalizeCompanyLogo1709000000183';
+export class ExternalizeCompanyLogo1709000000329 implements MigrationInterface {
+  name = 'ExternalizeCompanyLogo1709000000329';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const table = await queryRunner.getTable('companies');
