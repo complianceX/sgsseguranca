@@ -190,7 +190,7 @@
 
 .eyeBtn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--ds-accent-muted);
+  box-shadow: 0 0 0 2px var(--ds-color-focus-ring);
 }
 
 .metaRow {
@@ -207,6 +207,12 @@
 
 .forgotLink:hover {
   text-decoration: underline;
+}
+
+.forgotLink:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .mfaQrPanel {
@@ -302,6 +308,12 @@
   text-decoration: underline;
 }
 
+.supportLink:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .securityNote {
   display: flex;
   align-items: center;
@@ -334,6 +346,12 @@
 
 .footerLink:hover {
   text-decoration: underline;
+}
+
+.footerLink:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .fallback {
@@ -380,5 +398,10 @@
 
   .btnSubmit:hover:not(:disabled) {
     transform: none;
+  }
+
+  .spinner {
+    animation: none;
+    border-top-color: var(--ds-text-inverse);
   }
 }

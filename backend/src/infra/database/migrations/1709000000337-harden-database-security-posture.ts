@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenDatabaseSecurityPosture1709000000202 implements MigrationInterface {
-  name = 'HardenDatabaseSecurityPosture1709000000202';
+export class HardenDatabaseSecurityPosture1709000000337 implements MigrationInterface {
+  name = 'HardenDatabaseSecurityPosture1709000000337';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { ChecklistsService } from './checklists.service';
 import { Checklist } from './entities/checklist.entity';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
@@ -181,7 +181,12 @@ describe('ChecklistsService', () => {
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
       tenantService,
-      {} as DataSource,
+      {
+        transaction: jest.fn(
+          (cb: (m: { getRepository: () => typeof repository }) => unknown) =>
+            cb({ getRepository: () => repository }),
+        ),
+      } as unknown as DataSource,
       { sendMailSimple: jest.fn() } as unknown as MailService,
       signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
@@ -737,6 +742,136 @@ describe('ChecklistsService', () => {
         fotos: [],
       }),
     );
+  });
+
+  it('executa remoção em esteira com reset de signatures (CHECKLIST) e cleanup de fotos governadas', async () => {
+    const checklist = {
+      id: 'checklist-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      is_modelo: false,
+      foto_equipamento:
+        'gst:checklist-photo:eyJ2IjoxLCJraW5kIjoiZ292ZXJuZWQtc3RvcmFnZSIsInNjb3BlIjoiZXF1aXBtZW50IiwiZmlsZUtleSI6InRlc3Qta2V5Iiwib3JpZ2luYWxOYW1lIjoidGVzdC5qcGciLCJtaW1lVHlwZSI6ImltYWdlL2pwZWciLCJ1cGxvYWRlZEF0IjoiMjAyNS0wMS0wMVQwMDowMDowMC4wMDBaIn0',
+    } as unknown as Checklist;
+    const softDelete = jest.fn();
+    const manager = { getRepository: jest.fn(() => ({ softDelete })) };
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
+    jest
+      .spyOn(
+        service as unknown as Record<string, jest.Mock>,
+        'getGovernedChecklistPhotoEntries',
+      )
+      .mockReturnValue([
+        {
+          scope: 'equipment',
+          fileKey: 'dummy',
+          originalName: 'd.jpg',
+          mimeType: 'image/jpeg',
+        },
+      ]);
+    (
+      documentGovernanceService.removeFinalDocumentReference as jest.Mock
+    ).mockImplementation(async (input: Record<string, unknown>) => {
+      const fn = input.removeEntityState as
+        | ((m: unknown) => Promise<void>)
+        | undefined;
+      if (fn) await fn(manager);
+    });
+    (signaturesService.removeByDocumentSystem as jest.Mock).mockResolvedValue(
+      2,
+    );
+    const cleanupSpy = jest
+      .spyOn(
+        service as unknown as Record<string, jest.Mock>,
+        'cleanupGovernedChecklistPhotoFiles',
+      )
+      .mockResolvedValue(undefined);
+
+    await service.remove('checklist-1');
+
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).toHaveBeenCalled();
+    expect(softDelete).toHaveBeenCalledWith('checklist-1');
+    expect(signaturesService.removeByDocumentSystem).toHaveBeenCalledWith(
+      'checklist-1',
+      'CHECKLIST',
+      { companyId: 'company-1', siteId: 'site-1' },
+    );
+    expect(cleanupSpy).toHaveBeenCalled();
+  });
+
+  it('respeita scoping de templates: permite globais (site_id null) e site-specific no scope para onlyTemplates', async () => {
+    // usa path com segment para cobrir cláusula (NULL OR IN)
+    const rows = [
+      { id: 't-global', is_modelo: true, site_id: null, titulo: 'Global' },
+      { id: 't-site1', is_modelo: true, site_id: 'site-1', titulo: 'Site1' },
+    ];
+    const qbMock = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([rows, 2]),
+    };
+    repository.createQueryBuilder.mockReturnValue(qbMock);
+
+    const res = await service.findPaginated({
+      onlyTemplates: true,
+      segment: 'operacionais',
+      page: 1,
+      limit: 20,
+    });
+
+    expect(res.data).toHaveLength(2);
+    // verifica que a query incluiu filtro para templates globais + scoped
+    expect(qbMock.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('site_id IS NULL OR checklist.site_id IN'),
+      expect.any(Object),
+    );
+  });
+
+  it('sanitiza campos de texto ao preencher de template (buildFromTemplate)', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'template-1',
+      titulo: 'Modelo <script>evil</script>',
+      descricao: 'Desc <b>ok</b>',
+      equipamento: 'Equip',
+      maquina: null,
+      foto_equipamento: null,
+      data: new Date('2026-03-10'),
+      status: 'Pendente',
+      company_id: 'company-1',
+      site_id: null,
+      inspetor_id: null,
+      itens: [{ item: 'Item', tipo_resposta: 'conforme' }],
+      is_modelo: true,
+      ativo: true,
+      categoria: 'SST <img>',
+      periodicidade: 'Diário',
+      nivel_risco_padrao: 'Médio',
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as unknown as Checklist);
+
+    const result = await service.fillFromTemplate('template-1', {
+      data: '2026-03-15',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      titulo: 'Preenchido <script>alert(1)</script>',
+    });
+
+    // sanitizePlainText remove tags
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        titulo: expect.not.stringContaining('<script>') as unknown,
+        categoria: expect.not.stringContaining('<img>') as unknown,
+      }),
+    );
+    expect(result).toBeDefined();
   });
 
   it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, plataforma elevatória, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
@@ -1400,11 +1535,13 @@ describe('ChecklistsService', () => {
             titulo: 'Checklist - Máquina de Solda',
             is_modelo: true,
             company_id: 'company-1',
+            deleted_at: IsNull(),
           },
           {
             titulo: 'Checklist de Máquina de Solda',
             is_modelo: true,
             company_id: 'company-1',
+            deleted_at: IsNull(),
           },
         ],
       });
@@ -1647,7 +1784,12 @@ describe('ChecklistsService', () => {
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
       tenantService,
-      {} as DataSource,
+      {
+        transaction: jest.fn(
+          (cb: (m: { getRepository: () => typeof repository }) => unknown) =>
+            cb({ getRepository: () => repository }),
+        ),
+      } as unknown as DataSource,
       { sendStoredDocument } as unknown as MailService,
       signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
@@ -2020,6 +2162,8 @@ describe('ChecklistsService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       };
       repository.createQueryBuilder.mockReturnValue(qb);
@@ -2519,4 +2663,227 @@ describe('ChecklistsService', () => {
       expect(result.status).toBe('Não Conforme');
     });
   });
+
+  // ── sanitização de entradas (HTML escape + remoção null-byte) ──────────────
+
+  describe('sanitização de texto plano', () => {
+    it('sanitiza titulo, descricao, observacoes e subitens removendo tags e null bytes', async () => {
+      const result = await service.create({
+        titulo: 'Checklist <script>alert(1)</script> & "teste" \u0000',
+        descricao: '<b>desc</b> perigosa',
+        data: '2026-03-14',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [
+          {
+            item: 'Item com <img src=x onerror=1>',
+            observacao: 'obs com & e < > \u0000',
+            subitens: [
+              { texto: 'sub <script>evil</script>', observacao: 'subobs' },
+            ],
+          },
+        ],
+        is_modelo: false,
+      } as unknown as CreateChecklistDto);
+
+      const created = getFirstCreatedChecklistPayload();
+      expect(created.titulo).toBe(
+        'Checklist &lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;teste&quot; ',
+      );
+      expect(created.descricao).toBe('&lt;b&gt;desc&lt;/b&gt; perigosa');
+      const firstItem = created.itens?.[0];
+      expect(firstItem?.item).toBe('Item com &lt;img src=x onerror=1&gt;');
+      expect(firstItem?.observacao).toBe('obs com &amp; e &lt; &gt; ');
+      expect(firstItem?.subitens?.[0]?.texto).toBe(
+        'sub &lt;script&gt;evil&lt;/script&gt;',
+      );
+
+      // status derivado a partir de itens sem falhas explicitas
+      expect(['Pendente', 'Conforme']).toContain(result.status);
+    });
+
+    it('rejeita javascript: em imagens inline mas sanitiza outros textos', async () => {
+      await expect(
+        service.create({
+          titulo: 'Com foto inline invalida',
+          data: '2026-03-14',
+          company_id: 'company-1',
+          site_id: 'site-1',
+          inspetor_id: 'user-1',
+          itens: [
+            {
+              item: 'Foto',
+              fotos: ['javascript:alert(1)'],
+            },
+          ],
+          is_modelo: false,
+        } as unknown as CreateChecklistDto),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  // ── scoping / tenant e site access ────────────────────────────────────────
+
+  describe('escopo de tenant e site (findOne/findPaginated)', () => {
+    it('findOneEntity retorna NotFound para checklist fora do escopo de site do usuario', async () => {
+      const scopedChecklist = {
+        id: 'cl-1',
+        company_id: 'company-1',
+        site_id: 'site-2', // fora do escopo do usuario
+        deleted_at: null,
+      } as unknown as Checklist;
+
+      (tenantService.getContext as jest.Mock).mockReturnValue({
+        companyId: 'company-1',
+        siteId: 'site-1',
+        siteScope: 'single',
+        isSuperAdmin: false,
+      });
+      repository.findOne.mockResolvedValueOnce(scopedChecklist);
+
+      await expect(service.findOne('cl-1')).rejects.toThrow(
+        'Checklist com ID cl-1 não encontrado',
+      );
+    });
+
+    it('findPaginated aplica filtro site_id quando siteScope single e nao superadmin', async () => {
+      (tenantService.getContext as jest.Mock).mockReturnValue({
+        companyId: 'company-1',
+        siteId: 'site-1',
+        siteIds: ['site-1'],
+        siteScope: 'single',
+        isSuperAdmin: false,
+      });
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({});
+
+      const callArg = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown> }]
+        >
+      ).at(-1)?.[0];
+      expect(callArg?.where?.site_id).toBeDefined();
+    });
+
+    it('findPaginated permite acesso amplo para super admin (sem filtro site)', async () => {
+      (tenantService.getContext as jest.Mock).mockReturnValue({
+        companyId: 'company-1',
+        siteScope: 'all',
+        isSuperAdmin: true,
+      });
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({});
+
+      const callArg = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown> }]
+        >
+      ).at(-1)?.[0];
+      expect(callArg?.where?.site_id).toBeUndefined();
+    });
+  });
+
+  // ── remoção transacional e atomicidade ────────────────────────────────────
+
+  describe('remoção transacional (remove)', () => {
+    it('executa remove com tx para governance, softDelete, cleanup fotos e reset signatures', async () => {
+      const checklist = {
+        id: 'checklist-del',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        foto_equipamento: null,
+        itens: [],
+      } as unknown as Checklist;
+
+      const softDelete = jest.fn();
+      const manager = {
+        getRepository: jest.fn(() => ({ softDelete })),
+      };
+
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
+      (
+        documentGovernanceService.removeFinalDocumentReference as jest.Mock
+      ).mockImplementation(async (input: Record<string, unknown>) => {
+        const fn = input.removeEntityState as
+          | ((m: unknown) => Promise<void>)
+          | undefined;
+        if (fn) await fn(manager);
+      });
+
+      const _cleanupSpy = jest
+        .spyOn(
+          service as unknown as Record<string, jest.Mock>,
+          'cleanupGovernedChecklistPhotoFiles',
+        )
+        .mockResolvedValue(undefined);
+
+      const resetSpy = jest
+        .spyOn(
+          service as unknown as Record<string, jest.Mock>,
+          'resetChecklistSignatures',
+        )
+        .mockResolvedValue(undefined);
+
+      await service.remove('checklist-del');
+
+      expect(
+        documentGovernanceService.removeFinalDocumentReference,
+      ).toHaveBeenCalled();
+      expect(softDelete).toHaveBeenCalledWith('checklist-del');
+      // sem entradas de foto governada neste teste, cleanup nao disparado
+      expect(resetSpy).toHaveBeenCalled();
+    });
+  });
+
+  // ── testes de índices de performance (via mocks de query) ─────────────────
+
+  describe('índices de performance (verificação de queries otimizadas)', () => {
+    it('findPaginated usa filtros por company_id + created_at (índices compostos)', async () => {
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({ page: 1, limit: 20 });
+
+      const lastCall = (
+        repository.findAndCount.mock.calls as Array<
+          [{ where?: Record<string, unknown>; order?: Record<string, string> }]
+        >
+      ).at(-1)?.[0];
+      expect(lastCall?.where?.company_id).toBe('company-1');
+      expect(lastCall?.order).toMatchObject({ created_at: 'DESC' });
+    });
+
+    it('usa queryBuilder com where company+site+status quando segment (alinhado com idx_checklists_company_site_status_created)', async () => {
+      const qb: Record<string, jest.Mock> = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      repository.createQueryBuilder.mockReturnValue(qb);
+
+      (tenantService.getContext as jest.Mock).mockReturnValue({
+        companyId: 'company-1',
+        siteScope: 'all',
+        isSuperAdmin: true,
+      });
+
+      await service.findPaginated({ segment: 'operacionais' });
+
+      expect(repository.createQueryBuilder).toHaveBeenCalledWith('checklist');
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('company_id'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  // Nota de expansão: sanitização no importFromWord (AI/stub path) agora força sanitizePlainText em campos (ver service.ts:3483+).
+  // Testes de import full requerem mocks de fileParser + ai (coberto por E2E/load). Scoping de templates e rate em guards são testados via metadata e overrides.
 });

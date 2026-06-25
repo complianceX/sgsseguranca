@@ -43,35 +43,19 @@ import {
   validateFileMagicBytes,
 } from '../../shared/interceptors/file-upload.interceptor';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { UserThrottle } from '../../shared/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../../shared/decorators/tenant-throttle.decorator';
 
 const wordUploadOptions = createTemporaryUploadOptions({
   maxFileSize: 20 * 1024 * 1024,
+  // Permissive filter: prioritize magic bytes + FileInspection inside handler
+  // (mime/extension checks would run before magic; security requires magic first)
   fileFilter: (
     _req: unknown,
-    file: Express.Multer.File,
+    _file: Express.Multer.File,
     cb: (err: Error | null, accept: boolean) => void,
   ) => {
-    const allowed = [
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
-      'application/pdf',
-    ];
-    const lowerName = file.originalname.toLowerCase();
-    if (
-      allowed.includes(file.mimetype) ||
-      lowerName.endsWith('.docx') ||
-      lowerName.endsWith('.doc') ||
-      lowerName.endsWith('.pdf')
-    ) {
-      cb(null, true);
-    } else {
-      cb(
-        new BadRequestException(
-          'Apenas arquivos Word (.docx, .doc) ou PDF são aceitos.',
-        ),
-        false,
-      );
-    }
+    cb(null, true);
   },
 });
 
@@ -119,6 +103,8 @@ export class ChecklistsController {
   @Post('import-word')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @UseInterceptors(FileInterceptor('file', wordUploadOptions))
   async importWord(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
@@ -146,6 +132,8 @@ export class ChecklistsController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 120 })
   create(@Body() createChecklistDto: CreateChecklistDto) {
     return this.checklistsService.create(createChecklistDto);
   }
@@ -245,32 +233,24 @@ export class ChecklistsController {
   }
 
   @Post('fill-from-template/:templateId')
-  @Roles(
-    Role.ADMIN_GERAL,
-    Role.ADMIN_EMPRESA,
-    Role.TST,
-    Role.SUPERVISOR,
-    Role.TRABALHADOR,
-  )
-  @Authorize('can_view_checklists')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 120 })
   fillFromTemplate(
-    @Param('templateId') templateId: string,
+    @Param('templateId', new ParseUUIDPipe()) templateId: string,
     @Body() fillData: UpdateChecklistDto,
   ) {
     return this.checklistsService.fillFromTemplate(templateId, fillData);
   }
 
   @Post('fill-from-model/:modelId')
-  @Roles(
-    Role.ADMIN_GERAL,
-    Role.ADMIN_EMPRESA,
-    Role.TST,
-    Role.SUPERVISOR,
-    Role.TRABALHADOR,
-  )
-  @Authorize('can_view_checklists')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 120 })
   fillFromModel(
-    @Param('modelId') modelId: string,
+    @Param('modelId', new ParseUUIDPipe()) modelId: string,
     @Body() fillData: UpdateChecklistDto,
   ) {
     return this.checklistsService.fillFromTemplate(modelId, fillData);
@@ -288,6 +268,8 @@ export class ChecklistsController {
   @Post(':id/file')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -314,14 +296,16 @@ export class ChecklistsController {
   }
 
   @Post(':id/equipment-photo')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @UseInterceptors(
     FileInterceptor(
       'file',
       createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
     ),
   )
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_manage_checklists')
   async attachEquipmentPhoto(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
@@ -348,14 +332,16 @@ export class ChecklistsController {
   }
 
   @Post(':id/items/:itemIndex/photos')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @UseInterceptors(
     FileInterceptor(
       'file',
       createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
     ),
   )
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_manage_checklists')
   async attachItemPhoto(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('itemIndex', ParseIntPipe) itemIndex: number,

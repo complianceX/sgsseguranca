@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ArrPhase1Hardening1709000000137 implements MigrationInterface {
-  name = 'ArrPhase1Hardening1709000000137';
+export class ArrPhase1Hardening1709000000333 implements MigrationInterface {
+  name = 'ArrPhase1Hardening1709000000333';
 
   transaction = false;
 

@@ -21,19 +21,34 @@ export function PageHeader({
   contentClassName,
 }: PageHeaderProps) {
   return (
-    <section className={cn('ds-page-header', className)}>
+    <section
+      aria-label={eyebrow ? `${eyebrow}: ${title}` : title}
+      className={cn('ds-page-header', className)}
+    >
       <div className="ds-page-header__main md:flex-row md:items-start md:justify-between">
         <div className="ds-page-header__lead">
-          {icon ? <div className="ds-page-header__icon">{icon}</div> : null}
+          {icon ? (
+            <div className="ds-page-header__icon" aria-hidden="true">
+              {icon}
+            </div>
+          ) : null}
           <div className={cn('ds-page-header__copy', contentClassName)}>
-            {eyebrow ? <span className="ds-page-header__eyebrow">{eyebrow}</span> : null}
+            {eyebrow ? (
+              <span className="ds-page-header__eyebrow" aria-hidden="true">
+                {eyebrow}
+              </span>
+            ) : null}
             <h1 className="ds-page-header__title">{title}</h1>
             {description ? (
               <p className="ds-page-header__description">{description}</p>
             ) : null}
           </div>
         </div>
-        {actions ? <div className="ds-page-header__actions">{actions}</div> : null}
+        {actions ? (
+          <div className="ds-page-header__actions" role="group" aria-label="Acoes da pagina">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </section>
   );

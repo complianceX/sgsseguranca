@@ -49,14 +49,20 @@ export class CreateAssistedChecklistDto {
   is_modelo?: boolean;
 
   @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   categoria?: string;
 
   @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   periodicidade?: string;
 
   @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
   @IsOptional()
   nivel_risco_padrao?: string;
 }

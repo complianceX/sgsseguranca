@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -13,6 +13,7 @@ import {
   type FindOptionsWhere,
   DataSource,
   In,
+  IsNull,
   Repository,
 } from 'typeorm';
 import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
@@ -22,6 +23,7 @@ import {
   resolveSiteAccessScopeFromTenantService,
 } from '../../shared/tenant/site-access-scope.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { Role } from '../auth/enums/roles.enum';
 import { resolveRegistryModuleForSignatureDocumentType } from '../document-registry/document-governance.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
@@ -563,7 +565,7 @@ export class SignaturesService {
           document_type: normalizedDocumentType,
         };
     const signatures = await this.signaturesRepository.find({
-      where,
+      where: { ...where, deleted_at: IsNull() },
       relations: { user: true },
       select: {
         user: {
@@ -609,8 +611,8 @@ export class SignaturesService {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
       where: tenantId
-        ? { id: signatureId, company_id: tenantId }
-        : { id: signatureId },
+        ? { id: signatureId, company_id: tenantId, deleted_at: IsNull() }
+        : { id: signatureId, deleted_at: IsNull() },
     });
 
     if (!signature) {
@@ -637,7 +639,8 @@ export class SignaturesService {
       companyId: signature.company_id || tenantId || null,
     });
 
-    await this.signaturesRepository.delete({ id: signature.id });
+    // Alinhado para soft delete (a entidade suporta deleted_at). Preserva histórico de assinaturas para auditoria/forense.
+    await this.signaturesRepository.softDelete({ id: signature.id });
     await this.cleanupSignatureEvidenceFiles(
       [signature],
       `signatures:remove:${signature.id}`,
@@ -665,7 +668,9 @@ export class SignaturesService {
           document_id,
           document_type,
         };
-    const signatures = await this.signaturesRepository.find({ where });
+    const signatures = await this.signaturesRepository.find({
+      where: { ...where, deleted_at: IsNull() },
+    });
 
     if (signatures.length === 0) {
       return;
@@ -689,7 +694,9 @@ export class SignaturesService {
       companyId: tenantId || signatures[0]?.company_id || null,
     });
 
-    await this.signaturesRepository.delete({
+    // Uso de softDelete para alinhamento com soft-delete de documentos (checklists, etc).
+    // Evidências de arquivo são limpas, mas o registro de assinatura permanece para trilha forense.
+    await this.signaturesRepository.softDelete({
       id: In(signatures.map((signature) => signature.id)),
     });
     await this.cleanupSignatureEvidenceFiles(
@@ -726,10 +733,10 @@ export class SignaturesService {
           document_type,
         };
     const signatures = await this.signaturesRepository.find({
-      where,
+      where: { ...where, deleted_at: IsNull() },
       select: ['id', 'signature_data_key'],
     });
-    const deleteResult = await this.signaturesRepository.delete(where);
+    const deleteResult = await this.signaturesRepository.softDelete(where);
     await this.cleanupSignatureEvidenceFiles(
       signatures,
       `signatures:remove-document-system:${document_id}`,
@@ -753,8 +760,8 @@ export class SignaturesService {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
       where: tenantId
-        ? { id: signatureId, company_id: tenantId }
-        : { id: signatureId },
+        ? { id: signatureId, company_id: tenantId, deleted_at: IsNull() }
+        : { id: signatureId, deleted_at: IsNull() },
     });
 
     if (!signature) {
@@ -1686,19 +1693,12 @@ export class SignaturesService {
     if (!roleName) {
       return false;
     }
-
-    const normalized = roleName.trim().toLowerCase();
-    const privilegedRoles = new Set([
-      'admin',
-      'manager',
-      'super_admin',
-      'administrador geral',
-      'administrador da empresa',
-      'admin empresa',
-      'supervisor / encarregado',
+    const privilegedRoles = new Set<string>([
+      Role.ADMIN_GERAL,
+      Role.ADMIN_EMPRESA,
+      Role.SUPERVISOR,
     ]);
-
-    return privilegedRoles.has(normalized);
+    return privilegedRoles.has(roleName.trim());
   }
 
   private normalizeLegacyReadDocumentType(documentType: string): string {

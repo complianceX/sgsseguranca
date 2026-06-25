@@ -23,7 +23,12 @@ import {
 } from './dto/create-nonconformity.dto';
 import { NonConformityFilesQueryDto } from './dto/nonconformity-files-query.dto';
 import { NonConformityListQueryDto } from './dto/nonconformity-list-query.dto';
+import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
+import type { NonConformityAttachmentAttachResponse } from './nonconformities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -41,7 +46,7 @@ import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audi
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 
 @Controller('nonconformities')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class NonConformitiesController {
   constructor(
@@ -50,13 +55,16 @@ export class NonConformitiesController {
   ) {}
 
   @Post()
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_nc')
-  create(@Body() createNonConformityDto: CreateNonConformityDto) {
+  create(
+    @Body() createNonConformityDto: CreateNonConformityDto,
+  ): Promise<NonConformityResponseDto> {
     return this.nonConformitiesService.create(createNonConformityDto);
   }
 
   @Get()
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   findAll(@Query() query: NonConformityListQueryDto) {
     return this.nonConformitiesService.findPaginated({
       page: query.page ?? 1,
@@ -66,7 +74,7 @@ export class NonConformitiesController {
   }
 
   @Get('files/list')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   listStoredFiles(@Query() query: NonConformityFilesQueryDto) {
     return this.nonConformitiesService.listStoredFiles({
       year: query.year,
@@ -75,7 +83,7 @@ export class NonConformitiesController {
   }
 
   @Get('files/weekly-bundle')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   async getWeeklyBundle(
     @Query() query: NonConformityFilesQueryDto,
   ): Promise<StreamableFile> {
@@ -92,19 +100,19 @@ export class NonConformitiesController {
   }
 
   @Get('analytics/monthly')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   getMonthlyAnalytics() {
     return this.nonConformitiesService.getMonthlyAnalytics();
   }
 
   @Get('analytics/overview')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   getAnalyticsOverview() {
     return this.nonConformitiesService.getAnalyticsOverview();
   }
 
   @Get('export/excel')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -119,19 +127,21 @@ export class NonConformitiesController {
   }
 
   @Get(':id')
-  @Authorize('can_manage_nc')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+  @Authorize('can_view_nc')
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<NonConformityResponseDto> {
     return this.nonConformitiesService.findOne(id);
   }
 
   @Get(':id/pdf')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   getPdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.nonConformitiesService.getPdfAccess(id);
   }
 
   @Get(':id/attachments/:index/access')
-  @Authorize('can_manage_nc')
+  @Authorize('can_view_nc')
   getAttachmentAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('index', ParseIntPipe) index: number,
@@ -140,12 +150,13 @@ export class NonConformitiesController {
   }
 
   @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   @Authorize('can_manage_nc')
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
-  ) {
+  ): Promise<NonConformityResponseDto> {
     if (!file) {
       throw new BadRequestException('Arquivo PDF não enviado');
     }
@@ -168,6 +179,7 @@ export class NonConformitiesController {
   }
 
   @Post(':id/attachments')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @UseInterceptors(
     FileInterceptor(
       'file',
@@ -178,7 +190,7 @@ export class NonConformitiesController {
   async attachAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
-  ) {
+  ): Promise<NonConformityAttachmentAttachResponse> {
     if (!file) {
       throw new BadRequestException('Arquivo de evidência não enviado');
     }
@@ -206,24 +218,27 @@ export class NonConformitiesController {
   }
 
   @Patch(':id/status')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_nc')
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('status') status: NcStatus,
-  ) {
+  ): Promise<NonConformityResponseDto> {
     return this.nonConformitiesService.updateStatus(id, status);
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_nc')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateNonConformityDto: UpdateNonConformityDto,
-  ) {
+  ): Promise<NonConformityResponseDto> {
     return this.nonConformitiesService.update(id, updateNonConformityDto);
   }
 
   @Delete(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_nc')
   @ForensicAuditAction('delete', 'non_conformity')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {

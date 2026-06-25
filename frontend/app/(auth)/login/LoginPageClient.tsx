@@ -233,7 +233,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
         />
       )}
 
-      <main className={styles.shell}>
+      <main id="main-content" className={styles.shell}>
         <div className={styles.card}>
           <section className={styles.brandBlock}>
             <div className={styles.brandRow}>
@@ -273,6 +273,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
                   inputMode="numeric"
                   autoComplete="username"
                   autoFocus
+                  required
                   className={styles.formInput}
                   placeholder="Informe seu CPF"
                   value={cpf}
@@ -281,6 +282,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
                     setCpf(formatCpf(e.target.value));
                   }}
                   disabled={loading}
+                  aria-describedby={error ? 'login-error' : undefined}
                 />
               </div>
             </div>
@@ -295,6 +297,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
                   id="senha"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  required
                   className={styles.formInput}
                   placeholder="Informe sua senha"
                   value={password}
@@ -303,6 +306,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
                     setPassword(e.target.value);
                   }}
                   disabled={loading}
+                  aria-describedby={error ? 'login-error' : undefined}
                 />
                 <button
                   type="button"
@@ -349,6 +353,9 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
 
             {mfaStage === 'bootstrap' && mfaOtpAuthUrl ? (
               <div className={styles.mfaQrPanel}>
+                <p className="sr-only">
+                  Se não consegue escanear o QR code, use a chave manual exibida abaixo.
+                </p>
                 <QRCodeCanvas
                   value={mfaOtpAuthUrl}
                   size={184}
@@ -398,6 +405,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
 
             {error ? (
               <div
+                id="login-error"
                 className={`${styles.noticeBanner} ${styles.errorBanner}`}
                 role="alert"
                 aria-live="assertive"
@@ -512,7 +520,9 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
         </button>
       </div>
 
-      <div
+      <ul
+        aria-label="Códigos de recuperação"
+        aria-hidden={!revealed}
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -521,11 +531,13 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
           userSelect: 'none',
           pointerEvents: 'none',
           marginBottom: 8,
+          listStyle: 'none',
+          padding: 0,
+          margin: '0 0 8px 0',
         }}
-        aria-hidden={!revealed}
       >
         {codes.map((code, i) => (
-          <span
+          <li
             key={i}
             style={{
               fontFamily: 'monospace',
@@ -537,9 +549,9 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
             }}
           >
             {code}
-          </span>
+          </li>
         ))}
-      </div>
+      </ul>
 
       <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
         Salve estes códigos em local seguro. Cada um pode ser usado uma vez para recuperar o acesso se perder o autenticador.

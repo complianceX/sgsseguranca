@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsNotEmpty,
@@ -7,6 +7,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import {
   CHECKLIST_ITEM_STATUS_VALUES,
   type ChecklistItemStatus,
@@ -20,11 +21,13 @@ export class ChecklistSubitemDto {
   @ValidateIf((object: { descricao?: string }) => !object.descricao)
   @IsString()
   @IsNotEmpty({ message: 'O texto do subitem é obrigatório.' })
+  @Transform(sanitizePlainTextTransform)
   texto?: string;
 
   @ValidateIf((object: { texto?: string }) => !object.texto)
   @IsString()
   @IsNotEmpty({ message: 'A descrição do subitem é obrigatória.' })
+  @Transform(sanitizePlainTextTransform)
   descricao?: string;
 
   @IsOptional()
@@ -43,5 +46,6 @@ export class ChecklistSubitemDto {
 
   @IsOptional()
   @IsString()
+  @Transform(sanitizePlainTextTransform)
   observacao?: string;
 }

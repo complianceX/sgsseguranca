@@ -149,11 +149,14 @@ export function PageLoadingState({
   tableRows?: number;
 }) {
   return (
-    <section role="status" aria-live="polite" className="space-y-6">
+    <section role="status" aria-live="polite" aria-label={title} className="space-y-6">
       <Card tone="muted" padding="md">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <LoaderCircle className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
+            <LoaderCircle
+              className="h-5 w-5 animate-spin text-[var(--ds-color-action-primary)]"
+              aria-hidden="true"
+            />
             <div>
               <CardTitle>{title}</CardTitle>
               <CardDescription>{description}</CardDescription>

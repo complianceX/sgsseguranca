@@ -123,8 +123,14 @@ export function proxy(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
+  // /proxy/auth/csrf e /proxy/auth/login devem ser acessíveis sem sessão —
+  // são necessários para o fluxo de login de usuários novos ou sem cookie.
+  const isAuthProxyPath =
+    pathname === "/proxy/auth/csrf" || pathname === "/proxy/auth/login";
+
   if (
-    (isDashboardRoute(pathname) || isProxyRoute(pathname)) &&
+    (isDashboardRoute(pathname) ||
+      (isProxyRoute(pathname) && !isAuthProxyPath)) &&
     !request.cookies.has(REFRESH_CSRF_COOKIE)
   ) {
     const loginUrl = new URL("/login", request.url);

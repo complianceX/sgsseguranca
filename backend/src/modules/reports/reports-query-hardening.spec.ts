@@ -11,6 +11,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
+import { TenantService } from '../../shared/tenant/tenant.service';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 
@@ -46,6 +47,19 @@ describe('ReportsController query hardening', () => {
       providers: [
         { provide: getQueueToken('pdf-generation'), useValue: pdfQueue },
         { provide: ReportsService, useValue: reportsService },
+        {
+          provide: TenantService,
+          useValue: {
+            getContext: () => ({
+              companyId: 'company-1',
+              isSuperAdmin: false,
+              siteIds: [],
+              siteScope: 'all',
+            }),
+            getTenantId: () => 'company-1',
+            isSuperAdmin: () => false,
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -126,7 +140,14 @@ describe('ReportsController query hardening', () => {
       expect.objectContaining({
         companyId: 'company-1',
         userId: 'user-1',
-        params: { companyId: 'company-1', year: 2026, month: 3 },
+        reportType: 'monthly',
+        params: {
+          companyId: 'company-1',
+          year: 2026,
+          month: 3,
+          generatedBy: 'user-1',
+        },
+        siteScope: 'all',
       }),
       expect.any(Object),
     );

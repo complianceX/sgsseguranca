@@ -3,8 +3,10 @@ import { cn } from '@/lib/utils';
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
+      role="presentation"
+      aria-hidden="true"
       className={cn(
-        'animate-pulse rounded-[var(--ds-radius-sm)] bg-[color:var(--color-card-muted)]/60',
+        'animate-pulse rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]',
         className,
       )}
     />
@@ -13,7 +15,12 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
+    <div
+      role="status"
+      aria-label="Carregando cartao de estatistica"
+      aria-busy="true"
+      className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] p-5 shadow-[var(--component-card-shadow)]"
+    >
       <div className="flex items-center justify-between">
         <Skeleton className="h-10 w-10 rounded-full" />
         <Skeleton className="h-4 w-14" />
@@ -26,7 +33,12 @@ export function StatCardSkeleton() {
 
 export function CardSkeleton() {
   return (
-    <div className="space-y-4 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
+    <div
+      role="status"
+      aria-label="Carregando card"
+      aria-busy="true"
+      className="space-y-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] p-5 shadow-[var(--component-card-shadow)]"
+    >
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-16 rounded-full" />
         <Skeleton className="h-4 w-24" />
@@ -37,10 +49,10 @@ export function CardSkeleton() {
         <Skeleton className="h-3 w-20 rounded-full" />
         <Skeleton className="h-3 w-20 rounded-full" />
       </div>
-      <div className="flex justify-end gap-2 border-t border-[var(--color-border-subtle)] pt-3">
-        <Skeleton className="h-7 w-7 rounded-md" />
-        <Skeleton className="h-7 w-7 rounded-md" />
-        <Skeleton className="h-7 w-7 rounded-md" />
+      <div className="flex justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3">
+        <Skeleton className="h-7 w-7 rounded-[var(--ds-radius-md)]" />
+        <Skeleton className="h-7 w-7 rounded-[var(--ds-radius-md)]" />
+        <Skeleton className="h-7 w-7 rounded-[var(--ds-radius-md)]" />
       </div>
     </div>
   );
@@ -48,13 +60,44 @@ export function CardSkeleton() {
 
 export function TableRowSkeleton({ cols }: { cols: number }) {
   return (
-    <tr>
+    <tr aria-hidden="true">
       {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} className="px-6 py-4">
+        // px-4 py-3.5 alinha com TableCell para evitar salto visual ao carregar
+        <td key={i} className="px-4 py-3.5">
           <Skeleton className="h-4 w-full max-w-[180px]" />
         </td>
       ))}
     </tr>
+  );
+}
+
+/**
+ * TableSkeleton — bloco completo de skeleton para tabela.
+ * Renderiza um thead falso + N linhas de skeleton.
+ * Use dentro de <TableBody> quando os dados ainda estao carregando.
+ *
+ * ```tsx
+ * <TableBody>
+ *   {loading
+ *     ? <TableSkeleton cols={5} rows={8} />
+ *     : data.map(row => <TableRow key={row.id}>...</TableRow>)
+ *   }
+ * </TableBody>
+ * ```
+ */
+export function TableSkeleton({
+  cols,
+  rows = 5,
+}: {
+  cols: number;
+  rows?: number;
+}) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <TableRowSkeleton key={i} cols={cols} />
+      ))}
+    </>
   );
 }
 
@@ -66,7 +109,7 @@ export function PageSkeleton({
   tableRows?: number;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-hidden="true">
       <div className="space-y-2">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="h-4 w-80 max-w-full" />
@@ -76,7 +119,7 @@ export function PageSkeleton({
           <StatCardSkeleton key={index} />
         ))}
       </div>
-      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
+      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] p-5 shadow-[var(--component-card-shadow)]">
         <div className="mb-4 flex items-center justify-between">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-9 w-28" />

@@ -4,6 +4,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { ROLES_KEY } from '../auth/roles.decorator';
 import { ReportsController } from './reports.controller';
 import type { ReportsService } from './reports.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 
 type MockJob = {
   id: string;
@@ -83,9 +84,20 @@ describe('ReportsController - tenant queue isolation', () => {
     queue = makeQueue();
     reportsService = makeReportsService();
 
+    const mockTenantService: Record<string, unknown> = {
+      getContext: () => ({
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteIds: [],
+        siteScope: 'all',
+      }),
+      getTenantId: () => 'company-1',
+      isSuperAdmin: () => false,
+    };
     controller = new ReportsController(
       queue as unknown as Queue,
       reportsService as unknown as ReportsService,
+      mockTenantService as unknown as TenantService,
     );
   });
 
@@ -137,7 +149,13 @@ describe('ReportsController - tenant queue isolation', () => {
         reportType: 'monthly',
         userId: 'user-1',
         companyId: 'company-1',
-        params: { companyId: 'company-1', year: 2026, month: 3 },
+        params: {
+          companyId: 'company-1',
+          year: 2026,
+          month: 3,
+          generatedBy: 'user-1',
+        },
+        siteScope: 'all',
       }),
       expect.objectContaining({
         jobId: expect.stringMatching(
@@ -145,6 +163,23 @@ describe('ReportsController - tenant queue isolation', () => {
         ) as unknown as string,
       }),
     );
+  });
+
+  it('enfileira via GET /monthly com generatedBy e siteScope', async () => {
+    add.mockResolvedValue({ id: 'job-monthly' });
+
+    await controller['enqueueMonthlyReport']('company-1', 'user-99', 2026, 5);
+
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+    expect(add).toHaveBeenCalledWith(
+      'generate',
+      expect.objectContaining({
+        params: expect.objectContaining({ generatedBy: 'user-99' }),
+        siteScope: 'all',
+      }),
+      expect.any(Object),
+    );
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment */
   });
 
   it('permite consultar o proprio job', async () => {

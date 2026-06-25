@@ -13,6 +13,7 @@ import { WorkerTimelineService } from './worker-timeline.service';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { SecurityAuditModule } from '../../shared/security/security-audit.module';
 import { ConsentsModule } from '../consents/consents.module';
+import { PwnedPasswordService } from '../auth/services/pwned-password.service';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ConsentsModule } from '../consents/consents.module';
     UsersService,
     WorkerOperationalStatusService,
     WorkerTimelineService,
+    PwnedPasswordService,
   ],
   exports: [
     UsersService,
