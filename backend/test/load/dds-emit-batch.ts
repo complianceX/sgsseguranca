@@ -77,9 +77,12 @@ const USERS_FILE = String(
 
 const TOTAL_DDS = clampInt(process.env.DDS_BATCH_TOTAL, 1000, 1, 5000);
 const CONCURRENCY = clampInt(process.env.DDS_BATCH_CONCURRENCY, 15, 1, 50);
-const DDS_PER_USER_HINT = clampInt(process.env.DDS_PER_USER, 0, 0, 500);
+const _DDS_PER_USER_HINT = clampInt(process.env.DDS_PER_USER, 0, 0, 500);
 
-const MFA_CACHE_PATH = path.resolve(__dirname, '../../../temp/dds-batch-mfa-cache.json');
+const MFA_CACHE_PATH = path.resolve(
+  __dirname,
+  '../../../temp/dds-batch-mfa-cache.json',
+);
 
 type MfaCache = {
   secret?: string;
@@ -87,7 +90,12 @@ type MfaCache = {
   savedAt?: string;
 };
 
-function clampInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+function clampInt(
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(Math.floor(n), max));
@@ -110,28 +118,43 @@ function writeMfaCache(cache: MfaCache): void {
     fs.writeFileSync(
       MFA_CACHE_PATH,
       JSON.stringify(
-        { secret: cache.secret, recoveryCode: cache.recoveryCode, savedAt: new Date().toISOString() },
+        {
+          secret: cache.secret,
+          recoveryCode: cache.recoveryCode,
+          savedAt: new Date().toISOString(),
+        },
         null,
         2,
       ),
       'utf-8',
     );
-  } catch {}
+  } catch {
+    // no-op — non-critical cache write
+  }
 }
 
 const mfaCache = readMfaCache();
-const MFA_SECRET = String(process.env.DDS_BATCH_MFA_SECRET || mfaCache?.secret || '').trim();
+const MFA_SECRET = String(
+  process.env.DDS_BATCH_MFA_SECRET || mfaCache?.secret || '',
+).trim();
 const MFA_CODE = String(process.env.DDS_BATCH_MFA_CODE || '').trim();
-const MFA_RECOVERY_CODE = String(process.env.DDS_BATCH_MFA_RECOVERY_CODE || mfaCache?.recoveryCode || '').trim();
+const MFA_RECOVERY_CODE = String(
+  process.env.DDS_BATCH_MFA_RECOVERY_CODE || mfaCache?.recoveryCode || '',
+).trim();
 
-function extractCookieValue(setCookie: string, cookieName: string): string | null {
+function extractCookieValue(
+  setCookie: string,
+  cookieName: string,
+): string | null {
   const pattern = new RegExp(`${cookieName}=([^;]+)`);
   const match = setCookie.match(pattern);
   return match ? match[1] : null;
 }
 
 function getSetCookieHeaders(response: Response): string[] {
-  const candidate = response.headers as unknown as { getSetCookie?: () => string[] };
+  const candidate = response.headers as unknown as {
+    getSetCookie?: () => string[];
+  };
   if (typeof candidate.getSetCookie === 'function') {
     return candidate.getSetCookie();
   }
@@ -142,7 +165,9 @@ function getSetCookieHeaders(response: Response): string[] {
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 function decodeBase32(input: string): Buffer {
-  const normalized = String(input || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+  const normalized = String(input || '')
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, '');
   if (!normalized) throw new Error('Segredo TOTP inválido.');
   let bits = '';
   for (const char of normalized) {
@@ -157,7 +182,11 @@ function decodeBase32(input: string): Buffer {
   return Buffer.from(bytes);
 }
 
-function hotp(params: { secret: string; counter: number; digits?: number }): string {
+function hotp(params: {
+  secret: string;
+  counter: number;
+  digits?: number;
+}): string {
   const digits = params.digits ?? 6;
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(params.counter));
@@ -186,7 +215,9 @@ async function fetchCsrf(): Promise<CsrfSession> {
   });
   const raw = await response.text();
   if (response.status !== 200 && response.status !== 201) {
-    throw new Error(`Falha ao obter CSRF (status=${response.status}): ${raw.slice(0, 200)}`);
+    throw new Error(
+      `Falha ao obter CSRF (status=${response.status}): ${raw.slice(0, 200)}`,
+    );
   }
   const body = raw ? (JSON.parse(raw) as { csrfToken?: string }) : {};
   const hmacToken = typeof body.csrfToken === 'string' ? body.csrfToken : '';
@@ -231,7 +262,8 @@ async function requestJson<T>(
 
   const isMutable = method !== 'GET';
   if (isMutable) {
-    if (!opts.csrf) throw new Error('Sessão CSRF obrigatória para request mutável.');
+    if (!opts.csrf)
+      throw new Error('Sessão CSRF obrigatória para request mutável.');
     headers.Cookie = opts.csrf.cookieHeader;
     headers['x-csrf-token'] = opts.csrf.token;
   }
@@ -249,11 +281,13 @@ async function requestJson<T>(
   let parsed: T | null = null;
   try {
     parsed = raw ? (JSON.parse(raw) as T) : null;
-  } catch {}
+  } catch {
+    // no-op — invalid JSON treated as null body
+  }
   return { status: res.status, body: parsed, raw };
 }
 
-async function requestMultipart(
+async function _requestMultipart(
   endpoint: string,
   opts: {
     token: string;
@@ -274,8 +308,15 @@ async function requestMultipart(
 
   const form = new FormData();
   const buffer = Buffer.from(opts.bytes);
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-  form.append('file', new Blob([arrayBuffer], { type: 'application/pdf' }), opts.filename);
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+  form.append(
+    'file',
+    new Blob([arrayBuffer], { type: 'application/pdf' }),
+    opts.filename,
+  );
 
   const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const res = await fetch(url, { method: 'POST', headers, body: form });
@@ -283,7 +324,7 @@ async function requestMultipart(
   return { status: res.status, raw };
 }
 
-function buildMinimalPdfBytes(tag: string): Uint8Array {
+function _buildMinimalPdfBytes(tag: string): Uint8Array {
   const padding = 'x'.repeat(256);
   const content = [
     '%PDF-1.4',
@@ -300,14 +341,19 @@ function buildMinimalPdfBytes(tag: string): Uint8Array {
   return new TextEncoder().encode(content);
 }
 
-async function resolveFirstSiteId(token: string, companyId: string): Promise<string> {
+async function resolveFirstSiteId(
+  token: string,
+  companyId: string,
+): Promise<string> {
   const res = await requestJson<{ data?: Array<{ id: string }> }>(
     'GET',
     '/sites?page=1&limit=1',
     { token, companyId },
   );
   if (res.status !== 200 || !res.body?.data?.[0]?.id) {
-    throw new Error(`Falha ao resolver site (status=${res.status}): ${res.raw.slice(0, 200)}`);
+    throw new Error(
+      `Falha ao resolver site (status=${res.status}): ${res.raw.slice(0, 200)}`,
+    );
   }
   return String(res.body.data[0].id);
 }
@@ -323,9 +369,13 @@ function isAuthSessionResponse(value: unknown): value is AuthSessionResponse {
   );
 }
 
-function isMfaEnrollRequired(value: unknown): value is MfaEnrollRequiredResponse {
+function isMfaEnrollRequired(
+  value: unknown,
+): value is MfaEnrollRequiredResponse {
   const record = value as Record<string, unknown> | null;
-  return !!record && typeof record === 'object' && record.mfaEnrollRequired === true;
+  return (
+    !!record && typeof record === 'object' && record.mfaEnrollRequired === true
+  );
 }
 
 function isMfaRequired(value: unknown): value is MfaRequiredResponse {
@@ -344,54 +394,79 @@ async function loginWithMfaForUser(
   });
 
   if (login.status !== 200 && login.status !== 201) {
-    throw new Error(`Falha no login (status=${login.status}): ${login.raw.slice(0, 200)}`);
+    throw new Error(
+      `Falha no login (status=${login.status}): ${login.raw.slice(0, 200)}`,
+    );
   }
 
   if (isAuthSessionResponse(login.body)) return login.body;
 
   if (isMfaEnrollRequired(login.body)) {
     const secret = String(login.body.manualEntryKey || '').trim();
-    if (!secret) throw new Error('MFA bootstrap retornou manualEntryKey vazio.');
+    if (!secret)
+      throw new Error('MFA bootstrap retornou manualEntryKey vazio.');
     const firstRecovery =
-      Array.isArray(login.body.recoveryCodes) && typeof login.body.recoveryCodes[0] === 'string'
+      Array.isArray(login.body.recoveryCodes) &&
+      typeof login.body.recoveryCodes[0] === 'string'
         ? login.body.recoveryCodes[0]
         : undefined;
     writeMfaCache({ secret, recoveryCode: firstRecovery });
     const code = generateTotpCode(secret);
-    const activated = await requestJson<AuthSessionResponse>('POST', '/auth/login/mfa/bootstrap/activate', {
-      csrf: initialCsrf,
-      body: { challengeToken: login.body.challengeToken, code },
-    });
+    const activated = await requestJson<AuthSessionResponse>(
+      'POST',
+      '/auth/login/mfa/bootstrap/activate',
+      {
+        csrf: initialCsrf,
+        body: { challengeToken: login.body.challengeToken, code },
+      },
+    );
     if (activated.status !== 200 && activated.status !== 201) {
-      throw new Error(`Falha ao ativar MFA (status=${activated.status}): ${activated.raw.slice(0, 200)}`);
+      throw new Error(
+        `Falha ao ativar MFA (status=${activated.status}): ${activated.raw.slice(0, 200)}`,
+      );
     }
     if (!isAuthSessionResponse(activated.body)) {
-      throw new Error(`Ativação MFA retornou payload inesperado: ${activated.raw.slice(0, 200)}`);
+      throw new Error(
+        `Ativação MFA retornou payload inesperado: ${activated.raw.slice(0, 200)}`,
+      );
     }
     return activated.body;
   }
 
   if (isMfaRequired(login.body)) {
-    const code = MFA_CODE || MFA_RECOVERY_CODE || (MFA_SECRET ? generateTotpCode(MFA_SECRET) : '');
+    const code =
+      MFA_CODE ||
+      MFA_RECOVERY_CODE ||
+      (MFA_SECRET ? generateTotpCode(MFA_SECRET) : '');
     if (!code) {
       throw new Error(
         `MFA requerido. Configure DDS_BATCH_MFA_* ou defina segredo. Métodos: ${(login.body.methods || []).join(', ')}`,
       );
     }
-    const verified = await requestJson<AuthSessionResponse>('POST', '/auth/login/mfa/verify', {
-      csrf: initialCsrf,
-      body: { challengeToken: login.body.challengeToken, code },
-    });
+    const verified = await requestJson<AuthSessionResponse>(
+      'POST',
+      '/auth/login/mfa/verify',
+      {
+        csrf: initialCsrf,
+        body: { challengeToken: login.body.challengeToken, code },
+      },
+    );
     if (verified.status !== 200 && verified.status !== 201) {
-      throw new Error(`Falha ao verificar MFA (status=${verified.status}): ${verified.raw.slice(0, 200)}`);
+      throw new Error(
+        `Falha ao verificar MFA (status=${verified.status}): ${verified.raw.slice(0, 200)}`,
+      );
     }
     if (!isAuthSessionResponse(verified.body)) {
-      throw new Error(`Verificação MFA retornou payload inesperado: ${verified.raw.slice(0, 200)}`);
+      throw new Error(
+        `Verificação MFA retornou payload inesperado: ${verified.raw.slice(0, 200)}`,
+      );
     }
     return verified.body;
   }
 
-  throw new Error(`Login retornou payload sem token: ${login.raw.slice(0, 200)}`);
+  throw new Error(
+    `Login retornou payload sem token: ${login.raw.slice(0, 200)}`,
+  );
 }
 
 async function loginUser(cred: DdsUser): Promise<UserSession> {
@@ -424,7 +499,7 @@ async function loginUser(cred: DdsUser): Promise<UserSession> {
 
 const userSessions = new Map<string, UserSession>();
 
-async function getUserSession(cred: DdsUser): Promise<UserSession> {
+async function _getUserSession(cred: DdsUser): Promise<UserSession> {
   if (userSessions.has(cred.cpf)) {
     return userSessions.get(cred.cpf)!;
   }
@@ -433,7 +508,10 @@ async function getUserSession(cred: DdsUser): Promise<UserSession> {
   return sess;
 }
 
-async function createAndPublish(session: UserSession, index: number): Promise<EmitResult> {
+async function _createAndPublish(
+  session: UserSession,
+  index: number,
+): Promise<EmitResult> {
   const tema = `DDS batch carga ${index + 1}`;
   const conteudo = `Emitido via dds-emit-batch para teste de carga. Índice ${index + 1}.`;
 
@@ -491,16 +569,22 @@ async function createAndPublish(session: UserSession, index: number): Promise<Em
 }
 
 // We need the user id for facilitador. Let's extend the login to also resolve user id.
-async function loginUserWithId(cred: DdsUser): Promise<UserSession & { userId: string }> {
+async function loginUserWithId(
+  cred: DdsUser,
+): Promise<UserSession & { userId: string }> {
   const base = await loginUser(cred);
 
   // Resolve user id via /auth/me
-  const me = await requestJson<{ id?: string; user?: { id?: string } }>('GET', '/auth/me', {
-    token: base.token,
-    companyId: base.companyId,
-  });
+  const me = await requestJson<{ id?: string; user?: { id?: string } }>(
+    'GET',
+    '/auth/me',
+    {
+      token: base.token,
+      companyId: base.companyId,
+    },
+  );
 
-  const userId = me.body?.id || (me.body as any)?.user?.id;
+  const userId = me.body?.id || me.body?.user?.id;
   if (!userId) {
     throw new Error('Não foi possível obter user id após login.');
   }
@@ -510,14 +594,19 @@ async function loginUserWithId(cred: DdsUser): Promise<UserSession & { userId: s
 
 const sessionsWithId = new Map<string, UserSession & { userId: string }>();
 
-async function getUserSessionWithId(cred: DdsUser): Promise<UserSession & { userId: string }> {
+async function getUserSessionWithId(
+  cred: DdsUser,
+): Promise<UserSession & { userId: string }> {
   if (sessionsWithId.has(cred.cpf)) return sessionsWithId.get(cred.cpf)!;
   const sess = await loginUserWithId(cred);
   sessionsWithId.set(cred.cpf, sess);
   return sess;
 }
 
-async function createAndPublishWithId(session: UserSession & { userId: string }, index: number): Promise<EmitResult> {
+async function createAndPublishWithId(
+  session: UserSession & { userId: string },
+  index: number,
+): Promise<EmitResult> {
   const tema = `DDS batch carga ${index + 1}`;
   const conteudo = `Emitido via dds-emit-batch para teste de carga e múltiplos usuários. Índice ${index + 1}.`;
 
@@ -566,22 +655,34 @@ async function createAndPublishWithId(session: UserSession & { userId: string },
   return { index, userCpf: session.cpf, ok: true, ddsId };
 }
 
+type RawDdsUser = {
+  cpf?: string;
+  password?: string;
+  companyId?: string;
+  company_id?: string;
+  siteId?: string;
+};
+
 async function main() {
   if (!fs.existsSync(USERS_FILE)) {
     throw new Error(`Arquivo de usuários não encontrado: ${USERS_FILE}`);
   }
 
-  let rawUsers: any[] = [];
+  let rawUsers: RawDdsUser[] = [];
   try {
-    rawUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-  } catch {}
+    rawUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')) as RawDdsUser[];
+  } catch {
+    // no-op — will throw below if empty
+  }
 
   if (!Array.isArray(rawUsers) || rawUsers.length < 5) {
     // Fallback to larger login pool and resolve sites inside
     const fallback = 'test/load/fixtures/login-users.120.json';
     if (fs.existsSync(fallback)) {
-      console.log(`Pool pequeno no ${USERS_FILE}, usando fallback ${fallback} (irá resolver sites).`);
-      rawUsers = JSON.parse(fs.readFileSync(fallback, 'utf8'));
+      console.log(
+        `Pool pequeno no ${USERS_FILE}, usando fallback ${fallback} (irá resolver sites).`,
+      );
+      rawUsers = JSON.parse(fs.readFileSync(fallback, 'utf8')) as RawDdsUser[];
     }
   }
 
@@ -589,12 +690,14 @@ async function main() {
     throw new Error('Nenhum usuário carregado.');
   }
 
-  let users = rawUsers.map((u) => ({
-    cpf: String(u.cpf || '').replace(/\D/g, ''),
-    password: String(u.password || ''),
-    companyId: String(u.companyId || u.company_id || '').trim(),
-    siteId: u.siteId ? String(u.siteId).trim() : undefined,
-  })).filter((u) => u.cpf.length === 11 && u.password && u.companyId);
+  let users = rawUsers
+    .map((u) => ({
+      cpf: (u.cpf ?? '').replace(/\D/g, ''),
+      password: u.password ?? '',
+      companyId: (u.companyId ?? u.company_id ?? '').trim(),
+      siteId: u.siteId ? u.siteId.trim() : undefined,
+    }))
+    .filter((u) => u.cpf.length === 11 && u.password && u.companyId);
 
   if (users.length === 0) {
     throw new Error('Nenhum usuário válido.');
@@ -603,7 +706,9 @@ async function main() {
   // Use up to 15 users for the requested "15 usuários em paralelo"
   if (users.length > 15) users = users.slice(0, 15);
 
-  console.log(`Iniciando emissão em lote de ${TOTAL_DDS} DDSs com ${users.length} usuários em paralelo (concorrência ${CONCURRENCY}).`);
+  console.log(
+    `Iniciando emissão em lote de ${TOTAL_DDS} DDSs com ${users.length} usuários em paralelo (concorrência ${CONCURRENCY}).`,
+  );
   console.log(`BASE_URL: ${BASE_URL}`);
   console.log(`Users file: ${USERS_FILE}`);
 
@@ -613,7 +718,7 @@ async function main() {
   for (let i = 0; i < Math.min(3, users.length); i++) {
     try {
       await getUserSessionWithId(users[i]);
-    } catch (e) {
+    } catch {
       console.warn(`Aviso: login inicial falhou para ${users[i].cpf}`);
     }
   }
@@ -632,12 +737,12 @@ async function main() {
         const sess = await getUserSessionWithId(user);
         const res = await createAndPublishWithId(sess, idx);
         results[idx] = res;
-      } catch (err: any) {
+      } catch (err: unknown) {
         results[idx] = {
           index: idx,
           userCpf: user.cpf,
           ok: false,
-          error: String(err?.message || err).slice(0, 200),
+          error: String(err instanceof Error ? err.message : err).slice(0, 200),
         };
       }
     }
@@ -679,7 +784,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n✓ OK: ${ok.length} DDSs emitidos (create + publicado) com ${users.length} usuários em ${elapsed}ms`);
+  console.log(
+    `\n✓ OK: ${ok.length} DDSs emitidos (create + publicado) com ${users.length} usuários em ${elapsed}ms`,
+  );
 }
 
 main().catch((error) => {
