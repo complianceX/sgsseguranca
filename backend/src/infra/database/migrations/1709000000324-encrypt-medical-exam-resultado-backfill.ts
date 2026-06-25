@@ -1,9 +1,7 @@
 ﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 import { encryptSensitiveValue } from '../../../shared/security/field-encryption.util';
 
-export class EncryptMedicalExamResultadoBackfill1709000000324
-  implements MigrationInterface
-{
+export class EncryptMedicalExamResultadoBackfill1709000000324 implements MigrationInterface {
   name = 'EncryptMedicalExamResultadoBackfill1709000000324';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
