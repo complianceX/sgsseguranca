@@ -484,6 +484,8 @@ export const TIMEOUT_PDF = 180_000; // 3 min — geração de PDF governado
 export const TIMEOUT_UPLOAD = 90_000; // 1.5 min — upload de arquivos
 export const TIMEOUT_AI = 45_000; // 45 s — operações de IA
 
+export const TENANT_HEADER_NAME = 'x-company-id' as const;
+
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
   timeout: 30000,
@@ -582,16 +584,16 @@ api.interceptors.request.use(async (config) => {
     // Sentry não inicializado (ex: testes, SSR sem DSN) — ignorar silenciosamente
   }
 
-  const existingCompanyId = readHeaderValue(config.headers, 'x-company-id');
+  const existingCompanyId = readHeaderValue(config.headers, TENANT_HEADER_NAME);
   if (!isPublicRequest && !existingCompanyId && !skipTenantHeader) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
       const effectiveCompanyId = selectedTenant?.companyId;
       if (effectiveCompanyId) {
-        config.headers['x-company-id'] = effectiveCompanyId;
+        config.headers[TENANT_HEADER_NAME] = effectiveCompanyId;
       }
     } else if (companyId) {
-      config.headers['x-company-id'] = companyId;
+      config.headers[TENANT_HEADER_NAME] = companyId;
     }
   }
 
@@ -620,12 +622,12 @@ api.interceptors.response.use(
       [400, 401, 403].includes(status ?? 0) &&
       isTenantContextError(error.response?.data)
     ) {
-      const sentCompanyId = readHeaderValue(config.headers, 'x-company-id');
+      const sentCompanyId = readHeaderValue(config.headers, TENANT_HEADER_NAME);
       if (sentCompanyId) {
         const currentTenant = selectedTenantStore.get();
         if (currentTenant?.companyId === sentCompanyId) {
           selectedTenantStore.clear();
-          removeHeaderValue(config.headers, 'x-company-id');
+          removeHeaderValue(config.headers, TENANT_HEADER_NAME);
 
           if (!config.__tenantRetry) {
             config.__tenantRetry = true;
