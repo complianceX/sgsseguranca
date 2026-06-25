@@ -222,7 +222,7 @@ describeE2E(
             nome: 'Tentativa Escalação',
             cpf: buildValidCpf(150823026),
             email: 'escalation-denied@e2e.test',
-            password: 'Password@123',
+            password: 'Tr@balho!2026',
             profile_id: adminGeralProfileId,
           });
 
@@ -239,7 +239,7 @@ describeE2E(
             nome: 'Novo Admin Geral',
             cpf: buildValidCpf(555666777),
             email: 'new-admin-geral-allowed@e2e.test',
-            password: 'Password@123',
+            password: 'Tr@balho!2026',
             profile_id: adminGeralProfileId,
           });
 
