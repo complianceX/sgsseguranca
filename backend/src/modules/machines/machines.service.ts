@@ -107,9 +107,9 @@ export class MachinesService extends BaseService<Machine> {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const clause = `(
-        LOWER(machine.nome) LIKE :search
-        OR LOWER(COALESCE(machine.placa, '')) LIKE :search
-        OR LOWER(COALESCE(machine.descricao, '')) LIKE :search
+        LOWER(machine.nome) LIKE :search ESCAPE '\\'
+        OR LOWER(COALESCE(machine.placa, '')) LIKE :search ESCAPE '\\'
+        OR LOWER(COALESCE(machine.descricao, '')) LIKE :search ESCAPE '\\'
       )`;
       query.andWhere(clause, { search });
     }

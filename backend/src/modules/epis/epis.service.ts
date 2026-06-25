@@ -107,8 +107,8 @@ export class EpisService extends BaseService<Epi> {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition = `(
-        LOWER(epi.nome) LIKE :search
-        OR LOWER(COALESCE(epi.ca, '')) LIKE :search
+        LOWER(epi.nome) LIKE :search ESCAPE '\\'
+        OR LOWER(COALESCE(epi.ca, '')) LIKE :search ESCAPE '\\'
       )`;
       query.andWhere(condition, { search });
     }
