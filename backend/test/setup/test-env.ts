@@ -55,6 +55,7 @@ export function bootstrapBackendTestEnvironment() {
     'test-field-encryption-hash-key-0123456789abcdef',
   );
   applyForced('MFA_TOTP_ENCRYPTION_KEY', '0'.repeat(64));
+  applyForced('ADMIN_GERAL_MFA_REQUIRED', 'false');
 
   // E2E: usa autenticação local (password em `users`).
   applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
