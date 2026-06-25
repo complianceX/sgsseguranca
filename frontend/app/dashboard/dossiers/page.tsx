@@ -11,6 +11,7 @@ import {
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { extractApiErrorMessage } from '@/lib/error-handler';
 import { Archive, FileDown, ShieldCheck, TriangleAlert } from 'lucide-react';
 
@@ -18,7 +19,7 @@ type PreviewTarget = 'employee' | 'site' | null;
 
 export default function DossiersPage() {
   const { loading: authLoading, hasPermission } = useAuth();
-  const canViewDossiers = hasPermission('can_view_dossiers');
+  const canViewDossiers = hasPermission(Permission.CAN_VIEW_DOSSIERS);
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);

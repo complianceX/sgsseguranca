@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const FUTURE_AI_INTERACTION_PARTITIONS = [
   ['ai_interactions_2026_08', '2026-08-01', '2026-09-01'],
@@ -11,8 +11,8 @@ const FUTURE_AI_INTERACTION_PARTITIONS = [
   ['ai_interactions_2027_03', '2027-03-01', '2027-04-01'],
 ] as const;
 
-export class AiInteractionsOperationalReadiness1709000000185 implements MigrationInterface {
-  name = 'AiInteractionsOperationalReadiness1709000000185';
+export class AiInteractionsOperationalReadiness1709000000331 implements MigrationInterface {
+  name = 'AiInteractionsOperationalReadiness1709000000331';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('ai_interactions'))) {
@@ -58,7 +58,7 @@ export class AiInteractionsOperationalReadiness1709000000185 implements Migratio
 
     await queryRunner.query(`
       COMMENT ON TABLE "ai_interactions" IS
-      'Partitioned AI interaction audit table. Future partitions through 2027-03 and UUID FK support indexes are managed by migration 1709000000185.'
+      'Partitioned AI interaction audit table. Future partitions through 2027-03 and UUID FK support indexes are managed by migration 1709000000312.'
     `);
   }
 

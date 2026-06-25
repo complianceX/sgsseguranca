@@ -118,32 +118,22 @@ useEffect(() => {
   const handleDownloadPdf = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
-      if (checklist.pdf_file_key) {
-        const access = await checklistsService.getPdfAccess(checklist.id);
-        const resolution = resolveGovernedPdfConsumption(access, {
-          action: 'download',
-          documentLabel: 'checklist',
-        });
-        if (resolution.mode === 'governed_url') {
-          openUrlInNewTab(resolution.url);
-          toast.success('PDF aberto com sucesso!');
-          return;
-        }
-        toast.info(resolution.message);
-        const result = await generateChecklistPdfPayload(
-          checklist,
-          resolution.mode === 'local_generation',
-        );
-        if (!result?.base64) {
-          throw new Error('Falha ao gerar o PDF do checklist.');
-        }
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-        openUrlInNewTab(fileURL);
-        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+      // Always attempt governed access first (supports backend hiding pdf_file_key)
+      const access = await checklistsService.getPdfAccess(checklist.id);
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'download',
+        documentLabel: 'checklist',
+      });
+      if (resolution.mode === 'governed_url') {
+        openUrlInNewTab(resolution.url);
         toast.success('PDF aberto com sucesso!');
         return;
       }
-      const result = await generateChecklistPdfPayload(checklist, true);
+      toast.info(resolution.message);
+      const result = await generateChecklistPdfPayload(
+        checklist,
+        resolution.mode === 'local_generation',
+      );
       if (!result?.base64) {
         throw new Error('Falha ao gerar o PDF do checklist.');
       }
@@ -161,14 +151,10 @@ useEffect(() => {
   const handleSendEmail = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
-      if (!checklist.pdf_file_key) {
-        toast.info('Emita o PDF final antes de enviar este checklist por e-mail.');
-        return;
-      }
-
+      // Use governed access (pdf_file_key may be hidden in response)
       const access = await checklistsService.getPdfAccess(checklist.id);
       if (!access.hasFinalPdf) {
-        toast.info(access.message);
+        toast.info(access.message || 'Emita o PDF final antes de enviar este checklist por e-mail.');
         return;
       }
       if (access.availability !== 'ready' && access.message) {
@@ -196,34 +182,23 @@ useEffect(() => {
   const handlePrint = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
-      if (checklist.pdf_file_key) {
-        const access = await checklistsService.getPdfAccess(checklist.id);
-        const resolution = resolveGovernedPdfConsumption(access, {
-          action: 'print',
-          documentLabel: 'checklist',
-        });
-        if (resolution.mode === 'governed_url') {
-          openPdfForPrint(resolution.url, () => {
-            toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
-          });
-          return;
-        }
-        toast.info(resolution.message);
-        const result = await generateChecklistPdfPayload(
-          checklist,
-          resolution.mode === 'local_generation',
-        );
-        if (!result?.base64) {
-          throw new Error('Falha ao gerar o PDF do checklist.');
-        }
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-        openPdfForPrint(fileURL, () => {
+      // Always use governed access endpoint first (pdf_file_key may be hidden)
+      const access = await checklistsService.getPdfAccess(checklist.id);
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'print',
+        documentLabel: 'checklist',
+      });
+      if (resolution.mode === 'governed_url') {
+        openPdfForPrint(resolution.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
-        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
         return;
       }
-      const result = await generateChecklistPdfPayload(checklist, true);
+      toast.info(resolution.message);
+      const result = await generateChecklistPdfPayload(
+        checklist,
+        resolution.mode === 'local_generation',
+      );
       if (result?.base64) {
         const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {

@@ -11,6 +11,7 @@ export interface NonConformity {
   tipo: string;
   data_identificacao: string;
   local_setor_area: string;
+  checklist_id?: string | null; // linkage opcional para rastreabilidade de inspeção/checklist
   atividade_envolvida: string;
   responsavel_area: string;
   auditor_responsavel: string;
@@ -54,9 +55,8 @@ export interface NonConformity {
   assinatura_tecnico_auditor?: string;
   assinatura_gestao?: string;
   company_id: string;
-  pdf_file_key?: string;
-  pdf_folder_path?: string;
-  pdf_original_name?: string;
+  // SECURITY NOTE: pdf_file_key, pdf_folder_path, pdf_original_name are NEVER present in main responses.
+  // They are internal only. Use /pdf and /attachments/:index/access for governed signed access.
   site_id?: string;
   site?: Site;
   created_at: string;
@@ -108,9 +108,11 @@ export interface NonConformityAttachmentAttachResponse {
   storageMode: "governed-storage";
   degraded: false;
   message: string;
+  // Use attachmentReference (governed ref like photoReference in checklists) + attachments[] for refs.
+  // Raw fileKey is never returned in attach responses; use /attachments/:index/access for signed URL.
+  attachmentReference: string;
   attachment: {
     index: number;
-    fileKey: string;
     originalName: string;
     mimeType: string;
   };

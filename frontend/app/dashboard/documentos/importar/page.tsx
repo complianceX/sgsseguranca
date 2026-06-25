@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import { PageHeader } from "@/components/layout";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -231,8 +232,8 @@ export default function DocumentImportPage() {
   const operationKeyRef = useRef<string | null>(null);
   const requestedDocumentType = searchParams.get("documentType") || "";
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
-  const canImportDocuments = hasPermission("can_import_documents");
-  const canManageDds = hasPermission("can_manage_dds");
+  const canImportDocuments = hasPermission(Permission.CAN_IMPORT_DOCUMENTS);
+  const canManageDds = hasPermission(Permission.CAN_MANAGE_DDS);
 
   const currentStatus =
     statusResponse?.status ?? enqueueResponse?.status ?? null;

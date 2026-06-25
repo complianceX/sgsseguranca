@@ -16,18 +16,18 @@ function isInformationSchemaTableRow(
 }
 
 /**
- * Garante que todas as políticas RLS tenham WITH CHECK para proteger INSERT/UPDATE.
+ * Adiciona WITH CHECK às políticas RLS existentes.
  *
- * Este arquivo resolve o conflito de timestamp com 1709000000033-rls-add-with-check.ts,
- * que pode nunca ter sido executado em ambientes que já tinham
- * 1709000000033-fix-ai-interactions-rls-policy.ts registrado.
+ * Problema anterior: a política USING protege apenas leitura (SELECT).
+ * Sem WITH CHECK, um usuário autenticado poderia fazer INSERT/UPDATE
+ * com company_id de outro tenant, gravando dados no tenant errado.
  *
- * A operação é idempotente: DROP POLICY IF EXISTS + CREATE garante que a política
- * estará no estado correto independentemente do histórico de migrations.
+ * Esta migration recria todas as políticas com WITH CHECK restrito:
+ *   - Usuários normais só podem escrever na sua própria empresa.
+ *   - Super admin pode ler qualquer empresa, mas só escreve se company_id
+ *     for nulo (operações sem contexto de tenant, ex: seed/admin).
  */
-export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
-  name = 'EnsureRlsWithCheck1709000000182';
-
+export class RlsAddWithCheck1709000000325 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
@@ -44,6 +44,7 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
       const exists = await queryRunner.hasTable(table_name);
       if (!exists) continue;
 
+      // Recriar política com WITH CHECK para cobrir INSERT e UPDATE.
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "${table_name}"`,
       );
@@ -52,11 +53,11 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id::text = current_company()::text
+          company_id = current_company()
           OR is_super_admin() = true
         )
         WITH CHECK (
-          company_id::text = current_company()::text
+          company_id = current_company()
           OR is_super_admin() = true
         )
       `);
@@ -79,6 +80,7 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
       const exists = await queryRunner.hasTable(table_name);
       if (!exists) continue;
 
+      // Reverter para política sem WITH CHECK (estado anterior).
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "${table_name}"`,
       );
@@ -87,7 +89,7 @@ export class EnsureRlsWithCheck1709000000182 implements MigrationInterface {
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id::text = current_company()::text
+          company_id = current_company()
           OR is_super_admin() = true
         )
       `);

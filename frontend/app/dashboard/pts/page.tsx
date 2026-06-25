@@ -18,6 +18,7 @@ import { ListPageLayout } from '@/components/layout';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -125,7 +126,7 @@ export default function PtsPage() {
       },
     [overviewMetrics],
   );
-  const canManagePt = hasPermission('can_manage_pt');
+  const canManagePt = hasPermission(Permission.CAN_MANAGE_PT);
 
   if (loadError) {
     return (

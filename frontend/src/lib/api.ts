@@ -633,6 +633,9 @@ api.interceptors.response.use(
           }
         }
       }
+      // Erro de tenant nao e falha de autenticacao: nao disparar refresh de
+      // token para evitar logout involuntario (ex: ADMIN_GERAL sem empresa).
+      return Promise.reject(error);
     }
 
     // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez

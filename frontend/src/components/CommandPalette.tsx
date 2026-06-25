@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { Permission } from '@/lib/permissions';
+import { Permission, type AppPermission } from '@/lib/permissions';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { aprsService } from '@/services/aprsService';
 import { usersService } from '@/services/usersService';
@@ -38,7 +38,7 @@ type CommandItem = {
   subtitle: string;
   href: string;
   keywords: string[];
-  permission?: string;
+  permission?: AppPermission;
 };
 
 type SearchResultItem = {
@@ -84,7 +84,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Planejamento operacional e atividade programada do dia',
     href: '/dashboard/dids',
     keywords: ['did', 'inicio do dia', 'atividade do dia', 'operacional'],
-    permission: 'can_view_dids',
+    permission: Permission.CAN_VIEW_DIDS,
   },
   {
     id: 'arr',
@@ -92,7 +92,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Análise de risco rápida com tratamento imediato',
     href: '/dashboard/arrs',
     keywords: ['arr', 'analise de risco rapida', 'risco rapido', 'tratamento imediato'],
-    permission: 'can_view_arrs',
+    permission: Permission.CAN_VIEW_ARRS,
   },
   {
     id: 'docs',
@@ -100,7 +100,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Pacote semanal e rastreabilidade',
     href: '/dashboard/document-registry',
     keywords: ['documentos', 'registry', 'pacote', 'semana'],
-    permission: 'can_view_documents_registry',
+    permission: Permission.CAN_VIEW_DOCUMENTS_REGISTRY,
   },
   {
     id: 'trainings',
@@ -200,7 +200,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Modelos normativos e operacionais do sistema',
     href: '/dashboard/checklist-models/operacionais',
     keywords: ['checklists', 'operacionais', 'normativos', 'nr', 'norma'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-operacionais',
@@ -208,7 +208,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Registros preenchidos e evidências de campo',
     href: '/dashboard/checklists',
     keywords: ['checklists', 'execucoes', 'campo', 'preenchidos'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-equipamentos',
@@ -216,7 +216,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Verificação e controle de ativos e ferramentas',
     href: '/dashboard/checklist-models/equipamentos',
     keywords: ['checklists', 'equipamentos', 'ferramentas'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-epis',
@@ -224,7 +224,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Controle de uso e conformidade de EPI',
     href: '/dashboard/checklist-models/epis',
     keywords: ['checklists', 'epis', 'epi'],
-    permission: 'can_view_checklists',
+    permission: Permission.CAN_VIEW_CHECKLISTS,
   },
   {
     id: 'checklists-new',
@@ -232,7 +232,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Abrir formulário de criação',
     href: '/dashboard/checklists/new',
     keywords: ['novo checklist', 'criar checklist', 'formulario checklist'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklist-models-new',
@@ -240,7 +240,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar template de checklist',
     href: '/dashboard/checklist-models/new',
     keywords: ['novo modelo', 'template', 'criar modelo'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-normativos',
@@ -248,7 +248,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo já classificado como operacional',
     href: '/dashboard/checklist-models/new?categoria=Operacional',
     keywords: ['novo modelo operacional', 'normativo', 'operacional'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-operacionais',
@@ -256,7 +256,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Abrir formulário de execução manual de checklist',
     href: '/dashboard/checklists/new',
     keywords: ['novo checklist', 'execucao', 'preenchimento'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-equipamentos',
@@ -264,7 +264,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo para ativos, máquinas e ferramentas',
     href: '/dashboard/checklist-models/new?categoria=Equipamento',
     keywords: ['novo modelo equipamento', 'equipamentos', 'ferramentas'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
   {
     id: 'checklists-new-epis',
@@ -272,7 +272,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Criar modelo para verificação e conformidade de EPI',
     href: '/dashboard/checklist-models/new?categoria=EPI',
     keywords: ['novo modelo epi', 'epis', 'equipamento de protecao'],
-    permission: 'can_manage_checklists',
+    permission: Permission.CAN_MANAGE_CHECKLISTS,
   },
 ];
 
@@ -320,6 +320,8 @@ export function CommandPalette() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const INPUT_ID = 'command-palette-input';
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -469,10 +471,37 @@ export function CommandPalette() {
     }
   };
 
+  const handleFocusTrap = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[color:var(--component-command-overlay)] px-4 pt-[10vh] backdrop-blur-md">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={INPUT_ID}
+      ref={dialogRef}
+      onKeyDown={handleFocusTrap}
+      className="fixed inset-0 z-[70] flex items-start justify-center bg-[color:var(--component-command-overlay)] px-4 pt-[10vh] backdrop-blur-md"
+    >
       <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-[var(--component-command-border)] bg-[color:var(--component-command-bg)] shadow-[var(--ds-shadow-xl)]">
         <div className="flex items-center gap-3 border-b border-[var(--color-border-subtle)] px-4 py-3.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--component-command-muted)]">
@@ -484,8 +513,13 @@ export function CommandPalette() {
           </div>
           <div className="min-w-0 flex-1">
             <input
+              id={INPUT_ID}
               autoFocus
               type="text"
+              role="combobox"
+              aria-expanded={allItems.length > 0}
+              aria-autocomplete="list"
+              aria-controls="command-palette-listbox"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -509,7 +543,7 @@ export function CommandPalette() {
           </button>
         </div>
 
-        <div className="max-h-[28rem] overflow-y-auto p-2.5">
+        <div id="command-palette-listbox" role="listbox" aria-label="Resultados" className="max-h-[28rem] overflow-y-auto p-2.5">
           {/* Resultados de busca real */}
           {hasQuery && searchResults.length > 0 && (
             <div className="mb-3 space-y-1">

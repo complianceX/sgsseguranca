@@ -132,6 +132,8 @@
     "loadtest:battery:full": "node scripts/run-load-battery.cjs --mode full",
     "loadtest:auth:users:build": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/build-auth-me-users.ts",
     "loadtest:dds:users:build": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/build-dds-publish-users.ts",
+    "loadtest:dds:emit-50": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/dds-emit-50.ts",
+    "loadtest:dds:emit-batch": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/dds-emit-batch.ts",
     "loadtest:dds:smoke": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=smoke",
     "loadtest:dds:progressive": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=progressive",
     "loadtest:dds:soak": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=soak60",

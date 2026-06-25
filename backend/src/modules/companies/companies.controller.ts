@@ -57,6 +57,7 @@ export class CompaniesController {
   @Post()
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_companies')
+  @ForensicAuditAction('create', 'company')
   create(@Body() createCompanyDto: CreateCompanyDto) {
     return this.companiesService.create(createCompanyDto);
   }
@@ -150,6 +151,7 @@ export class CompaniesController {
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_companies')
+  @ForensicAuditAction('update', 'company')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateCompanyDto: UpdateCompanyDto,
@@ -160,7 +162,6 @@ export class CompaniesController {
   @Post(':id/activate')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_companies')
-  @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.OK)
   @ForensicAuditAction('activate', 'company')
   activateTenant(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -170,7 +171,6 @@ export class CompaniesController {
   @Post(':id/extend-trial')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_companies')
-  @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.OK)
   @ForensicAuditAction('extend_trial', 'company')
   extendTrial(

@@ -4,6 +4,7 @@
   getRoutePermissionException,
   isAdminRoute,
 } from './route-config';
+import { Permission } from '@/lib/permissions';
 
 describe('route-config — rota /dashboard/dds (achado I1)', () => {
   describe('ADMIN_ROUTES', () => {
@@ -31,16 +32,16 @@ describe('route-config — rota /dashboard/dds (achado I1)', () => {
         (e) => e.route === '/dashboard/dds',
       );
       expect(exception).toBeDefined();
-      expect(exception?.permission).toBe('can_view_dds');
+      expect(exception?.permission).toBe(Permission.CAN_VIEW_DDS);
     });
 
     it('getRoutePermissionException retorna can_view_dds para /dashboard/dds', () => {
-      expect(getRoutePermissionException('/dashboard/dds')).toBe('can_view_dds');
+      expect(getRoutePermissionException('/dashboard/dds')).toBe(Permission.CAN_VIEW_DDS);
     });
 
     it('getRoutePermissionException retorna can_view_dds para sub-rotas de DDS', () => {
-      expect(getRoutePermissionException('/dashboard/dds/new')).toBe('can_view_dds');
-      expect(getRoutePermissionException('/dashboard/dds/edit/123')).toBe('can_view_dds');
+      expect(getRoutePermissionException('/dashboard/dds/new')).toBe(Permission.CAN_VIEW_DDS);
+      expect(getRoutePermissionException('/dashboard/dds/edit/123')).toBe(Permission.CAN_VIEW_DDS);
     });
 
     it('getRoutePermissionException retorna undefined para rotas não registradas', () => {
@@ -54,16 +55,20 @@ describe('route-config — rota /dashboard/dds (achado I1)', () => {
 
   describe('regressão — exceções existentes não foram removidas', () => {
     const expectedExceptions = [
-      { route: '/dashboard/activities', permission: 'can_view_activities' },
-      { route: '/dashboard/risks', permission: 'can_view_risks' },
-      { route: '/dashboard/trainings', permission: 'can_view_trainings' },
-      { route: '/dashboard/medical-exams', permission: 'can_view_medical_exams' },
-      { route: '/dashboard/epis', permission: 'can_manage_catalogs' },
-      { route: '/dashboard/epi-fichas', permission: 'can_view_epi_assignments' },
-      { route: '/dashboard/tools', permission: 'can_manage_catalogs' },
-      { route: '/dashboard/machines', permission: 'can_manage_catalogs' },
-      { route: '/dashboard/sites', permission: 'can_manage_sites' },
-      { route: '/dashboard/users', permission: 'can_manage_users' },
+      { route: '/dashboard/activities', permission: Permission.CAN_VIEW_ACTIVITIES },
+      { route: '/dashboard/risks', permission: Permission.CAN_VIEW_RISKS },
+      { route: '/dashboard/trainings', permission: Permission.CAN_VIEW_TRAININGS },
+      { route: '/dashboard/medical-exams', permission: Permission.CAN_VIEW_MEDICAL_EXAMS },
+      { route: '/dashboard/epis', permission: Permission.CAN_MANAGE_CATALOGS },
+      { route: '/dashboard/epi-fichas', permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS },
+      { route: '/dashboard/tools', permission: Permission.CAN_MANAGE_CATALOGS },
+      { route: '/dashboard/machines', permission: Permission.CAN_MANAGE_CATALOGS },
+      { route: '/dashboard/sites', permission: Permission.CAN_MANAGE_SITES },
+      { route: '/dashboard/users', permission: Permission.CAN_MANAGE_USERS },
+      { route: '/dashboard/dds', permission: Permission.CAN_VIEW_DDS },
+      { route: '/dashboard/checklists', permission: Permission.CAN_VIEW_CHECKLISTS },
+      { route: '/dashboard/checklist-models', permission: Permission.CAN_VIEW_CHECKLISTS },
+      { route: '/dashboard/nonconformities', permission: Permission.CAN_VIEW_NC },
     ];
 
     test.each(expectedExceptions)(

@@ -56,16 +56,21 @@ export class CreateUserDto {
   @IsEmail({}, { message: ValidationMessages.IS_EMAIL('Email') })
   @IsOptional()
   @MaxLength(100, { message: ValidationMessages.MAX_LENGTH('Email', 100) })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.length > 0
+      ? value.trim().toLowerCase()
+      : value,
+  )
   email?: string;
 
   @ApiPropertyOptional({
-    description: 'Senha (mínimo 6 caracteres)',
-    example: 'senha123',
-    minLength: 6,
+    description: 'Senha (mínimo 8 caracteres)',
+    example: 'senha12345',
+    minLength: 8,
   })
   @IsString({ message: ValidationMessages.IS_STRING('Senha') })
   @IsOptional()
-  @MinLength(6, { message: ValidationMessages.MIN_LENGTH('Senha', 6) })
+  @MinLength(8, { message: ValidationMessages.MIN_LENGTH('Senha', 8) })
   password?: string;
 
   @ApiPropertyOptional({

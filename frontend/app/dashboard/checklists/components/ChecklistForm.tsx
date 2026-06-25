@@ -37,11 +37,13 @@ import {
   Sparkles,
   Printer,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from "@/lib/permissions";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
@@ -127,9 +129,10 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const { user, hasPermission } = useAuth();
   const isTemplateMode = mode === "template";
   const isAdminGeneral = user?.profile?.nome === "Administrador Geral";
-  const canManageChecklists = hasPermission("can_manage_checklists");
-  const canViewChecklists = hasPermission("can_view_checklists");
-  const canManageSignatures = hasPermission("can_manage_signatures");
+  const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
+  const canViewChecklists = hasPermission(Permission.CAN_VIEW_CHECKLISTS);
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const runtimeTemplateId =
     searchParams.get("modelId") || searchParams.get("templateId");
   const isTemplateFillFlow = Boolean(
@@ -300,6 +303,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const [resolvedPdfAccessMessage, setResolvedPdfAccessMessage] = useState<
     string | null
   >(null);
+  const [hasFinalPdf, setHasFinalPdf] = useState(false); // derived via access endpoint; survives when pdf_file_key omitted from responses
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [templateLocalVersion, setTemplateLocalVersion] = useState(1);
   const draftBootstrappedRef = useRef(false);
@@ -341,13 +345,15 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         const access = await checklistsService.getPdfAccess(checklistId);
         setResolvedPdfAccessUrl(access.url || null);
         setResolvedPdfAccessMessage(access.message || null);
+        setHasFinalPdf(access.hasFinalPdf);
 
         if (!access.url) {
-          setResolvedPdfAccessState("error");
+          // hasFinalPdf may be true (degraded case) — keep as finalized for UI lock
+          setResolvedPdfAccessState(access.hasFinalPdf ? "ready" : "error");
           if (access.message) {
             toast.warning(access.message);
           }
-          return false;
+          return access.hasFinalPdf;
         }
 
         setResolvedPdfAccessState("ready");
@@ -369,6 +375,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         setResolvedPdfAccessMessage(
           "PDF final registrado, mas a URL assinada não está disponível no momento.",
         );
+        setHasFinalPdf(false);
         logger.error("Erro ao resolver PDF final do checklist:", error);
         toast.error("Não foi possível abrir o PDF final deste checklist.");
         return false;
@@ -447,7 +454,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const selectedSiteId = watch("site_id");
   const selectedInspectorId = watch("inspetor_id");
   const isFinalized =
-    !isTemplateMode && Boolean(currentChecklist?.pdf_file_key);
+    !isTemplateMode && (Boolean(currentChecklist?.pdf_file_key) || hasFinalPdf);
   const hasAnySignature = Object.keys(signatures).length > 0;
   const filteredSites = sites.filter(
     (site) => !selectedCompanyId || site.company_id === selectedCompanyId,
@@ -466,10 +473,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const isOperationalMode = structureMode === "operational";
 
   useEffect(() => {
-    if (!isFinalized || !activeChecklistId) {
+    if (isTemplateMode || !activeChecklistId) {
       setResolvedPdfAccessState("idle");
       setResolvedPdfAccessUrl(null);
       setResolvedPdfAccessMessage(null);
+      setHasFinalPdf(false);
       return;
     }
 
@@ -478,7 +486,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     }
 
     void refreshGovernedPdfAccess(activeChecklistId);
-  }, [activeChecklistId, isFinalized, refreshGovernedPdfAccess, resolvedPdfAccessState]);
+  }, [activeChecklistId, isTemplateMode, refreshGovernedPdfAccess, resolvedPdfAccessState]);
 
   const inferStructureModeFromChecklist = useCallback(
     (checklist?: Partial<Checklist> | null): ChecklistStructureMode => {
@@ -938,6 +946,21 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               } else if (template.maquina) {
                 setChecklistMode("machine");
               }
+              // Probe equipment photo from model via access (in case foto_equipamento hidden in template response)
+              if (templateIdParam) {
+                void checklistsService
+                  .getEquipmentPhotoAccess(templateIdParam)
+                  .then((acc) => {
+                    if (acc && (acc.hasGovernedPhoto || acc.url)) {
+                      const marker = `${CHECKLIST_GOVERNED_PHOTO_REF_PREFIX}equipment`;
+                      setValue("foto_equipamento", marker, {
+                        shouldDirty: false,
+                        shouldTouch: false,
+                      });
+                    }
+                  })
+                  .catch(() => {});
+              }
               toast.success("Modelo carregado! Preencha os dados da verificação.");
             }
           } catch (error) {
@@ -984,6 +1007,27 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             setChecklistMode("tool");
           } else if (checklist.maquina) {
             setChecklistMode("machine");
+          }
+
+          // Probe equipment photo via governed access (supports when foto_equipamento omitted from server response)
+          if (checklist.id) {
+            void checklistsService
+              .getEquipmentPhotoAccess(checklist.id)
+              .then((acc) => {
+                if (acc && (acc.hasGovernedPhoto || acc.url)) {
+                  const marker = `${CHECKLIST_GOVERNED_PHOTO_REF_PREFIX}equipment`;
+                  setValue("foto_equipamento", marker, {
+                    shouldDirty: false,
+                    shouldTouch: false,
+                  });
+                  setCurrentChecklist((prev) =>
+                    prev ? { ...prev, foto_equipamento: marker } : prev,
+                  );
+                }
+              })
+              .catch(() => {
+                /* silent; photo resolve will handle error state if needed */
+              });
           }
         }
       } catch (error) {
@@ -1763,14 +1807,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       return;
     }
 
-    const latestChecklist =
-      persistedChecklist ||
-      currentChecklist ||
-      (await checklistsService.findOne(resolvedChecklistId));
-
-    if (!latestChecklist?.pdf_file_key) {
+    // Use governed access (pdf_file_key may be hidden); no need for full latestChecklist
+    const pdfAccess = await checklistsService.getPdfAccess(resolvedChecklistId);
+    if (!pdfAccess.hasFinalPdf) {
       toast.info(
-        "Emita o PDF final antes de enviar este checklist por e-mail.",
+        pdfAccess.message || "Emita o PDF final antes de enviar este checklist por e-mail.",
       );
       return;
     }
@@ -1786,11 +1827,10 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       setSendingEmail(true);
       const resolvedChecklistId = activeChecklistId;
       if (resolvedChecklistId) {
-        const latestChecklist =
-          currentChecklist ||
-          (await checklistsService.findOne(resolvedChecklistId));
-        if (!latestChecklist?.pdf_file_key) {
-          throw new Error("Checklist sem PDF final governado.");
+        // Use governed access (pdf_file_key may be hidden in responses)
+        const pdfAccess = await checklistsService.getPdfAccess(resolvedChecklistId);
+        if (!pdfAccess.hasFinalPdf) {
+          throw new Error(pdfAccess.message || "Checklist sem PDF final governado.");
         }
         const result = await checklistsService.sendEmail(
           resolvedChecklistId,
@@ -1951,13 +1991,22 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
               : "Rascunho salvo automaticamente"}
           </span>
-          {openNcWithSophieHref ? (
+          {openNcWithSophieHref && canManageNc ? (
             <Link
               href={openNcWithSophieHref}
               className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:border-[var(--ds-color-warning)]/50"
             >
               <Bot className="h-3.5 w-3.5" />
               Abrir NC com SOPHIE
+            </Link>
+          ) : null}
+          {activeChecklistId && canManageNc ? (
+            <Link
+              href={`/dashboard/nonconformities/new?checklist_id=${activeChecklistId}&title=${encodeURIComponent(tituloValue || "Não conformidade de checklist")}`}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-danger)] motion-safe:transition-colors hover:border-[var(--ds-color-danger)]/50"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Criar NC manual
             </Link>
           ) : null}
           {isTemplateMode ? (

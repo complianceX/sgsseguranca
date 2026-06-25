@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,8 @@ import { sitesService, Site } from "@/services/sitesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { attachPdfIfProvided } from "@/lib/document-upload";
 import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/context/AuthContext";
+import { Permission } from "@/lib/permissions";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { toInputDateValue } from "@/lib/date/safeFormat";
@@ -40,6 +41,7 @@ const nonConformitySchema = z.object({
   data_identificacao: z.string(),
   site_id: z.string().optional(),
   local_setor_area: z.string().min(1, "O local/setor/área é obrigatório"),
+  checklist_id: z.string().optional(),
   atividade_envolvida: z.string().min(1, "A atividade é obrigatória"),
   responsavel_area: z.string().min(1, "O responsável é obrigatório"),
   auditor_responsavel: z.string().min(1, "O auditor é obrigatório"),
@@ -137,8 +139,10 @@ function resolveRiskLevelClass(riskLevel?: string) {
 // Refactor backlog: dividir em blocos menores (dados, evidências, fluxo) após fechamento do hardening emergencial.
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
-  const { hasPermission } = usePermissions();
-  const canManageNc = hasPermission("can_manage_nc");
+  const searchParams = useSearchParams();
+  const prefilledChecklistId = searchParams.get("checklist_id") || searchParams.get("source_reference") || "";
+  const { hasPermission } = useAuth();
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -178,6 +182,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       risco_consequencias: [],
       causa: [],
       anexos: [],
+      checklist_id: prefilledChecklistId || undefined,
     },
   });
 
@@ -349,6 +354,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         if (nonConformity) {
           reset({
             ...nonConformity,
+            checklist_id: nonConformity.checklist_id ?? undefined,
             status: normalizeNcStatus(nonConformity.status),
             data_identificacao: toInputDateValue(nonConformity.data_identificacao),
             acao_imediata_data: toInputDateValue(nonConformity.acao_imediata_data) || undefined,
@@ -394,6 +400,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       const payload = {
         ...data,
         anexos: data.anexos?.map((item) => item.url),
+        checklist_id: prefilledChecklistId || data.checklist_id || undefined,
       };
 
       if (id) {
@@ -548,7 +555,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         >
           <p className="font-semibold">Modo somente leitura</p>
           <p className="mt-1 text-[color:var(--ds-color-warning-fg)]/90">
-            Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>can_manage_nc</code>.
+            Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>{Permission.CAN_MANAGE_NC}</code>.
           </p>
         </div>
       ) : null}

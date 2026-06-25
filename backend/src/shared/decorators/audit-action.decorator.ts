@@ -16,7 +16,9 @@ export type AuditableAction =
   | 'export'
   | 'ai_access'
   | 'activate'
-  | 'extend_trial';
+  | 'extend_trial'
+  | 'generate'
+  | 'view_pdf';
 
 export function AuditAction(action: AuditableAction, resourceType: string) {
   return applyDecorators(

@@ -49,7 +49,8 @@ import { InlineCallout } from "@/components/ui/inline-callout";
 import { PaginationControls } from "@/components/PaginationControls";
 import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/context/AuthContext";
+import { Permission } from "@/lib/permissions";
 import { safeFormatDate } from "@/lib/date/safeFormat";
 import {
   StatusPill,
@@ -93,8 +94,9 @@ function getNcStatusTone(status: NcStatus): StatusTone {
 }
 
 export default function NonConformitiesPage() {
-  const { hasPermission } = usePermissions();
-  const canManageNc = hasPermission("can_manage_nc");
+  const { hasPermission } = useAuth();
+  const canViewNc = hasPermission(Permission.CAN_VIEW_NC);
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   const [items, setItems] = useState<NonConformity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -279,6 +281,15 @@ export default function NonConformitiesPage() {
       ).map(([id, name]) => ({ id, name })),
     [items],
   );
+
+  if (!canViewNc && !canManageNc) {
+    return (
+      <ErrorState
+        title="Acesso restrito"
+        description="Você não possui permissão para visualizar não conformidades."
+      />
+    );
+  }
 
   if (loadError) {
     return (

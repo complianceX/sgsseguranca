@@ -96,7 +96,7 @@ export const KpiCard = memo(function KpiCard({
       <div className="relative z-[1] flex items-end gap-2">
         <p className={cn('text-[28px] font-extrabold leading-none tracking-[-0.04em]', t.value)}>
           {value == null ? (
-            <span className="inline-block h-8 w-20 rounded-lg bg-[var(--ds-color-border-subtle)]" aria-label="Carregando" />
+            <span className="inline-block h-8 w-20 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]" aria-label="Carregando" />
           ) : (
             <span className="inline-block">{value}</span>
           )}

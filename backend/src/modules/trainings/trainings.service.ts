@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   Logger,
@@ -611,7 +611,7 @@ export class TrainingsService {
 
   async remove(id: string): Promise<void> {
     const training = await this.findOne(id);
-    await this.trainingsRepository.remove(training);
+    await this.trainingsRepository.softDelete(training.id);
   }
 
   async findByUserId(userId: string): Promise<Training[]> {

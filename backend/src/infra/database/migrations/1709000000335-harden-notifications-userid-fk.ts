@@ -1,11 +1,11 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const isSqlite = (qr: QueryRunner) =>
   qr.connection.options.type === 'sqlite' ||
   qr.connection.options.type === 'better-sqlite3';
 
-export class HardenNotificationsUseridFk1709000000200 implements MigrationInterface {
-  name = 'HardenNotificationsUseridFk1709000000200';
+export class HardenNotificationsUseridFk1709000000335 implements MigrationInterface {
+  name = 'HardenNotificationsUseridFk1709000000335';
   // CREATE INDEX CONCURRENTLY não pode rodar dentro de transação
   transaction = false;
 

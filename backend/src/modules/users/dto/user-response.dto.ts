@@ -1,4 +1,4 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+﻿import { Exclude, Expose, Type } from 'class-transformer';
 import { ProfileResponseDto } from '../../profiles/dto/profile-response.dto';
 import {
   UserAccessStatus,
@@ -30,9 +30,6 @@ export class UserResponseDto {
 
   @Expose()
   nome: string;
-
-  @Expose()
-  cpf: string;
 
   @Expose()
   email: string;

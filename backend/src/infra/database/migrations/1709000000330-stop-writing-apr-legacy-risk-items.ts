@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class StopWritingAprLegacyRiskItems1709000000184 implements MigrationInterface {
-  name = 'StopWritingAprLegacyRiskItems1709000000184';
+export class StopWritingAprLegacyRiskItems1709000000330 implements MigrationInterface {
+  name = 'StopWritingAprLegacyRiskItems1709000000330';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

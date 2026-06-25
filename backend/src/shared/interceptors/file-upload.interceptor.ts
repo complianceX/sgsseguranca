@@ -275,16 +275,7 @@ export async function assertUploadedPdf(
     throw new BadRequestException(missingFileMessage);
   }
 
-  const mimeType = String(file.mimetype || '').toLowerCase();
-  const isAcceptedMime =
-    mimeType === 'application/pdf' ||
-    mimeType === 'application/octet-stream' ||
-    mimeType.length === 0;
-
-  if (!isAcceptedMime) {
-    throw new BadRequestException('Apenas arquivos PDF são permitidos');
-  }
-
+  // Prioritize magic bytes + FileInspection before any mime/extension trust
   const buffer = await readUploadedFileBuffer(file, missingFileMessage);
   validatePdfMagicBytes(buffer);
   await inspectUploadedFileBuffer(buffer, file, fileInspectionService);
@@ -300,13 +291,7 @@ export async function assertUploadedVideo(
     throw new BadRequestException(missingFileMessage);
   }
 
-  const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
-  if (!allowed.includes(file.mimetype)) {
-    throw new BadRequestException(
-      'Apenas arquivos de vídeo suportados são permitidos',
-    );
-  }
-
+  // Prioritize magic bytes + FileInspection before any mime/extension trust
   const buffer = await readUploadedFileBuffer(file, missingFileMessage);
   validateVideoMagicBytes(buffer);
   await inspectUploadedFileBuffer(buffer, file, fileInspectionService);
