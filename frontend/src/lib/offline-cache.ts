@@ -75,8 +75,6 @@ if (isBrowser()) {
           _memoryCache.set(dbKey, envelope);
         }
       }
-      _cacheBootstrapped = true;
-      
       // Limpeza de cache legado no localStorage para liberar espaço
       try {
         for (const rawKey of Object.keys(window.localStorage)) {
