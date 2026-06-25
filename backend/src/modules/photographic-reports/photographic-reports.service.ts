@@ -620,13 +620,13 @@ export class PhotographicReportsService {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       query.andWhere(
         `(
-          LOWER(report.client_name) LIKE :search OR
-          LOWER(report.project_name) LIKE :search OR
-          LOWER(COALESCE(report.unit_name, '')) LIKE :search OR
-          LOWER(COALESCE(report.location, '')) LIKE :search OR
-          LOWER(report.activity_type) LIKE :search OR
-          LOWER(report.responsible_name) LIKE :search OR
-          LOWER(report.contractor_company) LIKE :search
+          LOWER(report.client_name) LIKE :search ESCAPE '\\' OR
+          LOWER(report.project_name) LIKE :search ESCAPE '\\' OR
+          LOWER(COALESCE(report.unit_name, '')) LIKE :search ESCAPE '\\' OR
+          LOWER(COALESCE(report.location, '')) LIKE :search ESCAPE '\\' OR
+          LOWER(report.activity_type) LIKE :search ESCAPE '\\' OR
+          LOWER(report.responsible_name) LIKE :search ESCAPE '\\' OR
+          LOWER(report.contractor_company) LIKE :search ESCAPE '\\'
         )`,
         { search },
       );

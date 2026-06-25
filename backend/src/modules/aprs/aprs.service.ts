@@ -1484,15 +1484,15 @@ export class AprsService {
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
       qb.andWhere(
-        `(apr.numero ILIKE :search
-          OR apr.titulo ILIKE :search
-          OR apr.tipo_atividade ILIKE :search
-          OR apr.frente_trabalho ILIKE :search
-          OR apr.area_risco ILIKE :search
-          OR site.nome ILIKE :search
-          OR elaborador.nome ILIKE :search
-          OR auditado_por.nome ILIKE :search
-          OR aprovado_por.nome ILIKE :search)`,
+        `(apr.numero ILIKE :search ESCAPE '\\'
+          OR apr.titulo ILIKE :search ESCAPE '\\'
+          OR apr.tipo_atividade ILIKE :search ESCAPE '\\'
+          OR apr.frente_trabalho ILIKE :search ESCAPE '\\'
+          OR apr.area_risco ILIKE :search ESCAPE '\\'
+          OR site.nome ILIKE :search ESCAPE '\\'
+          OR elaborador.nome ILIKE :search ESCAPE '\\'
+          OR auditado_por.nome ILIKE :search ESCAPE '\\'
+          OR aprovado_por.nome ILIKE :search ESCAPE '\\')`,
         { search: `%${escapeLikePattern(searchTerm)}%` },
       );
     }

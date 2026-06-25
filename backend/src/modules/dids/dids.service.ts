@@ -163,7 +163,7 @@ export class DidsService {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition =
-        "(LOWER(did.titulo) LIKE :search OR LOWER(did.atividade_principal) LIKE :search OR LOWER(COALESCE(did.frente_trabalho, '')) LIKE :search)";
+        "(LOWER(did.titulo) LIKE :search ESCAPE '\\' OR LOWER(did.atividade_principal) LIKE :search ESCAPE '\\' OR LOWER(COALESCE(did.frente_trabalho, '')) LIKE :search ESCAPE '\\')";
       idsQuery.andWhere(condition, { search });
       countQuery.andWhere(condition, { search });
     }

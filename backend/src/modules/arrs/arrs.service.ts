@@ -163,7 +163,7 @@ export class ArrsService {
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm.toLowerCase())}%`;
       const condition =
-        "(LOWER(arr.titulo) LIKE :search OR LOWER(arr.atividade_principal) LIKE :search OR LOWER(COALESCE(arr.frente_trabalho, '')) LIKE :search OR LOWER(arr.risco_identificado) LIKE :search)";
+        "(LOWER(arr.titulo) LIKE :search ESCAPE '\\' OR LOWER(arr.atividade_principal) LIKE :search ESCAPE '\\' OR LOWER(COALESCE(arr.frente_trabalho, '')) LIKE :search ESCAPE '\\' OR LOWER(arr.risco_identificado) LIKE :search ESCAPE '\\')";
       idsQuery.andWhere(condition, { search });
       countQuery.andWhere(condition, { search });
     }
