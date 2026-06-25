@@ -12,6 +12,7 @@ interface ConfirmModalProps {
   description: string;
   children?: React.ReactNode;
   confirmLabel?: string;
+  cancelLabel?: string;
   loading?: boolean;
   danger?: boolean;
 }
@@ -24,6 +25,7 @@ export function ConfirmModal({
   description,
   children,
   confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
   loading = false,
   danger = true,
 }: ConfirmModalProps) {
@@ -36,16 +38,22 @@ export function ConfirmModal({
       </ModalBody>
       <ModalFooter>
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
-            Cancelar
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={loading}
+          >
+            {cancelLabel}
           </Button>
           <Button
             type="button"
-            variant={danger ? 'destructive' : 'default'}
+            variant={danger ? 'danger' : 'primary'}
             onClick={onConfirm}
-            disabled={loading}
+            loading={loading}
+            loadingLabel="Aguardando..."
           >
-            {loading ? 'Aguarde...' : confirmLabel}
+            {confirmLabel}
           </Button>
         </div>
       </ModalFooter>

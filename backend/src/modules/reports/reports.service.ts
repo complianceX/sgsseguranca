@@ -366,14 +366,15 @@ export class ReportsService {
             companyId: string;
             year: number;
             month: number;
+            generatedBy?: string;
           }>) || {};
-        const { companyId, year, month } = parsedParams;
+        const { companyId, year, month, generatedBy } = parsedParams;
         if (!companyId || !year || !month) {
           throw new BadRequestException(
             'Parâmetros obrigatórios ausentes para relatório mensal (companyId, year, month)',
           );
         }
-        return this.generateMonthlyReport(companyId, year, month);
+        return this.generateMonthlyReport(companyId, year, month, generatedBy);
       }
       default:
         throw new BadRequestException(
@@ -386,8 +387,20 @@ export class ReportsService {
     companyId: string,
     year: number,
     month: number,
+    generatedBy?: string,
   ): Promise<GeneratedReportArtifact> {
     const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
+
+    // Defense-in-depth: ensure the tenant context company matches the job params (protects against tampered jobs)
+    if (this.getTenantContextOrThrow().companyId !== companyId) {
+      this.logger.warn(
+        `Report generation companyId mismatch: context=${this.getTenantContextOrThrow().companyId} job=${companyId}`,
+      );
+      throw new BadRequestException(
+        'Company context mismatch for report generation',
+      );
+    }
+
     this.logger.log(
       `Iniciando geração de relatório mensal para empresa ${companyId} (Período: ${month}/${year})`,
     );
@@ -411,7 +424,8 @@ export class ReportsService {
 
     const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin, siteId, siteScope },
-      async () => this.buildMonthlyReportRecord(companyId, year, month),
+      async () =>
+        this.buildMonthlyReportRecord(companyId, year, month, generatedBy),
     );
 
     const html = this.buildMonthlyReportHtml({
@@ -452,6 +466,7 @@ export class ReportsService {
     companyId: string,
     year: number,
     month: number,
+    generatedBy?: string,
   ): Promise<Report> {
     const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     const scopedSiteId =
@@ -543,6 +558,9 @@ export class ReportsService {
       existing.descricao = descricao;
       existing.estatisticas = estatisticas;
       existing.analise_gandra = analise_gandra;
+      if (generatedBy && !existing.generated_by) {
+        existing.generated_by = generatedBy;
+      }
       return this.reportRepository.save(existing);
     }
 
@@ -555,6 +573,7 @@ export class ReportsService {
         company_id: companyId,
         estatisticas,
         analise_gandra,
+        generated_by: generatedBy ?? null,
       }),
     );
   }
@@ -586,6 +605,7 @@ export class ReportsService {
       .andWhere(`${alias}.${dateColumn} IS NOT NULL`)
       .andWhere(`${alias}.${dateColumn} >= :monthStart`, { monthStart })
       .andWhere(`${alias}.${dateColumn} < :nextMonth`, { nextMonth })
+      .andWhere(`${alias}.deleted_at IS NULL`)
       .getCount();
   }
 

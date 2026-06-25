@@ -64,6 +64,7 @@ import { openSafeExternalUrlInNewTab } from "@/lib/security/safe-external-url";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
@@ -332,7 +333,7 @@ useEffect(() => {
     aprovado: 0,
     cancelado: 0,
   });
-  const canManageRdo = hasPermission("can_manage_rdos");
+  const canManageRdo = hasPermission(Permission.CAN_MANAGE_RDOS);
   const viewRdoLocked =
     Boolean(viewRdo?.pdf_file_key) ||
     viewRdo?.status === "aprovado" ||

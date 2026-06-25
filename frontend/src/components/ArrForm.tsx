@@ -46,6 +46,7 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/lib/permissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { cn } from '@/lib/utils';
 import { openPdfForPrint } from '@/lib/print-utils';
@@ -137,7 +138,7 @@ function getUserInitials(name?: string | null) {
 export function ArrForm({ id }: ArrFormProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canManageArrs = hasPermission('can_manage_arrs');
+  const canManageArrs = hasPermission(Permission.CAN_MANAGE_ARRS);
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);

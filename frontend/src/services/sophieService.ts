@@ -162,6 +162,7 @@ export interface CreateNonConformityPayload {
   tipo?: string;
   source_type?: "manual" | "image" | "checklist";
   source_reference?: string;
+  checklist_id?: string;
   source_context?: string;
   image_analysis_summary?: string;
   image_risks?: string[];

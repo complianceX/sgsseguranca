@@ -10,5 +10,6 @@ export class GenerateReportDto {
   @IsInt()
   @IsNotEmpty({ message: 'Ano é obrigatório' })
   @Min(2000)
+  @Max(2100)
   ano: number;
 }

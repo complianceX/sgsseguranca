@@ -11,7 +11,7 @@ export class AddMissingCheckConstraints1709000000310 implements MigrationInterfa
         ) THEN
           ALTER TABLE "nonconformities"
             ADD CONSTRAINT "CHK_nonconformities_status"
-            CHECK (status IN ('aberta', 'em_andamento', 'fechada', 'cancelada'));
+            CHECK (status IN ('ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_VALIDACAO', 'ENCERRADA'));
         END IF;
       END $$;
     `);

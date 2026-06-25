@@ -10,6 +10,7 @@ import { BaseAuditEntity } from '../../../shared/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
+import { Checklist } from '../../checklists/entities/checklist.entity';
 
 @Entity('nonconformities')
 @Index(
@@ -194,4 +195,13 @@ export class NonConformity extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
+
+  // Link opcional para o checklist de inspeção que originou a NC (para rastreabilidade)
+  @ManyToOne(() => Checklist, { nullable: true })
+  @JoinColumn({ name: 'checklist_id' })
+  checklist?: Checklist;
+
+  @Index('IDX_nonconformities_checklist_id')
+  @Column({ type: 'uuid', nullable: true })
+  checklist_id?: string | null;
 }

@@ -32,6 +32,7 @@ import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Permission } from '@/lib/permissions';
 import { useAiConsent } from "@/hooks/useAiConsent";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
@@ -187,8 +188,8 @@ function buildDdsSignatureResetReasons(
 // Refactor backlog: quebrar este componente em submódulos menores após estabilização dos patches emergenciais.
 export function DdsForm({ id }: DdsFormProps) {
   const { hasPermission } = usePermissions();
-  const canViewDds = hasPermission("can_view_dds");
-  const canManageDds = hasPermission("can_manage_dds");
+  const canViewDds = hasPermission(Permission.CAN_VIEW_DDS);
+  const canManageDds = hasPermission(Permission.CAN_MANAGE_DDS);
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillCompanyIdParam = searchParams.get("company_id") || "";

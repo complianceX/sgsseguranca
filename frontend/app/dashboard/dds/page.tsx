@@ -72,6 +72,7 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
 import { extractApiErrorMessage, getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Permission } from '@/lib/permissions';
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -160,8 +161,8 @@ function getDdsParticipantCount(dds: Dds) {
 export default function DdsPage() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canViewDds = hasPermission("can_view_dds");
-  const canManageDds = hasPermission("can_manage_dds");
+  const canViewDds = hasPermission(Permission.CAN_VIEW_DDS);
+  const canManageDds = hasPermission(Permission.CAN_MANAGE_DDS);
   const [ddsList, setDdsList] = useState<Dds[]>([]);
 const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);

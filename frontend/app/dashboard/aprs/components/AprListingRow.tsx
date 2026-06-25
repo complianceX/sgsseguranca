@@ -26,6 +26,7 @@ import { ActionMenu } from "@/components/ActionMenu";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
+import { Permission } from '@/lib/permissions';
 import { cn } from "@/lib/utils";
 import {
   AprListingDensity,
@@ -84,13 +85,13 @@ export function AprListingRow({
   const pdfTone = getToneClasses(pdf.tone);
   const isApproved = apr.status === "Aprovada";
   const hasGovernedPdf = Boolean(apr.pdf_file_key);
-  const canUpdateApr = hasPermission("can_update_apr");
-  const canApproveApr = hasPermission("can_approve_apr");
-  const canRejectApr = hasPermission("can_reject_apr");
-  const canFinalizeApr = hasPermission("can_finalize_apr");
-  const canDeleteApr = hasPermission("can_delete_apr");
-  const canManageSignatures = hasPermission("can_manage_signatures");
-  const canViewSignatures = hasPermission("can_view_signatures");
+  const canUpdateApr = hasPermission(Permission.CAN_UPDATE_APR);
+  const canApproveApr = hasPermission(Permission.CAN_APPROVE_APR);
+  const canRejectApr = hasPermission(Permission.CAN_REJECT_APR);
+  const canFinalizeApr = hasPermission(Permission.CAN_FINALIZE_APR);
+  const canDeleteApr = hasPermission(Permission.CAN_DELETE_APR);
+  const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
+  const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
   const cellPadding = density === "compact" ? "py-3" : "py-4";
   const criticalCount = apr.classificacao_resumo?.critico ?? 0;
   const substantialCount = apr.classificacao_resumo?.substancial ?? 0;

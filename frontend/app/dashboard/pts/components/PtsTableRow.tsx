@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { signaturesService } from '@/services/signaturesService';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -153,11 +154,11 @@ export const PtsTableRow = React.memo(
     const isAwaitingApproval = pt.status === 'Pendente';
     const isFinalizable = pt.status === 'Aprovada' || pt.status === 'Expirada';
     const isEditable = pt.status === 'Pendente';
-    const canManagePt = hasPermission('can_manage_pt');
-    const canManageMail = hasPermission('can_manage_mail');
-    const canManageSignatures = hasPermission('can_manage_signatures');
-    const canViewSignatures = hasPermission('can_view_signatures');
-    const canApprovePt = hasPermission('can_approve_pt');
+    const canManagePt = hasPermission(Permission.CAN_MANAGE_PT);
+    const canManageMail = hasPermission(Permission.CAN_MANAGE_MAIL);
+    const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
+    const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
+    const canApprovePt = hasPermission(Permission.CAN_APPROVE_PT);
     const activeApprovalRules = approvalRuleLabels.filter(
       ({ key }) => approvalIssue?.rules[key],
     );

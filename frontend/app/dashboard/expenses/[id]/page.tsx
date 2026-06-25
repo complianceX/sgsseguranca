@@ -11,6 +11,7 @@ import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PageHeader } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { openSafeExternalUrlInNewTab } from '@/lib/security/safe-external-url';
 import {
@@ -72,7 +73,7 @@ export default function ExpenseReportDetailPage() {
   });
 
   const canClose =
-    isAdminGeral || hasPermission('can_close_expenses');
+    isAdminGeral || hasPermission(Permission.CAN_CLOSE_EXPENSES);
   const isClosed = report?.status !== 'aberta';
 
   const categoryRows = useMemo(() => {

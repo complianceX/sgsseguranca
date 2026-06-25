@@ -16,13 +16,23 @@ function PaginationControlsComponent(props: PaginationControlsProps) {
   const canPrev = props.page > 1;
   const canNext = props.page < props.lastPage;
 
+  const totalLabel = `${props.total} item${props.total !== 1 ? 's' : ''}`;
+
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-[var(--ds-color-text-muted)]">
-        Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.page}</span> de{' '}
-        <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.lastPage}</span> •{' '}
-        <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.total}</span> item(s)
-      </div>
+    <nav aria-label="Paginacao" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Resumo de resultados — lido por leitores de tela ao navegar */}
+      <p
+        className="text-sm text-[var(--ds-color-text-muted)]"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        Pagina{' '}
+        <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.page}</span>
+        {' '}de{' '}
+        <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.lastPage}</span>
+        {' '}&bull;{' '}
+        <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalLabel}</span>
+      </p>
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -30,22 +40,33 @@ function PaginationControlsComponent(props: PaginationControlsProps) {
           disabled={!canPrev}
           variant="outline"
           size="sm"
-          leftIcon={<ChevronLeft className="h-4 w-4" />}
+          aria-label="Pagina anterior"
+          leftIcon={<ChevronLeft className="h-4 w-4" aria-hidden="true" />}
         >
           Anterior
         </Button>
+
+        {/* Indicador de pagina atual — util em mobile */}
+        <span
+          className="min-w-[2.75rem] text-center text-sm font-medium text-[var(--ds-color-text-secondary)]"
+          aria-current="page"
+        >
+          {props.page}
+        </span>
+
         <Button
           type="button"
           onClick={props.onNext}
           disabled={!canNext}
           variant="outline"
           size="sm"
-          rightIcon={<ChevronRight className="h-4 w-4" />}
+          aria-label="Proxima pagina"
+          rightIcon={<ChevronRight className="h-4 w-4" aria-hidden="true" />}
         >
-          Próxima
+          Proxima
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }
 

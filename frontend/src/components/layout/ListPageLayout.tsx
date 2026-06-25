@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from './PageHeader';
 
 /**
- * MetricItem — uma célula compacta na faixa de métricas.
- * Aparece acima do list shell quando `metrics` é fornecido.
+ * MetricItem — uma celula compacta na faixa de metricas.
+ * Aparece acima do list shell quando `metrics` e fornecido.
  */
 export interface MetricItem {
   label: string;
@@ -14,41 +14,41 @@ export interface MetricItem {
 }
 
 interface ListPageLayoutProps {
-  /** Label acima do título (ex: "Documentos operacionais") */
+  /** Label acima do titulo (ex: "Documentos operacionais") */
   eyebrow?: string;
   title: string;
   description?: string;
-  /** Ícone no canto do header — use um componente Lucide wrappado */
+  /** Icone no canto do header — use um componente Lucide wrappado */
   icon?: ReactNode;
-  /** CTAs principais — aparecem à direita do PageHeader */
+  /** CTAs principais — aparecem a direita do PageHeader */
   actions?: ReactNode;
-  /** Faixa de métricas — opcional; omitir quando não há KPIs relevantes */
+  /** Faixa de metricas — opcional; omitir quando nao ha KPIs relevantes */
   metrics?: MetricItem[];
   /**
-   * Título da toolbar/painel de listagem.
-   * Omitir quando o título da página já é suficiente como contexto.
+   * Titulo da toolbar/painel de listagem.
+   * Omitir quando o titulo da pagina ja e suficiente como contexto.
    */
   toolbarTitle?: string;
   toolbarDescription?: string;
   /** Filtros, busca e selects de refinamento */
   toolbarContent?: ReactNode;
-  /** Ações secundárias no lado direito da toolbar (ex: exportar, importar) */
+  /** Acoes secundarias no lado direito da toolbar (ex: exportar, importar) */
   toolbarActions?: ReactNode;
   /** Corpo principal — tabela, grid de cards, etc. */
   children: ReactNode;
-  /** Rodapé — tipicamente <PaginationControls /> */
+  /** Rodape — tipicamente <PaginationControls /> */
   footer?: ReactNode;
   className?: string;
   panelClassName?: string;
 }
 
 /**
- * ListPageLayout — template oficial para páginas de listagem/CRUD.
+ * ListPageLayout — template oficial para paginas de listagem/CRUD.
  *
  * Estrutura:
  * ```
  * <PageHeader eyebrow title description icon actions />
- * <MetricStrip />               ← opcional
+ * <MetricStrip />               <- opcional
  * <ListShell>
  *   <Toolbar title + filters + toolbarActions />
  *   <Body>{children}</Body>
@@ -56,7 +56,7 @@ interface ListPageLayoutProps {
  * </ListShell>
  * ```
  *
- * Uso mínimo:
+ * Uso minimo:
  * ```tsx
  * <ListPageLayout title="APRs" actions={<Button>Nova APR</Button>}>
  *   <AprsTable />
@@ -67,8 +67,8 @@ interface ListPageLayoutProps {
  * ```tsx
  * <ListPageLayout
  *   eyebrow="Documentos operacionais"
- *   title="Análise Preliminar de Risco"
- *   description="Gerencie APRs, acompanhe riscos e controle versões aprovadas."
+ *   title="Analise Preliminar de Risco"
+ *   description="Gerencie APRs, acompanhe riscos e controle versoes aprovadas."
  *   icon={<FileText className="h-5 w-5" />}
  *   actions={<Link href="/dashboard/aprs/new"><Button>Nova APR</Button></Link>}
  *   metrics={[
@@ -114,7 +114,10 @@ export function ListPageLayout({
       />
 
       {metrics?.length ? (
-        <section className="ds-metric-strip">
+        <section
+          aria-label={`Metricas de ${title}`}
+          className="ds-metric-strip"
+        >
           {metrics.map((item) => (
             <article
               key={item.label}
@@ -124,21 +127,28 @@ export function ListPageLayout({
               )}
             >
               <p className="ds-metric-item__label">{item.label}</p>
-              <div className="ds-metric-item__value">{item.value}</div>
+              <div className="ds-metric-item__value" aria-label={`${item.label}: ${item.value}`}>
+                {item.value}
+              </div>
               {item.note ? <p className="ds-metric-item__note">{item.note}</p> : null}
             </article>
           ))}
         </section>
       ) : null}
 
-      <section className={cn('ds-list-shell', panelClassName)}>
+      <section
+        aria-label={toolbarTitle ?? title}
+        className={cn('ds-list-shell', panelClassName)}
+      >
         {hasToolbar ? (
           <div className="ds-list-toolbar">
             {(toolbarTitle || toolbarDescription || toolbarActions) ? (
               <div className="ds-list-toolbar__header">
                 {(toolbarTitle || toolbarDescription) ? (
                   <div className="ds-list-toolbar__heading">
-                    {toolbarTitle ? <h2 className="ds-list-toolbar__title">{toolbarTitle}</h2> : null}
+                    {toolbarTitle ? (
+                      <h2 className="ds-list-toolbar__title">{toolbarTitle}</h2>
+                    ) : null}
                     {toolbarDescription ? (
                       <p className="ds-list-toolbar__description">{toolbarDescription}</p>
                     ) : null}

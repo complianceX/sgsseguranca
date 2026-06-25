@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+﻿import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { MedicalExamsService } from './medical-exams.service';
 import { MedicalExam } from './entities/medical-exam.entity';
@@ -112,6 +112,7 @@ describe('MedicalExamsService', () => {
     save: jest.Mock;
     create: jest.Mock;
     remove: jest.Mock;
+    softDelete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
   let tenantService: Pick<TenantService, 'getTenantId'>;
@@ -129,6 +130,7 @@ describe('MedicalExamsService', () => {
       save: jest.fn((input) => Promise.resolve(input as MedicalExam)),
       create: jest.fn((input) => ({ ...input }) as MedicalExam),
       remove: jest.fn().mockResolvedValue(undefined),
+      softDelete: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(() => makeQueryBuilder()),
     };
     tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
@@ -241,7 +243,7 @@ describe('MedicalExamsService', () => {
     const exam = makeExam();
     repository.findOne.mockResolvedValue(exam);
     await expect(service.remove(EXAM_ID)).resolves.toBeUndefined();
-    expect(repository.remove).toHaveBeenCalledWith(exam);
+    expect(repository.softDelete).toHaveBeenCalledWith(exam.id);
   });
 
   // ─── findExpirySummary ───────────────────────────────────────────────────────

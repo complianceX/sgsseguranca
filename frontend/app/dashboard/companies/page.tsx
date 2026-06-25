@@ -15,6 +15,31 @@ import { ListPageLayout } from '@/components/layout';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { CompanyInviteModal } from '@/components/CompanyInviteModal';
 import { cn } from '@/lib/utils';
+import { StatusPill } from '@/components/ui/status-pill';
+
+type AccountStatusTone = 'success' | 'primary' | 'warning' | 'danger' | 'neutral';
+
+function getAccountStatusTone(status?: string): AccountStatusTone {
+  switch (status) {
+    case 'active': return 'success';
+    case 'trialing': return 'primary';
+    case 'trial_expired': return 'warning';
+    case 'suspended': return 'danger';
+    case 'cancelled': return 'neutral';
+    default: return 'neutral';
+  }
+}
+
+function getAccountStatusLabel(status?: string): string {
+  switch (status) {
+    case 'active': return 'Ativa';
+    case 'trialing': return 'Trial';
+    case 'trial_expired': return 'Trial expirado';
+    case 'suspended': return 'Suspensa';
+    case 'cancelled': return 'Cancelada';
+    default: return 'Indefinido';
+  }
+}
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -220,6 +245,7 @@ export default function CompaniesPage() {
               <TableHead>Razao social</TableHead>
               <TableHead>CNPJ</TableHead>
               <TableHead>Responsavel</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Acoes</TableHead>
             </TableRow>
           </TableHeader>
@@ -232,6 +258,11 @@ export default function CompaniesPage() {
                 <TableCell>{company.cnpj}</TableCell>
                 <TableCell className="text-[var(--ds-color-text-secondary)]">
                   {company.responsavel}
+                </TableCell>
+                <TableCell>
+                  <StatusPill tone={getAccountStatusTone(company.account_status)}>
+                    {getAccountStatusLabel(company.account_status)}
+                  </StatusPill>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">

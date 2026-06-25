@@ -29,6 +29,7 @@ import {
   QueueMonthlyReportAutomationResponse,
 } from '@/services/sophieService';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { sitesService, Site } from '@/services/sitesService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
@@ -224,7 +225,7 @@ export default function SstAgentPage() {
   const [queuedReport, setQueuedReport] = useState<QueueMonthlyReportAutomationResponse | null>(null);
   const [analyzingPendingContext, setAnalyzingPendingContext] = useState(false);
   const [pendingContextAnalysis, setPendingContextAnalysis] = useState<SophieResponse | null>(null);
-  const canUseAi = hasPermission('can_use_ai');
+  const canUseAi = hasPermission(Permission.CAN_USE_AI);
   const prefilledDocumentType = searchParams.get('documentType') || '';
   const prefilledTitle = searchParams.get('title') || '';
   const prefilledDescription = searchParams.get('description') || '';
@@ -611,6 +612,7 @@ export default function SstAgentPage() {
         responsavel_area: user?.nome || undefined,
         source_type: ncSourceType,
         source_reference: ncSourceReference.trim() || undefined,
+        checklist_id: ncSourceType === 'checklist' ? (ncSourceReference.trim() || undefined) : undefined,
         source_context: ncSourceContext.trim() || undefined,
         image_analysis_summary: imageAnalysis?.summary,
         image_risks: imageAnalysis?.imminentRisks,

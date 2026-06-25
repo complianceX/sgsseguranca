@@ -177,7 +177,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const userRoleLabel = user?.profile?.nome?.trim() || "Operação";
   const iconButtonClass =
-    "flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--chrome-topbar-chip-border)] bg-[var(--chrome-topbar-chip-bg)] text-[var(--ds-color-text-primary)] hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
+    "flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--chrome-topbar-chip-border)] bg-[var(--chrome-topbar-chip-bg)] text-[var(--ds-color-text-primary)] transition-colors duration-[120ms] hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
 
   return (
     <header className="ds-topbar">
@@ -430,7 +430,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
           <button
             type="button"
             aria-label={user?.nome ? `Perfil de ${user.nome}` : "Perfil do usuário"}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] hover:bg-[var(--ds-color-primary-subtle-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 xl:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] transition-colors duration-[120ms] hover:bg-[var(--ds-color-primary-subtle-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 xl:hidden"
           >
             {userInitials || <User className="h-5 w-5" aria-hidden="true" />}
           </button>

@@ -14,6 +14,7 @@ import { UserSite } from './entities/user-site.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import type { TenantService } from '../../shared/tenant/tenant.service';
 import type { PasswordService } from '../../shared/services/password.service';
+import type { PwnedPasswordService } from '../auth/services/pwned-password.service';
 import type { AuditService } from '../audit-trail/audit.service';
 import type { RbacService } from '../rbac/rbac.service';
 import type { AuthRedisService } from '../../shared/redis/redis.service';
@@ -81,6 +82,10 @@ function buildService(opts: {
 
   const passwordService: Partial<PasswordService> = {
     hash: jest.fn().mockResolvedValue('$argon2id$hashed'),
+    validate: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+  };
+  const pwnedPasswordService: Partial<PwnedPasswordService> = {
+    assertNotPwned: jest.fn().mockResolvedValue(undefined),
   };
 
   const auditService: Partial<AuditService> = { log: jest.fn() };
@@ -96,6 +101,7 @@ function buildService(opts: {
     profilesRepo,
     tenantService as TenantService,
     passwordService as PasswordService,
+    pwnedPasswordService as PwnedPasswordService,
     auditService as AuditService,
     rbacService as RbacService,
     redisService,

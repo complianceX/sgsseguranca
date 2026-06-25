@@ -1,4 +1,4 @@
-import type { ObjectSchema, ValidationResult } from 'joi';
+﻿import type { ObjectSchema, ValidationResult } from 'joi';
 
 describe('AppModule production environment validation', () => {
   const postgresScheme = 'postgresql://';
@@ -26,6 +26,7 @@ describe('AppModule production environment validation', () => {
     CSRF_TOKEN_SECRET: 'a'.repeat(32),
     BULL_BOARD_PASS: 'admin-secure-pass',
     ANTIVIRUS_PROVIDER: 'clamav',
+    AUTH_DUMMY_PASSWORD_HASH: 'a'.repeat(64),
   };
 
   const originalEnv = process.env;

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -10,6 +10,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
 import { ChecklistItemDto } from './checklist-item.dto';
 import {
   CHECKLIST_BARRIER_STATUS_VALUES,
@@ -25,10 +26,12 @@ export class ChecklistTopicDto {
 
   @IsString()
   @IsNotEmpty({ message: 'O título do tópico é obrigatório.' })
+  @Transform(sanitizePlainTextTransform)
   titulo: string;
 
   @IsOptional()
   @IsString()
+  @Transform(sanitizePlainTextTransform)
   descricao?: string;
 
   @IsOptional()

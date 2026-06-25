@@ -98,7 +98,7 @@ export interface Checklist {
   descricao?: string;
   equipamento?: string;
   maquina?: string;
-  foto_equipamento?: string;
+  foto_equipamento?: string; // internal (governed ref "gst:..." or legacy data:); may be omitted from list/get responses. Use getEquipmentPhotoAccess() for URL.
   data: string;
   status: "Conforme" | "Não Conforme" | "Pendente";
   company_id: string;
@@ -115,9 +115,9 @@ export interface Checklist {
   data_auditoria?: string;
   resultado_auditoria?: string;
   notas_auditoria?: string;
-  pdf_file_key?: string;
-  pdf_folder_path?: string;
-  pdf_original_name?: string;
+  pdf_file_key?: string; // @internal - may be hidden/omitted in responses (governed storage). Do not rely for "has final". Use getPdfAccess().hasFinalPdf instead.
+  pdf_folder_path?: string; // @internal - governed ref, hidden
+  pdf_original_name?: string; // prefer from ChecklistPdfAccess response
   created_at: string;
   updated_at: string;
   site?: { nome: string };
@@ -159,7 +159,9 @@ export interface ChecklistPhotoAttachResult {
   message: string;
   photoReference: string;
   photo: {
-    fileKey: string;
+    // @internal - fileKey omitted by backend for attach responses (uses governed photoReference for access);
+    // kept for shape compat but should not be relied on; raw keys not exposed
+    fileKey?: string;
     originalName: string;
     mimeType: string;
   };
