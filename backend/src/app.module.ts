@@ -330,9 +330,7 @@ export const validationSchema = Joi.object({
       then: Joi.string().min(32).required(),
       otherwise: Joi.string().optional().allow(''),
     }),
-    otherwise: Joi.string()
-      .min(32)
-      .default('test-mfa-totp-encryption-key-32-bytes!!!'),
+    otherwise: Joi.string().min(32).default('test-mfa-totp-encryption-key-!!!'),
   }),
   MFA_LOGIN_CHALLENGE_TTL_SECONDS: Joi.number()
     .integer()
