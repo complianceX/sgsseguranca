@@ -34,7 +34,7 @@ import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserDetailsDto } from './dto/update-user-details.dto';
 import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
 import { WorkerCpfLookupDto } from './dto/worker-cpf-lookup.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -80,6 +80,14 @@ export class UsersController {
    * Rate limit: 3 req/min por usuário (export é operação custosa — I/O + auditoria).
    */
   @Get('me/export')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+    Role.TRABALHADOR,
+  )
   @UseGuards(SensitiveActionGuard)
   @SensitiveAction('user_data_export')
   @UserThrottle({ requestsPerMinute: 3 })
@@ -109,6 +117,14 @@ export class UsersController {
    * Qualquer usuário autenticado pode atualizar seu próprio consentimento.
    */
   @Patch('me/ai-consent')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+    Role.TRABALHADOR,
+  )
   async updateMyAiConsent(
     @Body() dto: UpdateAiConsentDto,
     @Req() req: AuthenticatedRequest,
@@ -327,7 +343,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() updateUserDto: UpdateUserDetailsDto,
   ): Promise<UserResponseDto> {
     return this.usersService.update(id, updateUserDto);
   }

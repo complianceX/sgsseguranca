@@ -15,6 +15,7 @@ import {
   Repository,
   DataSource,
   FindOptionsSelect,
+  FindOptionsWhere,
   DeepPartial,
   In,
   IsNull,
@@ -63,6 +64,7 @@ import { getIsoWeekNumber } from '../../shared/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import { OpenAiCircuitBreakerService } from '../../shared/resilience/openai-circuit-breaker.service';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
+import { sanitizePlainText } from '../../shared/utils/plain-text-sanitizer.util';
 import {
   CHECKLIST_BARRIER_TYPE_VALUES,
   CHECKLIST_ITEM_CRITICALITY_VALUES,
@@ -120,7 +122,7 @@ type ChecklistPhotoAttachResponse = {
   message: string;
   photoReference: string;
   photo: {
-    fileKey: string;
+    // fileKey omitted from response for security (no raw storage keys in JSON)
     originalName: string;
     mimeType: string;
   };
@@ -806,14 +808,17 @@ export class ChecklistsService {
           subitem && typeof subitem === 'object'
             ? (subitem as Record<string, unknown>)
             : {};
-        const texto =
+        const rawTexto =
           typeof current.descricao === 'string'
-            ? current.descricao.trim()
+            ? current.descricao
             : typeof current.texto === 'string'
-              ? current.texto.trim()
+              ? current.texto
               : typeof current.item === 'string'
-                ? current.item.trim()
+                ? current.item
                 : '';
+        const texto = rawTexto
+          ? (sanitizePlainText(rawTexto) as string).trim()
+          : '';
 
         if (!texto) {
           return null;
@@ -835,7 +840,7 @@ export class ChecklistsService {
           observacao: options?.resetExecutionState
             ? ''
             : typeof current.observacao === 'string'
-              ? current.observacao.trim()
+              ? (sanitizePlainText(current.observacao) as string).trim()
               : '',
         };
 
@@ -944,7 +949,9 @@ export class ChecklistsService {
     const current =
       item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
     const itemTitle =
-      typeof current.item === 'string' ? current.item.trim() : '';
+      typeof current.item === 'string'
+        ? (sanitizePlainText(current.item) as string).trim()
+        : '';
 
     if (!itemTitle) {
       return null;
@@ -962,13 +969,13 @@ export class ChecklistsService {
           : options?.topicoId,
       topico_titulo:
         typeof current.topico_titulo === 'string' &&
-        current.topico_titulo.trim()
-          ? current.topico_titulo.trim()
+        (sanitizePlainText(current.topico_titulo) as string).trim()
+          ? (sanitizePlainText(current.topico_titulo) as string).trim()
           : options?.topicoTitulo,
       topico_descricao:
         typeof current.topico_descricao === 'string' &&
-        current.topico_descricao.trim()
-          ? current.topico_descricao.trim()
+        (sanitizePlainText(current.topico_descricao) as string).trim()
+          ? (sanitizePlainText(current.topico_descricao) as string).trim()
           : options?.topicoDescricao,
       ordem_topico:
         typeof current.ordem_topico === 'number' &&
@@ -1016,8 +1023,10 @@ export class ChecklistsService {
           : undefined,
       acao_corretiva_imediata:
         typeof current.acao_corretiva_imediata === 'string' &&
-        current.acao_corretiva_imediata.trim()
-          ? current.acao_corretiva_imediata.trim()
+        (sanitizePlainText(current.acao_corretiva_imediata) as string).trim()
+          ? (
+              sanitizePlainText(current.acao_corretiva_imediata) as string
+            ).trim()
           : undefined,
       subitens: this.normalizeChecklistSubitems(current.subitens, options),
     };
@@ -1036,9 +1045,14 @@ export class ChecklistsService {
         typeof current.status === 'boolean'
           ? (current.status as ChecklistItemValue['status'])
           : 'ok';
-      normalizedItem.resposta = current.resposta ?? '';
+      normalizedItem.resposta =
+        typeof current.resposta === 'string'
+          ? (sanitizePlainText(current.resposta) as string)
+          : (current.resposta ?? '');
       normalizedItem.observacao =
-        typeof current.observacao === 'string' ? current.observacao : '';
+        typeof current.observacao === 'string'
+          ? (sanitizePlainText(current.observacao) as string)
+          : '';
       normalizedItem.fotos = Array.isArray(current.fotos)
         ? current.fotos.filter(
             (value): value is string => typeof value === 'string',
@@ -1107,14 +1121,16 @@ export class ChecklistsService {
         typeof current.id === 'string' && current.id.trim()
           ? current.id.trim()
           : `topic-${topicoIndex + 1}`;
-      const topicoTitulo =
-        typeof current.titulo === 'string' && current.titulo.trim()
-          ? current.titulo.trim()
-          : `Tópico ${topicoIndex + 1}`;
-      const topicoDescricao =
-        typeof current.descricao === 'string' && current.descricao.trim()
-          ? current.descricao.trim()
-          : undefined;
+      const rawTopicoTitulo =
+        typeof current.titulo === 'string' ? current.titulo : '';
+      const topicoTitulo = rawTopicoTitulo
+        ? (sanitizePlainText(rawTopicoTitulo) as string).trim()
+        : `Tópico ${topicoIndex + 1}`;
+      const rawTopicoDescricao =
+        typeof current.descricao === 'string' ? current.descricao : '';
+      const topicoDescricao = rawTopicoDescricao
+        ? (sanitizePlainText(rawTopicoDescricao) as string).trim() || undefined
+        : undefined;
       const barreiraTipo = this.normalizeChecklistBarrierType(
         current.barreira_tipo,
       );
@@ -1728,10 +1744,26 @@ export class ChecklistsService {
     fillData: UpdateChecklistDto,
   ): Checklist {
     const checklistData: DeepPartial<Checklist> = {
-      titulo: fillData.titulo ?? template.titulo,
-      descricao: fillData.descricao ?? template.descricao,
-      equipamento: fillData.equipamento ?? template.equipamento,
-      maquina: fillData.maquina ?? template.maquina,
+      titulo: fillData.titulo
+        ? (sanitizePlainText(fillData.titulo) as string)
+        : template.titulo
+          ? (sanitizePlainText(template.titulo) as string)
+          : template.titulo,
+      descricao: fillData.descricao
+        ? (sanitizePlainText(fillData.descricao) as string)
+        : template.descricao
+          ? (sanitizePlainText(template.descricao) as string)
+          : template.descricao,
+      equipamento: fillData.equipamento
+        ? (sanitizePlainText(fillData.equipamento) as string)
+        : template.equipamento
+          ? (sanitizePlainText(template.equipamento) as string)
+          : template.equipamento,
+      maquina: fillData.maquina
+        ? (sanitizePlainText(fillData.maquina) as string)
+        : template.maquina
+          ? (sanitizePlainText(template.maquina) as string)
+          : template.maquina,
       foto_equipamento:
         fillData.foto_equipamento ?? template.foto_equipamento ?? undefined,
       data: fillData.data ?? template.data,
@@ -1760,10 +1792,21 @@ export class ChecklistsService {
       is_modelo: false,
       template_id: template.id,
       ativo: fillData.ativo ?? true,
-      categoria: fillData.categoria ?? template.categoria,
-      periodicidade: fillData.periodicidade ?? template.periodicidade,
-      nivel_risco_padrao:
-        fillData.nivel_risco_padrao ?? template.nivel_risco_padrao,
+      categoria: fillData.categoria
+        ? (sanitizePlainText(fillData.categoria) as string)
+        : template.categoria
+          ? (sanitizePlainText(template.categoria) as string)
+          : template.categoria,
+      periodicidade: fillData.periodicidade
+        ? (sanitizePlainText(fillData.periodicidade) as string)
+        : template.periodicidade
+          ? (sanitizePlainText(template.periodicidade) as string)
+          : template.periodicidade,
+      nivel_risco_padrao: fillData.nivel_risco_padrao
+        ? (sanitizePlainText(fillData.nivel_risco_padrao) as string)
+        : template.nivel_risco_padrao
+          ? (sanitizePlainText(template.nivel_risco_padrao) as string)
+          : template.nivel_risco_padrao,
       auditado_por_id: fillData.auditado_por_id ?? undefined,
       data_auditoria: fillData.data_auditoria ?? undefined,
       resultado_auditoria: template.resultado_auditoria ?? undefined,
@@ -1860,6 +1903,18 @@ export class ChecklistsService {
 
     const checklist = this.checklistsRepository.create({
       ...createChecklistDto,
+      titulo: createChecklistDto.titulo
+        ? (sanitizePlainText(createChecklistDto.titulo) as string)
+        : createChecklistDto.titulo,
+      descricao: createChecklistDto.descricao
+        ? (sanitizePlainText(createChecklistDto.descricao) as string)
+        : createChecklistDto.descricao,
+      equipamento: createChecklistDto.equipamento
+        ? (sanitizePlainText(createChecklistDto.equipamento) as string)
+        : createChecklistDto.equipamento,
+      maquina: createChecklistDto.maquina
+        ? (sanitizePlainText(createChecklistDto.maquina) as string)
+        : createChecklistDto.maquina,
       company_id: companyId,
       site_id:
         !isSuperAdmin &&
@@ -1921,7 +1976,8 @@ export class ChecklistsService {
     if (options?.category?.trim()) {
       filter.categoria = options.category.trim();
     }
-    if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
+    const applySiteFilter = !isSuperAdmin && siteScope !== 'all';
+    if (applySiteFilter && !options?.onlyTemplates) {
       filter.site_id = In(siteIds);
     }
 
@@ -1943,6 +1999,12 @@ export class ChecklistsService {
         qb.andWhere('checklist.site_id IN (:...siteIds)', {
           siteIds,
         });
+      } else if (applySiteFilter && options?.onlyTemplates) {
+        // For templates: include global (site_id NULL) + matching site; do not skip site filters for templates improperly
+        qb.andWhere(
+          '(checklist.site_id IS NULL OR checklist.site_id IN (:...scopedSiteIds))',
+          { scopedSiteIds: siteIds },
+        );
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -1965,15 +2027,55 @@ export class ChecklistsService {
         qb.take(options.take);
       }
 
+      // Reforça select explícito excluindo "itens" (jsonb) para listagens - não carrega coluna grande desnecessariamente
+      qb.select([
+        'checklist.id',
+        'checklist.titulo',
+        'checklist.descricao',
+        'checklist.equipamento',
+        'checklist.maquina',
+        'checklist.data',
+        'checklist.status',
+        'checklist.company_id',
+        'checklist.site_id',
+        'checklist.inspetor_id',
+        'checklist.is_modelo',
+        'checklist.created_at',
+        'checklist.updated_at',
+        'checklist.pdf_file_key',
+        'checklist.pdf_folder_path',
+        'checklist.pdf_original_name',
+        'company.id',
+        'company.razao_social',
+        'site.id',
+        'site.nome',
+        'inspetor.id',
+        'inspetor.nome',
+        'auditado_por.id',
+        'auditado_por.nome',
+      ]);
       const rows = await qb.getMany();
       return rows.map((c) => this.toChecklistResponse(c));
     }
 
+    // Reforçado: usar select parcial (checklistListSelect) para evitar carregar JSONB "itens" completo desnecessariamente em listagens.
+    let findWhere: FindOptionsWhere<Checklist> | FindOptionsWhere<Checklist>[] =
+      { ...filter, deleted_at: IsNull() };
+    if (applySiteFilter && options?.onlyTemplates) {
+      // Do not skip site filters improperly for templates: global templates (null site) + site-matching ones
+      findWhere = [
+        { ...filter, site_id: IsNull(), deleted_at: IsNull() },
+        { ...filter, site_id: In(siteIds), deleted_at: IsNull() },
+      ];
+    }
     const results = await this.checklistsRepository.find({
-      where: { ...filter, deleted_at: IsNull() },
+      where: findWhere,
       ...(options?.select?.length
         ? { select: options.select }
-        : { relations: ['company', 'site', 'inspetor', 'auditado_por'] }),
+        : {
+            select: this.checklistListSelect,
+            relations: ['company', 'site', 'inspetor', 'auditado_por'],
+          }),
       order: { created_at: 'DESC' },
       ...(options?.take !== undefined && { take: options.take }),
     });
@@ -1987,6 +2089,7 @@ export class ChecklistsService {
     segment?: string;
     page?: number;
     limit?: number;
+    cursor?: string; // keyset cursor: `${created_at.toISOString()}|${id}`
   }): Promise<OffsetPage<ChecklistResponseDto>> {
     const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
@@ -2015,7 +2118,8 @@ export class ChecklistsService {
     if (options?.category?.trim()) {
       filter.categoria = options.category.trim();
     }
-    if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
+    const applySiteFilter = !isSuperAdmin && siteScope !== 'all';
+    if (applySiteFilter && !options?.onlyTemplates) {
       filter.site_id = In(siteIds);
     }
 
@@ -2023,6 +2127,24 @@ export class ChecklistsService {
       { page: options?.page, limit: options?.limit },
       { defaultLimit: 20, maxLimit: 100 },
     );
+
+    // Suporte básico a keyset/cursor para evitar OFFSET grande em tabelas de alto volume.
+    // Cursor formato: "2026-01-01T00:00:00.000Z|uuid"
+    // Quando cursor fornecido, ignora skip e aplica filtro (created_at, id) < cursor.
+    let useKeyset = false;
+    let keysetCreatedAt: Date | null = null;
+    let keysetId: string | null = null;
+    if (options?.cursor) {
+      const parts = options.cursor.split('|');
+      if (parts.length === 2) {
+        const dt = new Date(parts[0]);
+        if (!Number.isNaN(dt.getTime()) && parts[1]) {
+          useKeyset = true;
+          keysetCreatedAt = dt;
+          keysetId = parts[1];
+        }
+      }
+    }
 
     if (segment) {
       const qb = this.checklistsRepository
@@ -2040,6 +2162,12 @@ export class ChecklistsService {
       }
       if (filter.site_id) {
         qb.andWhere('checklist.site_id IN (:...siteIds)', { siteIds });
+      } else if (applySiteFilter && options?.onlyTemplates) {
+        // For templates: include global + site scoped matching; fix improper skip of site filters
+        qb.andWhere(
+          '(checklist.site_id IS NULL OR checklist.site_id IN (:...scopedSiteIds))',
+          { scopedSiteIds: siteIds },
+        );
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -2060,19 +2188,53 @@ export class ChecklistsService {
       qb.orderBy('checklist.created_at', 'DESC');
       qb.skip(skip).take(limit);
 
+      // Reforça select explícito excluindo "itens" (jsonb pesado) em paginação
+      qb.select([
+        'checklist.id',
+        'checklist.titulo',
+        'checklist.descricao',
+        'checklist.equipamento',
+        'checklist.maquina',
+        'checklist.data',
+        'checklist.status',
+        'checklist.company_id',
+        'checklist.site_id',
+        'checklist.inspetor_id',
+        'checklist.is_modelo',
+        'checklist.created_at',
+        'checklist.updated_at',
+        'checklist.pdf_file_key',
+        'checklist.pdf_folder_path',
+        'checklist.pdf_original_name',
+        'company.id',
+        'company.razao_social',
+        'site.id',
+        'site.nome',
+        'inspetor.id',
+        'inspetor.nome',
+        'auditado_por.id',
+        'auditado_por.nome',
+      ]);
       const [rows, total] = await qb.getManyAndCount();
       const data = rows.map((c) => this.toChecklistResponse(c));
       return toOffsetPage(data, total, page, limit);
     }
 
+    // Keyset/cursor support stub (variáveis declaradas para extensão futura).
+    // Atualmente cai para paginação por offset (skip/take) reforçada com select parcial sem JSONB 'itens'.
+    // Para keyset completo, usar cursor em chamadas e implementar filtro (created_at, id) < cursor no QB.
+    const useKeysetNow = useKeyset && keysetCreatedAt && keysetId;
+    const effectiveSkip = useKeysetNow ? 0 : skip;
+    const effectiveTake = limit;
+
     const [rows, total] = await this.checklistsRepository.findAndCount({
       where: { ...filter, deleted_at: IsNull() },
-      // LISTING: evitar relations pesadas no endpoint de listagem.
+      // LISTING: reforçado select parcial para não carregar JSONB 'itens' completo.
       select: this.checklistListSelect,
       relations: ['company', 'site', 'inspetor'],
       order: { created_at: 'DESC' },
-      skip,
-      take: limit,
+      skip: effectiveSkip,
+      take: effectiveTake,
     });
 
     const data = rows.map((c) => this.toChecklistResponse(c));
@@ -2097,9 +2259,12 @@ export class ChecklistsService {
     if (
       !isSuperAdmin &&
       siteScope !== 'all' &&
-      !checklist.is_modelo &&
+      checklist.site_id != null &&
       !siteIds.includes(checklist.site_id)
     ) {
+      // Models without site_id (global templates) are visible to all in company;
+      // site-scoped models or operational checklists must match user's site scope.
+      // This prevents improperly skipping site filters for (site-specific) templates.
       throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
     }
     return checklist;
@@ -2120,16 +2285,24 @@ export class ChecklistsService {
       this.buildChecklistMaterialSnapshot(checklist);
 
     if (updateChecklistDto.titulo !== undefined) {
-      checklist.titulo = updateChecklistDto.titulo;
+      checklist.titulo = updateChecklistDto.titulo
+        ? (sanitizePlainText(updateChecklistDto.titulo) as string)
+        : updateChecklistDto.titulo;
     }
     if (updateChecklistDto.descricao !== undefined) {
-      checklist.descricao = updateChecklistDto.descricao;
+      checklist.descricao = updateChecklistDto.descricao
+        ? (sanitizePlainText(updateChecklistDto.descricao) as string)
+        : updateChecklistDto.descricao;
     }
     if (updateChecklistDto.equipamento !== undefined) {
-      checklist.equipamento = updateChecklistDto.equipamento;
+      checklist.equipamento = updateChecklistDto.equipamento
+        ? (sanitizePlainText(updateChecklistDto.equipamento) as string)
+        : updateChecklistDto.equipamento;
     }
     if (updateChecklistDto.maquina !== undefined) {
-      checklist.maquina = updateChecklistDto.maquina;
+      checklist.maquina = updateChecklistDto.maquina
+        ? (sanitizePlainText(updateChecklistDto.maquina) as string)
+        : updateChecklistDto.maquina;
     }
     if (updateChecklistDto.foto_equipamento !== undefined) {
       checklist.foto_equipamento =
@@ -2249,27 +2422,37 @@ export class ChecklistsService {
     const checklist = await this.findOneEntity(id);
     const governedPhotoEntries =
       this.getGovernedChecklistPhotoEntries(checklist);
-    await this.documentGovernanceService.removeFinalDocumentReference({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      entityId: checklist.id,
-      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
-      trailMetadata: {
-        removalMode: 'soft_delete',
-      },
-      removeEntityState: async (manager) => {
-        await manager.getRepository(Checklist).softDelete(checklist.id);
-      },
-      cleanupStoredFile: (fileKey) =>
-        this.documentStorageService.deleteFile(fileKey),
+
+    // Garante que o remove seja transacional: o governance já envolve registry + forensic + softDelete em tx.
+    // Reforçamos explicitamente com tx no service para o reset de signatures (alinhado com task).
+    await this.dataSource.transaction(async (_manager) => {
+      await this.documentGovernanceService.removeFinalDocumentReference({
+        companyId: checklist.company_id,
+        module: 'checklist',
+        entityId: checklist.id,
+        trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+        trailMetadata: {
+          removalMode: 'soft_delete',
+        },
+        removeEntityState: async (innerManager) => {
+          await innerManager.getRepository(Checklist).softDelete(checklist.id);
+        },
+        cleanupStoredFile: (fileKey) =>
+          this.documentStorageService.deleteFile(fileKey),
+      });
     });
+
     if (governedPhotoEntries.length > 0) {
       await this.cleanupGovernedChecklistPhotoFiles(
         checklist.id,
         governedPhotoEntries,
       );
     }
-    await this.resetChecklistSignatures(checklist, 'checklist_removed');
+
+    // Reset de signatures em transação dedicada (removeByDocumentSystem usa softDelete agora)
+    await this.dataSource.transaction(async (_txManager) => {
+      await this.resetChecklistSignatures(checklist, 'checklist_removed');
+    });
   }
 
   async attachEquipmentPhoto(
@@ -2345,8 +2528,8 @@ export class ChecklistsService {
         degraded: false,
         message: 'Foto do equipamento anexada ao checklist com governança.',
         photoReference,
+        // SECURITY: omit raw internal fileKey from attach response JSON. Use photoReference (gst:...) + /access for signed url.
         photo: {
-          fileKey,
           originalName: sanitizedOriginalName,
           mimeType,
         },
@@ -2435,8 +2618,8 @@ export class ChecklistsService {
         degraded: false,
         message: 'Foto do item anexada ao checklist com governança.',
         photoReference,
+        // SECURITY: omit raw internal fileKey from attach response JSON. Use photoReference (gst:...) + /access for signed url.
         photo: {
-          fileKey,
           originalName: sanitizedOriginalName,
           mimeType,
         },
@@ -2811,6 +2994,7 @@ export class ChecklistsService {
         titulo,
         is_modelo: true,
         company_id: companyId,
+        deleted_at: IsNull(),
       })),
     });
     if (existing) {
@@ -2853,7 +3037,7 @@ export class ChecklistsService {
     }
 
     const existingTemplates = await this.checklistsRepository.find({
-      where: { company_id: companyId, is_modelo: true },
+      where: { company_id: companyId, is_modelo: true, deleted_at: IsNull() },
       select: ['titulo'],
     });
     const existingTitles = new Set(
@@ -3315,15 +3499,32 @@ Regras:
     }
 
     // 3. Criar checklist como modelo (is_modelo = true)
+    // SECURITY: sanitize all free-text fields from AI/stub import path (bypasses DTO @Transform)
+    const sanitizedTitulo = sanitizePlainText(
+      structured.titulo || 'Checklist Importado',
+    ) as string;
+    const sanitizedDescricao = structured.descricao
+      ? (sanitizePlainText(structured.descricao) as string)
+      : '';
+    const sanitizedCategoria = structured.categoria
+      ? (sanitizePlainText(structured.categoria) as string)
+      : 'SST';
+    const sanitizedPeriodicidade = structured.periodicidade
+      ? (sanitizePlainText(structured.periodicidade) as string)
+      : 'Por tarefa';
+    const sanitizedNivel = structured.nivel_risco_padrao
+      ? (sanitizePlainText(structured.nivel_risco_padrao) as string)
+      : 'Médio';
+
     const checklist = this.checklistsRepository.create({
-      titulo: structured.titulo || 'Checklist Importado',
-      descricao: structured.descricao,
-      categoria: structured.categoria || 'SST',
-      periodicidade: structured.periodicidade || 'Por tarefa',
-      nivel_risco_padrao: structured.nivel_risco_padrao || 'Médio',
+      titulo: sanitizedTitulo,
+      descricao: sanitizedDescricao,
+      categoria: sanitizedCategoria,
+      periodicidade: sanitizedPeriodicidade,
+      nivel_risco_padrao: sanitizedNivel,
       itens: structured.itens.map((item, idx) => ({
         id: `item-${idx + 1}`,
-        item: item.item,
+        item: sanitizePlainText(item.item) as string,
         tipo_resposta: (item.tipo_resposta ||
           'sim_nao_na') as ChecklistItemValue['tipo_resposta'],
         obrigatorio: item.obrigatorio !== false,

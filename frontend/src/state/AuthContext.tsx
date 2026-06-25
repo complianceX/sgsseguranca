@@ -21,7 +21,7 @@ import {
   AuthLoginResponse,
   AuthLoginResult,
 } from '@/services/authService';
-import { Permission, PermissionPrefix } from '@/lib/permissions';
+import { Permission, PermissionPrefix, type AppPermission } from '@/lib/permissions';
 
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 const VIEWER_ROLE_ALIASES = [
@@ -61,7 +61,7 @@ interface AuthContextType {
   roles: string[];
   permissions: string[];
   isAdminGeral: boolean;
-  hasPermission: (permission: string) => boolean;
+  hasPermission: (permission: AppPermission) => boolean;
   login: (
     cpf: string,
     password: string,
@@ -80,7 +80,7 @@ interface AuthStateContextType {
 }
 
 interface AuthActionsContextType {
-  hasPermission: (permission: string) => boolean;
+  hasPermission: (permission: AppPermission) => boolean;
   login: (
     cpf: string,
     password: string,
@@ -300,7 +300,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, logout, router]);
 
   const hasPermission = useCallback(
-    (permission: string) => {
+    (permission: AppPermission) => {
       if (isAdminGeral) {
         return true;
       }

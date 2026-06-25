@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+﻿import { ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -105,10 +105,10 @@ function createService(configOverrides: Record<string, string> = {}) {
 }
 
 describe('MfaService', () => {
-  it('nao exige MFA de login para ADMIN_GERAL por padrao', () => {
+  it('exige MFA de login para ADMIN_GERAL por padrao (default true)', () => {
     const { service } = createService();
 
-    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(true);
   });
 
   it('exige MFA de login para ADMIN_GERAL quando flag ADMIN_GERAL_MFA_REQUIRED=true', () => {

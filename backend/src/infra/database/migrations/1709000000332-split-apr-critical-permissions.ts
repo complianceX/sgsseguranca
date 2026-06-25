@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SplitAprCriticalPermissions1709000000194 implements MigrationInterface {
-  name = 'SplitAprCriticalPermissions1709000000194';
+export class SplitAprCriticalPermissions1709000000332 implements MigrationInterface {
+  name = 'SplitAprCriticalPermissions1709000000332';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const adminGeralProfiles = `

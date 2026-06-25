@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+﻿import { Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MedicalExamsService } from './medical-exams.service';
 import { MedicalExam } from './entities/medical-exam.entity';
@@ -59,6 +59,7 @@ const makeService = () => {
       (input: Partial<MedicalExam>) => ({ ...input }) as MedicalExam,
     ),
     remove: jest.fn().mockResolvedValue(undefined),
+    softDelete: jest.fn().mockResolvedValue(undefined),
     createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
@@ -292,7 +293,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
 
       await service.remove(EXAM_ID);
 
-      expect(repository.remove).toHaveBeenCalledWith(exam);
+      expect(repository.softDelete).toHaveBeenCalledWith(exam.id);
     });
 
     it('lança NotFoundException ao remover exame inexistente', async () => {

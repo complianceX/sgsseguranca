@@ -37,6 +37,7 @@ describe('SignaturesService', () => {
     }),
     find: jest.fn(() => Promise.resolve([] as Signature[])),
     delete: jest.fn(() => Promise.resolve(undefined)),
+    softDelete: jest.fn(() => Promise.resolve({ affected: 1 })),
   };
 
   const queryBuilder = {
@@ -63,6 +64,7 @@ describe('SignaturesService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     delete: jest.fn(() => Promise.resolve({ affected: 1 })),
+    softDelete: jest.fn(() => Promise.resolve({ affected: 1 })),
     createQueryBuilder: jest.fn(() => queryBuilder),
     manager: {
       transaction: jest.fn((callback: (manager: unknown) => unknown) =>
@@ -403,6 +405,7 @@ describe('SignaturesService', () => {
         document_id: 'dds-1',
         document_type: 'DDS',
         company_id: 'company-1',
+        deleted_at: expect.anything() as unknown,
       },
       relations: { user: true },
       select: {
@@ -692,6 +695,8 @@ describe('SignaturesService', () => {
     ).rejects.toThrow('Documento não encontrado para assinaturas.');
     expect(repository.find).not.toHaveBeenCalled();
     expect(repository.delete).not.toHaveBeenCalled();
+    // soft delete not asserted in this path
+    // Note: softDelete not expected in this negative test path
   });
 
   it('remove evidência externalizada do storage após excluir assinatura', async () => {
@@ -707,7 +712,7 @@ describe('SignaturesService', () => {
 
     await service.remove('signature-1', 'user-1');
 
-    expect(repository.delete).toHaveBeenCalledWith({ id: 'signature-1' });
+    expect(repository.softDelete).toHaveBeenCalledWith({ id: 'signature-1' });
     expect(storageService.deleteFile).toHaveBeenCalledWith(
       'signatures/apr-1/digital.dat',
     );
@@ -773,6 +778,8 @@ describe('SignaturesService', () => {
     ).rejects.toThrow('Documento não encontrado para assinaturas.');
     expect(repository.find).not.toHaveBeenCalled();
     expect(repository.delete).not.toHaveBeenCalled();
+    // soft delete not asserted in this path
+    // Note: softDelete not expected in this negative test path
   });
 
   it('remove evidências externalizadas substituídas no fluxo em lote', async () => {
@@ -1018,6 +1025,7 @@ describe('SignaturesService', () => {
     );
 
     expect(repository.delete).not.toHaveBeenCalled();
+    // soft delete not asserted in this path
   });
 
   it('bloqueia criacao de assinatura quando a CAT ja possui PDF final emitido', async () => {

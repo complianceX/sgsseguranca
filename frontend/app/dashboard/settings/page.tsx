@@ -27,6 +27,7 @@ import {
   Construction,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
 import { ptsService, PtApprovalRules } from '@/services/ptsService';
@@ -159,15 +160,15 @@ const timerRef = useRef<number | undefined>(undefined);
   const [exportingMyData, setExportingMyData] = useState(false);
 
   const managementLinks = [
-    { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, permission: 'can_manage_users' },
+    { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, permission: Permission.CAN_MANAGE_USERS },
     { label: 'Empresas', href: '/dashboard/companies', icon: Building2, adminOnly: true },
-    { label: 'Obras/Setores', href: '/dashboard/sites', icon: Map, permission: 'can_manage_sites' },
+    { label: 'Obras/Setores', href: '/dashboard/sites', icon: Map, permission: Permission.CAN_MANAGE_SITES },
     { label: 'Atividades', href: '/dashboard/activities', icon: HardHat, adminOnly: true },
     { label: 'Riscos', href: '/dashboard/risks', icon: AlertTriangle, adminOnly: true },
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
-    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: 'can_view_trainings' },
-    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: 'can_view_medical_exams' },
-    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: 'can_view_epi_assignments' },
+    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: Permission.CAN_VIEW_TRAININGS },
+    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: Permission.CAN_VIEW_MEDICAL_EXAMS },
+    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS },
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
   ];
@@ -178,9 +179,9 @@ const timerRef = useRef<number | undefined>(undefined);
       (!link.permission || hasPermission(link.permission)),
   );
   const occupationalLinks = [
-    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: 'can_view_trainings' },
-    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: 'can_view_medical_exams' },
-    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: 'can_view_epi_assignments' },
+    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: Permission.CAN_VIEW_TRAININGS },
+    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: Permission.CAN_VIEW_MEDICAL_EXAMS },
+    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS },
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
   ].filter(
     (link) =>
@@ -197,7 +198,7 @@ const timerRef = useRef<number | undefined>(undefined);
       icon: Users,
       status: 'Ativo',
       visible:
-        hasPermission('can_manage_users') &&
+        hasPermission(Permission.CAN_MANAGE_USERS) &&
         isTemporarilyVisibleDashboardRoute('/dashboard/users'),
     },
     {
@@ -206,7 +207,7 @@ const timerRef = useRef<number | undefined>(undefined);
       description: 'Acompanhamento de janelas, vencimentos e carga operacional.',
       href: '/dashboard/calendar',
       icon: Clock3,
-      status: hasPermission('can_view_dashboard') ? 'Ativo' : 'Sem acesso',
+      status: hasPermission(Permission.CAN_VIEW_DASHBOARD) ? 'Ativo' : 'Sem acesso',
       visible:
         isTemporarilyVisibleDashboardRoute('/dashboard/calendar'),
     },
@@ -226,7 +227,7 @@ const timerRef = useRef<number | undefined>(undefined);
       description: 'Monitoramento centralizado de pendências críticas e riscos de prazo.',
       href: '/dashboard/document-pendencies',
       icon: ShieldCheck,
-      status: hasPermission('can_view_dashboard') ? 'Ativo' : 'Sem acesso',
+      status: hasPermission(Permission.CAN_VIEW_DASHBOARD) ? 'Ativo' : 'Sem acesso',
       visible:
         isTemporarilyVisibleDashboardRoute('/dashboard/document-pendencies'),
     },
@@ -236,7 +237,7 @@ const timerRef = useRef<number | undefined>(undefined);
       description: 'Destino de alertas por e-mail, periodicidade e escalonamento.',
       href: '#notificacoes-corporativas',
       icon: BellRing,
-      status: hasPermission('can_manage_mail') ? 'Ativo' : 'Sem acesso',
+      status: hasPermission(Permission.CAN_MANAGE_MAIL) ? 'Ativo' : 'Sem acesso',
       visible: true,
     },
     {
@@ -294,7 +295,7 @@ useEffect(() => {
   }, [user?.company_id]);
 
   useEffect(() => {
-    if (!hasPermission('can_use_ai')) return;
+    if (!hasPermission(Permission.CAN_USE_AI)) return;
     let active = true;
 
     consentsService
@@ -338,7 +339,7 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!hasPermission('can_manage_pt')) return;
+    if (!hasPermission(Permission.CAN_MANAGE_PT)) return;
     let active = true;
     const loadApprovalRules = async () => {
       try {
@@ -361,7 +362,7 @@ useEffect(() => {
   }, [hasPermission]);
 
   useEffect(() => {
-    if (!hasPermission('can_manage_mail')) return;
+    if (!hasPermission(Permission.CAN_MANAGE_MAIL)) return;
     let active = true;
 
     const loadAlertSettings = async () => {
@@ -567,7 +568,7 @@ useEffect(() => {
   };
 
   const handleSaveAlertSettings = async () => {
-    if (!hasPermission('can_manage_mail')) {
+    if (!hasPermission(Permission.CAN_MANAGE_MAIL)) {
       toast.error('Seu perfil não possui permissão para editar alertas.');
       return;
     }
@@ -621,7 +622,7 @@ useEffect(() => {
   };
 
   const handleDispatchCorporateAlerts = async () => {
-    if (!hasPermission('can_manage_mail')) {
+    if (!hasPermission(Permission.CAN_MANAGE_MAIL)) {
       toast.error('Seu perfil não possui permissão para disparar alertas.');
       return;
     }
@@ -657,7 +658,7 @@ useEffect(() => {
   };
 
   const handlePreviewCorporateAlerts = async () => {
-    if (!hasPermission('can_manage_mail')) {
+    if (!hasPermission(Permission.CAN_MANAGE_MAIL)) {
       toast.error('Seu perfil não possui permissão para visualizar alertas.');
       return;
     }
@@ -735,9 +736,9 @@ useEffect(() => {
         </div>
       </div>
 
-      {hasPermission('can_use_ai') ? <SophieStatusCard /> : null}
+      {hasPermission(Permission.CAN_USE_AI) ? <SophieStatusCard /> : null}
 
-      {hasPermission('can_use_ai') && (
+      {hasPermission(Permission.CAN_USE_AI) && (
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Privacidade — Processamento por IA</h2>
           <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
@@ -1163,7 +1164,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <UserModuleAccessManager enabled={isAdmin && hasPermission('can_manage_users')} />
+          <UserModuleAccessManager enabled={isAdmin && hasPermission(Permission.CAN_MANAGE_USERS)} />
 
           <div
             id="notificacoes-corporativas"
@@ -1176,7 +1177,7 @@ useEffect(() => {
               Configure destinatários padrão e automação sem depender de novo deploy.
             </p>
 
-            {hasPermission('can_manage_mail') ? (
+            {hasPermission(Permission.CAN_MANAGE_MAIL) ? (
               <div className="mt-4 space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-2 text-sm">
@@ -1559,7 +1560,7 @@ useEffect(() => {
             )}
           </div>
 
-          {hasPermission('can_manage_pt') && (
+          {hasPermission(Permission.CAN_MANAGE_PT) && (
             <div
               id="regras-pt"
               className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm"

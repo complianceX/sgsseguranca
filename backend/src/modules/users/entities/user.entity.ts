@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -31,7 +31,7 @@ export class User {
   @Column()
   nome: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true, select: false })
   cpf: string | null;
 
   @Column({ type: 'varchar', length: 64, nullable: true, select: false })

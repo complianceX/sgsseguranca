@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
-import { Permission } from '@/lib/permissions';
+import { Permission, type AppPermission } from '@/lib/permissions';
 import {
   AlertCircle,
   AlertTriangle,
@@ -49,7 +49,7 @@ type MenuEntry = {
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   requiresAi?: boolean;
-  permission?: string;
+  permission?: AppPermission;
 };
 
 type MenuSection = {
@@ -67,10 +67,10 @@ const menuSections: MenuSection[] = [
     items: [
       { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
       { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: 'can_manage_sites' },
+      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: Permission.CAN_MANAGE_SITES },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: 'can_manage_users' },
-      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: 'can_view_calendar' },
+      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: Permission.CAN_MANAGE_USERS },
+      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: Permission.CAN_VIEW_CALENDAR },
     ],
   },
   {
@@ -83,18 +83,23 @@ const menuSections: MenuSection[] = [
         icon: CalendarDays,
         label: 'Início do Dia',
         href: '/dashboard/dids',
-        permission: 'can_view_dids',
+        permission: Permission.CAN_VIEW_DIDS,
       },
       {
         icon: AlertTriangle,
         label: 'ARR',
         href: '/dashboard/arrs',
-        permission: 'can_view_arrs',
+        permission: Permission.CAN_VIEW_ARRS,
       },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: 'can_view_expenses' },
-      { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
+      { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: Permission.CAN_VIEW_EXPENSES },
+      {
+        icon: AlertTriangle,
+        label: 'Não conformidades',
+        href: '/dashboard/nonconformities',
+        permission: Permission.CAN_VIEW_NC,
+      },
       { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
       { icon: Sparkles, label: 'SOPHIE', href: '/dashboard/sst-agent', requiresAi: true },
     ],
@@ -181,37 +186,37 @@ const menuSections: MenuSection[] = [
         icon: FileText,
         label: 'Normativos',
         href: '/dashboard/checklist-models/normativos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: FileText,
         label: 'Operacionais',
         href: '/dashboard/checklist-models/operacionais',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: Settings,
         label: 'Equipamentos',
         href: '/dashboard/checklist-models/equipamentos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: MapPin,
         label: 'Veículos',
         href: '/dashboard/checklist-models/veiculos',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: Shield,
         label: 'Modelos de EPI',
         href: '/dashboard/checklist-models/epis',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
       {
         icon: ClipboardCheck,
         label: 'Execuções',
         href: '/dashboard/checklists',
-        permission: 'can_view_checklists',
+        permission: Permission.CAN_VIEW_CHECKLISTS,
       },
     ],
   },
@@ -282,15 +287,15 @@ export function Sidebar({
             '/dashboard/document-pendencies',
           ].includes(href);
 
-          if (needsDashboardPermission && !hasPermission('can_view_dashboard')) {
+          if (needsDashboardPermission && !hasPermission(Permission.CAN_VIEW_DASHBOARD)) {
             return false;
           }
 
-          if (href === '/dashboard/risks' && !hasPermission('can_view_risks')) {
+          if (href === '/dashboard/risks' && !hasPermission(Permission.CAN_VIEW_RISKS)) {
             return false;
           }
 
-          if (href === '/dashboard/document-registry' && !hasPermission('can_view_documents_registry')) {
+          if (href === '/dashboard/document-registry' && !hasPermission(Permission.CAN_VIEW_DOCUMENTS_REGISTRY)) {
             return false;
           }
 
@@ -333,7 +338,7 @@ export function Sidebar({
         )}
       />
       <aside
-        aria-label="Navegação principal"
+        aria-label="Menu lateral"
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--chrome-sidebar-border)] bg-[var(--chrome-sidebar-bg-solid)] text-[var(--ds-color-sidebar-text)] shadow-[var(--chrome-sidebar-shadow)] transition-transform duration-300 ease-in-out xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0',
@@ -361,7 +366,7 @@ export function Sidebar({
 
         {/* Nav */}
         <div className="flex-1 overflow-y-auto scroll-smooth px-2 py-3">
-          <nav aria-label="Navegação principal" className="py-1">
+          <nav aria-label="Módulos do sistema" className="py-1">
             {visibleSections.map((section) => {
               const isSectionActive = section.items.some((item) => pathname === item.href);
               const isOpenSection = openSections[section.id] || isSectionActive;
@@ -373,7 +378,7 @@ export function Sidebar({
                     onClick={() => toggleSection(section.id)}
                     aria-expanded={isOpenSection}
                     aria-controls={`sidebar-section-${section.id}`}
-                    className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
+                    className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
                   >
                     <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--chrome-sidebar-section-text)]">
                       {section.label}
@@ -400,7 +405,7 @@ export function Sidebar({
                             onClick={onClose}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                              'mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]',
+                              'mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]',
                               active
                                 ? 'border-[color:var(--chrome-sidebar-item-active-border)] bg-[var(--chrome-sidebar-item-active-bg)] text-[var(--ds-color-sidebar-text)]'
                                 : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--chrome-sidebar-item-hover-border)] hover:bg-[var(--chrome-sidebar-item-hover-bg)] hover:text-[var(--ds-color-sidebar-text)]',
@@ -446,7 +451,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={logout}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--chrome-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
+              className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors duration-[120ms] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--chrome-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               Sair

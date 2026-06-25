@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -438,6 +438,7 @@ export class DashboardService {
                 'plano_acao',
                 'resultados_nao_conformidades',
               ],
+              take: 100,
             }),
             [],
           ),
@@ -459,6 +460,7 @@ export class DashboardService {
                 'risco_nivel',
                 'anexos',
               ],
+              take: 100,
             }),
             [],
           ),
@@ -2523,7 +2525,16 @@ export class DashboardService {
     companyId: string,
     queryType: DashboardRevalidateQueryType,
   ): string {
-    return `dashboard:${companyId}:${queryType}`;
+    try {
+      const scope = this.getTenantScopeOrThrow();
+      const siteSegment =
+        !scope.isSuperAdmin && scope.siteScope === 'single' && scope.siteId
+          ? `:${scope.siteId}`
+          : '';
+      return `dashboard:${companyId}${siteSegment}:${queryType}`;
+    } catch {
+      return `dashboard:${companyId}:${queryType}`;
+    }
   }
 
   private buildDashboardStaleCacheKey(

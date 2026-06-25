@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -153,6 +153,7 @@ export class MedicalExamsService {
       'observacoes',
       'resultado_auditoria',
       'notas_auditoria',
+      'resultado',
     ] as const;
 
     const next = { ...payload } as Record<string, unknown>;
@@ -169,6 +170,7 @@ export class MedicalExamsService {
   }
 
   private decryptExamSensitiveFields(exam: MedicalExam): MedicalExam {
+    exam.resultado = decryptSensitiveValue(exam.resultado) ?? exam.resultado;
     exam.medico_responsavel = decryptSensitiveValue(exam.medico_responsavel);
     exam.crm_medico = decryptSensitiveValue(exam.crm_medico);
     exam.observacoes = decryptSensitiveValue(exam.observacoes);
@@ -425,7 +427,7 @@ export class MedicalExamsService {
 
   async remove(id: string): Promise<void> {
     const exam = await this.findOne(id);
-    await this.medicalExamsRepository.remove(exam);
+    await this.medicalExamsRepository.softDelete(exam.id);
   }
 
   async findExpirySummary() {

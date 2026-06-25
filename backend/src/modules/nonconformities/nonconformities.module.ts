@@ -8,10 +8,11 @@ import { Company } from '../companies/entities/company.entity';
 import { AuditModule } from '../audit-trail/audit.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { Site } from '../sites/entities/site.entity';
+import { Checklist } from '../checklists/entities/checklist.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NonConformity, Company, Site]),
+    TypeOrmModule.forFeature([NonConformity, Company, Site, Checklist]),
     CommonModule,
     AuditModule,
     DocumentRegistryModule,

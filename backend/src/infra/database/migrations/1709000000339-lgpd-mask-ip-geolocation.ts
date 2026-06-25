@@ -1,11 +1,11 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const isSqlite = (qr: QueryRunner) =>
   qr.connection.options.type === 'sqlite' ||
   qr.connection.options.type === 'better-sqlite3';
 
-export class LgpdMaskIpGeolocation1709000000204 implements MigrationInterface {
-  name = 'LgpdMaskIpGeolocation1709000000204';
+export class LgpdMaskIpGeolocation1709000000339 implements MigrationInterface {
+  name = 'LgpdMaskIpGeolocation1709000000339';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (isSqlite(queryRunner)) {

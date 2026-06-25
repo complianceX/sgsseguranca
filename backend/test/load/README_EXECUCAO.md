@@ -196,3 +196,133 @@ $env:REQUIRE_STORAGE="false"
 $env:K6_USERS_JSON=(Get-Content "test/load/fixtures/dds-users.publish.valid.local.generated.json" -Raw)
 npm run loadtest:dds:soak
 ```
+
+## 9) Emissão rápida de DDS (para caçar bugs) — 50 DDSs
+
+Script TypeScript simples (um único usuário autenticado) para emitir N DDSs rapidamente, fazendo:
+
+- POST /dds (create)
+- PATCH /dds/:id/status → publicado
+- POST /dds/:id/file (PDF mínimo)
+
+Útil para:
+
+- Validar fluxo completo de emissão antes de release
+- Pegar erros de validação, RLS, storage, CSRF, rate-limit, status machine etc.
+- Testes manuais de 20~200 DDSs
+
+### Como rodar (PowerShell)
+
+```powershell
+cd backend
+
+# Configurar credenciais (use um TST / ADMIN_EMPRESA / SUPERVISOR)
+$env:BASE_URL="http://localhost:3001"
+$env:DDS_TEST_CPF="00000000000"          # 11 dígitos, sem máscara
+$env:DDS_TEST_PASSWORD="sua-senha-aqui"
+
+# Opcional: MFA
+# $env:DDS_TEST_MFA_CODE="123456"
+# $env:DDS_TEST_MFA_SECRET="base32secret..."   # para gerar TOTP automaticamente
+
+# Quantidade (padrão 50)
+$env:DDS_EMIT_COUNT="50"
+
+npm run loadtest:dds:emit-50
+```
+
+Se der erro de CSRF/login/MFA, o script imprime a causa claramente.
+
+O script continua executando todos os 50 e no final reporta quantos falharam + detalhes da primeira linha do erro de cada um.
+
+Exemplos de falhas que ele ajuda a pegar:
+
+- 403 no publish (role/permissão)
+- Erro de site_id ou facilitador_id não pertencendo ao tenant
+- Problemas no attach de PDF (tamanho, inspeção ClamAV, storage)
+- Rate limiting / throttle por tenant
+- Problemas de CSRF ou header x-company-id
+- Erros de data / validação de DTO
+
+### Dicas
+
+- Rode contra `localhost` com `npm run start:dev` no backend.
+- Para rodar contra staging, ajuste `BASE_URL`.
+- Se quiser rodar só 5 para depurar: `$env:DDS_EMIT_COUNT="5"`
+- Após rodar, verifique no dashboard ou listagem de DDSs da empresa que os registros apareceram corretamente.
+
+## 10) Emissão em lote com múltiplos usuários (carga real)
+
+Script `dds-emit-batch.ts` para gerar **muito mais DDS** usando um pool de usuários válidos.
+
+Características:
+- Carrega usuários de `dds-users.publish.valid.*.json` (ou qualquer arquivo com cpf/password/companyId/siteId)
+- Cada usuário faz login independente (com CSRF corrigido)
+- Suporta concorrência (padrão 6)
+- Total configurável (padrão 200)
+- Reutiliza usuários em round-robin
+- Foco em create + publicar (o fluxo principal de emissão)
+
+### Preparação de usuários (recomendado)
+
+```powershell
+cd backend
+$env:BASE_URL="http://localhost:3001"
+$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.120.json"
+$env:DDS_VALID_USERS_OUTPUT_FILE="test/load/fixtures/dds-users.publish.valid.local.generated.json"
+$env:MIN_VALID_USERS="10"
+npm run loadtest:dds:users:build
+```
+
+Isso gera um pool validado (create + publish permitido).
+
+### Como rodar carga maior
+
+```powershell
+cd backend
+
+$env:BASE_URL="http://localhost:3001"
+$env:DDS_USERS_FILE="test/load/fixtures/dds-users.publish.valid.local.generated.json"
+
+# Quantidade total de DDS
+$env:DDS_BATCH_TOTAL="300"
+
+# Quantos em paralelo (cuidado com rate limit / DB)
+$env:DDS_BATCH_CONCURRENCY="8"
+
+npm run loadtest:dds:emit-batch
+```
+
+Exemplos úteis:
+
+- Carga moderada: `DDS_BATCH_TOTAL=200` + `CONCURRENCY=5`
+- Carga pesada: `DDS_BATCH_TOTAL=800` + `CONCURRENCY=10` (se o pool tiver usuários suficientes)
+- Teste rápido com poucos usuários: use o arquivo com 5-10 usuários e alto TOTAL
+
+O script reporta:
+- Sucessos x falhas
+- Tempo total
+- Amostra das falhas com motivo
+
+Erros comuns que ele pega em escala:
+- Concorrência / locks em status ou approval
+- Rate limit por tenant
+- Problemas de RLS / company isolation quando usuários de empresas diferentes
+- Lentidão em publish (DB/Redis)
+- Validações de site/facilitador/participantes em massa
+
+### Dicas para mais carga
+
+- Gere um pool maior rodando o builder com `login-users.120.json` ou mais.
+- Monitore o backend (logs, CPU, conexões DB) durante a execução.
+- Se quiser também PDF final, você precisará completar o fluxo de aprovação (inicializar + aprovar com PIN).
+- Para testes de carga mais realistas (com ramp, think time etc), use os scripts k6 (`loadtest:dds:*`).
+
+Se quiser, posso ajustar o script para:
+- Gerar automaticamente mais usuários
+- Incluir fluxo completo de aprovação + PDF
+- Exportar relatório detalhado por usuário
+- Adicionar delays aleatórios entre criações
+
+É só pedir!
+```

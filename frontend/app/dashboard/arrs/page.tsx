@@ -50,6 +50,7 @@ import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { cn } from '@/lib/utils';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const SendMailModal = dynamic(
@@ -69,8 +70,8 @@ const TURNO_LABEL: Record<string, string> = {
 
 export default function ArrsPage() {
   const { hasPermission } = usePermissions();
-  const canViewArrs = hasPermission('can_view_arrs');
-  const canManageArrs = hasPermission('can_manage_arrs');
+  const canViewArrs = hasPermission(Permission.CAN_VIEW_ARRS);
+  const canManageArrs = hasPermission(Permission.CAN_MANAGE_ARRS);
   const [arrs, setArrs] = useState<Arr[]>([]);
 const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);

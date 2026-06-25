@@ -9,6 +9,7 @@
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
+import { User } from '../../users/entities/user.entity';
 
 type MonthlyReportStatsSnapshot = {
   aprs_count: number;
@@ -63,6 +64,13 @@ export class Report {
 
   @Column()
   company_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  generated_by?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'generated_by' })
+  generatedBy?: User;
 
   @CreateDateColumn()
   created_at: Date;
