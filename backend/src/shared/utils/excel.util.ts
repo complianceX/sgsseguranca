@@ -8,6 +8,25 @@ function toExcelJsBuffer(buffer: Buffer): ExcelJS.Buffer {
 }
 
 /**
+ * Neutralizes Excel formula injection for user-controlled string cells.
+ * Prefixes with apostrophe any value starting with = + - @ TAB CR,
+ * which would otherwise be interpreted as a formula by Excel/LibreOffice.
+ */
+export function sanitizeExcelCell(value: unknown): unknown {
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/**
+ * Sanitizes all string cells in a row array against formula injection.
+ */
+function sanitizeRow(row: unknown[]): unknown[] {
+  return row.map(sanitizeExcelCell);
+}
+
+/**
  * Utility functions to generate Excel buffers using ExcelJS.
  * Replaces the vulnerable `xlsx` package (Prototype Pollution + ReDoS).
  */
@@ -27,7 +46,11 @@ export async function jsonToExcelBuffer(
     const keys = Object.keys(rows[0]);
     worksheet.columns = keys.map((key) => ({ header: key, key, width: 20 }));
     for (const row of rows) {
-      worksheet.addRow(row);
+      const sanitized: Record<string, unknown> = {};
+      for (const key of keys) {
+        sanitized[key] = sanitizeExcelCell(row[key]);
+      }
+      worksheet.addRow(sanitized);
     }
   }
 
@@ -58,7 +81,7 @@ export async function aoaToExcelBuffer(
     const worksheet = workbook.addWorksheet(sheet.name);
 
     for (const row of sheet.rows) {
-      worksheet.addRow(row);
+      worksheet.addRow(sanitizeRow(row));
     }
 
     if (sheet.colWidths) {

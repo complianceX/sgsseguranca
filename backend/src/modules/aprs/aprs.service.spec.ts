@@ -1428,7 +1428,7 @@ describe('AprsService', () => {
         original_name: 'evidence.jpg',
         mime_type: 'image/jpeg',
         file_size_bytes: 5,
-        ip_address: '127.0.0.1',
+        ip_address: '127.0.0.0', // /24 mascarado por maskIpAddress
       }),
     );
   });
