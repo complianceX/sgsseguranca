@@ -35,6 +35,9 @@ describe("aprDraftStorage", () => {
       numero: "APR-001",
       titulo: "APR Estrutural",
       company_id: "company-1",
+      // participants passam a ser persistidos no rascunho (apenas IDs — não é
+      // material de assinatura nem PII) para preservar a seleção ao restaurar.
+      participants: ["user-1"],
       itens_risco: [
         {
           atividade_processo: "Corte",
@@ -43,7 +46,9 @@ describe("aprDraftStorage", () => {
       ],
     });
     expect("pdf_signed" in sanitized).toBe(false);
-    expect("participants" in sanitized).toBe(false);
+    // participants agora é persistido (o toEqual estrito acima já garante que
+    // cpf/evidencia_foto/token/private_url dos itens de risco foram removidos).
+    expect("participants" in sanitized).toBe(true);
   });
 
   it("migra rascunho legado removendo assinaturas persistidas", () => {

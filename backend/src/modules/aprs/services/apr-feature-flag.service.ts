@@ -25,7 +25,10 @@ export class AprFeatureFlagService {
     }
 
     const value = await this.fetchFromDb(key, tenantId);
-    this.cache.set(cacheKey, { value, expiresAt: Date.now() + FLAG_CACHE_TTL_MS });
+    this.cache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + FLAG_CACHE_TTL_MS,
+    });
     return value;
   }
 

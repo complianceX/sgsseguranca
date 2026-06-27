@@ -80,9 +80,7 @@ export class AprsEvidenceService {
     return createHmac('sha256', key).update(deviceId.trim()).digest('hex');
   }
 
-  private roundCoordinate(
-    value: number | null | undefined,
-  ): number | null {
+  private roundCoordinate(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     return Math.round(value * 100) / 100; // 2 casas decimais (~1km precision)
   }
@@ -320,15 +318,13 @@ export class AprsEvidenceService {
     const evidence = await this.tenantService.run(
       { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
       () =>
-        this.aprsRepository.manager
-          .getRepository(AprRiskEvidence)
-          .findOne({
-            where: [
-              { hash_sha256: normalizedHash },
-              { watermarked_hash_sha256: normalizedHash },
-            ],
-            select: ['id', 'hash_sha256', 'watermarked_hash_sha256'],
-          }),
+        this.aprsRepository.manager.getRepository(AprRiskEvidence).findOne({
+          where: [
+            { hash_sha256: normalizedHash },
+            { watermarked_hash_sha256: normalizedHash },
+          ],
+          select: ['id', 'hash_sha256', 'watermarked_hash_sha256'],
+        }),
     );
 
     if (!evidence) {

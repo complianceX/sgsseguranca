@@ -17,9 +17,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *      (prevents a global config from being scoped to a specific site)
  */
 
-export class AprIndexesConstraintsGdprEvidence1709000000342
-  implements MigrationInterface
-{
+export class AprIndexesConstraintsGdprEvidence1709000000342 implements MigrationInterface {
   public transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
