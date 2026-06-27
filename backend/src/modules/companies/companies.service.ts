@@ -35,6 +35,7 @@ import { DDS_THEME_LIBRARY } from '../dds/templates/dds-theme-library';
 import { detectMimeFromMagicBytes } from '../../shared/utils/detect-mime.util';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 
 type ParsedDataUrl = {
   contentType: string;
@@ -73,7 +74,26 @@ export class CompaniesService {
     private readonly storageService: StorageService,
     private readonly gdprDeletionService: GDPRDeletionService,
     private readonly fileInspectionService: FileInspectionService,
+    private readonly tenantService: TenantService,
   ) {}
+
+  /**
+   * Executa um callback em contexto super-admin global (RLS bypass).
+   *
+   * Operações inerentemente cross-tenant (enumeração/atualização de empresas
+   * por crons/schedulers) rodam SEM contexto de tenant. Como a tabela
+   * `companies` tem RLS `id = current_company() OR is_super_admin()`, sem este
+   * wrap a RLS filtraria tudo e os jobs (retenção, expiry, SLA, expiração de
+   * trial) seriam enfileirados/atualizados com 0 linhas — silenciosamente.
+   */
+  private runAsGlobalSuperAdmin<T>(callback: () => Promise<T>): Promise<T> {
+    return Promise.resolve(
+      this.tenantService.run(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        callback,
+      ),
+    );
+  }
 
   async create(
     createCompanyDto: DeepPartial<Company>,
@@ -272,14 +292,16 @@ export class CompaniesService {
 
   /** Marca como trial_expired todos os trials expirados. Retorna a quantidade atualizada. */
   async markExpiredTrials(): Promise<number> {
-    const result = await this.companiesRepository
-      .createQueryBuilder()
-      .update(Company)
-      .set({ account_status: 'trial_expired' as const })
-      .where('account_status = :status', { status: 'trialing' })
-      .andWhere('trial_ends_at IS NOT NULL')
-      .andWhere('trial_ends_at < :now', { now: new Date() })
-      .execute();
+    const result = await this.runAsGlobalSuperAdmin(() =>
+      this.companiesRepository
+        .createQueryBuilder()
+        .update(Company)
+        .set({ account_status: 'trial_expired' as const })
+        .where('account_status = :status', { status: 'trialing' })
+        .andWhere('trial_ends_at IS NOT NULL')
+        .andWhere('trial_ends_at < :now', { now: new Date() })
+        .execute(),
+    );
 
     if ((result.affected ?? 0) > 0) {
       await this.cacheManager.del('companies:all');
@@ -301,19 +323,21 @@ export class CompaniesService {
     );
     const windowEnd = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 
-    return this.companiesRepository
-      .createQueryBuilder('company')
-      .select([
-        'company.id',
-        'company.razao_social',
-        'company.email_contato',
-        'company.trial_ends_at',
-      ])
-      .where('company.account_status = :status', { status: 'trialing' })
-      .andWhere('company.status = true')
-      .andWhere('company.trial_ends_at >= :windowStart', { windowStart })
-      .andWhere('company.trial_ends_at < :windowEnd', { windowEnd })
-      .getMany();
+    return this.runAsGlobalSuperAdmin(() =>
+      this.companiesRepository
+        .createQueryBuilder('company')
+        .select([
+          'company.id',
+          'company.razao_social',
+          'company.email_contato',
+          'company.trial_ends_at',
+        ])
+        .where('company.account_status = :status', { status: 'trialing' })
+        .andWhere('company.status = true')
+        .andWhere('company.trial_ends_at >= :windowStart', { windowStart })
+        .andWhere('company.trial_ends_at < :windowEnd', { windowEnd })
+        .getMany(),
+    );
   }
 
   /** Ativa uma empresa (trialing/trial_expired/suspended → active). */
@@ -399,10 +423,12 @@ export class CompaniesService {
       return cached;
     }
 
-    const companies = await this.companiesRepository.find({
-      select: ['id'],
-      where: { status: true },
-    });
+    const companies = await this.runAsGlobalSuperAdmin(() =>
+      this.companiesRepository.find({
+        select: ['id'],
+        where: { status: true },
+      }),
+    );
     await this.cacheManager.set(cacheKey, companies, 60 * 60 * 1000);
     return companies;
   }

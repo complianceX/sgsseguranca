@@ -26,8 +26,18 @@ export interface RLSValidationResult {
   error?: string;
 }
 
+interface QueryRunnerLike {
+  connect(): Promise<unknown>;
+  startTransaction(): Promise<void>;
+  commitTransaction(): Promise<void>;
+  rollbackTransaction(): Promise<void>;
+  release(): Promise<void>;
+  query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>;
+}
+
 type QueryableDataSource = {
   query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>;
+  createQueryRunner(): QueryRunnerLike;
 };
 
 interface TableExistsRow {
@@ -51,7 +61,17 @@ interface ActivityCountRow {
   count: string;
 }
 
-const CRITICAL_TABLES = [
+interface TenantTableRow {
+  table_name?: string;
+}
+
+/**
+ * Baseline obrigatório de tabelas que DEVEM ter RLS, independentemente da
+ * descoberta dinâmica. Tabelas de identidade/segurança que não possuem coluna
+ * `company_id` (e portanto não apareceriam na descoberta por coluna) precisam
+ * estar aqui explicitamente.
+ */
+const MANDATORY_TABLES = [
   'activities',
   'companies',
   'audit_logs',
@@ -91,6 +111,46 @@ export class RLSValidationService {
   }
 
   /**
+   * Descobre dinamicamente todas as tabelas multi-tenant (com coluna
+   * `company_id` ou `empresa_id`) e une ao baseline obrigatório.
+   *
+   * Motivação: a lista hardcoded cobria apenas 17 tabelas, deixando as tabelas
+   * operacionais centrais (aprs, pts, dds, signatures, medical_exams, etc.) sem
+   * validação — gerando falsa garantia de "secure". A descoberta dinâmica
+   * acompanha o schema sem depender de manutenção manual e detecta tabelas
+   * tenant novas que tenham nascido sem RLS.
+   *
+   * Fail-safe: se a descoberta falhar, retorna ao menos o baseline obrigatório.
+   */
+  private async resolveTablesToValidate(): Promise<string[]> {
+    const tables = new Set<string>(MANDATORY_TABLES);
+    try {
+      const rows = await this.queryRows<TenantTableRow>(
+        `
+        SELECT DISTINCT table_name
+        FROM information_schema.columns
+        WHERE table_schema = $1
+          AND column_name IN ('company_id', 'empresa_id')
+        ORDER BY table_name
+      `,
+        ['public'],
+      );
+      for (const row of rows) {
+        if (typeof row?.table_name === 'string' && row.table_name.length > 0) {
+          tables.add(row.table_name);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[RLS] Descoberta dinâmica de tabelas tenant falhou; usando apenas baseline obrigatório - ${this.getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+    return [...tables];
+  }
+
+  /**
    * Valida UUID v4 antes de qualquer uso em query.
    * Evita SQL injection por interpolação de string.
    */
@@ -114,8 +174,9 @@ export class RLSValidationService {
     this.logger.log('[RLS] Validating Row Level Security policies...');
 
     const results: RLSValidationResult[] = [];
+    const tablesToValidate = await this.resolveTablesToValidate();
 
-    for (const table of CRITICAL_TABLES) {
+    for (const table of tablesToValidate) {
       try {
         const tableExists = await this.queryRows<TableExistsRow>(
           `
@@ -238,21 +299,41 @@ export class RLSValidationService {
 
     this.logger.log('[CrossTenant] Testing isolation between companies...');
 
+    const queryRunner = this.dataSource.createQueryRunner();
+
     try {
-      // Usa SELECT set_config parametrizado em vez de interpolação de string.
-      // Isso garante que nenhum valor externo é concatenado ao SQL.
-      await this.queryRows(
-        `SELECT set_config('app.current_company', $1, true)`,
-        [userCompanyId],
-      );
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
 
-      // Query parametrizada: otherCompanyId não é interpolado, é $1 bound param
-      const result = await this.queryRows<ActivityCountRow>(
-        `SELECT COUNT(*) as count FROM activities WHERE company_id = $1::uuid`,
-        [otherCompanyId],
-      );
+      let visibleCount: number;
+      try {
+        // Define o contexto do tenant "userCompanyId" como usuário COMUM
+        // (is_super_admin = false → sem bypass de RLS), escopado à transação
+        // (is_local = true). Sem isso, o patch de pool poderia deixar o contexto
+        // do admin chamador ativo e a query veria todos os tenants (falso
+        // resultado). set_config é parametrizado → sem SQL injection.
+        await queryRunner.query(
+          `SELECT
+             set_config('app.current_company_id', $1, true),
+             set_config('app.current_company',    $1, true),
+             set_config('app.is_super_admin',     'false', true)`,
+          [userCompanyId],
+        );
 
-      const visibleCount = Number.parseInt(result[0]?.count ?? '0', 10);
+        // otherCompanyId é $1 bound param (nunca interpolado). Se o RLS funciona,
+        // as linhas de outro tenant ficam invisíveis para esta sessão → COUNT = 0.
+        const result = await queryRunner.query<ActivityCountRow>(
+          `SELECT COUNT(*) as count FROM activities WHERE company_id = $1::uuid`,
+          [otherCompanyId],
+        );
+
+        await queryRunner.commitTransaction();
+        visibleCount = Number.parseInt(result[0]?.count ?? '0', 10);
+      } catch (txError) {
+        await queryRunner.rollbackTransaction();
+        throw txError;
+      }
+
       const expectedCount = 0;
       const isSecure = visibleCount === expectedCount;
 
@@ -305,6 +386,12 @@ export class RLSValidationService {
         ],
         timestamp: new Date().toISOString(),
       };
+    } finally {
+      try {
+        await queryRunner.release();
+      } catch {
+        // ignore release errors
+      }
     }
   }
 
@@ -321,6 +408,8 @@ export class RLSValidationService {
     this.logger.log('[AdminBypass] Checking if admin can bypass RLS...');
 
     try {
+      const tablesToValidate = await this.resolveTablesToValidate();
+
       // Check if FORCE RLS is active
       const forceRLSStatus = await this.queryRows<ForcedCountRow>(
         `
@@ -331,19 +420,19 @@ export class RLSValidationService {
           AND c.relname = ANY($2::text[])
           AND c.relforcerowsecurity = true
       `,
-        ['public', CRITICAL_TABLES],
+        ['public', tablesToValidate],
       );
 
       const forcedCount = Number.parseInt(
         forceRLSStatus[0]?.forced_count ?? '0',
         10,
       );
-      const hasForceRLS = forcedCount === CRITICAL_TABLES.length;
+      const hasForceRLS = forcedCount === tablesToValidate.length;
 
       if (!hasForceRLS) {
         return {
           status: 'vulnerable',
-          message: `FORCE RLS is missing on ${CRITICAL_TABLES.length - forcedCount} critical table(s)`,
+          message: `FORCE RLS is missing on ${tablesToValidate.length - forcedCount} critical table(s)`,
           admin_can_set_super_admin: true,
           recommendation:
             'Enable FORCE ROW LEVEL SECURITY on all critical tables (migrations already done)',

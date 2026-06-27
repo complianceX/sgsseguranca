@@ -322,6 +322,11 @@ export class GDPRDeletionService {
 
     try {
       await this.dataSource.transaction(async (manager: EntityManager) => {
+        // Garante bypass de RLS para o offboarding cross-tenant, independentemente
+        // do tenant que o ADMIN_GERAL chamador tenha selecionado (x-company-id).
+        // Sem isto, as UPDATEs seriam filtradas pela RLS → 0 linhas afetadas
+        // silenciosamente, deixando a exclusão LGPD da empresa sem efeito.
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
         for (const table of tables) {
           failedTable = table;
           const result: unknown = await manager.query(

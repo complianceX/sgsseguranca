@@ -38,7 +38,7 @@ describe('RLSValidationService', () => {
   type QueryFn = (sql: string, params?: unknown[]) => Promise<unknown[]>;
   type QueryMock = jest.MockedFunction<QueryFn>;
 
-  let mockDataSource: { query: QueryMock };
+  let mockDataSource: { query: QueryMock; createQueryRunner: jest.Mock };
 
   const buildSecureQueryMock = (
     overrides?: Partial<{
@@ -96,9 +96,19 @@ describe('RLSValidationService', () => {
   };
 
   beforeEach(async () => {
-    // Mock DataSource
+    // Mock DataSource (inclui createQueryRunner para o teste de isolamento, que
+    // agora roda em transação dedicada via queryRunner; o query do runner delega
+    // ao mesmo mock para preservar as asserções de chamadas).
     mockDataSource = {
       query: jest.fn<Promise<unknown[]>, [string, unknown[]?]>(),
+      createQueryRunner: jest.fn(() => ({
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        commitTransaction: jest.fn().mockResolvedValue(undefined),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+        query: mockDataSource.query,
+      })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -223,6 +233,22 @@ describe('RLSValidationService', () => {
       expect(secondCall[0]).toContain('$1');
       expect(secondCall[0]).not.toContain(VALID_UUID_B);
       expect(secondCall[1]).toEqual(expect.arrayContaining([VALID_UUID_B]));
+    });
+
+    it('configura contexto de tenant comum sem bypass de super-admin (A2-002)', async () => {
+      mockDataSource.query.mockResolvedValue([{ count: '0' }]);
+
+      await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
+
+      const setConfigCall = mockDataSource.query.mock.calls[0] as [
+        string,
+        unknown[],
+      ];
+      // A variável lida por current_company() é app.current_company_id.
+      expect(setConfigCall[0]).toContain('app.current_company_id');
+      // O teste deve rodar como usuário comum, sem bypass de RLS.
+      expect(setConfigCall[0]).toContain('app.is_super_admin');
+      expect(setConfigCall[0]).toContain("'false'");
     });
 
     it('should report SECURE when user cannot see other tenant data', async () => {
