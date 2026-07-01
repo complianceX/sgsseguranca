@@ -2,6 +2,7 @@ import {
   getAccessTokenTtl,
   getAccessTokenTtlMs,
   getLegacyRequestCsrfClearCookieOptions,
+  getLegacyRefreshTokenClearCookieOptions,
   getRequestCsrfCookieOptions,
   getRefreshCsrfCookieOptions,
   getRefreshTokenTtl,
@@ -76,13 +77,13 @@ describe('auth-security.config', () => {
     expect(getRefreshTokenTtlDays()).toBe(2);
   });
 
-  it('mantém refresh_token restrito à rota de refresh', () => {
+  it('envia refresh_token em todas as rotas (necessário para proxy)', () => {
     expect(getRefreshTokenCookieOptions()).toEqual(
       expect.objectContaining({
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
-        path: '/auth/refresh',
+        path: '/',
         domain: '.sgsseguranca.com.br',
       }),
     );
@@ -120,6 +121,18 @@ describe('auth-security.config', () => {
     );
     expect(getLegacyRequestCsrfClearCookieOptions()).not.toHaveProperty(
       'domain',
+    );
+  });
+
+  it('limpa o refresh_token legado em /auth/refresh durante a migração para path amplo', () => {
+    expect(getLegacyRefreshTokenClearCookieOptions()).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/auth/refresh',
+        domain: '.sgsseguranca.com.br',
+      }),
     );
   });
 });

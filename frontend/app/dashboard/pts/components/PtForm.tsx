@@ -417,6 +417,7 @@ export function PtForm({ id }: PtFormProps) {
   const [preApprovalHistory, setPreApprovalHistory] = useState<PtPreApprovalHistoryEntry[]>([]);
   const [preApprovalHistoryLoading, setPreApprovalHistoryLoading] = useState(false);
   const lastHandledAprIdRef = useRef<string>('');
+  const draftAutosaveTimerRef = useRef<number | undefined>(undefined);
   const getFocusHighlightClass = useCallback(
     (target: PtFocusTarget) =>
       focusTarget === target
@@ -979,38 +980,57 @@ export function PtForm({ id }: PtFormProps) {
     [applyPtFlags, filteredAprs, methods, resolvePtRiskFlagsFromText, setValue],
   );
 
-  const saveDraftSnapshot = useCallback(() => {
-    if (!draftStorageKey || typeof window === 'undefined' || id) {
-      return;
-    }
+  const persistDraftSnapshot = useCallback(
+    (
+      options: {
+        values?: Partial<PtFormData>;
+        step?: number;
+        showToast?: boolean;
+      } = {},
+    ) => {
+      if (!draftStorageKey || typeof window === 'undefined' || id) {
+        return;
+      }
 
-    const savedAt = new Date().toISOString();
-    window.localStorage.setItem(
+      const savedAt = new Date().toISOString();
+      const snapshotValues = options.values ?? methods.getValues();
+      const snapshotStep = options.step ?? currentStep;
+
+      window.localStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          savedAt,
+          expiresAt: getSensitiveDraftExpiresAt(savedAt),
+          step: snapshotStep,
+          values: sanitizeSensitiveDraftValue(snapshotValues),
+          signatures: {},
+          metadata: {
+            suggestedRisks: sophieSuggestedRisks,
+            mandatoryChecklists: sophieMandatoryChecklists,
+            riskLevel: sophieRiskLevel,
+          },
+        }),
+      );
+      setDraftSavedAt(savedAt);
+
+      if (options.showToast) {
+        toast.success('Rascunho local da PT atualizado.');
+      }
+    },
+    [
+      currentStep,
       draftStorageKey,
-      JSON.stringify({
-        savedAt,
-        expiresAt: getSensitiveDraftExpiresAt(savedAt),
-        step: currentStep,
-        values: sanitizeSensitiveDraftValue(methods.getValues()),
-        signatures: {},
-        metadata: {
-          suggestedRisks: sophieSuggestedRisks,
-          mandatoryChecklists: sophieMandatoryChecklists,
-          riskLevel: sophieRiskLevel,
-        },
-      }),
-    );
-    setDraftSavedAt(savedAt);
-    toast.success('Rascunho local da PT atualizado.');
-  }, [
-    currentStep,
-    draftStorageKey,
-    id,
-    methods,
-    sophieMandatoryChecklists,
-    sophieRiskLevel,
-    sophieSuggestedRisks,
-  ]);
+      id,
+      methods,
+      sophieMandatoryChecklists,
+      sophieRiskLevel,
+      sophieSuggestedRisks,
+    ],
+  );
+
+  const saveDraftSnapshot = useCallback(() => {
+    persistDraftSnapshot({ showToast: true });
+  }, [persistDraftSnapshot]);
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: PtFormData) => {
@@ -1574,93 +1594,60 @@ export function PtForm({ id }: PtFormProps) {
 
   // APR auto-fill: propaga site_id e responsavel_id quando o usuário seleciona uma APR
   useEffect(() => {
-    if (!selectedAprId) return;
+    if (!selectedAprId || filteredAprs.length === 0) return;
     const apr = filteredAprs.find((a) => a.id === selectedAprId);
     if (!apr) return;
 
     const changes: string[] = [];
     if (!selectedSiteId && apr.site_id) {
-      setValue('site_id', apr.site_id, { shouldDirty: true });
+      setValue('site_id', apr.site_id, { shouldDirty: true, shouldValidate: true });
       changes.push('obra');
     }
-    if (!selectedResponsavelId && apr.elaborador_id) {
-      setValue('responsavel_id', apr.elaborador_id, { shouldDirty: true });
+
+    const responsibleId = apr.elaborador_id || apr.elaborador?.id;
+    if (!selectedResponsavelId && responsibleId) {
+      setValue('responsavel_id', responsibleId, { shouldDirty: true, shouldValidate: true });
       changes.push('responsável');
     }
     if (changes.length > 0) {
       toast.info(`Preenchido automaticamente a partir da APR: ${changes.join(', ')}.`);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAprId]);
+  }, [filteredAprs, selectedAprId, selectedResponsavelId, selectedSiteId, setValue]);
 
   useEffect(() => {
-    if (!draftStorageKey || typeof window === 'undefined' || id) {
+    if (!draftStorageKey || typeof window === 'undefined' || id || fetching) {
       return;
     }
 
     const subscription = methods.watch((values) => {
-      const savedAt = new Date().toISOString();
-      window.localStorage.setItem(
-        draftStorageKey,
-        JSON.stringify({
-          savedAt,
-          expiresAt: getSensitiveDraftExpiresAt(savedAt),
+      if (draftAutosaveTimerRef.current !== undefined) {
+        window.clearTimeout(draftAutosaveTimerRef.current);
+      }
+
+      draftAutosaveTimerRef.current = window.setTimeout(() => {
+        persistDraftSnapshot({
+          values: values as Partial<PtFormData>,
           step: currentStep,
-          values: sanitizeSensitiveDraftValue(values),
-          signatures: {},
-          metadata: {
-            suggestedRisks: sophieSuggestedRisks,
-            mandatoryChecklists: sophieMandatoryChecklists,
-            riskLevel: sophieRiskLevel,
-          },
-        }),
-      );
-      setDraftSavedAt(savedAt);
+        });
+      }, 350);
     });
 
-    return () => subscription.unsubscribe();
-  }, [
-    currentStep,
-    draftStorageKey,
-    id,
-    methods,
-    sophieMandatoryChecklists,
-    sophieRiskLevel,
-    sophieSuggestedRisks,
-    hasPendingSignatureChanges,
-  ]);
+    return () => {
+      subscription.unsubscribe();
+      if (draftAutosaveTimerRef.current !== undefined) {
+        window.clearTimeout(draftAutosaveTimerRef.current);
+        draftAutosaveTimerRef.current = undefined;
+      }
+    };
+  }, [currentStep, draftStorageKey, fetching, id, methods, persistDraftSnapshot]);
 
   useEffect(() => {
-    if (!draftStorageKey || typeof window === 'undefined' || id) {
+    if (!draftStorageKey || typeof window === 'undefined' || id || fetching) {
       return;
     }
 
-    const savedAt = new Date().toISOString();
-    window.localStorage.setItem(
-      draftStorageKey,
-      JSON.stringify({
-        savedAt,
-        expiresAt: getSensitiveDraftExpiresAt(savedAt),
-        step: currentStep,
-        values: sanitizeSensitiveDraftValue(methods.getValues()),
-        signatures: {},
-        metadata: {
-          suggestedRisks: sophieSuggestedRisks,
-          mandatoryChecklists: sophieMandatoryChecklists,
-          riskLevel: sophieRiskLevel,
-        },
-      }),
-    );
-    setDraftSavedAt(savedAt);
-  }, [
-    currentStep,
-    draftStorageKey,
-    id,
-    methods,
-    sophieMandatoryChecklists,
-    sophieRiskLevel,
-    sophieSuggestedRisks,
-  ]);
+    persistDraftSnapshot({ step: currentStep });
+  }, [currentStep, draftStorageKey, fetching, id, persistDraftSnapshot]);
 
   const toggleExecutante = useCallback((userId: string) => {
     const selectedExecutanteIds = methods.getValues('executantes') || [];
