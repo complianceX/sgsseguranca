@@ -2,6 +2,7 @@
 
 ## Architecture Baseline
 - [architecture/README.md](./architecture/README.md)
+- [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md)
 - [architecture/AUDIT-2026-03-remediation-roadmap.md](./architecture/AUDIT-2026-03-remediation-roadmap.md)
 
 ## Consulta Rapida
