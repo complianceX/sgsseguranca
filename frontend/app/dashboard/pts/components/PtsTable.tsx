@@ -45,6 +45,12 @@ interface PtsTableProps {
   ) => void;
 }
 
+const EMPTY_APPROVAL_CHECKLIST: PtApprovalChecklistState = {
+  reviewedReadiness: false,
+  reviewedWorkers: false,
+  confirmedRelease: false,
+};
+
 export const PtsTable = React.memo(
   ({
     pts,
@@ -115,11 +121,7 @@ export const PtsTable = React.memo(
                   approvalIssue={approvalIssuesById[pt.id]}
                   approvalReview={approvalReviewById[pt.id]}
                   approvalChecklist={
-                    approvalChecklistById[pt.id] || {
-                      reviewedReadiness: false,
-                      reviewedWorkers: false,
-                      confirmedRelease: false,
-                    }
+                    approvalChecklistById[pt.id] || EMPTY_APPROVAL_CHECKLIST
                   }
                   onDismissApprovalIssue={onDismissApprovalIssue}
                   onDismissApprovalReview={onDismissApprovalReview}
