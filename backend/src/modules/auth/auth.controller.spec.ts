@@ -279,6 +279,10 @@ describe('AuthController security hardening', () => {
       'refresh_csrf',
       expect.objectContaining({ path: '/auth/refresh' }),
     );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/auth/refresh' }),
+    );
     expect(res.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'new-refresh',
@@ -350,10 +354,51 @@ describe('AuthController security hardening', () => {
       'refresh_csrf',
       expect.objectContaining({ path: '/auth/refresh' }),
     );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/auth/refresh' }),
+    );
     expect(res.cookie).toHaveBeenCalledWith(
       'refresh_csrf',
       expect.any(String),
       expect.objectContaining({ path: '/' }),
+    );
+  });
+
+  it('logout remove refresh_token antigo e novo quando invalida a sessão', async () => {
+    const req = buildRefreshRequest({
+      cookies: {
+        refresh_token: 'aaa.bbb.ccc',
+        refresh_csrf: 'csrf-token',
+      },
+      headers: {
+        authorization: 'Bearer REDACTED',
+        'user-agent': 'jest',
+      },
+    });
+    const res = createResponse();
+
+    await controller.logout(req, res);
+
+    expect(authService.logout).toHaveBeenCalledWith(
+      'aaa.bbb.ccc',
+      'access-token',
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/' }),
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/auth/refresh' }),
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_csrf',
+      expect.objectContaining({ path: '/' }),
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_csrf',
+      expect.objectContaining({ path: '/auth/refresh' }),
     );
   });
 
