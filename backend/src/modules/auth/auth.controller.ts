@@ -34,6 +34,7 @@ import {
   getLegacyRequestCsrfClearCookieOptions,
   getRequestCsrfCookieOptions,
   getLegacyRefreshCsrfClearCookieOptions,
+  getLegacyRefreshTokenClearCookieOptions,
   getRefreshCsrfClearCookieOptions,
   getRefreshCsrfCookieOptions,
   getRefreshTokenClearCookieOptions,
@@ -371,6 +372,10 @@ export class AuthController {
         getRefreshTokenCookieOptions(),
       );
       res.clearCookie(
+        'refresh_token',
+        getLegacyRefreshTokenClearCookieOptions(),
+      );
+      res.clearCookie(
         REFRESH_CSRF_COOKIE_NAME,
         getLegacyRefreshCsrfClearCookieOptions(),
       );
@@ -412,6 +417,10 @@ export class AuthController {
       String(req.headers['user-agent'] || ''),
     );
     response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
+    response.clearCookie(
+      'refresh_token',
+      getLegacyRefreshTokenClearCookieOptions(),
+    );
     response.clearCookie(
       REFRESH_CSRF_COOKIE_NAME,
       getLegacyRefreshCsrfClearCookieOptions(),
@@ -862,6 +871,10 @@ export class AuthController {
       'refresh_token',
       result.refreshToken,
       getRefreshTokenCookieOptions(),
+    );
+    response.clearCookie(
+      'refresh_token',
+      getLegacyRefreshTokenClearCookieOptions(),
     );
     response.clearCookie(
       REFRESH_CSRF_COOKIE_NAME,
