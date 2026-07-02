@@ -273,7 +273,7 @@ describe('AprsController (http)', () => {
         ],
       }),
       'user-1',
-      { roleName: 'Administrador da Empresa' },
+      { roleNames: ['Administrador da Empresa'] },
     );
   });
 
