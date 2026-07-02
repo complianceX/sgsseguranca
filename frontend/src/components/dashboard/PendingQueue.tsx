@@ -286,10 +286,10 @@ const SectionHeader = memo(function SectionHeader({
   children?: ReactNode;
 }) {
   return (
-    <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
+    <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3.5 sm:px-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
             {overline}
           </p>
           <h2 className="text-[14px] font-bold text-[var(--title)]">{title}</h2>
@@ -490,11 +490,32 @@ function PendingQueueFiltersComponent({
         )}
       </div>
 
+      {!queueLoading && (
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="ds-dashboard-queue-stat">
+            <dt>Total</dt>
+            <dd>{pendingQueue.summary.total}</dd>
+          </div>
+          <div className="ds-dashboard-queue-stat">
+            <dt>Críticos</dt>
+            <dd>{pendingQueue.summary.critical}</dd>
+          </div>
+          <div className="ds-dashboard-queue-stat">
+            <dt>Altos</dt>
+            <dd>{pendingQueue.summary.high}</dd>
+          </div>
+          <div className="ds-dashboard-queue-stat">
+            <dt>SLA vencido</dt>
+            <dd>{pendingQueue.summary.slaBreached}</dd>
+          </div>
+        </dl>
+      )}
+
       {!queueLoading && pendingQueue.summary.critical > 0 && (
         <div
           role="alert"
           aria-live="assertive"
-          className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-4"
+          className="relative flex flex-col gap-3 overflow-hidden rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div
             className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-[var(--ds-color-danger)]"
@@ -502,7 +523,7 @@ function PendingQueueFiltersComponent({
           />
           <div className="flex items-center gap-3 pl-2">
             <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-danger)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-danger)]"
               aria-hidden="true"
             >
               <ShieldAlert className="h-5 w-5" />
@@ -523,7 +544,7 @@ function PendingQueueFiltersComponent({
           <a
             href="#priority-table"
             aria-label="Ir para a fila de prioridades"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-xs font-bold text-[var(--ds-color-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-danger)] focus-visible:ring-offset-2"
+            className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-bold text-[var(--ds-color-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-danger)] focus-visible:ring-offset-2"
           >
             Ver agora <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
@@ -533,7 +554,7 @@ function PendingQueueFiltersComponent({
       {!queueLoading && pendingQueue.degraded && (
         <div
           role="status"
-          className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-5 py-3.5 text-sm text-[var(--ds-color-warning-fg)]"
+          className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning-fg)]"
         >
           A fila operacional foi carregada com ressalvas.
           {pendingQueue.failedSources?.length
@@ -567,11 +588,11 @@ function PendingQueueComponent() {
       <section
         id="priority-table"
         aria-label="Fila de prioridades operacionais"
-        className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+        className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
       >
         <SectionHeader
           overline="Fila de Prioridades"
-          title="Itens que requerem ação"
+          title="Fila crítica e SLA"
           trailing={
             pendingQueue.summary.hasMore ? (
               <span className="rounded-lg bg-[var(--ds-color-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
@@ -607,9 +628,9 @@ function PendingQueueComponent() {
             ))}
           </div>
         ) : priorityItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
             <span
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]"
+              className="flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--ds-color-success-subtle)]"
               aria-hidden="true"
             >
               <CheckCircle2 className="h-8 w-8 text-[var(--ds-color-success)]" />
@@ -635,7 +656,7 @@ function PendingQueueComponent() {
                   <Link
                     href={itemHref}
                     aria-label={`${pCfg.label}: ${item.title}. ${due.label !== "—" ? due.label : ""}`}
-                    className="group relative flex items-start gap-4 px-5 py-4 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
+                    className="group relative flex flex-col gap-3 px-4 py-4 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none sm:flex-row sm:items-start sm:px-5"
                   >
                     <span
                       className={cn(
@@ -678,31 +699,33 @@ function PendingQueueComponent() {
                         {item.description}
                       </p>
                     </div>
-                    <div className="shrink-0 text-right">
-                      {due.label !== "—" && (
-                        <p
-                          className={cn(
-                            "text-[11px] font-semibold",
-                            due.overdue
-                              ? "text-[var(--ds-color-danger)]"
-                              : "text-[var(--ds-color-text-secondary)]",
-                          )}
-                        >
-                          {due.label}
-                        </p>
-                      )}
-                      {item.overdueByDays != null && (
-                        <p className="mt-0.5 text-[11px] font-bold text-[var(--ds-color-danger)]">
-                          {item.overdueByDays}d fora do SLA
-                        </p>
-                      )}
-                      {item.responsible && (
-                        <p className="mt-0.5 text-[11px] text-[var(--ds-color-text-secondary)]">
-                          {item.responsible}
-                        </p>
-                      )}
+                    <div className="flex shrink-0 items-center justify-between gap-3 text-left sm:block sm:text-right">
+                      <div>
+                        {due.label !== "—" && (
+                          <p
+                            className={cn(
+                              "text-[11px] font-semibold",
+                              due.overdue
+                                ? "text-[var(--ds-color-danger)]"
+                                : "text-[var(--ds-color-text-secondary)]",
+                            )}
+                          >
+                            {due.label}
+                          </p>
+                        )}
+                        {item.overdueByDays != null && (
+                          <p className="mt-0.5 text-[11px] font-bold text-[var(--ds-color-danger)]">
+                            {item.overdueByDays}d fora do SLA
+                          </p>
+                        )}
+                        {item.responsible && (
+                          <p className="mt-0.5 text-[11px] text-[var(--ds-color-text-secondary)]">
+                            {item.responsible}
+                          </p>
+                        )}
+                      </div>
                       <ArrowRight
-                        className="mt-1.5 ml-auto h-3.5 w-3.5 text-[var(--ds-color-border-strong)]"
+                        className="h-3.5 w-3.5 text-[var(--ds-color-border-strong)] sm:mt-1.5 sm:ml-auto"
                         aria-hidden="true"
                       />
                     </div>

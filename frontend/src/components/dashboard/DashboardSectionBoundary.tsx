@@ -52,7 +52,7 @@ export class DashboardSectionBoundary extends Component<
         role="alert"
         aria-live="polite"
         aria-label={`Falha ao carregar: ${this.props.fallbackTitle}`}
-        className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-8 text-center shadow-[var(--ds-shadow-xs)]"
+        className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-8 text-center shadow-[var(--ds-shadow-xs)]"
       >
         <span
           aria-hidden="true"

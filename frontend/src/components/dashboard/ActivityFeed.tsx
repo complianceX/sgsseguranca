@@ -55,11 +55,11 @@ function ActivityFeedComponent({
     <DashboardSectionBoundary fallbackTitle="Atividades Recentes">
       <section
         aria-label="Timeline operacional"
-        className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+        className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
       >
-        <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] px-4 py-3.5 sm:px-5">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
               Atividade de Hoje
             </p>
             <h2 className="text-[14px] font-bold text-[var(--title)]">
@@ -74,7 +74,7 @@ function ActivityFeedComponent({
             Ver tudo →
           </Link>
         </div>
-        <div className="divide-y divide-[var(--ds-color-border-subtle)] min-h-[240px]">
+        <div className="min-h-[220px] divide-y divide-[var(--ds-color-border-subtle)]">
           {queueLoading ? (
             [...Array(5)].map((_, i) => (
               <div key={i} className="flex items-start gap-3 px-5 py-3.5">
@@ -86,7 +86,7 @@ function ActivityFeedComponent({
               </div>
             ))
           ) : priorityItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
               <CheckCircle2
                 className="h-8 w-8 text-[var(--ds-color-success)]"
                 aria-hidden="true"

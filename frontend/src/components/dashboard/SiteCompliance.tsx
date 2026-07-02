@@ -133,11 +133,11 @@ function SiteComplianceComponent({
     <DashboardSectionBoundary fallbackTitle="Compliance por Site">
       <section
         aria-label="Agenda de eventos"
-        className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+        className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
       >
-        <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] px-4 py-3.5 sm:px-5">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
               Agenda
             </p>
             <h2 className="text-[14px] font-bold text-[var(--title)]">Próximos eventos</h2>
@@ -166,7 +166,7 @@ function SiteComplianceComponent({
               Nenhum evento próximo encontrado.
             </p>
           ) : (
-            agendaEvents.map((ev, i) => {
+            agendaEvents.map((ev) => {
               const tone = ev.tone;
               const dayLabel = format(ev.date, "dd", { locale: ptBR });
               const monthLabel = format(ev.date, "EEE", { locale: ptBR })
@@ -175,7 +175,7 @@ function SiteComplianceComponent({
               const eventHref = safeInternalHref(ev.href) ?? "/dashboard";
               return (
                 <Link
-                  key={i}
+                  key={`${ev.href}-${ev.label}-${ev.date.toISOString()}`}
                   href={eventHref}
                   aria-label={`${ev.label} — ${ev.sub}`}
                   className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 hover:border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
@@ -227,9 +227,9 @@ function SiteComplianceComponent({
           )}
         </div>
 
-        <div className="border-t border-[var(--ds-color-border-default)] px-5 py-4">
+        <div className="border-t border-[var(--ds-color-border-default)] px-4 py-3.5 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
               Performance
             </p>
             <Link
