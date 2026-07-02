@@ -345,10 +345,7 @@ describe('AprsService', () => {
         isSuperAdmin: false,
       })),
       run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
-    } as unknown as Pick<
-      TenantService,
-      'getTenantId' | 'getContext' | 'run'
-    >;
+    } as unknown as Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
     const documentBundleService = {
       buildWeeklyPdfBundle: jest.fn(),
     };
@@ -475,33 +472,53 @@ describe('AprsService', () => {
   });
 
   describe('is_modelo_padrao (modelo-padrão da empresa) — restrição de papel', () => {
-    const callGuard = (roleName?: string | null): void =>
+    const callGuard = (roleNames?: Array<string | null | undefined>): void =>
       (
         service as unknown as {
-          assertCanManageCompanyTemplate: (r?: string | null) => void;
+          assertCanManageCompanyTemplate: (
+            r?: Array<string | null | undefined>,
+          ) => void;
         }
-      ).assertCanManageCompanyTemplate(roleName);
+      ).assertCanManageCompanyTemplate(roleNames);
 
     it.each([
-      'Administrador Geral',
-      'Administrador da Empresa',
-      'Técnico de Segurança do Trabalho (TST)',
+      ['Administrador Geral'],
+      ['Administrador da Empresa'],
+      ['Técnico de Segurança do Trabalho (TST)'],
     ])('permite papel privilegiado definir o modelo-padrão (%s)', (role) => {
-      expect(() => callGuard(role)).not.toThrow();
+      expect(() => callGuard([role])).not.toThrow();
     });
 
     it.each([
-      'Supervisor / Encarregado',
-      'Operador / Colaborador',
-      'Trabalhador',
-      '',
-    ])('bloqueia papel operacional de definir o modelo-padrão (%s)', (role) => {
-      expect(() => callGuard(role)).toThrow(ForbiddenException);
+      // Variantes não-canônicas (aliases/acentos/maiúsculas) resolvidas via
+      // normalizeRoleName — não devem bloquear admin legítimo.
+      ['ADMIN_EMPRESA'],
+      ['ADMINISTRADOR DA EMPRESA'],
+      ['SUPER_ADMIN'],
+      ['TECNICO SST'],
+    ])('permite papel privilegiado em grafia divergente (%s)', (role) => {
+      expect(() => callGuard([role])).not.toThrow();
     });
 
-    it('bloqueia quando o papel é ausente (undefined/null)', () => {
+    it('permite quando profile.nome está vazio mas roles (RBAC) trazem papel privilegiado', () => {
+      expect(() => callGuard(['', 'Administrador da Empresa'])).not.toThrow();
+    });
+
+    it.each([
+      ['Supervisor / Encarregado'],
+      ['Operador / Colaborador'],
+      ['Trabalhador'],
+      [''],
+    ])('bloqueia papel operacional de definir o modelo-padrão (%s)', (role) => {
+      expect(() => callGuard([role])).toThrow(ForbiddenException);
+    });
+
+    it('bloqueia quando não há nenhum sinal de papel (vazio/undefined/null)', () => {
+      expect(() => callGuard([])).toThrow(ForbiddenException);
       expect(() => callGuard(undefined)).toThrow(ForbiddenException);
-      expect(() => callGuard(null)).toThrow(ForbiddenException);
+      expect(() => callGuard([undefined, null, ''])).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('create() rejeita is_modelo_padrao=true vindo de papel operacional', async () => {
@@ -519,7 +536,7 @@ describe('AprsService', () => {
             is_modelo_padrao: true,
           } as never,
           'user-1',
-          { roleName: 'Operador / Colaborador' },
+          { roleNames: ['Operador / Colaborador'] },
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
