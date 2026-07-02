@@ -38,8 +38,19 @@ const LOGIN_OK_STATUS_SET = parseStatusSet(
 const AUTH_ME_OK_STATUS = Number(__ENV.AUTH_ME_OK_STATUS || 200);
 
 const SMOKE_VUS = boundedInt(__ENV.SMOKE_VUS, 1, 1, 50);
-const SMOKE_ITERATIONS = boundedInt(__ENV.SMOKE_ITERATIONS, 20, 1, 5000);
+const REQUESTED_SMOKE_ITERATIONS = boundedInt(
+  __ENV.SMOKE_ITERATIONS,
+  20,
+  1,
+  5000,
+);
 const SMOKE_MAX_DURATION = String(__ENV.SMOKE_MAX_DURATION || '10m');
+const SINGLE_CREDENTIAL_SAFE_ITERATIONS = boundedInt(
+  __ENV.SINGLE_CREDENTIAL_SAFE_ITERATIONS,
+  4,
+  1,
+  50,
+);
 
 const FINGERPRINT_MODE = String(
   __ENV.CLIENT_FINGERPRINT_MODE || 'per-iteration',
@@ -51,6 +62,16 @@ let cachedCsrfCookie = '';
 const loginAttempts = new Counter('login_attempts_total');
 const authMeAttempts = new Counter('auth_me_attempts_total');
 const tokenMissingTotal = new Counter('login_missing_access_token_total');
+const loginStatus2xxTotal = new Counter('login_status_2xx_total');
+const loginStatus401Total = new Counter('login_status_401_total');
+const loginStatus429Total = new Counter('login_status_429_total');
+const loginStatus5xxTotal = new Counter('login_status_5xx_total');
+const loginStatusOtherTotal = new Counter('login_status_other_total');
+const authMeStatus2xxTotal = new Counter('auth_me_status_2xx_total');
+const authMeStatus401403Total = new Counter('auth_me_status_401_403_total');
+const authMeStatus429Total = new Counter('auth_me_status_429_total');
+const authMeStatus5xxTotal = new Counter('auth_me_status_5xx_total');
+const authMeStatusOtherTotal = new Counter('auth_me_status_other_total');
 
 const loginDuration = new Trend('login_duration', true);
 const authMeDuration = new Trend('auth_me_duration', true);
@@ -87,6 +108,14 @@ const baseCredentialPool =
         TURNSTILE_TOKEN,
       );
 const credentialPool = applyCredentialFilter(baseCredentialPool);
+const SMOKE_ITERATIONS =
+  credentialPool.length === 1
+    ? Math.min(REQUESTED_SMOKE_ITERATIONS, SINGLE_CREDENTIAL_SAFE_ITERATIONS)
+    : REQUESTED_SMOKE_ITERATIONS;
+const SMOKE_ITERATIONS_NOTE =
+  SMOKE_ITERATIONS === REQUESTED_SMOKE_ITERATIONS
+    ? `${SMOKE_VUS}/${SMOKE_ITERATIONS}`
+    : `${SMOKE_VUS}/${SMOKE_ITERATIONS} (requested ${REQUESTED_SMOKE_ITERATIONS}; capped for single credential)`;
 
 export const options = {
   scenarios: {
@@ -182,6 +211,7 @@ export function smokeScenario() {
     buildLoginRequestParams('smoke', fingerprint, ensureCsrfToken()),
   );
   loginDuration.add(loginResponse.timings.duration);
+  trackLoginStatus(loginResponse.status);
   const loginBody = safeJson(loginResponse);
   const accessToken = extractAccessToken(loginBody);
   const responseCompanyId = normalizeCompanyId(loginBody?.user?.company_id);
@@ -219,6 +249,7 @@ export function smokeScenario() {
       ),
     );
     authMeDuration.add(meResponse.timings.duration);
+    trackAuthMeStatus(meResponse.status);
     const meBody = safeJson(meResponse);
 
     sessionOk = check(
@@ -255,11 +286,27 @@ export function handleSummary(data) {
     `Refresh cookies check: ${EXPECT_REFRESH_COOKIES ? 'enabled' : 'disabled'}`,
     `Credential pool size : ${credentialPool.length}`,
     `Credential filter    : ${describeCredentialFilter() || 'none'}`,
-    `Smoke VUs/iterations : ${SMOKE_VUS}/${SMOKE_ITERATIONS}`,
+    `Smoke VUs/iterations : ${SMOKE_ITERATIONS_NOTE}`,
     '------------------------------------------------------------',
     `HTTP failures        : ${toPct(pickStat(data.metrics.http_req_failed, 'rate'))}`,
     `Login success rate   : ${toPct(pickStat(data.metrics.login_success_rate, 'rate'))}`,
     `Flow success rate    : ${toPct(pickStat(data.metrics.auth_flow_success_rate, 'rate'))}`,
+    `Login status counts  : 2xx=${pickStat(data.metrics.login_status_2xx_total, 'count')} 401=${pickStat(
+      data.metrics.login_status_401_total,
+      'count',
+    )} 429=${pickStat(data.metrics.login_status_429_total, 'count')} 5xx=${pickStat(
+      data.metrics.login_status_5xx_total,
+      'count',
+    )} other=${pickStat(data.metrics.login_status_other_total, 'count')}`,
+    CALL_AUTH_ME
+      ? `Auth/me status counts: 2xx=${pickStat(data.metrics.auth_me_status_2xx_total, 'count')} 401/403=${pickStat(
+          data.metrics.auth_me_status_401_403_total,
+          'count',
+        )} 429=${pickStat(data.metrics.auth_me_status_429_total, 'count')} 5xx=${pickStat(
+          data.metrics.auth_me_status_5xx_total,
+          'count',
+        )} other=${pickStat(data.metrics.auth_me_status_other_total, 'count')}`
+      : 'Auth/me status counts: n/a',
     '------------------------------------------------------------',
     `Login p50/p95/p99    : ${fmtMs(pickStat(loginReqDuration, 'p(50)'))} / ${fmtMs(
       pickStat(loginReqDuration, 'p(95)'),
@@ -365,6 +412,46 @@ function pickCredential() {
   return credentialPool[index];
 }
 
+function trackLoginStatus(status) {
+  if (status >= 200 && status < 300) {
+    loginStatus2xxTotal.add(1);
+    return;
+  }
+  if (status === 401) {
+    loginStatus401Total.add(1);
+    return;
+  }
+  if (status === 429) {
+    loginStatus429Total.add(1);
+    return;
+  }
+  if (status >= 500 && status <= 599) {
+    loginStatus5xxTotal.add(1);
+    return;
+  }
+  loginStatusOtherTotal.add(1);
+}
+
+function trackAuthMeStatus(status) {
+  if (status >= 200 && status < 300) {
+    authMeStatus2xxTotal.add(1);
+    return;
+  }
+  if (status === 401 || status === 403) {
+    authMeStatus401403Total.add(1);
+    return;
+  }
+  if (status === 429) {
+    authMeStatus429Total.add(1);
+    return;
+  }
+  if (status >= 500 && status <= 599) {
+    authMeStatus5xxTotal.add(1);
+    return;
+  }
+  authMeStatusOtherTotal.add(1);
+}
+
 function resolveFingerprint(credential) {
   const vuId = safeVuId();
   const iterationId = safeIterationId();
@@ -413,21 +500,13 @@ function evaluateRefreshCookieContract(response) {
 }
 
 function hasResponseCookie(response, cookieName) {
-  const cookieBucket = response?.cookies?.[cookieName];
-  if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
-    return true;
-  }
-  if (cookieBucket && typeof cookieBucket === 'object') {
-    return true;
-  }
-  const setCookieNames = extractSetCookieNames(response);
-  return setCookieNames.has(cookieName.toLowerCase());
+  return Boolean(extractCookieFromResponse(response, cookieName));
 }
 
 function extractSetCookieNames(response) {
   const raw =
     response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
-  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const values = splitSetCookieHeader(raw);
   const names = new Set();
   for (const value of values) {
     const firstPair = String(value || '').split(';', 1)[0];
@@ -444,22 +523,25 @@ function extractSetCookieNames(response) {
 
 function extractCookieFromResponse(response, cookieName) {
   const cookieBucket = response?.cookies?.[cookieName];
+  let found = '';
   if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
-    const value = String(cookieBucket[0]?.value || '').trim();
-    if (value) {
-      return `${cookieName}=${value}`;
+    for (const cookie of cookieBucket) {
+      const value = String(cookie?.value || '').trim();
+      if (value) {
+        found = `${cookieName}=${value}`;
+      }
     }
   }
   if (cookieBucket && typeof cookieBucket === 'object') {
     const value = String(cookieBucket.value || '').trim();
     if (value) {
-      return `${cookieName}=${value}`;
+      found = `${cookieName}=${value}`;
     }
   }
 
   const raw =
     response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
-  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const values = splitSetCookieHeader(raw);
   for (const value of values) {
     const firstPair = String(value || '').split(';', 1)[0];
     const [name, cookieValue] = firstPair.split('=');
@@ -470,12 +552,26 @@ function extractCookieFromResponse(response, cookieName) {
     ) {
       const normalizedValue = String(cookieValue || '').trim();
       if (normalizedValue) {
-        return `${cookieName}=${normalizedValue}`;
+        found = `${cookieName}=${normalizedValue}`;
       }
     }
   }
 
-  return '';
+  return found;
+}
+
+function splitSetCookieHeader(raw) {
+  if (Array.isArray(raw)) {
+    return raw.flatMap((value) => splitSetCookieHeader(value));
+  }
+  if (!raw) {
+    return [];
+  }
+
+  return String(raw)
+    .split(/,(?=\s*[^;,=\s]+=)/)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function normalizeCredential(entry) {

@@ -705,21 +705,13 @@ function evaluateRefreshCookieContract(response) {
 }
 
 function hasResponseCookie(response, cookieName) {
-  const cookieBucket = response?.cookies?.[cookieName];
-  if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
-    return true;
-  }
-  if (cookieBucket && typeof cookieBucket === 'object') {
-    return true;
-  }
-  const setCookieNames = extractSetCookieNames(response);
-  return setCookieNames.has(cookieName.toLowerCase());
+  return Boolean(extractCookieFromResponse(response, cookieName));
 }
 
 function extractSetCookieNames(response) {
   const raw =
     response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
-  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const values = splitSetCookieHeader(raw);
   const names = new Set();
   for (const value of values) {
     const firstPair = String(value || '').split(';', 1)[0];
@@ -736,22 +728,25 @@ function extractSetCookieNames(response) {
 
 function extractCookieFromResponse(response, cookieName) {
   const cookieBucket = response?.cookies?.[cookieName];
+  let found = '';
   if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
-    const value = String(cookieBucket[0]?.value || '').trim();
-    if (value) {
-      return `${cookieName}=${value}`;
+    for (const cookie of cookieBucket) {
+      const value = String(cookie?.value || '').trim();
+      if (value) {
+        found = `${cookieName}=${value}`;
+      }
     }
   }
   if (cookieBucket && typeof cookieBucket === 'object') {
     const value = String(cookieBucket.value || '').trim();
     if (value) {
-      return `${cookieName}=${value}`;
+      found = `${cookieName}=${value}`;
     }
   }
 
   const raw =
     response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
-  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const values = splitSetCookieHeader(raw);
   for (const value of values) {
     const firstPair = String(value || '').split(';', 1)[0];
     const [name, cookieValue] = firstPair.split('=');
@@ -762,12 +757,26 @@ function extractCookieFromResponse(response, cookieName) {
     ) {
       const normalizedValue = String(cookieValue || '').trim();
       if (normalizedValue) {
-        return `${cookieName}=${normalizedValue}`;
+        found = `${cookieName}=${normalizedValue}`;
       }
     }
   }
 
-  return '';
+  return found;
+}
+
+function splitSetCookieHeader(raw) {
+  if (Array.isArray(raw)) {
+    return raw.flatMap((value) => splitSetCookieHeader(value));
+  }
+  if (!raw) {
+    return [];
+  }
+
+  return String(raw)
+    .split(/,(?=\s*[^;,=\s]+=)/)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function estimateSoakTotalLogins() {
