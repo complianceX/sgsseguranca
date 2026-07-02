@@ -273,6 +273,7 @@ describe('AprsController (http)', () => {
         ],
       }),
       'user-1',
+      { roleName: 'Administrador da Empresa' },
     );
   });
 
@@ -648,8 +649,14 @@ describe('AprsController (http)', () => {
     expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
-  it('aprova a APR via POST legado passando pela mesma trilha forense', async () => {
+  it('aprova a APR via POST legado (antes do sunset) passando pela mesma trilha forense', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    // Determinístico: fixa o relógio ANTES do sunset para exercitar o caminho de
+    // compatibilidade legado. Em produção, após 2026-06-30, o alias retorna 410
+    // (coberto pelos testes de sunset). restoreMocks:true reverte o spy.
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-06-01T00:00:00Z').getTime());
     aprsService.approve.mockResolvedValue({
       id: aprId,
       status: 'Aprovada',
@@ -730,8 +737,11 @@ describe('AprsController (http)', () => {
     expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
-  it('rejeita a APR via POST legado passando pela mesma trilha forense', async () => {
+  it('rejeita a APR via POST legado (antes do sunset) passando pela mesma trilha forense', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-06-01T00:00:00Z').getTime());
     aprsService.reject.mockResolvedValue({
       id: aprId,
       status: 'Cancelada',
@@ -800,8 +810,11 @@ describe('AprsController (http)', () => {
     expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
-  it('encerra a APR via POST legado passando pela mesma trilha forense', async () => {
+  it('encerra a APR via POST legado (antes do sunset) passando pela mesma trilha forense', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-06-01T00:00:00Z').getTime());
     aprsService.finalize.mockResolvedValue({
       id: aprId,
       status: 'Encerrada',

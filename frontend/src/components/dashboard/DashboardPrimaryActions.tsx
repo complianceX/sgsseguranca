@@ -17,28 +17,31 @@ export function DashboardPrimaryActions({
   items,
 }: DashboardPrimaryActionsProps) {
   return (
-    <section aria-label="Ações prioritárias do dashboard" className="space-y-3">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+    <section
+      aria-label="Ações prioritárias do dashboard"
+      className="ds-dashboard-actions-strip"
+    >
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--ds-color-text-secondary)]">
           Trabalho imediato
         </p>
-        <h2 className="mt-1 text-base font-bold text-[var(--title)]">
+        <h2 className="text-sm font-bold text-[var(--title)]">
           Ações prioritárias
         </h2>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="ds-dashboard-actions-list">
         {items.map(({ label, href, Icon }) => (
           <Link
             key={href}
             href={href}
             aria-label={label}
-            className="ds-dashboard-link-card ds-dashboard-link-card--center min-h-[112px] px-3 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+            className="ds-dashboard-action-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2"
           >
-            <span className="ds-dashboard-link-card__icon h-10 w-10" aria-hidden="true">
+            <span className="ds-dashboard-action-link__icon" aria-hidden="true">
               <Icon className="h-4 w-4" />
             </span>
-            <span className="text-center text-[12px] font-semibold leading-tight text-[var(--ds-color-text-secondary)]">
+            <span className="truncate text-[12px] font-semibold text-[var(--ds-color-text-primary)]">
               {label}
             </span>
           </Link>

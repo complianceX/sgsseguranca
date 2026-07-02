@@ -131,7 +131,8 @@ describe("DashboardPage", () => {
     expect(await screen.findByText(/fila de prioridades/i)).toBeInTheDocument();
     const complianceLabels = await screen.findAllByText(/controlado/i);
     expect(complianceLabels.length).toBeGreaterThan(0);
-    expect(await screen.findByText("83%")).toBeInTheDocument();
+    const scoreValues = await screen.findAllByText("83%");
+    expect(scoreValues.length).toBeGreaterThan(0);
 
     expect(screen.queryByText(/acesso rápido aos módulos/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^acesso rápido$/i)).not.toBeInTheDocument();
