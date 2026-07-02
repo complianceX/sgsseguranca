@@ -251,7 +251,7 @@ export default function DashboardPage() {
 
   return (
     <PendingQueueProvider>
-      <div className="mx-auto max-w-[1440px] space-y-6">
+      <div className="mx-auto max-w-[1440px] space-y-5">
         <DashboardHero
           greeting={greeting}
           firstName={firstName}
@@ -259,13 +259,18 @@ export default function DashboardPage() {
           statusTone={operationalStatus.tone}
           statusTitle={operationalStatus.title}
           statusDescription={operationalStatus.description}
+          queueTotal={pendingQueue.summary.total}
+          criticalCount={pendingQueue.summary.critical}
+          highCount={pendingQueue.summary.high}
+          slaBreached={pendingQueue.summary.slaBreached}
+          slaDueToday={pendingQueue.summary.slaDueToday}
+          complianceScore={complianceScore}
+          complianceLabel={resolveComplianceLabel(complianceScore)}
           loadError={loadError}
           actionsDisabled={loading}
           buildDailyReportPayload={buildDailyReportPayload}
           lastUpdatedAt={dashboardData.lastUpdatedAt}
         />
-
-        <DashboardPrimaryActions items={primaryActions} />
 
         <DashboardKPIs
           loading={loading}
@@ -285,6 +290,7 @@ export default function DashboardPage() {
           docHealthTotal={docHealthTotal}
           docHealthTone={docHealthTone}
         />
+        <DashboardPrimaryActions items={primaryActions} />
         <DashboardWorkArea dashboardData={dashboardData} />
       </div>
     </PendingQueueProvider>
