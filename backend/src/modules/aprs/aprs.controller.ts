@@ -206,11 +206,18 @@ export class AprsController {
     @Body() createAprDto: CreateAprDto,
     @Req()
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     return this.aprsService
-      .create(createAprDto, this.getRequestUserId(req))
+      .create(createAprDto, this.getRequestUserId(req), {
+        roleName: this.getRequestRoleName(req),
+      })
       .then(toAprResponseDto);
   }
 
@@ -839,11 +846,18 @@ export class AprsController {
     @Body() updateAprDto: UpdateAprDto,
     @Req()
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     return this.aprsService
-      .update(id, updateAprDto, this.getRequestUserId(req))
+      .update(id, updateAprDto, this.getRequestUserId(req), {
+        roleName: this.getRequestRoleName(req),
+      })
       .then(toAprResponseDto);
   }
 

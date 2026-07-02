@@ -13,6 +13,38 @@ function toExcelJsBuffer(buffer: Buffer): ExcelJS.Buffer {
  */
 
 /**
+ * Caracteres que, no início de uma célula de texto, podem ser interpretados
+ * como fórmula ao abrir a planilha no Excel/LibreOffice/Google Sheets ou ao
+ * convertê-la para CSV (CWE-1236 — Formula/CSV Injection).
+ */
+const FORMULA_INJECTION_TRIGGERS = new Set([
+  '=',
+  '+',
+  '-',
+  '@',
+  '\t',
+  '\r',
+  '\n',
+]);
+
+/**
+ * Neutraliza fórmula/CSV injection em valores de célula destinados a EXPORT.
+ *
+ * Somente strings são afetadas: quando o primeiro caractere é um gatilho de
+ * fórmula, prefixamos com apóstrofo para forçar interpretação literal como
+ * texto. Números, datas, null/undefined e objetos ExcelJS (ex.: `{ formula }`)
+ * passam intactos.
+ *
+ * Exportado para reuso e cobertura de testes por outros módulos.
+ */
+export function neutralizeExcelFormulaInjection<T>(value: T): T | string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return value;
+  }
+  return FORMULA_INJECTION_TRIGGERS.has(value[0]) ? `'${value}` : value;
+}
+
+/**
  * Creates an Excel buffer from an array of key-value row objects.
  * Column headers are derived from the keys of the first row.
  */
@@ -27,7 +59,11 @@ export async function jsonToExcelBuffer(
     const keys = Object.keys(rows[0]);
     worksheet.columns = keys.map((key) => ({ header: key, key, width: 20 }));
     for (const row of rows) {
-      worksheet.addRow(row);
+      const safeRow: Record<string, unknown> = {};
+      for (const key of keys) {
+        safeRow[key] = neutralizeExcelFormulaInjection(row[key]);
+      }
+      worksheet.addRow(safeRow);
     }
   }
 
@@ -58,7 +94,7 @@ export async function aoaToExcelBuffer(
     const worksheet = workbook.addWorksheet(sheet.name);
 
     for (const row of sheet.rows) {
-      worksheet.addRow(row);
+      worksheet.addRow(row.map((cell) => neutralizeExcelFormulaInjection(cell)));
     }
 
     if (sheet.colWidths) {

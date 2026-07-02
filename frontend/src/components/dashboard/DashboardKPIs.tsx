@@ -76,17 +76,17 @@ export const KpiCard = memo(function KpiCard({
   return (
     <div
       className={cn(
-        'focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
+        'min-h-[118px] focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
         t.shell,
       )}
     >
       <div className="relative z-[1] flex items-center justify-between gap-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--ds-color-text-secondary)]">
           {label}
         </p>
         <span
           className={cn(
-            'flex h-10 w-10 items-center justify-center rounded-[0.85rem] border',
+            'flex h-9 w-9 items-center justify-center rounded-lg border',
             t.iconShell,
           )}
         >
@@ -94,7 +94,7 @@ export const KpiCard = memo(function KpiCard({
         </span>
       </div>
       <div className="relative z-[1] flex items-end gap-2">
-        <p className={cn('text-[28px] font-extrabold leading-none tracking-[-0.04em]', t.value)}>
+        <p className={cn('text-[26px] font-extrabold leading-none tabular-nums', t.value)}>
           {value == null ? (
             <span className="inline-block h-8 w-20 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]" aria-label="Carregando" />
           ) : (
@@ -155,10 +155,13 @@ export function DashboardKPIs({
   docHealthTotal,
   docHealthTone,
 }: DashboardKPIsProps) {
+  const slaWithin = Math.max(0, slaTotal - slaBreached);
+  const slaPercent = slaTotal > 0 ? Math.round((slaWithin / slaTotal) * 100) : 100;
+
   return (
     <DashboardSectionBoundary fallbackTitle="Indicadores">
       <section aria-label="Indicadores chave de desempenho">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           <KpiCard
             label="Conformidade geral"
             value={loading ? null : `${complianceScore ?? 0}%`}
@@ -177,8 +180,8 @@ export function DashboardKPIs({
           />
           <KpiCard
             label="SLA operacional"
-            value={queueLoading ? null : `${slaTotal - slaBreached}/${slaTotal || 1}`}
-            sublabel={slaBreached > 0 ? `${slaBreached} vencidos · ${slaDueToday} vencem hoje` : `${slaDueToday} vencem em 48h`}
+            value={queueLoading ? null : `${slaPercent}%`}
+            sublabel={slaBreached > 0 ? `${slaBreached} vencidos · ${slaWithin}/${slaTotal || 0} dentro` : `${slaDueToday} vencem em 48h · ${slaWithin}/${slaTotal || 0} dentro`}
             tone={slaBreached > 0 ? 'danger' : slaDueToday > 0 ? 'warning' : 'success'}
             icon={Clock}
           />
