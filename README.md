@@ -1,74 +1,64 @@
-﻿# SGS - Sistema de Gestão de Segurança
+# SGS - Sistema de Gestao de Seguranca
 
-Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e backend em NestJS.
+<p align="left">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square">
+  <img alt="NestJS" src="https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-336791?style=flat-square">
+  <img alt="Multi-tenant" src="https://img.shields.io/badge/SaaS-multi--tenant-0F766E?style=flat-square">
+  <img alt="LGPD" src="https://img.shields.io/badge/LGPD-by--design-1F2937?style=flat-square">
+</p>
 
-## Estado real do projeto
+Plataforma SaaS B2B para gestao de SST, operacao de seguranca do trabalho, evidencias, inspecoes, documentos governados, permissoes, indicadores e controle operacional por tenant.
 
-- Deploy e migrations seguem contrato determinístico para Vultr + Neon.
-- Frontend usa configuração explícita de ambiente e falha cedo sem URLs públicas válidas.
-- Quality gate local/CI já executa lint, testes e build reais.
-- Observabilidade atual:
-  - logs HTTP e operacionais em JSON estruturado
-  - métricas e tracing via OpenTelemetry **opcionais**, ativados somente com `OTEL_ENABLED=true`
-  - exporter de métricas Prometheus em porta dedicada
-  - tracing via Jaeger configurável por `JAEGER_ENDPOINT`
-  - Sentry **opcional**, pronto para ativação via `SENTRY_DSN`
-- O projeto **não** deve ser tratado como “observabilidade completa pronta por default”. Sem configuração explícita, o runtime sobe com logging estruturado, mas sem exporter de traces/métricas.
+O SGS foi desenhado para empresas que precisam manter processos de seguranca rastreaveis, multi-unidade e auditaveis, com isolamento por cliente, governanca documental e operacao em tempo real.
 
-## Arquitetura resumida
+## Visao rapida
 
-- `frontend/`: Next.js 16
-- `backend/`: NestJS 11 + TypeORM + PostgreSQL + Redis + BullMQ
-- `worker`: processo separado para filas pesadas, PDFs e jobs assíncronos
-- `Vultr / Coolify`: backend web e worker separados
-- `Neon`: PostgreSQL gerenciado com role runtime separada da role owner/DDL
-- `Backblaze B2`: storage S3 compativel para artefatos governados
-- `Vercel`: frontend
+- **Produto:** cockpit operacional e administrativo para SST.
+- **Publico:** gestores, tecnicos de seguranca, administradores e equipes operacionais.
+- **Arquitetura:** monorepo com frontend Next.js, backend NestJS, worker assincrono, PostgreSQL, Redis/BullMQ e storage governado.
+- **Deploy atual:** frontend na Vercel; backend web e worker em Vultr/Coolify; banco no Neon.
+- **Prioridades tecnicas:** multi-tenancy, LGPD, observabilidade, migrations seguras e performance operacional.
 
-## Observabilidade
+## Principais capacidades
 
-### Logging
+| Area | O que o SGS cobre |
+| --- | --- |
+| Dashboard SST | KPIs, fila critica, SLA, conformidade, notificacoes e leitura operacional |
+| Empresas e sites | Gestao multi-tenant, unidades, obras/sites, usuarios e permissoes |
+| Documentos governados | PDFs, assinaturas, evidencias, trilha de auditoria e storage S3 compativel |
+| APR e RDO | Fluxos operacionais, validacoes, score, aprovacao e registros de campo |
+| Treinamentos e exames | Controle de obrigacoes, vencimentos, trabalhadores e conformidade |
+| Sophie IA | Assistente interno de SST com consentimento, sanitizacao de PII e rate limiting |
+| Operacao e auditoria | Logs estruturados, health checks, runbooks, DR e controles de seguranca |
 
-- O backend escreve logs estruturados em JSON no stdout/stderr.
-- Logs de request/response, exceções HTTP e banco usam payload coerente e correlacionável.
-- Quando existir span ativo de OpenTelemetry, `traceId` e `spanId` entram automaticamente no log.
+## Arquitetura
 
-Exemplo:
-
-```json
-{
-  "timestamp": "2026-03-18T20:10:15.221Z",
-  "level": "INFO",
-  "service": "wanderson-gandra-backend",
-  "context": "HTTP",
-  "type": "REQUEST",
-  "requestId": "req-123",
-  "method": "GET",
-  "url": "/health",
-  "ip": "::1"
-}
+```text
+frontend/  Next.js 16, React 19, design system por tokens, Sentry frontend
+backend/   NestJS 11, TypeORM, PostgreSQL, Redis, BullMQ, Sentry backend
+worker     Processo separado para filas, PDFs, jobs assincronos e rotinas pesadas
+docs/      Runbooks, arquitetura, checklists, auditorias e guias de operacao
+ops/       Scripts e ferramentas compartilhadas de build, lint e geracao de clientes
 ```
 
-### Telemetry
+### Stack principal
 
-- `OTEL_ENABLED=true`: ativa bootstrap real de OpenTelemetry antes do carregamento do Nest, permitindo auto-instrumentação coerente.
-- Web: exporter Prometheus em `PROMETHEUS_PORT` ou `9464`.
-- Worker: exporter Prometheus em `PROMETHEUS_PORT` ou `9465`.
-- Traces: enviados para `JAEGER_ENDPOINT` quando OTEL está ativo.
-- Se `OTEL_ENABLED` estiver desligado, o código de métricas continua inofensivo, mas não há exportação ativa.
+- **Frontend:** Next.js, React, TypeScript, SCSS/CSS tokens, Recharts, Radix UI.
+- **Backend:** NestJS, TypeORM, PostgreSQL, Redis, BullMQ, OpenAPI, Sentry.
+- **Infra:** Vercel, Vultr/Coolify, Neon, Backblaze B2/S3 compativel, Cloudflare.
+- **Qualidade:** lint, testes, build, secret scanning, templates de PR/issue e checks de seguranca.
 
-### Sentry
+## Principios de engenharia
 
-- `SENTRY_DSN` habilita captura de exceções 5xx no filtro global.
-- `@sentry/node` já faz parte das dependências do backend.
-- Se `SENTRY_DSN` não estiver configurado, o runtime registra Sentry como desativado e segue operando normalmente.
+1. **Tenant primeiro:** nenhuma query critica deve perder isolamento por `tenantId`, `companyId` ou escopo equivalente.
+2. **LGPD por padrao:** dados pessoais e sensiveis nao devem ser expostos em logs, issues, PRs, prompts ou servicos externos sem sanitizacao.
+3. **Mudanca segura:** alteracoes de schema exigem migration TypeORM retrocompativel.
+4. **Operacao real:** features devem considerar health checks, rollback, observabilidade e impacto em producao.
+5. **UX operacional:** telas devem priorizar decisao, fila critica, SLA, clareza e baixa friccao.
 
-## Health checks
-
-- `GET /health/public`: liveness leve do serviço web
-- `GET /health`: prontidão do web, validando banco, Redis e política de migrations
-
-## Execução local
+## Execucao local
 
 ### Frontend
 
@@ -93,22 +83,57 @@ cd backend
 npm run start:worker
 ```
 
-## Deploy de Produção
+## Validacao
 
-- `Vultr / Coolify (backend-web)`: API HTTP (`npm run start:web`)
-- `Vultr / Coolify (backend-worker)`: processamento assíncrono (`npm run start:worker`)
-- `Neon`: banco PostgreSQL (`DATABASE_URL` direta da role runtime com `sslmode=require`)
-- `Backblaze B2`: storage oficial S3 compativel
-- `Vercel`: frontend Next.js
-- `healthcheckPath`: `/health/public`
+Use os comandos abaixo conforme a area alterada:
 
-## Documentação complementar
+```bash
+npm --prefix frontend run lint
+npm --prefix frontend run build
+npm --prefix frontend run test:ci
 
-- [backend/README.md](backend/README.md)
-- [backend/docs/OBSERVABILITY.md](backend/docs/OBSERVABILITY.md)
-- [backend/docs/RUNBOOK_PRODUCTION.md](backend/docs/RUNBOOK_PRODUCTION.md)
-- [backend/docs/security-hardening-operations.md](backend/docs/security-hardening-operations.md)
-- [backend/docs/security-hardening-runbook-d1-dday-d1.md](backend/docs/security-hardening-runbook-d1-dday-d1.md)
-- [backend/docs/security-hardening-war-room-checklist.md](backend/docs/security-hardening-war-room-checklist.md)
-- [backend/docs/security-hardening-ticket-template.md](backend/docs/security-hardening-ticket-template.md)
-- [docs/deploy/coolify-vultr-backend-web-worker.md](docs/deploy/coolify-vultr-backend-web-worker.md)
+npm --prefix backend run lint
+npm --prefix backend run test:ci
+npm --prefix backend run build
+```
+
+Para alteracoes de banco e tenancy, valide tambem migrations, RLS e checks especificos de seguranca descritos na documentacao operacional.
+
+## Deploy e operacao
+
+- **Frontend:** Vercel
+- **Backend web:** Vultr/Coolify com `npm run start:web`
+- **Backend worker:** Vultr/Coolify com `npm run start:worker`
+- **Banco:** Neon/PostgreSQL com role runtime separada da role owner/DDL
+- **Storage:** Backblaze B2/S3 compativel para artefatos governados
+- **Health checks:** `GET /health/public` e `GET /health`
+
+Observabilidade completa depende de configuracao explicita. O runtime sobe com logs estruturados por padrao; OpenTelemetry, Prometheus e Sentry sao ativados por variaveis de ambiente.
+
+## Documentacao essencial
+
+- [Backend README](backend/README.md)
+- [Docs gerais](docs/README.md)
+- [Arquitetura e stack](docs/consulta-rapida/arquitetura-e-stack.md)
+- [Mapa de modulos](docs/consulta-rapida/mapa-de-modulos.md)
+- [Seguranca e governanca](docs/consulta-rapida/seguranca-e-governanca.md)
+- [Deploy Vultr/Coolify](docs/deploy/coolify-vultr-backend-web-worker.md)
+- [Runbook de producao](backend/docs/RUNBOOK_PRODUCTION.md)
+- [Observabilidade](backend/docs/OBSERVABILITY.md)
+
+## Contribuicao
+
+Antes de abrir PR:
+
+- leia [CONTRIBUTING.md](CONTRIBUTING.md);
+- descreva impacto em multi-tenancy, LGPD e performance;
+- inclua comandos de validacao executados;
+- nao publique dados pessoais, tokens, cookies, dumps ou logs sensiveis.
+
+## Seguranca
+
+Vulnerabilidades nao devem ser reportadas por issue publica. Use o fluxo descrito em [SECURITY.md](SECURITY.md) e redija qualquer evidencia que contenha dados pessoais, credenciais, tokens ou identificadores sensiveis.
+
+## Licenca
+
+Codigo e documentacao de uso privado/proprietario. Todos os direitos reservados.
