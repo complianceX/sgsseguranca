@@ -129,4 +129,32 @@ describe('didsService', () => {
       { headers: { 'x-company-id': 'company-2' } },
     );
   });
+
+  it('lista pessoas do DID pela rota dedicada com tenant no header', async () => {
+    const payload = {
+      data: [{ id: 'user-1', nome: 'Equipe Campo', company_id: 'company-1', site_id: 'site-1', status: true }],
+      page: 1,
+      limit: 100,
+      total: 1,
+      lastPage: 1,
+    };
+    (api.get as jest.Mock).mockResolvedValue({ data: payload });
+
+    const result = await didsService.listPeople({
+      page: 1,
+      limit: 100,
+      companyId: 'company-1',
+      siteId: 'site-1',
+    });
+
+    expect(api.get).toHaveBeenCalledWith('/dids/people', {
+      params: {
+        page: 1,
+        limit: 100,
+        site_id: 'site-1',
+      },
+      headers: { 'x-company-id': 'company-1' },
+    });
+    expect(result).toEqual(payload);
+  });
 });

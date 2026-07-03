@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import type { GovernedPdfAccessResponse } from '@/lib/api/generated/governed-contracts.client';
-import type { PaginatedResponse } from './pagination';
+import { fetchAllPages, type PaginatedResponse } from './pagination';
 import type { User } from './usersService';
 import {
   consumeOfflineCache,
@@ -63,6 +63,15 @@ export interface Did {
   site?: { id?: string; nome: string };
   responsavel?: { id?: string; nome: string };
   company?: { id?: string; razao_social: string; logo_url?: string | null };
+}
+
+export interface DidPerson {
+  id: string;
+  nome: string;
+  funcao?: string | null;
+  company_id: string;
+  site_id?: string | null;
+  status: boolean;
 }
 
 export type DidMutationInput = {
@@ -187,6 +196,42 @@ export const didsService = {
       if (cached) return cached;
       throw error;
     }
+  },
+
+  listPeople: async (opts?: {
+    page?: number;
+    limit?: number;
+    companyId?: string;
+    siteId?: string;
+  }): Promise<PaginatedResponse<DidPerson>> => {
+    const response = await api.get<PaginatedResponse<DidPerson>>('/dids/people', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.siteId ? { site_id: opts.siteId } : {}),
+      },
+      headers: opts?.companyId ? { 'x-company-id': opts.companyId } : undefined,
+    });
+    return response.data;
+  },
+
+  listAllPeople: async (opts?: {
+    companyId?: string;
+    siteId?: string;
+  }): Promise<DidPerson[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        didsService.listPeople({
+          page,
+          limit,
+          companyId: opts?.companyId,
+          siteId: opts?.siteId,
+        }),
+      limit: 100,
+      maxPages: 50,
+      batchSize: 3,
+      cacheKey: `GET:/dids/people?page=*&limit=100&company_id=${opts?.companyId || 'all'}&site_id=${opts?.siteId || 'all'}`,
+    });
   },
 
   create: async (data: DidMutationInput): Promise<Did> => {

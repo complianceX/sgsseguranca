@@ -281,6 +281,9 @@ describe("DdsApprovalPanel", () => {
 
     fireEvent.change(pinInput, { target: { value: "123456" } });
     fireEvent.click(approveButton);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar aprovação" }),
+    );
 
     await waitFor(() => {
       expect(onDdsChanged).toHaveBeenCalledWith(updatedDds);
@@ -315,6 +318,9 @@ describe("DdsApprovalPanel", () => {
 
     fireEvent.change(pinInput, { target: { value: "123456" } });
     fireEvent.click(approveButton);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar aprovação" }),
+    );
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
