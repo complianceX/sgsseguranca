@@ -2,7 +2,7 @@
 import { logger } from "@/lib/logger";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   useState,
   useEffect,
@@ -160,26 +160,42 @@ function getDdsParticipantCount(dds: Dds) {
 
 export default function DdsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   const canViewDds = hasPermission(Permission.CAN_VIEW_DDS);
   const canManageDds = hasPermission(Permission.CAN_MANAGE_DDS);
   const [ddsList, setDdsList] = useState<Dds[]>([]);
-const timerRef = useRef<number | undefined>(undefined);
+  const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const isFirstLoad = useRef(true);
   const ddsRequestSeqRef = useRef(0);
-  const [searchTerm, setSearchTerm] = useState("");
+  // Inicializar filtros a partir de URL params — permite bookmark e compartilhamento de links
+  const [searchTerm, setSearchTerm] = useState(
+    () => searchParams.get("q") ?? "",
+  );
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const deferredSearchTerm = useDeferredValue(debouncedSearchTerm);
   const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
-    "regular",
+    () => {
+      const v = searchParams.get("kind");
+      return v === "model" || v === "regular" ? v : "regular";
+    },
   );
   const [statusFilter, setStatusFilter] = useState<
     "all" | "rascunho" | "publicado" | "auditado" | "arquivado"
-  >("all");
-  const [page, setPage] = useState(1);
+  >(() => {
+    const v = searchParams.get("status");
+    return v === "rascunho" || v === "publicado" || v === "auditado" || v === "arquivado"
+      ? (v as "rascunho" | "publicado" | "auditado" | "arquivado")
+      : "all";
+  });
+  const [page, setPage] = useState(() => {
+    const p = Number(searchParams.get("page"));
+    return p > 0 ? p : 1;
+  });
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [observability, setObservability] =
@@ -206,6 +222,17 @@ const timerRef = useRef<number | undefined>(undefined);
   const handleNextPage = useCallback(() => {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
+
+  // Sincronizar filtros com URL — permite bookmark e voltar ao mesmo estado
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearchTerm) params.set("q", debouncedSearchTerm);
+    if (modelFilter !== "regular") params.set("kind", modelFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (page > 1) params.set("page", String(page));
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [debouncedSearchTerm, modelFilter, statusFilter, page, router, pathname]);
 
   const [storedFiles, setStoredFiles] = useState<StoredFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -1814,6 +1841,20 @@ useEffect(() => {
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
+              {/* Skeleton de carregamento durante refetch — preserva layout sem flash branco */}
+              {refetching && ddsList.length > 0 ? (
+                <TableBody aria-busy="true" aria-label="Atualizando lista de DDS">
+                  {Array.from({ length: Math.min(ddsList.length, 5) }).map((_, i) => (
+                    <TableRow key={`skeleton-${i}`} className="animate-pulse">
+                      <TableCell><div className="h-4 w-20 rounded bg-[var(--ds-color-surface-muted)]" /></TableCell>
+                      <TableCell><div className="h-4 w-48 rounded bg-[var(--ds-color-surface-muted)]" /></TableCell>
+                      <TableCell><div className="h-4 w-10 rounded bg-[var(--ds-color-surface-muted)]" /></TableCell>
+                      <TableCell><div className="h-5 w-24 rounded-full bg-[var(--ds-color-surface-muted)]" /></TableCell>
+                      <TableCell className="text-right"><div className="ml-auto h-7 w-28 rounded bg-[var(--ds-color-surface-muted)]" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              ) : (
               <TableBody>
                 {ddsList.map((dds) => {
                   const currentStatus = getEffectiveStatus(dds);
@@ -1847,6 +1888,23 @@ useEffect(() => {
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
                           <span>{participantCount}</span>
+                          {/* Indicadores de governança: PDF emitido e fluxo aprovado */}
+                          {dds.pdf_file_key ? (
+                            <span
+                              title="PDF final emitido"
+                              className="ml-1 inline-flex items-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ds-color-action-primary)]"
+                            >
+                              PDF
+                            </span>
+                          ) : null}
+                          {dds.approval_flow?.status === "approved" ? (
+                            <span
+                              title="Fluxo de aprovação concluído"
+                              className="ml-1 inline-flex items-center rounded-full bg-[color:var(--ds-color-success-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ds-color-success-default)]"
+                            >
+                              ✓
+                            </span>
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -2017,6 +2075,7 @@ useEffect(() => {
                   );
                 })}
               </TableBody>
+              )}
             </Table>
           )}
         </CardContent>
@@ -2057,3 +2116,7 @@ useEffect(() => {
     </div>
   );
 }
+
+
+
+

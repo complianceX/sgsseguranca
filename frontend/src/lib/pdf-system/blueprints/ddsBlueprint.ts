@@ -59,7 +59,13 @@ type TeamPhotoEvidence = {
   };
 };
 
-type DdsParticipantLike = { nome?: string; funcao?: string | null };
+type DdsParticipantLike = { id?: string; nome?: string; funcao?: string | null };
+
+const AUDIT_RESULT_LABEL: Record<string, string> = {
+  CONFORME: "Conforme",
+  NAO_CONFORME: "Não Conforme",
+  PARCIALMENTE_CONFORME: "Parcialmente Conforme",
+};
 
 const APPROVAL_STATUS_LABEL: Record<DdsApprovalAction, string> = {
   pending: "Pendente",
@@ -203,16 +209,42 @@ export async function drawDdsBlueprint(
       signature.type !== TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
   );
 
+  // Criticidade dinâmica: reflete o estado real de governança do DDS.
+  const criticalityLabel =
+    dds.status === "auditado" && dds.resultado_auditoria === "NAO_CONFORME"
+      ? "Não Conforme"
+      : dds.status === "auditado"
+        ? "Conforme"
+        : dds.status === "rascunho"
+          ? "Em elaboração"
+          : dds.status === "arquivado"
+            ? "Arquivado"
+            : "Moderada";
+
   drawDocumentIdentityRail(ctx, {
     documentType: "DDS",
-    criticality: "Moderada",
+    criticality: criticalityLabel,
     documentClass: dds.is_modelo ? "Modelo" : "Operacional",
   });
 
+  // Síntese executiva dinâmica com dados reais do DDS
+  const signatureCountForSummary = participantSignatures.length;
+  const photosCountForSummary = teamPhotos.length;
+  const dynamicSummaryParts: string[] = [
+    `Registro de DDS realizado${dds.data ? ` em ${formatDate(dds.data)}` : ""} sobre o tema "${sanitize(dds.tema)}".`,
+    `Facilitado por ${sanitize(dds.facilitador?.nome || "não informado")}${dds.site?.nome ? ` no ${sanitize(dds.site.nome)}` : ""}.`,
+    `${participantCount} participante${participantCount !== 1 ? "s" : ""} registrado${participantCount !== 1 ? "s" : ""}.`,
+  ];
+  if (signatureCountForSummary > 0)
+    dynamicSummaryParts.push(`${signatureCountForSummary} assinatura${signatureCountForSummary !== 1 ? "s" : ""} capturada${signatureCountForSummary !== 1 ? "s" : ""}.`);
+  if (photosCountForSummary > 0)
+    dynamicSummaryParts.push(`${photosCountForSummary} evidência${photosCountForSummary !== 1 ? "s" : ""} fotográfica${photosCountForSummary !== 1 ? "s" : ""} registrada${photosCountForSummary !== 1 ? "s" : ""}.`);
+  dynamicSummaryParts.push(`Status atual: ${DDS_STATUS_LABEL[dds.status] ?? sanitize(dds.status)}.`);
+  const dynamicSummary = dynamicSummaryParts.join(" ");
+
   drawExecutiveSummaryStrip(ctx, {
     title: "Síntese executiva",
-    summary:
-      "Registro de alinhamento de segurança antes da operação, com foco em tema, facilitação, participação e evidência de governança.",
+    summary: dynamicSummary,
     metrics: [
       { label: "Tema", value: sanitize(dds.tema), tone: "info" },
       {
@@ -294,7 +326,10 @@ export async function drawDdsBlueprint(
       fields: [
         { label: "Auditado por", value: dds.auditado_por?.nome },
         { label: "Data da auditoria", value: formatDate(dds.data_auditoria) },
-        { label: "Resultado", value: dds.resultado_auditoria },
+        {
+          label: "Resultado",
+          value: AUDIT_RESULT_LABEL[dds.resultado_auditoria as string] ?? sanitize(dds.resultado_auditoria as string | undefined),
+        },
       ],
     });
 
@@ -367,6 +402,8 @@ export async function drawDdsBlueprint(
             "Hash",
           ],
         ],
+        // Semantic coloring on the Status column (index 3): Aprovado=verde, Pendente=amarelo, Reprovado=vermelho
+        semanticRules: { columns: [3], keywordOverrides: { danger: ["cancelado", "cancelad"] } },
         body: approvalFlow.steps.map((step) => {
           const decisionEvent = findDecisionEvent(
             approvalFlow.events,
@@ -403,6 +440,9 @@ export async function drawDdsBlueprint(
     }
 
     if (approvalFlow.events.length > 0) {
+    // Histórico reduzido para 5 colunas — remove IP (dado sensível), une hashes
+    // numa coluna compacta para melhor legibilidade em página A4.
+    if (approvalFlow.events.length > 0) {
       drawSemanticTable(ctx, {
         title: "Histórico técnico de aprovação",
         tone: "default",
@@ -412,44 +452,39 @@ export async function drawDdsBlueprint(
             "Data/hora",
             "Ação",
             "Ator",
-            "IP",
             "Assinatura",
-            "Hash anterior",
-            "Hash do evento",
+            "Hash (ant. → evento)",
           ],
         ],
+        semanticRules: { columns: [1] },
         body: approvalFlow.events.map((event) => [
           formatDateTime(event.event_at),
           approvalStatusLabel(event.action),
           approvalActorLabel(event),
-          sanitize(event.decided_ip || "Não registrado"),
           event.actor_signature_hash
             ? [
                 signatureHashPreview(event.actor_signature_hash),
                 event.actor_signature_signed_at
                   ? formatDateTime(event.actor_signature_signed_at)
                   : null,
-                event.actor_signature_timestamp_authority || null,
               ]
                 .filter(Boolean)
                 .join(" | ")
             : "Sem assinatura",
-          eventHashPreview(event.previous_event_hash),
-          eventHashPreview(event.event_hash),
+          `${eventHashPreview(event.previous_event_hash)} → ${eventHashPreview(event.event_hash)}`,
         ]),
         overrides: {
           tableWidth: ctx.contentWidth - 4,
           columnStyles: {
-            0: { cellWidth: 24 },
-            1: { cellWidth: 16 },
-            2: { cellWidth: 24 },
-            3: { cellWidth: 16 },
-            4: { cellWidth: 46 },
-            5: { cellWidth: 24 },
-            6: { cellWidth: 24 },
+            0: { cellWidth: 26 },
+            1: { cellWidth: 18 },
+            2: { cellWidth: 26 },
+            3: { cellWidth: 46 },
+            4: { cellWidth: 58 },
           },
         },
       });
+    }
     }
   }
 
@@ -461,6 +496,13 @@ export async function drawDdsBlueprint(
     });
   }
 
+  // Construir conjunto de user_ids que efetivamente assinaram o DDS
+  const signedUserIds = new Set<string>(
+    participantSignatures
+      .filter((s) => Boolean(s.user_id))
+      .map((s) => s.user_id as string),
+  );
+
   drawParticipantTable(
     ctx,
     autoTable,
@@ -468,7 +510,9 @@ export async function drawDdsBlueprint(
     (dds.participants || []).map((participant: DdsParticipantLike) => ({
       name: participant.nome,
       role: participant.funcao,
+      userId: participant.id,
     })),
+    signedUserIds.size > 0 ? signedUserIds : undefined,
   );
 
   await drawEvidenceGallery(ctx, {
@@ -541,3 +585,6 @@ export async function drawDdsBlueprint(
       "Valide o DDS, o fluxo de aprovação e a assinatura final no portal público.",
   });
 }
+
+
+

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { CacheService } from '../../shared/cache/cache.service';
 
 type CountRow = {
   total?: string | number | null;
@@ -95,14 +96,28 @@ export type DdsObservabilityOverview = {
   };
 };
 
+/** TTL de 60 segundos para o overview de observabilidade (dados mudam a cada minuto). */
+const OBSERVABILITY_OVERVIEW_TTL_SECONDS = 60;
+
 @Injectable()
 export class DdsObservabilityService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getOverview(): Promise<DdsObservabilityOverview> {
+    const tenantId = this.tenantService.getTenantId() ?? 'global';
+    const cacheKey = `dds:observability:overview:${tenantId}`;
+    return this.cacheService.getOrSet(
+      cacheKey,
+      () => this.computeOverview(),
+      OBSERVABILITY_OVERVIEW_TTL_SECONDS,
+    );
+  }
+
+  private async computeOverview(): Promise<DdsObservabilityOverview> {
     const tenantId = this.tenantService.getTenantId() ?? null;
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -425,3 +440,4 @@ export class DdsObservabilityService {
     return [];
   }
 }
+
