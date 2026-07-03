@@ -61,7 +61,8 @@ fi
 
 if [ "$RUN_FRONTEND_DDS" -eq 1 ]; then
   echo "pre-push: executando smoke test DDS frontend..."
-  npm --prefix frontend test -- --runTestsByPath lib/pdf-system/blueprints/ddsBlueprint.test.ts
+  npm --prefix frontend test -- --runTestsByPath src/lib/pdf-system/blueprints/ddsBlueprint.test.ts
 fi
 
 echo "pre-push: validacoes concluidas."
+
