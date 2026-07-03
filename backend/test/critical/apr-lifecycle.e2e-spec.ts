@@ -392,11 +392,11 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       );
     });
 
-    it('2.3 POST /aprs/:id/approve em APR Cancelada → 400 (transição inválida)', async () => {
+    it('2.3 PATCH /aprs/:id/approve em APR Cancelada → 400 (transição inválida)', async () => {
       // CANCELADA é estado terminal — nenhuma transição é permitida
       const res = await testApp
         .request()
-        .post(`/aprs/${aprCancelableId}/approve`)
+        .patch(`/aprs/${aprCancelableId}/approve`)
         .set(testApp.authHeaders(adminSession))
         .set(csrfHeaders)
         .send({});
@@ -415,11 +415,11 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(res.status).toBe(400);
     });
 
-    it('2.5 POST /aprs/:id/approve em APR Encerrada → 400 (estado terminal)', async () => {
+    it('2.5 PATCH /aprs/:id/approve em APR Encerrada → 400 (estado terminal)', async () => {
       // ENCERRADA → APROVADA também não é permitida
       const res = await testApp
         .request()
-        .post(`/aprs/${aprEncerradaId}/approve`)
+        .patch(`/aprs/${aprEncerradaId}/approve`)
         .set(testApp.authHeaders(adminSession))
         .set(csrfHeaders)
         .send({});
@@ -452,7 +452,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
 
       const approveRes = await testApp
         .request()
-        .post(`/aprs/${apr.id}/approve`)
+        .patch(`/aprs/${apr.id}/approve`)
         .set(testApp.authHeaders(adminSession))
         .set(csrfHeaders)
         .send({ reason: 'Aprovada para exercitar new-version' });
@@ -666,7 +666,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       // Mesmo conhecendo o ID da APR, tenant B não pode interagir com ela
       const res = await testApp
         .request()
-        .post(`/aprs/${aprEncerradaId}/approve`)
+        .patch(`/aprs/${aprEncerradaId}/approve`)
         .set(testApp.authHeaders(adminSessionB))
         .set(csrfHeaders)
         .send({});
