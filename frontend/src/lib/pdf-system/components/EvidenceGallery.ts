@@ -16,14 +16,25 @@ type EvidenceGalleryOptions = {
   strict?: boolean;
 };
 
+type EvidenceCardLayout = {
+  x?: number;
+  w?: number;
+  skipEnsureSpace?: boolean;
+};
+
 async function drawOneEvidence(
   ctx: PdfContext,
   item: EvidenceGalleryItem,
   index: number,
   resolveImageDataUrl?: (item: EvidenceGalleryItem, index: number) => Promise<string | null>,
   strict = false,
+  layout?: EvidenceCardLayout,
 ) {
-  const { doc, margin, contentWidth, theme } = ctx;
+  const { doc, theme } = ctx;
+  const cardX = layout?.x ?? ctx.margin;
+  const cardW = layout?.w ?? ctx.contentWidth;
+  const scale = cardW / ctx.contentWidth;
+
   let dataUrl: string | null = null;
   let imageState: "loaded" | "missing" | "error" = "missing";
 
@@ -45,9 +56,14 @@ async function drawOneEvidence(
   }
 
   const hasImage = imageState === "loaded" && Boolean(dataUrl);
-  const imageWrapW = hasImage ? 74 : 52;
-  const imageWrapH = hasImage ? 66 : 36;
-  const detailsW = contentWidth - imageWrapW - 16;
+  // Scale image dimensions proportionally to card width
+  const imageWrapW = hasImage
+    ? Math.max(24, Math.round(74 * scale))
+    : Math.max(18, Math.round(52 * scale));
+  const imageWrapH = hasImage
+    ? Math.max(20, Math.round(66 * scale))
+    : Math.max(14, Math.round(36 * scale));
+  const detailsW = cardW - imageWrapW - 16;
   const titleLines = doc.splitTextToSize(
     sanitize(item.title || "Registro fotografico"),
     detailsW,
@@ -59,20 +75,23 @@ async function drawOneEvidence(
     8 + titleHeight + 6 + descLines.length * 4 + 5 + metaLines.length * 3.4;
   const cardInnerH = Math.max(imageWrapH, contentTextHeight + (hasImage ? 8 : 5));
   const cardH = cardInnerH + 12;
-  ensureSpace(ctx, cardH + 6);
+
+  if (!layout?.skipEnsureSpace) {
+    ensureSpace(ctx, cardH + 6);
+  }
 
   doc.setFillColor(...theme.tone.surface);
   doc.setDrawColor(...theme.tone.border);
   doc.setLineWidth(0.28);
-  doc.roundedRect(margin, ctx.y, contentWidth, cardH, 2, 2, "FD");
+  doc.roundedRect(cardX, ctx.y, cardW, cardH, 2, 2, "FD");
 
   doc.setFillColor(...theme.tone.surfaceMuted);
-  doc.roundedRect(margin + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "F");
+  doc.roundedRect(cardX + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "F");
   doc.setDrawColor(...theme.tone.borderStrong);
   doc.setLineWidth(0.18);
-  doc.roundedRect(margin + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "S");
+  doc.roundedRect(cardX + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "S");
 
-  const textX = margin + imageWrapW + 11;
+  const textX = cardX + imageWrapW + 11;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.caption);
   doc.setTextColor(...theme.tone.textMuted);
@@ -105,7 +124,7 @@ async function drawOneEvidence(
       );
       const w = props.width * ratio;
       const h = props.height * ratio;
-      const x = margin + 5 + (imageWrapW - w) / 2;
+      const x = cardX + 5 + (imageWrapW - w) / 2;
       const y = ctx.y + 6 + (cardInnerH - h) / 2;
       doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
     } catch {
@@ -123,7 +142,7 @@ async function drawOneEvidence(
     doc.setTextColor(...theme.tone.textMuted);
     doc.text(
       imageState === "error" ? "FOTO INDISPONIVEL" : "SEM FOTO",
-      margin + 5 + imageWrapW / 2,
+      cardX + 5 + imageWrapW / 2,
       ctx.y + 20,
       { align: "center" },
     );
@@ -139,14 +158,14 @@ async function drawOneEvidence(
       imageState === "error"
         ? "Registro visual nao pode ser carregado."
         : "Evidencia textual preservada no documento.",
-      margin + 5 + imageWrapW / 2,
+      cardX + 5 + imageWrapW / 2,
       ctx.y + 25.5,
       { align: "center", maxWidth: imageWrapW - 6 },
     );
 
     doc.setDrawColor(...theme.tone.border);
     doc.setLineWidth(0.2);
-    doc.line(margin + 11, ctx.y + 31, margin + imageWrapW - 1, ctx.y + 31);
+    doc.line(cardX + 11, ctx.y + 31, cardX + imageWrapW - 1, ctx.y + 31);
   }
 
   moveY(ctx, cardH + 5);
@@ -170,7 +189,54 @@ export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGall
   doc.text(options.title, margin + 5, ctx.y + 6.5);
   moveY(ctx, 12);
 
-  for (const [index, item] of options.items.entries()) {
-    await drawOneEvidence(ctx, item, index, options.resolveImageDataUrl, options.strict ?? false);
+  // Use 2-per-row layout when 2+ items to maximise page space and produce a
+  // polished grid view consistent with the document design system.
+  const useDoubleColumn = options.items.length >= 2;
+
+  if (!useDoubleColumn) {
+    for (const [index, item] of options.items.entries()) {
+      await drawOneEvidence(ctx, item, index, options.resolveImageDataUrl, options.strict ?? false);
+    }
+    return;
+  }
+
+  const gap = 5;
+  const halfW = (contentWidth - gap) / 2;
+
+  for (let i = 0; i < options.items.length; i += 2) {
+    const leftItem = options.items[i];
+    const rightItem = options.items[i + 1];
+    if (!leftItem) {
+      break;
+    }
+
+    // Reserve space before starting each pair
+    ensureSpace(ctx, 55);
+    const pairStartY = ctx.y;
+
+    // Left card
+    await drawOneEvidence(
+      ctx,
+      leftItem,
+      i,
+      options.resolveImageDataUrl,
+      options.strict ?? false,
+      { x: margin, w: halfW, skipEnsureSpace: true },
+    );
+    const leftEndY = ctx.y;
+
+    // Right card — reset cursor to pair start, then advance past the taller card
+    if (rightItem) {
+      ctx.y = pairStartY;
+      await drawOneEvidence(
+        ctx,
+        rightItem,
+        i + 1,
+        options.resolveImageDataUrl,
+        options.strict ?? false,
+        { x: margin + halfW + gap, w: halfW, skipEnsureSpace: true },
+      );
+      ctx.y = Math.max(leftEndY, ctx.y);
+    }
   }
 }

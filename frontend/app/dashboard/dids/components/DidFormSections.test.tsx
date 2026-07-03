@@ -47,6 +47,7 @@ describe('DidFormSections', () => {
         companies={[{ id: 'company-1', razao_social: 'Empresa Teste' }]}
         filteredSites={[{ id: 'site-1', nome: 'Obra Norte' }]}
         filteredUsers={[{ id: 'user-1', nome: 'Responsável' }]}
+        isAdminGeral
         selectedCompanyId="company-1"
         handleCompanyChange={jest.fn()}
       />,
@@ -57,6 +58,30 @@ describe('DidFormSections', () => {
     expect(screen.getByLabelText('Site / frente')).toBeInTheDocument();
     expect(screen.getByLabelText('Responsável')).toBeInTheDocument();
     expect(screen.getByText('Use um título curto que identifique o DID com facilidade.')).toBeInTheDocument();
+  });
+
+  it('mantem a empresa fixa para usuario nao admin geral', () => {
+    const register = jest.fn((name: string) => ({ name }));
+
+    render(
+      <DidContextSection
+        register={register}
+        errors={{}}
+        companies={[{ id: 'company-1', razao_social: 'Empresa Teste' }]}
+        filteredSites={[{ id: 'site-1', nome: 'Obra Norte' }]}
+        filteredUsers={[{ id: 'user-1', nome: 'Responsável' }]}
+        isAdminGeral={false}
+        companyLabel="Empresa Travada"
+        selectedCompanyId="company-1"
+        handleCompanyChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('combobox', { name: 'Empresa' })).not.toBeInTheDocument();
+    expect(screen.getByText('Empresa Travada')).toBeInTheDocument();
+    expect(
+      screen.getByText(/troca de empresa é exclusiva do Administrador Geral/i),
+    ).toBeInTheDocument();
   });
 
   it('aciona o callback ao selecionar participante e atualiza o estado visual recebido via props', () => {

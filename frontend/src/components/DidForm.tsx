@@ -395,7 +395,7 @@ export function DidForm({ id }: DidFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-10">
+    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-16">
       {fetching ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
           <InlineLoadingState
@@ -486,6 +486,12 @@ export function DidForm({ id }: DidFormProps) {
           companies={companies}
           filteredSites={filteredSites}
           filteredUsers={filteredUsers}
+          isAdminGeral={isAdminGeral}
+          companyLabel={
+            selectedCompany?.razao_social ||
+            currentDid?.company?.razao_social ||
+            null
+          }
           selectedCompanyId={selectedCompanyId}
           handleCompanyChange={handleCompanyChange}
         />
