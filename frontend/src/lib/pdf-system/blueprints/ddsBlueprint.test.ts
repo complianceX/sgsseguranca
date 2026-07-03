@@ -124,6 +124,8 @@ describe("drawDdsBlueprint", () => {
           role: "Operador",
         }),
       ],
+      // signedUserIds — Set construído a partir das assinaturas existentes
+      expect.any(Set),
     );
   });
 
@@ -267,3 +269,4 @@ describe("drawDdsBlueprint", () => {
     );
   });
 });
+

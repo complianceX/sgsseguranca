@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
@@ -284,6 +284,8 @@ export class DdsController {
     @Query('search') search?: string,
     @Query('kind') kind?: 'all' | 'model' | 'regular',
     @Query('status') status?: 'all' | DdsStatus,
+    @Query('sort_by') sortBy?: 'created_at' | 'data' | 'tema' | 'status',
+    @Query('sort_dir') sortDir?: 'ASC' | 'DESC',
   ) {
     if (cursor) {
       return this.ddsService.findByCursor({
@@ -301,6 +303,8 @@ export class DdsController {
       search,
       kind,
       status,
+      sort_by: sortBy,
+      sort_dir: sortDir,
     });
   }
 

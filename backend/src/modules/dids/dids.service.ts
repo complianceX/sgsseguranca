@@ -41,6 +41,15 @@ type DidPdfEmissionContext = {
   userId?: string;
 };
 
+type DidPeopleListItem = {
+  id: string;
+  nome: string;
+  funcao: string | null;
+  company_id: string;
+  site_id: string | null;
+  status: boolean;
+};
+
 @Injectable()
 export class DidsService {
   private readonly logger = new Logger(DidsService.name);
@@ -48,6 +57,8 @@ export class DidsService {
   constructor(
     @InjectRepository(Did)
     private readonly didRepository: Repository<Did>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
@@ -113,6 +124,75 @@ export class DidsService {
       companyId: saved.company_id,
     });
     return saved;
+  }
+
+  async listPeople(opts?: {
+    page?: number;
+    limit?: number;
+    siteId?: string;
+  }): Promise<OffsetPage<DidPeopleListItem>> {
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
+    const tenantId = scope.companyId;
+    const requestedSiteId = opts?.siteId?.trim() || undefined;
+
+    if (
+      requestedSiteId &&
+      !scope.hasCompanyWideAccess &&
+      !scope.siteIds.includes(requestedSiteId)
+    ) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
+
+    const effectiveSiteIds = requestedSiteId
+      ? [requestedSiteId]
+      : scope.hasCompanyWideAccess
+        ? []
+        : scope.siteIds;
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.nome',
+        'user.funcao',
+        'user.company_id',
+        'user.site_id',
+        'user.status',
+      ])
+      .where('user.company_id = :tenantId', { tenantId })
+      .andWhere('user.deleted_at IS NULL')
+      .andWhere(
+        "(user.status = true OR user.password IS NULL OR btrim(user.password) = '')",
+      )
+      .skip(skip)
+      .take(limit)
+      .orderBy('user.nome', 'ASC');
+
+    if (effectiveSiteIds.length > 0) {
+      qb.andWhere('(user.site_id IN (:...siteIds) OR user.site_id IS NULL)', {
+        siteIds: effectiveSiteIds,
+      });
+    } else if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('1 = 0');
+    }
+
+    const [users, total] = await qb.getManyAndCount();
+    const data = users.map((user) => ({
+      id: user.id,
+      nome: user.nome,
+      funcao: user.funcao,
+      company_id: user.company_id,
+      site_id: user.site_id ?? null,
+      status: user.status,
+    }));
+
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findPaginated(opts?: {

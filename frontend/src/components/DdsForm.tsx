@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +15,7 @@ import {
   Loader2,
   Camera,
   Trash2,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import NextImage from "next/image";
@@ -52,6 +53,9 @@ import {
   isDdsUserVisibleForSite,
 } from "@/lib/dds-user-scope";
 import { ddsSchema, type DdsFormData } from "@/lib/validation/ddsForm.schema";
+
+// Importação dinâmica do gerador de PDF — evita incluir jsPDF no bundle inicial
+const loadDdsPdfGenerator = () => import("@/lib/pdf/ddsGenerator");
 
 interface DdsFormProps {
   id?: string;
@@ -240,6 +244,42 @@ export function DdsForm({ id }: DdsFormProps) {
     string | null
   >(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  /** Gera uma prévia em PDF do DDS salvo e abre em nova aba. */
+  const handlePreviewPdf = async () => {
+    if (!currentDds?.id) {
+      toast.error("Salve o DDS antes de gerar a prévia em PDF.");
+      return;
+    }
+    try {
+      setPreviewLoading(true);
+      const [signatures, videos] = await Promise.all([
+        ddsService.listSignatures(currentDds.id),
+        ddsService.listVideoAttachments(currentDds.id),
+      ]);
+      const { generateDdsPdf } = await loadDdsPdfGenerator();
+      const base64 = await generateDdsPdf(
+        currentDds,
+        signatures,
+        videos,
+        { save: false, output: "base64", draftWatermark: true },
+      );
+      if (!base64) throw new Error("Falha ao gerar a prévia do PDF.");
+      const blob = new Blob(
+        [Uint8Array.from(atob(String(base64)), (c) => c.charCodeAt(0))],
+        { type: "application/pdf" },
+      );
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      toast.error("Não foi possível gerar a prévia do PDF.");
+      console.error("handlePreviewPdf:", err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
   const [confirmResetDialogOpen, setConfirmResetDialogOpen] = useState(false);
   const [pendingResetCallback, setPendingResetCallback] = useState<
     (() => Promise<void>) | null
@@ -1637,6 +1677,24 @@ export function DdsForm({ id }: DdsFormProps) {
             >
               Cancelar
             </Button>
+            {currentDds?.id ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={previewLoading}
+                onClick={() => void handlePreviewPdf()}
+                leftIcon={
+                  previewLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )
+                }
+                title="Gera uma prévia do PDF com marca d'água de rascunho"
+              >
+                {previewLoading ? "Gerando..." : "Prévia PDF"}
+              </Button>
+            ) : null}
             <Button
               type="submit"
               disabled={ddsReadOnly || loading || isSubmitting}
@@ -1715,3 +1773,6 @@ export function DdsForm({ id }: DdsFormProps) {
     </div>
   );
 }
+
+
+

@@ -1,15 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Save } from 'lucide-react';
+import { FileSearch, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import {
   DidContextSection,
   DidFormPageShell,
   DidOperationalSection,
   DidParticipantsSection,
 } from '@/app/dashboard/dids/components/DidFormSections';
+import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
+import { generateDidPdf } from '@/lib/pdf/didGenerator';
+import type { Did } from '@/services/didsService';
+import type { User } from '@/services/usersService';
 
 type DidPreviewState = {
   titulo: string;
@@ -31,10 +34,61 @@ type DidPreviewState = {
 
 const companies = [{ id: 'company-1', razao_social: 'Empresa Teste' }];
 const allSites = [{ id: 'site-1', nome: 'Obra Norte', company_id: 'company-1' }];
-const allUsers = [
-  { id: 'user-1', nome: 'Responsável', company_id: 'company-1', site_id: 'site-1' },
-  { id: 'user-2', nome: 'Equipe Campo', company_id: 'company-1', site_id: 'site-1' },
-  { id: 'user-3', nome: 'Supervisor', company_id: 'company-1', site_id: 'site-1' },
+const previewTimestamp = '2026-04-15T07:00:00.000Z';
+
+const allUsers: User[] = [
+  {
+    id: 'user-1',
+    nome: 'Responsável',
+    email: 'responsavel@empresa.test',
+    cpf: '00000000001',
+    funcao: 'Técnica SST',
+    role: 'USER',
+    company_id: 'company-1',
+    site_id: 'site-1',
+    profile_id: 'profile-1',
+    created_at: previewTimestamp,
+    updated_at: previewTimestamp,
+  },
+  {
+    id: 'user-2',
+    nome: 'Equipe Campo',
+    email: 'equipe.campo@empresa.test',
+    cpf: '00000000002',
+    funcao: 'Montador',
+    role: 'USER',
+    company_id: 'company-1',
+    site_id: 'site-1',
+    profile_id: 'profile-1',
+    created_at: previewTimestamp,
+    updated_at: previewTimestamp,
+  },
+  {
+    id: 'user-3',
+    nome: 'Supervisor',
+    email: 'supervisor@empresa.test',
+    cpf: '00000000003',
+    funcao: 'Supervisor',
+    role: 'USER',
+    company_id: 'company-1',
+    site_id: 'site-1',
+    profile_id: 'profile-1',
+    created_at: previewTimestamp,
+    updated_at: previewTimestamp,
+  },
+  {
+    id: 'user-4',
+    nome: 'Apoio Corporativo',
+    email: 'apoio@empresa.test',
+    cpf: '00000000004',
+    funcao: 'Apoio SST',
+    role: 'USER',
+    company_id: 'company-1',
+    site_id: undefined,
+    profile_id: 'profile-1',
+    created_at: previewTimestamp,
+    updated_at: previewTimestamp,
+  },
 ];
 
 const initialState: DidPreviewState = {
@@ -58,6 +112,7 @@ const initialState: DidPreviewState = {
 export function DidPreviewHarness() {
   const [values, setValues] = useState<DidPreviewState>(initialState);
   const [readOnly, setReadOnly] = useState(false);
+  const [openingPdf, setOpeningPdf] = useState(false);
 
   const filteredSites = useMemo(
     () => allSites.filter((site) => site.company_id === values.company_id),
@@ -65,8 +120,10 @@ export function DidPreviewHarness() {
   );
   const filteredUsers = useMemo(
     () =>
-      allUsers.filter((user) =>
-        isUserVisibleForSite(user, values.company_id, values.site_id),
+      allUsers.filter(
+        (user) =>
+          user.company_id === values.company_id &&
+          (!values.site_id || user.site_id === values.site_id || !user.site_id),
       ),
     [values.company_id, values.site_id],
   );
@@ -75,6 +132,50 @@ export function DidPreviewHarness() {
     (company) => company.id === values.company_id,
   );
   const selectedSite = filteredSites.find((site) => site.id === values.site_id);
+  const selectedResponsible =
+    filteredUsers.find((user) => user.id === values.responsavel_id) || null;
+  const selectedParticipants = filteredUsers.filter((user) =>
+    values.participants.includes(user.id),
+  );
+
+  const previewDid = useMemo<Did>(
+    () => ({
+      id: 'preview-did',
+      titulo: values.titulo,
+      descricao: values.descricao,
+      data: values.data,
+      turno: values.turno,
+      frente_trabalho: values.frente_trabalho,
+      atividade_principal: values.atividade_principal,
+      atividades_planejadas: values.atividades_planejadas,
+      riscos_operacionais: values.riscos_operacionais,
+      controles_planejados: values.controles_planejados,
+      epi_epc_aplicaveis: values.epi_epc_aplicaveis,
+      observacoes: values.observacoes,
+      company_id: values.company_id,
+      site_id: values.site_id,
+      responsavel_id: values.responsavel_id,
+      participants: selectedParticipants,
+      status: readOnly ? 'arquivado' : 'executado',
+      created_at: '2026-04-15T07:15:00.000Z',
+      updated_at: '2026-04-15T07:45:00.000Z',
+      company: selectedCompany
+        ? { id: selectedCompany.id, razao_social: selectedCompany.razao_social }
+        : undefined,
+      site: selectedSite ? { id: selectedSite.id, nome: selectedSite.nome } : undefined,
+      responsavel: selectedResponsible
+        ? { id: selectedResponsible.id, nome: selectedResponsible.nome }
+        : undefined,
+    }),
+    [
+      readOnly,
+      selectedCompany,
+      selectedParticipants,
+      selectedResponsible,
+      selectedSite,
+      values,
+    ],
+  );
 
   const register = (name: string) => ({
     name,
@@ -106,6 +207,27 @@ export function DidPreviewHarness() {
     }));
   };
 
+  const handleOpenPdfPreview = async () => {
+    try {
+      setOpeningPdf(true);
+      const base64 = await generateDidPdf(previewDid, {
+        save: false,
+        output: 'base64',
+        draftWatermark: false,
+      });
+
+      if (!base64) {
+        return;
+      }
+
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(String(base64)));
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+    } finally {
+      setOpeningPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[var(--component-shell-backdrop)] px-4 py-6 md:px-6">
       <div className="mx-auto mb-4 flex max-w-6xl items-center gap-3">
@@ -115,6 +237,15 @@ export function DidPreviewHarness() {
           onClick={() => setReadOnly((current) => !current)}
         >
           {readOnly ? 'Desbloquear visual' : 'Simular somente leitura'}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          loading={openingPdf}
+          onClick={() => void handleOpenPdfPreview()}
+        >
+          {!openingPdf ? <FileSearch className="h-4 w-4" /> : null}
+          Abrir PDF de amostra
         </Button>
       </div>
 
@@ -154,6 +285,8 @@ export function DidPreviewHarness() {
           companies={companies}
           filteredSites={filteredSites}
           filteredUsers={filteredUsers}
+          isAdminGeral={false}
+          companyLabel={selectedCompany?.razao_social}
           selectedCompanyId={values.company_id}
           handleCompanyChange={handleCompanyChange}
         />

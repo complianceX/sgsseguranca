@@ -31,6 +31,7 @@ import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/sit
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
 import { Role } from '../auth/enums/roles.enum';
+import { normalizeRoleName } from '../auth/role-normalization.util';
 import { Activity } from '../activities/entities/activity.entity';
 import { Risk } from '../risks/entities/risk.entity';
 import { Epi } from '../epis/entities/epi.entity';
@@ -1216,14 +1217,23 @@ export class AprsService {
    * ser permitida a papéis operacionais (Supervisor/Colaborador), ainda que
    * tenham permissão de criar/editar APRs.
    */
-  private assertCanManageCompanyTemplate(roleName?: string | null): void {
-    const privilegedRoles: string[] = [
+  private assertCanManageCompanyTemplate(
+    roleNames?: Array<string | null | undefined>,
+  ): void {
+    // Usa a mesma normalização canônica do RolesGuard (aliases, acentos, maiúsculas)
+    // e considera todos os sinais de papel disponíveis (profile.nome + roles
+    // resolvidos via RBAC), evitando bloquear admins legítimos com grafia divergente
+    // ou perfil não carregado no token.
+    const privilegedRoles = new Set<Role>([
       Role.ADMIN_GERAL,
       Role.ADMIN_EMPRESA,
       Role.TST,
-    ];
-    const normalized = (roleName ?? '').trim();
-    if (!normalized || !privilegedRoles.includes(normalized)) {
+    ]);
+    const isPrivileged = (roleNames ?? []).some((name) => {
+      const normalized = normalizeRoleName(name ?? undefined);
+      return normalized != null && privilegedRoles.has(normalized);
+    });
+    if (!isPrivileged) {
       throw new ForbiddenException(
         'Apenas Administrador Geral, Administrador da Empresa ou TST podem definir o modelo-padrão da empresa.',
       );
@@ -1233,7 +1243,7 @@ export class AprsService {
   async create(
     createAprDto: CreateAprDto,
     userId?: string,
-    actor?: { roleName?: string | null },
+    actor?: { roleNames?: Array<string | null | undefined> },
   ): Promise<Apr> {
     const {
       activities,
@@ -1267,7 +1277,7 @@ export class AprsService {
     // Definir o modelo-padrão da empresa é ação administrativa (afeta todos os
     // usuários do tenant). Falha rápido antes de abrir a transação.
     if (createAprDto.is_modelo_padrao) {
-      this.assertCanManageCompanyTemplate(actor?.roleName);
+      this.assertCanManageCompanyTemplate(actor?.roleNames);
     }
 
     const savedId = await this.aprsRepository.manager.transaction(
@@ -1804,10 +1814,10 @@ export class AprsService {
     id: string,
     updateAprDto: UpdateAprDto,
     userId?: string,
-    actor?: { roleName?: string | null },
+    actor?: { roleNames?: Array<string | null | undefined> },
   ): Promise<Apr> {
     if (updateAprDto.is_modelo_padrao) {
-      this.assertCanManageCompanyTemplate(actor?.roleName);
+      this.assertCanManageCompanyTemplate(actor?.roleNames);
     }
     if ('status' in updateAprDto && updateAprDto.status !== undefined) {
       throw new BadRequestException(
