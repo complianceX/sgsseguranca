@@ -71,7 +71,10 @@ describe('DdsObservabilityService', () => {
       getTenantId: jest.fn(() => 'company-1'),
     } as unknown as TenantService;
 
-    const service = new DdsObservabilityService(dataSource, tenantService);
+        const cacheService = {
+      getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) => factory()),
+    };
+    const service = new DdsObservabilityService(dataSource, tenantService, cacheService as never);
 
     await expect(service.getOverview()).resolves.toMatchObject({
       tenantScope: 'tenant',
@@ -123,7 +126,10 @@ describe('DdsObservabilityService', () => {
     const tenantService = {
       getTenantId: jest.fn(() => null),
     } as unknown as TenantService;
-    const service = new DdsObservabilityService(dataSource, tenantService);
+        const cacheService = {
+      getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) => factory()),
+    };
+    const service = new DdsObservabilityService(dataSource, tenantService, cacheService as never);
 
     const overview = await service.getOverview();
 
@@ -151,7 +157,10 @@ describe('DdsObservabilityService', () => {
     const tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
     } as unknown as TenantService;
-    const service = new DdsObservabilityService(dataSource, tenantService);
+        const cacheService = {
+      getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) => factory()),
+    };
+    const service = new DdsObservabilityService(dataSource, tenantService, cacheService as never);
 
     const overview = await service.getOverview();
 
@@ -184,7 +193,10 @@ describe('DdsObservabilityService', () => {
     const tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
     } as unknown as TenantService;
-    const service = new DdsObservabilityService(dataSource, tenantService);
+        const cacheService = {
+      getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) => factory()),
+    };
+    const service = new DdsObservabilityService(dataSource, tenantService, cacheService as never);
 
     const overview = await service.getOverview();
     const event = overview.publicValidation.recentEvents[0];
@@ -227,7 +239,10 @@ describe('DdsObservabilityService', () => {
     const tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
     } as unknown as TenantService;
-    const service = new DdsObservabilityService(dataSource, tenantService);
+        const cacheService = {
+      getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) => factory()),
+    };
+    const service = new DdsObservabilityService(dataSource, tenantService, cacheService as never);
 
     const overview = await service.getOverview();
     const events = overview.publicValidation.recentEvents;
@@ -236,3 +251,4 @@ describe('DdsObservabilityService', () => {
     expect(events[1].reasons).toEqual([]);
   });
 });
+

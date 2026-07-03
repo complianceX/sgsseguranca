@@ -480,6 +480,8 @@ export class DdsService {
     search?: string;
     kind?: 'all' | 'model' | 'regular';
     status?: 'all' | DdsStatus;
+    sort_by?: 'created_at' | 'data' | 'tema' | 'status';
+    sort_dir?: 'ASC' | 'DESC';
   }): Promise<OffsetPage<Dds>> {
     const scope = this.getSiteAccessScopeOrThrow({
       allowMissingSiteScope: true,
@@ -490,16 +492,28 @@ export class DdsService {
       maxLimit: 100,
     });
 
+    const SORT_COLUMN_MAP: Record<string, string> = {
+      created_at: 'dds.created_at',
+      data: 'dds.data',
+      tema: 'dds.tema',
+      status: 'dds.status',
+    };
+    const orderField =
+      SORT_COLUMN_MAP[opts?.sort_by ?? ''] ?? 'dds.created_at';
+    const orderDir: 'ASC' | 'DESC' =
+      opts?.sort_dir === 'ASC' ? 'ASC' : 'DESC';
+
     const idsQuery = this.ddsRepository
       .createQueryBuilder('dds')
       .select('dds.id', 'id')
-      .orderBy('dds.created_at', 'DESC')
+      .orderBy(orderField, orderDir)
+      .addOrderBy('dds.created_at', 'DESC')
       .skip(skip)
       .take(limit);
 
     const countQuery = this.ddsRepository
       .createQueryBuilder('dds')
-      .orderBy('dds.created_at', 'DESC');
+      .orderBy(orderField, orderDir);
 
     idsQuery.where('dds.deleted_at IS NULL');
     countQuery.where('dds.deleted_at IS NULL');
@@ -1982,3 +1996,4 @@ export class DdsService {
     return `DDS-${year}-${reference || String(Date.now()).slice(-6)}`;
   }
 }
+

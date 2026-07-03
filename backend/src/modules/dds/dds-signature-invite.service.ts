@@ -386,6 +386,15 @@ export class DdsSignatureInviteService implements OnModuleInit {
     }
     this.assertPublicSignatureData(input.signatureData);
 
+    // Em produção (REQUIRE_TURNSTILE=true), o token Turnstile é obrigatório antes
+    // de qualquer validação do convite — protege o portal público contra bots.
+    const requireTurnstile =
+      this.configService.get<string>('REQUIRE_TURNSTILE', 'false') === 'true';
+    if (requireTurnstile && !input.turnstileToken) {
+      throw new BadRequestException(
+        'Verificação de segurança Turnstile obrigatória neste ambiente. Por favor, recarregue a página e tente novamente.',
+      );
+    }
     await this.turnstileService.assertHuman(input.turnstileToken ?? undefined, {
       remoteIp: input.ip,
       expectedAction: 'dds-signing',
@@ -1148,3 +1157,4 @@ export class DdsSignatureInviteService implements OnModuleInit {
     return String(value).slice(0, 10);
   }
 }
+

@@ -197,7 +197,7 @@ function drawValidationPanel(
   doc.setTextColor(...theme.tone.textMuted);
   doc.text("AUTENTICIDADE", validationX + 2.5, innerY + 5);
 
-  const qrSize = 19;
+  const qrSize = 24;
   const qrX = validationX + 2.5;
   const qrY = innerY + 8;
   doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
@@ -236,8 +236,9 @@ function drawValidationPanel(
     doc.text(hashLines, textX, urlY + urlLines.length * 3 + 1.4);
   }
 
-  doc.setDrawColor(...accent);
-  doc.setLineWidth(0.35);
+  // Badge VÁLIDO com fundo verde sólido e texto branco (identidade visual de segurança)
+  doc.setFillColor(27, 94, 62);
+  doc.setDrawColor(27, 94, 62);
   doc.roundedRect(
     validationX + validationW - 17,
     innerY + bodyHeight - 10.4,
@@ -245,12 +246,12 @@ function drawValidationPanel(
     6.4,
     1.2,
     1.2,
-    "S",
+    "F",
   );
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.caption);
-  doc.setTextColor(...accent);
-  doc.text("VALIDO", validationX + validationW - 11, innerY + bodyHeight - 5.9, {
+  doc.setTextColor(255, 255, 255);
+  doc.text("VÁLIDO", validationX + validationW - 11, innerY + bodyHeight - 5.9, {
     align: "center",
   });
 }
