@@ -493,5 +493,3 @@ describe('DdsApprovalService', () => {
     expect(flow.status).toBe('approved');
   });
 });
-
-

@@ -262,14 +262,15 @@ describe('DidsService', () => {
       siteIds: ['site-1'],
     }));
 
-    await expect(service.listPeople({ page: 1, limit: 100, siteId: 'site-1' }))
-      .resolves.toMatchObject({
-        total: 2,
-        data: [
-          { id: 'user-site-1', site_id: 'site-1' },
-          { id: 'user-company', site_id: null },
-        ],
-      });
+    await expect(
+      service.listPeople({ page: 1, limit: 100, siteId: 'site-1' }),
+    ).resolves.toMatchObject({
+      total: 2,
+      data: [
+        { id: 'user-site-1', site_id: 'site-1' },
+        { id: 'user-company', site_id: null },
+      ],
+    });
 
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       '(user.site_id IN (:...siteIds) OR user.site_id IS NULL)',

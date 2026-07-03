@@ -498,10 +498,8 @@ export class DdsService {
       tema: 'dds.tema',
       status: 'dds.status',
     };
-    const orderField =
-      SORT_COLUMN_MAP[opts?.sort_by ?? ''] ?? 'dds.created_at';
-    const orderDir: 'ASC' | 'DESC' =
-      opts?.sort_dir === 'ASC' ? 'ASC' : 'DESC';
+    const orderField = SORT_COLUMN_MAP[opts?.sort_by ?? ''] ?? 'dds.created_at';
+    const orderDir: 'ASC' | 'DESC' = opts?.sort_dir === 'ASC' ? 'ASC' : 'DESC';
 
     const idsQuery = this.ddsRepository
       .createQueryBuilder('dds')
@@ -1996,4 +1994,3 @@ export class DdsService {
     return `DDS-${year}-${reference || String(Date.now()).slice(-6)}`;
   }
 }
-

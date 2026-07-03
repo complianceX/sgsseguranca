@@ -440,4 +440,3 @@ export class DdsObservabilityService {
     return [];
   }
 }
-
