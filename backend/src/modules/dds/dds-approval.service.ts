@@ -237,15 +237,17 @@ export class DdsApprovalService {
       const nextStep = flow.currentStep;
       const requiredRole = this.normalizeRole(nextStep.approver_role);
 
-      const allUsers = await this.userRepository.find({
-        where: { company_id: companyId, deletedAt: IsNull() },
-        relations: ['profile'],
-      });
-
-      const eligible = allUsers.filter((u) => {
-        const role = this.normalizeRole(u.profile?.nome);
-        return role === requiredRole || role === Role.ADMIN_GERAL;
-      });
+      // Filtrar por role no banco — evita carregar todos os usuários da empresa.
+      // Inclui ADMIN_GERAL (pode aprovar qualquer etapa) e o role exigido pela etapa.
+      const eligible = await this.userRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.profile', 'p')
+        .where('u.company_id = :companyId', { companyId })
+        .andWhere('u.deleted_at IS NULL')
+        .andWhere('p.nome IN (:...roles)', {
+          roles: [requiredRole, Role.ADMIN_GERAL].filter(Boolean),
+        })
+        .getMany();
 
       await Promise.all(
         eligible.map((u) =>
@@ -253,10 +255,10 @@ export class DdsApprovalService {
             .create({
               companyId,
               userId: u.id,
-              type: 'dds_approval_pending',
+              type: 'info',
               title: 'Aprovação de DDS pendente',
               message: `A etapa "${nextStep.title}" aguarda sua aprovação.`,
-              data: { ddsId },
+              data: { event: 'dds_approval_pending', ddsId },
             })
             .catch((err) =>
               this.logger.warn(

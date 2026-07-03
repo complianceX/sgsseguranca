@@ -61,10 +61,17 @@ type TeamPhotoEvidence = {
 
 type DdsParticipantLike = { id?: string; nome?: string; funcao?: string | null };
 
+// Mapeia os valores canônicos da entidade AuditResult para labels legíveis.
+// Os valores já vêm formatados do backend (ex: "Não Conforme"), mas este mapa
+// serve de fallback para variações antigas ou vindas de migração.
 const AUDIT_RESULT_LABEL: Record<string, string> = {
+  Conforme: "Conforme",
+  "Não Conforme": "Não Conforme",
+  Observação: "Observação",
+  // Aliases de versões anteriores
   CONFORME: "Conforme",
   NAO_CONFORME: "Não Conforme",
-  PARCIALMENTE_CONFORME: "Parcialmente Conforme",
+  OBSERVACAO: "Observação",
 };
 
 const APPROVAL_STATUS_LABEL: Record<DdsApprovalAction, string> = {
@@ -439,7 +446,6 @@ export async function drawDdsBlueprint(
       });
     }
 
-    if (approvalFlow.events.length > 0) {
     // Histórico reduzido para 5 colunas — remove IP (dado sensível), une hashes
     // numa coluna compacta para melhor legibilidade em página A4.
     if (approvalFlow.events.length > 0) {
@@ -484,7 +490,6 @@ export async function drawDdsBlueprint(
           },
         },
       });
-    }
     }
   }
 
