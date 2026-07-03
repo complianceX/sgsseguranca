@@ -1897,7 +1897,7 @@ useEffect(() => {
                               PDF
                             </span>
                           ) : null}
-                          {dds.approval_flow?.status === "approved" ? (
+                          {dds.status === "auditado" ? (
                             <span
                               title="Fluxo de aprovação concluído"
                               className="ml-1 inline-flex items-center rounded-full bg-[color:var(--ds-color-success-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ds-color-success-default)]"
