@@ -152,6 +152,26 @@ function removeHeaderValue(
   delete record[name.toLowerCase()];
 }
 
+function setHeaderValue(
+  headers:
+    | InternalAxiosRequestConfig['headers']
+    | AxiosRequestConfig['headers']
+    | undefined,
+  name: string,
+  value: string,
+): void {
+  if (!headers) {
+    return;
+  }
+
+  const record = headers as Record<string, unknown> & {
+    set?: (key: string, nextValue: string) => void;
+  };
+
+  record.set?.(name, value);
+  record[name] = value;
+}
+
 function normalizeRequestPath(url?: string): string {
   if (!url) {
     return '';
@@ -585,7 +605,18 @@ api.interceptors.request.use(async (config) => {
   }
 
   const existingCompanyId = readHeaderValue(config.headers, TENANT_HEADER_NAME);
-  if (!isPublicRequest && !existingCompanyId && !skipTenantHeader) {
+  if (!isPublicRequest && !skipTenantHeader && !isAdminGeral) {
+    if (typeof existingCompanyId === 'string' && existingCompanyId.trim()) {
+      if (companyId) {
+        setHeaderValue(config.headers, TENANT_HEADER_NAME, companyId);
+      } else {
+        removeHeaderValue(config.headers, TENANT_HEADER_NAME);
+      }
+    }
+  }
+
+  const normalizedCompanyId = readHeaderValue(config.headers, TENANT_HEADER_NAME);
+  if (!isPublicRequest && !normalizedCompanyId && !skipTenantHeader) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
       const effectiveCompanyId = selectedTenant?.companyId;
@@ -697,5 +728,4 @@ api.interceptors.response.use(
 );
 
 export default api;
-
 
