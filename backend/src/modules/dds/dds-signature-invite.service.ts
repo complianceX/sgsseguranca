@@ -1157,4 +1157,3 @@ export class DdsSignatureInviteService implements OnModuleInit {
     return String(value).slice(0, 10);
   }
 }
-

@@ -94,7 +94,9 @@ export async function aoaToExcelBuffer(
     const worksheet = workbook.addWorksheet(sheet.name);
 
     for (const row of sheet.rows) {
-      worksheet.addRow(row.map((cell) => neutralizeExcelFormulaInjection(cell)));
+      worksheet.addRow(
+        row.map((cell) => neutralizeExcelFormulaInjection(cell)),
+      );
     }
 
     if (sheet.colWidths) {
