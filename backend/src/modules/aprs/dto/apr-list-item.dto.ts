@@ -1,4 +1,4 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
 
 @Exclude()
 class AprListItemCompanyDto {
@@ -87,7 +87,8 @@ export class AprListItemDto {
   aprovado_por_id?: string | null;
 
   @Expose()
-  pdf_file_key?: string | null;
+  @Transform(({ obj }) => Boolean(obj.pdf_file_key))
+  has_final_pdf: boolean;
 
   @Expose()
   pdf_original_name?: string | null;

@@ -330,8 +330,10 @@ describe('Document governance integration', () => {
       dataSource.getRepository(Apr),
       dataSource.getRepository(AprLog),
       dataSource.getRepository(AprApprovalRecord),
+      dataSource.getRepository(User),
       tenantService,
       forensicTrailService,
+      { create: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     aprsService = new AprsService(

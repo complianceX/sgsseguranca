@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -24,6 +24,11 @@ import {
 } from './entities/apr-approval-record.entity';
 import { AprWorkflowConfig } from './entities/apr-workflow-config.entity';
 import { AprWorkflowResolverService } from './services/apr-workflow-resolver.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { User } from '../users/entities/user.entity';
+import { normalizeRoleName } from '../auth/role-normalization.util';
+import { Role } from '../auth/enums/roles.enum';
+import { APR_DEFAULT_APPROVAL_STEP_TEMPLATES } from './apr-permissions.constants';
 
 const APR_LOG_ACTIONS = {
   APPROVED: 'APR_APROVADA',
@@ -50,8 +55,11 @@ export class AprWorkflowService {
     private readonly aprLogsRepository: Repository<AprLog>,
     @InjectRepository(AprApprovalRecord)
     private readonly approvalRecordRepo: Repository<AprApprovalRecord>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly tenantService: TenantService,
     private readonly forensicTrailService: ForensicTrailService,
+    private readonly notificationsService: NotificationsService,
     @Optional()
     private readonly workflowResolver?: AprWorkflowResolverService,
   ) {}
@@ -207,6 +215,8 @@ export class AprWorkflowService {
       motivo: reason,
     });
     this.logger.log({ event: 'apr_approved', aprId: id, userId });
+    // Notifica proximo aprovador (fire-and-forget — nao bloqueia resposta)
+    void this.tryNotifyNextApprover(id, saved);
     return saved;
   }
 
@@ -380,6 +390,62 @@ export class AprWorkflowService {
     };
   }
 
+  private async tryNotifyNextApprover(aprId: string, apr: Apr): Promise<void> {
+    try {
+      // Carrega steps direto do banco — o objeto `apr` vem de SELECT sem JOIN,
+      // então apr.approval_steps estaria vazio mesmo após o save das etapas.
+      const steps = await this.aprsRepository.manager
+        .getRepository(AprApprovalStep)
+        .find({ where: { apr_id: aprId }, order: { level_order: 'ASC' } });
+      const nextStep = steps
+        .filter((s) => s.status === AprApprovalStepStatus.PENDING)
+        .sort((a, b) => a.level_order - b.level_order)[0];
+      if (!nextStep) return; // Fluxo concluido ou nao ha proxima etapa
+
+      const companyId = this.tenantService.getTenantId();
+      if (!companyId) return;
+
+      const requiredRole = normalizeRoleName(nextStep.approver_role);
+      if (!requiredRole) {
+        this.logger.warn(
+          `tryNotifyNextApprover: approver_role "${nextStep.approver_role}" não reconhecido — notificando apenas ADMIN_GERAL.`,
+        );
+      }
+
+      const eligible = await this.userRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.profile', 'p')
+        .where('u.company_id = :companyId', { companyId })
+        .andWhere('u.deleted_at IS NULL')
+        .andWhere('p.nome IN (:...roles)', {
+          roles: [requiredRole, Role.ADMIN_GERAL].filter((r): r is Role => r !== null),
+        })
+        .getMany();
+
+      await Promise.all(
+        eligible.map((u) =>
+          this.notificationsService
+            .create({
+              companyId,
+              userId: u.id,
+              type: 'info',
+              title: 'Aprovação de APR pendente',
+              message: `A etapa "${nextStep.title ?? nextStep.approver_role}" da APR ${apr.numero ?? aprId} aguarda sua aprovação.`,
+              data: { event: 'apr_approval_pending', aprId },
+            })
+            .catch((err: unknown) =>
+              this.logger.warn(
+                `Falha ao notificar usuário ${u.id} sobre aprovação APR: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            ),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `tryNotifyNextApprover inesperado para aprId=${aprId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
   ensureAprStatus(status: unknown): AprStatus {
     if (Object.values(AprStatus).includes(status as AprStatus)) {
       return status as AprStatus;
@@ -564,40 +630,9 @@ export class AprWorkflowService {
     }
   }
 
-  private getDefaultApprovalSteps() {
-    return [
-      {
-        level_order: 1,
-        title: 'Validação técnica SST',
-        approver_role: 'Técnico de Segurança do Trabalho (TST)',
-      },
-      {
-        level_order: 2,
-        title: 'Liberação da supervisão operacional',
-        approver_role: 'Supervisor / Encarregado',
-      },
-      {
-        level_order: 3,
-        title: 'Aprovação gerencial da empresa',
-        approver_role: 'Administrador da Empresa',
-      },
-    ] as const;
-  }
-
-  private normalizeRoleName(roleName?: string | null): string {
-    return String(roleName || '')
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  }
-
   private isPrivilegedApprovalRole(roleName?: string | null): boolean {
-    const normalized = this.normalizeRoleName(roleName);
-    return (
-      normalized === 'administrador geral' ||
-      normalized === 'administrador da empresa'
-    );
+    const normalized = normalizeRoleName(roleName);
+    return normalized === Role.ADMIN_GERAL || normalized === Role.ADMIN_EMPRESA;
   }
 
   private buildActorContext(actor?: AprWorkflowActor) {
@@ -607,8 +642,7 @@ export class AprWorkflowService {
         typeof actor?.ipAddress === 'string' && actor.ipAddress.trim()
           ? actor.ipAddress
           : null,
-      isPrivileged:
-        !actor?.roleName || this.isPrivilegedApprovalRole(actor.roleName),
+      isPrivileged: actor?.roleName ? this.isPrivilegedApprovalRole(actor.roleName) : false,
     };
   }
 
@@ -616,8 +650,8 @@ export class AprWorkflowService {
     actorRoleName: string | null,
     step: AprApprovalStep,
   ): void {
-    const actorRole = this.normalizeRoleName(actorRoleName);
-    const expectedRole = this.normalizeRoleName(step.approver_role);
+    const actorRole = normalizeRoleName(actorRoleName);
+    const expectedRole = normalizeRoleName(step.approver_role);
 
     if (!actorRole || actorRole !== expectedRole) {
       throw new BadRequestException(
@@ -650,7 +684,7 @@ export class AprWorkflowService {
     }
 
     const created = await repository.save(
-      this.getDefaultApprovalSteps().map((step) =>
+      APR_DEFAULT_APPROVAL_STEP_TEMPLATES.map((step) =>
         repository.create({
           apr_id: apr.id,
           level_order: step.level_order,
@@ -756,8 +790,8 @@ export class AprWorkflowService {
     const canApprove =
       !!currentStep &&
       this.ensureAprStatus(apr.status) === AprStatus.PENDENTE &&
-      this.normalizeRoleName(requestingUserRole) ===
-        this.normalizeRoleName(currentStep.roleName);
+      normalizeRoleName(requestingUserRole) ===
+        normalizeRoleName(currentStep.roleName);
 
     return {
       currentStep: currentStep
@@ -829,8 +863,8 @@ export class AprWorkflowService {
         );
       }
 
-      const normalizedActor = this.normalizeRoleName(approverRole);
-      const normalizedRequired = this.normalizeRoleName(currentStep.roleName);
+      const normalizedActor = normalizeRoleName(approverRole);
+      const normalizedRequired = normalizeRoleName(currentStep.roleName);
       if (
         normalizedActor &&
         normalizedRequired &&
@@ -931,3 +965,4 @@ export class AprWorkflowService {
     });
   }
 }
+

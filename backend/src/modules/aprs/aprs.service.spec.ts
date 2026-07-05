@@ -377,8 +377,10 @@ describe('AprsService', () => {
         save: jest.fn(),
         create: jest.fn((p) => p),
       } as never,
+      { createQueryBuilder: jest.fn().mockReturnValue({ innerJoin: jest.fn().mockReturnThis(), where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) }) } as never,
       tenantService as TenantService,
       forensicTrailService as ForensicTrailService,
+      { create: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     service = new AprsService(
@@ -1146,7 +1148,9 @@ describe('AprsService', () => {
     } as unknown as Apr);
 
     await expect(
-      service.reject('apr-1', 'user-1', 'Risco não aceito'),
+      service.reject('apr-1', 'user-1', 'Risco não aceito', {
+        roleName: 'Técnico de Segurança do Trabalho (TST)',
+      }),
     ).resolves.toEqual(
       expect.objectContaining({
         id: 'apr-1',
@@ -1208,6 +1212,7 @@ describe('AprsService', () => {
       'apr-approve-1',
       'user-1',
       'Aprovacao controlada',
+      { roleName: 'Técnico de Segurança do Trabalho (TST)' },
     );
 
     expect(aprRepository.save).toHaveBeenCalledWith(

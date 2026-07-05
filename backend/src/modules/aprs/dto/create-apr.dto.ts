@@ -17,7 +17,6 @@ import {
   ArrayMaxSize,
 } from 'class-validator';
 import { AprRiskItemInputDto } from './apr-risk-item-input.dto';
-import { AprStatus } from '../entities/apr.entity';
 
 type TransformArg = {
   value: unknown;
@@ -108,12 +107,6 @@ export class CreateAprDto {
   @IsDateString()
   @IsNotEmpty()
   data_fim: string;
-
-  @Transform(emptyStringToUndefined)
-  @IsString()
-  @IsOptional()
-  @IsEnum(AprStatus)
-  status?: AprStatus;
 
   @IsBoolean()
   @IsOptional()

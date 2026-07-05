@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
 import type { UseFormSetValue, UseFormWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -117,6 +117,8 @@ export function useAprWorkflowActions({
   setFormActionModalLoading,
   setFinalizing,
 }: UseAprWorkflowActionsOptions) {
+  const [capturingGps, setCapturingGps] = useState(false);
+
   const handleSuggestControls = useCallback(async () => {
     if (isReadOnly) {
       notifyReadOnly("Não é possível sugerir controles em uma APR bloqueada.");
@@ -147,10 +149,18 @@ export function useAprWorkflowActions({
             .join(" | ");
 
           if (suggestionText) {
-            setValue(`itens_risco.${index}.medidas_prevencao`, suggestionText, {
-              shouldDirty: true,
-              shouldValidate: true,
-            });
+            const existing = (row?.medidas_prevencao ?? "").trim();
+            const finalValue = existing
+              ? `${existing}\n---\n${suggestionText}`
+              : suggestionText;
+            setValue(
+              `itens_risco.${index}.medidas_prevencao`,
+              finalValue,
+              {
+                shouldDirty: true,
+                shouldValidate: true,
+              },
+            );
           }
         }),
       );
@@ -235,7 +245,7 @@ export function useAprWorkflowActions({
       toast.warning("Somente APRs aprovadas podem ser encerradas.");
       return;
     }
-    if (!currentApr.pdf_file_key) {
+    if (!currentApr.has_final_pdf) {
       toast.warning(
         "Emita o PDF final governado da APR antes de encerrar o documento.",
       );
@@ -373,19 +383,25 @@ export function useAprWorkflowActions({
       toast.error("Geolocalização não suportada neste navegador.");
       return;
     }
+    setCapturingGps(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setEvidenceLatitude(String(position.coords.latitude));
         setEvidenceLongitude(String(position.coords.longitude));
         setEvidenceAccuracy(String(position.coords.accuracy));
+        setCapturingGps(false);
         toast.success("Localização capturada.");
       },
-      () => toast.error("Não foi possível capturar a localização."),
+      () => {
+        setCapturingGps(false);
+        toast.error("Não foi possível capturar a localização.");
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }, [
     isReadOnly,
     notifyReadOnly,
+    setCapturingGps,
     setEvidenceAccuracy,
     setEvidenceLatitude,
     setEvidenceLongitude,
@@ -467,21 +483,11 @@ export function useAprWorkflowActions({
     setUploadingEvidence,
   ]);
 
-  const handleVerifyHash = useCallback(async () => {
-    if (!hashToVerify.trim()) {
-      toast.error("Informe o hash SHA-256 para validar.");
-      return;
-    }
-    setVerifyingHash(true);
-    try {
-      toast.error("Verificação de hash não disponível nesta versão.");
-      setVerificationResult({ verified: false, matchedIn: undefined, message: "Funcionalidade não disponível." });
-    } finally {
-      setVerifyingHash(false);
-    }
-  }, [hashToVerify, setVerificationResult, setVerifyingHash]);
+  const gpsReady = !!evidenceLatitude && !!evidenceLongitude;
 
   return {
+    capturingGps,
+    gpsReady,
     handleSuggestControls,
     handleApproveApr,
     handleEmitGovernedPdf,
@@ -492,6 +498,5 @@ export function useAprWorkflowActions({
     handleCompareVersions,
     handleCaptureLocation,
     handleUploadEvidence,
-    handleVerifyHash,
   };
 }

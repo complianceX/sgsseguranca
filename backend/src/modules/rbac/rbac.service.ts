@@ -12,6 +12,7 @@ import {
   normalizeUserModuleAccessKeys,
 } from '../users/user-module-access.config';
 import { Role } from '../auth/enums/roles.enum';
+import { normalizeRoleName } from '../auth/role-normalization.util';
 
 const VISUALIZADOR_FALLBACK_PERMISSIONS = [
   'can_view_dashboard',
@@ -511,28 +512,8 @@ export class RbacService {
       return profileName.trim();
     }
 
-    const roleAliases: Record<string, Role> = {
-      SUPER_ADMIN: Role.ADMIN_GERAL,
-      ADMIN_GERAL: Role.ADMIN_GERAL,
-      'ADMINISTRADOR GERAL': Role.ADMIN_GERAL,
-      ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
-      'ADMIN EMPRESA': Role.ADMIN_EMPRESA,
-      'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
-      'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
-      TECNICO: Role.TST,
-      'TECNICO SST': Role.TST,
-      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
-      'TECNICO DE SEGURANCA DO TRABALHO (TST)': Role.TST,
-      TST: Role.TST,
-      SUPERVISOR: Role.SUPERVISOR,
-      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
-      VISUALIZADOR: Role.TRABALHADOR,
-      COLABORADOR: Role.COLABORADOR,
-      'OPERADOR / COLABORADOR': Role.COLABORADOR,
-      TRABALHADOR: Role.TRABALHADOR,
-    };
-
-    return roleAliases[normalized] || profileName.trim();
+    // Usa a util canonica como fonte unica de verdade para todo o resto.
+    return normalizeRoleName(profileName) ?? profileName.trim();
   }
 
   private getAccessCacheKey(userId: string): string {

@@ -42,6 +42,7 @@ interface AprListingTableProps {
   onCreateNewVersion: (id: string) => void;
   pendingActionById: Record<string, boolean>;
   onClearFilters: () => void;
+  refetching?: boolean;
 }
 
 export function AprListingTable({
@@ -58,6 +59,7 @@ export function AprListingTable({
   onCreateNewVersion,
   pendingActionById,
   onClearFilters,
+  refetching = false,
 }: AprListingTableProps) {
   const { user } = useAuth();
   const [signatureTarget, setSignatureTarget] = useState<AprListingRecord | null>(null);
@@ -105,7 +107,7 @@ export function AprListingTable({
 
   return (
     <>
-      <Table className="min-w-[1480px]">
+      <Table className="min-w-[1280px]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[280px]">APR</TableHead>
@@ -119,26 +121,40 @@ export function AprListingTable({
             <TableHead className="w-[120px] text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {aprs.map((apr) => (
-            <AprListingRow
-              key={apr.id}
-              apr={apr}
-              density={density}
-              onDelete={onDelete}
-              onPrint={onPrint}
-              onSendEmail={onSendEmail}
-              onDownloadPdf={onDownloadPdf}
-              onApprove={onApprove}
-              onFinalize={onFinalize}
-              onReject={onReject}
-              onCreateNewVersion={onCreateNewVersion}
-              isPending={Boolean(pendingActionById[apr.id])}
-              onOpenSignature={setSignatureTarget}
-              onOpenSignatures={setSignaturesTarget}
-            />
-          ))}
-        </TableBody>
+        {refetching ? (
+          <TableBody aria-busy="true" aria-label="Atualizando lista de APRs">
+            {Array.from({ length: Math.min(aprs.length, 6) }).map((_, i) => (
+              <tr key={`skel-${i}`} className="animate-pulse border-b border-[var(--ds-color-border-subtle)]">
+                {Array.from({ length: 9 }).map((__, j) => (
+                  <td key={j} className="px-4 py-3">
+                    <div className="h-4 rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </TableBody>
+        ) : (
+          <TableBody>
+            {aprs.map((apr) => (
+              <AprListingRow
+                key={apr.id}
+                apr={apr}
+                density={density}
+                onDelete={onDelete}
+                onPrint={onPrint}
+                onSendEmail={onSendEmail}
+                onDownloadPdf={onDownloadPdf}
+                onApprove={onApprove}
+                onFinalize={onFinalize}
+                onReject={onReject}
+                onCreateNewVersion={onCreateNewVersion}
+                isPending={Boolean(pendingActionById[apr.id])}
+                onOpenSignature={setSignatureTarget}
+                onOpenSignatures={setSignaturesTarget}
+              />
+            ))}
+          </TableBody>
+        )}
       </Table>
 
       <SignatureModal
@@ -157,3 +173,4 @@ export function AprListingTable({
     </>
   );
 }
+

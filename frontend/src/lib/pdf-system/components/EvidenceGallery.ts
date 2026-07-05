@@ -22,6 +22,28 @@ type EvidenceCardLayout = {
   skipEnsureSpace?: boolean;
 };
 
+function normalizeInlineImageDataUrl(value?: string | null): string | null {
+  const source = String(value || "").trim();
+  if (!source.startsWith("data:image/")) {
+    return null;
+  }
+  return source.replace(/\s+/g, "");
+}
+
+function inferImageFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | "GIF" | "BMP" | "UNKNOWN" {
+  const mimeMatch = dataUrl.match(/^data:image\/([a-z0-9.+-]+);base64,/i);
+  const mime = mimeMatch?.[1]?.toLowerCase();
+  if (!mime) {
+    return "UNKNOWN";
+  }
+  if (mime.includes("png")) return "PNG";
+  if (mime.includes("jpeg") || mime.includes("jpg")) return "JPEG";
+  if (mime.includes("webp")) return "WEBP";
+  if (mime.includes("gif")) return "GIF";
+  if (mime.includes("bmp")) return "BMP";
+  return "UNKNOWN";
+}
+
 async function drawOneEvidence(
   ctx: PdfContext,
   item: EvidenceGalleryItem,
@@ -40,7 +62,7 @@ async function drawOneEvidence(
 
   if (resolveImageDataUrl) {
     try {
-      dataUrl = await resolveImageDataUrl(item, index);
+      dataUrl = normalizeInlineImageDataUrl(await resolveImageDataUrl(item, index));
       imageState = dataUrl ? "loaded" : "missing";
     } catch {
       if (strict) {
@@ -50,8 +72,15 @@ async function drawOneEvidence(
       }
       imageState = "error";
     }
-  } else if (item.source?.startsWith("data:")) {
-    dataUrl = item.source;
+  } else {
+    dataUrl = normalizeInlineImageDataUrl(item.source);
+    if (dataUrl) {
+      imageState = "loaded";
+    }
+  }
+
+  if (!dataUrl && item.source?.startsWith("data:")) {
+    dataUrl = normalizeInlineImageDataUrl(item.source);
     imageState = "loaded";
   }
 
@@ -116,17 +145,28 @@ async function drawOneEvidence(
 
   if (hasImage && dataUrl) {
     try {
-      const props = doc.getImageProperties(dataUrl as unknown as string);
-      const ratio = Math.min(
-        (imageWrapW - 4) / props.width,
-        (cardInnerH - 4) / props.height,
-        1,
-      );
-      const w = props.width * ratio;
-      const h = props.height * ratio;
-      const x = cardX + 5 + (imageWrapW - w) / 2;
-      const y = ctx.y + 6 + (cardInnerH - h) / 2;
-      doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
+      const format = inferImageFormat(dataUrl);
+      let w = imageWrapW - 4;
+      let h = cardInnerH - 4;
+      let x = cardX + 5 + 2;
+      let y = ctx.y + 6 + 2;
+
+      try {
+        const props = doc.getImageProperties(dataUrl as unknown as string);
+        const ratio = Math.min(
+          (imageWrapW - 4) / props.width,
+          (cardInnerH - 4) / props.height,
+          1,
+        );
+        w = props.width * ratio;
+        h = props.height * ratio;
+        x = cardX + 5 + (imageWrapW - w) / 2;
+        y = ctx.y + 6 + (cardInnerH - h) / 2;
+      } catch {
+        // Mantém um encaixe seguro mesmo quando o parser de imagem não extrai metadados.
+      }
+
+      doc.addImage(dataUrl, format === "UNKNOWN" ? "PNG" : format, x, y, w, h);
     } catch {
       imageState = "error";
     }

@@ -131,12 +131,13 @@ export interface Apr {
   data_auditoria?: string;
   resultado_auditoria?: string;
   notas_auditoria?: string;
-  pdf_file_key?: string;
+  has_final_pdf?: boolean;
   pdf_folder_path?: string;
   pdf_original_name?: string;
   final_pdf_hash_sha256?: string | null;
   verification_code?: string | null;
   pdf_generated_at?: string | null;
+  workflowConfigId?: string | null;
   versao?: number;
   parent_apr_id?: string;
   aprovado_por_id?: string;
@@ -191,7 +192,6 @@ export interface Apr {
     status: "pending" | "approved" | "rejected" | "skipped";
     approver_user_id?: string | null;
     decision_reason?: string | null;
-    decided_ip?: string | null;
     decided_at?: string | null;
     approver_user?: { id: string; nome: string } | null;
     created_at: string;
@@ -350,6 +350,7 @@ export const aprsService = {
     sort?: "priority" | "updated-desc" | "deadline-asc" | "title-asc";
     companyId?: string;
     isModeloPadrao?: boolean;
+    contextFilter?: "minhas" | "vence-hoje" | "preciso-assinar";
   }) => {
     const params = {
       page: opts?.page ?? 1,
@@ -364,6 +365,7 @@ export const aprsService = {
       ...(opts?.isModeloPadrao !== undefined
         ? { is_modelo_padrao: opts.isModeloPadrao }
         : {}),
+      ...(opts?.contextFilter ? { context_filter: opts.contextFilter } : {}),
     };
     const cacheKey = `aprs.paginated.${JSON.stringify(params)}`;
 
@@ -820,7 +822,7 @@ export const aprsService = {
   },
 
   workflowApprove: async (id: string, reason?: string) => {
-    const response = await api.patch<Apr>(`/aprs/${id}/approve`, { reason });
+    const response = await api.post<Apr>(`/aprs/${id}/submit`, { reason });
     return response.data;
   },
 
@@ -842,10 +844,6 @@ export const aprsService = {
     return response.data;
   },
 
-  submit: async (id: string, reason?: string) => {
-    const response = await api.post<Apr>(`/aprs/${id}/submit`, { reason });
-    return response.data;
-  },
 };
 
 export interface AprRuleViolation {
