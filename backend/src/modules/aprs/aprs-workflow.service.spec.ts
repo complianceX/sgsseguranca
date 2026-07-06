@@ -98,8 +98,10 @@ describe('AprWorkflowService', () => {
     save: jest.Mock;
     create: jest.Mock;
   };
-  let userRepository: { createQueryBuilder: jest.Mock };
-  let notificationsService: { create: jest.Mock };
+  let notificationsService: {
+    create: jest.Mock;
+    notifyEligibleApprovers: jest.Mock;
+  };
   let tenantService: { getTenantId: jest.Mock };
   let forensicTrailService: { append: jest.Mock };
   let service: AprWorkflowService;
@@ -127,21 +129,15 @@ describe('AprWorkflowService', () => {
 
     tenantService = { getTenantId: jest.fn().mockReturnValue('company-1') };
     forensicTrailService = { append: jest.fn() };
-    userRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue({
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      }),
+    notificationsService = {
+      create: jest.fn().mockResolvedValue(undefined),
+      notifyEligibleApprovers: jest.fn().mockResolvedValue(undefined),
     };
-    notificationsService = { create: jest.fn().mockResolvedValue(undefined) };
 
     service = new AprWorkflowService(
       aprsRepository as never,
       aprLogsRepository as never,
       approvalRecordRepo as never,
-      userRepository as never,
       tenantService as never,
       forensicTrailService as never,
       notificationsService as never,
@@ -1205,7 +1201,6 @@ describe('AprWorkflowService', () => {
         aprsRepository as never,
         aprLogsRepository as never,
         approvalRecordRepo as never,
-        userRepository as never,
         tenantService as never,
         forensicTrailService as never,
         notificationsService as never,
@@ -1229,7 +1224,6 @@ describe('AprWorkflowService', () => {
         aprsRepository as never,
         aprLogsRepository as never,
         approvalRecordRepo as never,
-        userRepository as never,
         tenantService as never,
         forensicTrailService as never,
         notificationsService as never,
@@ -1253,7 +1247,6 @@ describe('AprWorkflowService', () => {
         aprsRepository as never,
         aprLogsRepository as never,
         approvalRecordRepo as never,
-        userRepository as never,
         tenantService as never,
         forensicTrailService as never,
         notificationsService as never,
@@ -1299,7 +1292,6 @@ describe('AprWorkflowService', () => {
         repoWithUpdate as never,
         aprLogsRepository as never,
         approvalRecordRepo as never,
-        userRepository as never,
         tenantService as never,
         forensicTrailService as never,
         notificationsService as never,
@@ -1412,4 +1404,3 @@ describe('AprWorkflowService', () => {
     });
   });
 });
-

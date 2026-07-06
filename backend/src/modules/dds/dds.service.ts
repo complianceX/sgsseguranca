@@ -509,9 +509,7 @@ export class DdsService {
       .skip(skip)
       .take(limit);
 
-    const countQuery = this.ddsRepository
-      .createQueryBuilder('dds')
-      .orderBy(orderField, orderDir);
+    const countQuery = this.ddsRepository.createQueryBuilder('dds');
 
     idsQuery.where('dds.deleted_at IS NULL');
     countQuery.where('dds.deleted_at IS NULL');

@@ -933,6 +933,7 @@ export class NonConformitiesService {
     page?: number;
     limit?: number;
     search?: string;
+    status?: string;
   }): Promise<OffsetPage<NonConformityResponseDto>> {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
@@ -954,6 +955,12 @@ export class NonConformitiesService {
     query.andWhere('nc.company_id = :tenantId', { tenantId: scope.companyId });
     if (!scope.hasCompanyWideAccess) {
       query.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
+    }
+
+    if (opts?.status) {
+      query.andWhere('nc.status = :statusFilter', {
+        statusFilter: opts.status,
+      });
     }
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);

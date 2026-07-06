@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsDateString,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -240,6 +241,7 @@ export class CreateNonConformityDto {
   @Trim()
   @Transform(sanitizePlainTextTransform)
   @IsNotEmpty()
+  @IsIn(['ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_VALIDACAO', 'ENCERRADA'])
   status: string;
 
   @IsString()

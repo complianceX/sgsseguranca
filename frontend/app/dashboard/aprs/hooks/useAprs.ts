@@ -1,7 +1,7 @@
 'use client';
 import { logger } from "@/lib/logger";
 
-import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import { isAxiosError } from "axios";
 import { aprsService, Apr } from "@/services/aprsService";
 import { aiService } from "@/services/aiService";
@@ -92,6 +92,8 @@ async function loadAprPdfGenerator() {
 
 export function useAprs(options?: UseAprsOptions) {
   const [aprs, setAprs] = useState<Apr[]>([]);
+  const aprsCountRef = useRef(0);
+  aprsCountRef.current = aprs.length;
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export function useAprs(options?: UseAprsOptions) {
     try {
       // Se ja temos dados (refetch), usa indicator de refetching ao inves de skeleton de loading inicial
       setLoading((prev) => {
-        setRefetching(aprs.length > 0 && !prev);
+        setRefetching(aprsCountRef.current > 0 && !prev);
         return true;
       });
       setLoadError(null);
@@ -179,7 +181,6 @@ export function useAprs(options?: UseAprsOptions) {
       setRefetching(false);
     }
   }, [
-    aprs.length,
     page,
     limit,
     deferredSearchTerm,

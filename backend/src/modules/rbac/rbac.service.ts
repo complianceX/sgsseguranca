@@ -11,7 +11,6 @@ import {
   resolvePermissionsFromModuleKeys,
   normalizeUserModuleAccessKeys,
 } from '../users/user-module-access.config';
-import { Role } from '../auth/enums/roles.enum';
 import { normalizeRoleName } from '../auth/role-normalization.util';
 
 const VISUALIZADOR_FALLBACK_PERMISSIONS = [
@@ -513,7 +512,13 @@ export class RbacService {
     }
 
     // Usa a util canonica como fonte unica de verdade para todo o resto.
-    return normalizeRoleName(profileName) ?? profileName.trim();
+    const canonical = normalizeRoleName(profileName);
+    if (!canonical) {
+      this.logger.warn(
+        `resolveCanonicalRoleName: perfil "${profileName}" não corresponde a nenhum role canônico conhecido. Usando valor bruto — a sincronização de user_roles pode falhar silenciosamente (nenhuma role "${profileName.trim()}" cadastrada).`,
+      );
+    }
+    return canonical ?? profileName.trim();
   }
 
   private getAccessCacheKey(userId: string): string {

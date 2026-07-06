@@ -377,10 +377,12 @@ describe('AprsService', () => {
         save: jest.fn(),
         create: jest.fn((p) => p),
       } as never,
-      { createQueryBuilder: jest.fn().mockReturnValue({ innerJoin: jest.fn().mockReturnThis(), where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) }) } as never,
       tenantService as TenantService,
       forensicTrailService as ForensicTrailService,
-      { create: jest.fn().mockResolvedValue(undefined) } as never,
+      {
+        create: jest.fn().mockResolvedValue(undefined),
+        notifyEligibleApprovers: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     service = new AprsService(

@@ -5,6 +5,9 @@ import { Notification } from './entities/notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { normalizeOffsetPagination } from '../../shared/utils/offset-pagination.util';
+import { User } from '../users/entities/user.entity';
+import { Role } from '../auth/enums/roles.enum';
+import { normalizeRoleName } from '../auth/role-normalization.util';
 
 @Injectable()
 export class NotificationsService {
@@ -30,6 +33,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private repo: Repository<Notification>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private gateway: NotificationsGateway,
     private readonly tenantService: TenantService,
   ) {}
@@ -77,6 +82,65 @@ export class NotificationsService {
     }
 
     return notification;
+  }
+
+  /**
+   * Notifica usuários elegíveis a decidir a próxima etapa de um fluxo de
+   * aprovação (APR, DDS, etc.): usuários com o papel exigido pela etapa mais
+   * ADMIN_GERAL (que pode aprovar qualquer etapa). Best-effort — erros de
+   * notificação individual ou da consulta nunca propagam para o chamador.
+   */
+  async notifyEligibleApprovers(params: {
+    companyId: string;
+    requiredRoleRaw?: string | null;
+    title: string;
+    message: string;
+    data?: Record<string, unknown>;
+    logContext: string;
+  }): Promise<void> {
+    try {
+      const requiredRole = normalizeRoleName(
+        params.requiredRoleRaw ?? undefined,
+      );
+      if (!requiredRole) {
+        this.logger.warn(
+          `notifyEligibleApprovers[${params.logContext}]: approver_role "${params.requiredRoleRaw}" não reconhecido — notificando apenas ADMIN_GERAL.`,
+        );
+      }
+
+      const eligible = await this.userRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.profile', 'p')
+        .where('u.company_id = :companyId', { companyId: params.companyId })
+        .andWhere('u.deleted_at IS NULL')
+        .andWhere('p.nome IN (:...roles)', {
+          roles: [requiredRole, Role.ADMIN_GERAL].filter(
+            (r): r is Role => r !== null,
+          ),
+        })
+        .getMany();
+
+      await Promise.all(
+        eligible.map((u) =>
+          this.create({
+            companyId: params.companyId,
+            userId: u.id,
+            type: 'info',
+            title: params.title,
+            message: params.message,
+            data: params.data,
+          }).catch((err: unknown) =>
+            this.logger.warn(
+              `Falha ao notificar usuário ${u.id} sobre ${params.logContext}: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          ),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `notifyEligibleApprovers[${params.logContext}] falhou: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   async createDeduped(data: {
