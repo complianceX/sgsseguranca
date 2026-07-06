@@ -14,6 +14,7 @@ describe('AuditsController (http)', () => {
   let app: INestApplication;
 
   const auditsService = {
+    create: jest.fn(),
     findPaginated: jest.fn(),
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
@@ -103,6 +104,133 @@ describe('AuditsController (http)', () => {
     await request(httpServer).get('/audits?limit=999').expect(400);
 
     expect(auditsService.findPaginated).not.toHaveBeenCalled();
+  });
+
+  it('aceita payload de auditoria com objetos aninhados validados', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    auditsService.create.mockResolvedValue({ id: 'audit-1' });
+
+    const payload = {
+      titulo: 'Auditoria HSE de campo',
+      data_auditoria: '2026-07-06',
+      tipo_auditoria: 'Interna',
+      site_id: '11111111-1111-4111-8111-111111111111',
+      auditor_id: '22222222-2222-4222-8222-222222222222',
+      referencias: ['NR-01'],
+      caracterizacao: {
+        cnae: '07.10-3-01',
+        grau_risco: '4',
+        num_trabalhadores: 128,
+      },
+      resultados_nao_conformidades: [
+        {
+          descricao: 'APR encerrada sem verificacao final',
+          requisito: 'NR-01',
+          evidencia: 'APR-2026-071',
+          classificacao: 'Grave',
+        },
+      ],
+      avaliacao_riscos: [
+        {
+          perigo: 'Equipamentos moveis em rota compartilhada',
+          classificacao: 'Alto',
+          impactos: 'Atropelamento',
+          medidas_controle: 'Segregacao fisica e sinalizacao',
+        },
+      ],
+      plano_acao: [
+        {
+          item: 'NC-01',
+          acao: 'Bloquear encerramento de APR sem assinatura',
+          responsavel: 'Coordenacao HSE',
+          prazo: '2026-07-20',
+          status: 'Pendente',
+        },
+      ],
+      checklist_respostas: [
+        {
+          sectionId: 'apr-pt-dds',
+          sectionTitle: 'APR / PT / DDS',
+          questionId: 'apr-antes-atividade',
+          question: 'A APR é preenchida antes do início das atividades críticas?',
+          requirement: 'NR-01 / Procedimento APR',
+          criticality: 'alta',
+          answer: 'nao',
+          observation: 'APR aberta somente após início da atividade.',
+          allowsPhoto: true,
+          photoRequiredWhen: 'nao',
+          suggestedAction: 'Implantar trava de início sem APR aprovada.',
+          evidences: [
+            {
+              id: 'foto-1',
+              fileName: 'apr-campo.jpg',
+              mimeType: 'image/jpeg',
+              size: 1280,
+              dataUrl: 'data:image/jpeg;base64,AAA',
+              capturedAt: '2026-07-06T12:00:00.000Z',
+              hash: 'hash-1',
+            },
+          ],
+        },
+      ],
+    };
+
+    await request(httpServer).post('/audits').send(payload).expect(201);
+
+    expect(auditsService.create).toHaveBeenCalledWith(payload, 'company-1');
+  });
+
+  it('rejeita resposta invalida no checklist estruturado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/audits')
+      .send({
+        titulo: 'Auditoria HSE de campo',
+        data_auditoria: '2026-07-06',
+        tipo_auditoria: 'Interna',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        auditor_id: '22222222-2222-4222-8222-222222222222',
+        checklist_respostas: [
+          {
+            sectionId: 'apr-pt-dds',
+            sectionTitle: 'APR / PT / DDS',
+            questionId: 'apr-antes-atividade',
+            question: 'A APR é preenchida antes do início das atividades críticas?',
+            requirement: 'NR-01 / Procedimento APR',
+            criticality: 'alta',
+            answer: 'talvez',
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(auditsService.create).not.toHaveBeenCalled();
+  });
+
+  it('rejeita classificacao invalida em nao conformidade', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/audits')
+      .send({
+        titulo: 'Auditoria HSE de campo',
+        data_auditoria: '2026-07-06',
+        tipo_auditoria: 'Interna',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        auditor_id: '22222222-2222-4222-8222-222222222222',
+        resultados_nao_conformidades: [
+          {
+            descricao: 'Desvio sem classificacao valida',
+            requisito: 'NR-01',
+            evidencia: 'APR-2026-071',
+            classificacao: 'Alta',
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(auditsService.create).not.toHaveBeenCalled();
   });
 
   it('encaminha filtros semanais validados para listStoredFiles', async () => {

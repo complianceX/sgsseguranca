@@ -106,6 +106,30 @@ export class Audit extends BaseAuditEntity {
     status: string;
   }[];
 
+  @Column({ type: 'jsonb', nullable: true })
+  checklist_respostas: {
+    sectionId: string;
+    sectionTitle: string;
+    questionId: string;
+    question: string;
+    requirement: string;
+    criticality: 'baixa' | 'media' | 'alta' | 'critica';
+    answer: 'sim' | 'nao' | 'na';
+    observation?: string;
+    allowsPhoto?: boolean;
+    photoRequiredWhen?: 'always' | 'nao';
+    suggestedAction?: string;
+    evidences?: {
+      id: string;
+      fileName: string;
+      mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+      size: number;
+      dataUrl: string;
+      capturedAt: string;
+      hash?: string;
+    }[];
+  }[];
+
   @Column({ type: 'text', nullable: true })
   conclusao: string;
 

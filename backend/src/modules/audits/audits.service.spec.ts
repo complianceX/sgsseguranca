@@ -244,6 +244,49 @@ describe('AuditsService', () => {
           status: '  ',
         },
       ],
+      checklist_respostas: [
+        {
+          sectionId: '  apr-pt-dds  ',
+          sectionTitle: '  APR / PT / DDS  ',
+          questionId: '  apr-antes-atividade  ',
+          question: '  A APR é preenchida antes do início das atividades críticas?  ',
+          requirement: '  NR-01 / Procedimento APR  ',
+          criticality: 'alta',
+          answer: 'nao',
+          observation: '  APR aberta somente após início da atividade.  ',
+          allowsPhoto: true,
+          photoRequiredWhen: 'nao',
+          suggestedAction: '  Implantar trava de início sem APR aprovada.  ',
+          evidences: [
+            {
+              id: '  foto-1  ',
+              fileName: '  apr-campo.jpg  ',
+              mimeType: 'image/jpeg',
+              size: 1280,
+              dataUrl: '  data:image/jpeg;base64,AAA  ',
+              capturedAt: '  2026-07-06T12:00:00.000Z  ',
+              hash: '  hash-1  ',
+            },
+            {
+              id: 'foto-invalida',
+              fileName: 'foto-invalida.txt',
+              mimeType: 'image/jpeg',
+              size: 10,
+              dataUrl: 'data:text/plain;base64,AAA',
+              capturedAt: '2026-07-06T12:00:00.000Z',
+            },
+          ],
+        },
+        {
+          sectionId: '  ',
+          sectionTitle: '  ',
+          questionId: '  ',
+          question: '  ',
+          requirement: '  ',
+          criticality: 'alta',
+          answer: 'sim',
+        },
+      ],
       conclusao: '  Concluída  ',
     };
 
@@ -268,6 +311,20 @@ describe('AuditsService', () => {
         plano_acao: [
           expect.objectContaining({ item: '1', responsavel: 'João' }),
         ],
+        checklist_respostas: [
+          expect.objectContaining({
+            sectionId: 'apr-pt-dds',
+            questionId: 'apr-antes-atividade',
+            observation: 'APR aberta somente após início da atividade.',
+            evidences: [
+              expect.objectContaining({
+                id: 'foto-1',
+                fileName: 'apr-campo.jpg',
+                hash: 'hash-1',
+              }),
+            ],
+          }),
+        ],
         conclusao: 'Concluída',
       }),
     );
@@ -277,6 +334,16 @@ describe('AuditsService', () => {
         titulo: 'Auditoria de campo',
         documentos_avaliados: ['Documento 1'],
         resultados_observacoes: ['Observacao 1'],
+        checklist_respostas: [
+          expect.objectContaining({
+            questionId: 'apr-antes-atividade',
+            evidences: [
+              expect.objectContaining({
+                dataUrl: 'data:image/jpeg;base64,AAA',
+              }),
+            ],
+          }),
+        ],
       }),
     );
   });

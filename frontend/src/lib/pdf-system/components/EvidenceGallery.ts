@@ -214,8 +214,9 @@ async function drawOneEvidence(
 export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGalleryOptions) {
   if (!options.items.length) return;
   const { doc, margin, contentWidth, theme } = ctx;
-  // Keep the gallery heading together with the first evidence card to avoid orphaned titles.
-  ensureSpace(ctx, 60);
+  const useDoubleColumn = options.items.length >= 2;
+  // Keep the gallery heading together with the first evidence row and away from the footer.
+  ensureSpace(ctx, useDoubleColumn ? 102 : 82);
 
   doc.setFillColor(...theme.tone.surface);
   doc.setDrawColor(...theme.tone.border);
@@ -231,8 +232,6 @@ export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGall
 
   // Use 2-per-row layout when 2+ items to maximise page space and produce a
   // polished grid view consistent with the document design system.
-  const useDoubleColumn = options.items.length >= 2;
-
   if (!useDoubleColumn) {
     for (const [index, item] of options.items.entries()) {
       await drawOneEvidence(ctx, item, index, options.resolveImageDataUrl, options.strict ?? false);
@@ -250,8 +249,8 @@ export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGall
       break;
     }
 
-    // Reserve space before starting each pair
-    ensureSpace(ctx, 55);
+    // Reserve enough vertical space for the taller card in the pair before drawing.
+    ensureSpace(ctx, 88);
     const pairStartY = ctx.y;
 
     // Left card

@@ -3,6 +3,7 @@ import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@
 import { Site } from './sitesService';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import type { AuditChecklistAnswer } from '@/lib/auditChecklist';
 
 export interface Audit {
   id: string;
@@ -50,6 +51,7 @@ export interface Audit {
     prazo: string;
     status: string;
   }[];
+  checklist_respostas?: AuditChecklistAnswer[];
   conclusao?: string;
   pdf_file_key?: string;
   pdf_folder_path?: string;
@@ -99,6 +101,7 @@ export interface CreateAuditDto {
     prazo: string;
     status: string;
   }[];
+  checklist_respostas?: AuditChecklistAnswer[];
   conclusao?: string;
 }
 
