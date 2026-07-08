@@ -182,7 +182,6 @@ function drawValidationPanel(
   code: string,
   hash: string | undefined,
   qrDataUrl: string,
-  url: string,
 ) {
   const { doc, theme } = ctx;
   const accent = optionsAccent(ctx);
@@ -364,7 +363,6 @@ export async function drawGovernanceClosingBlock(
     options.code,
     options.hash,
     qrDataUrl,
-    options.url,
   );
 
   moveY(ctx, totalHeight + theme.spacing.sectionGap);
