@@ -10,6 +10,7 @@ import { ROLES_KEY } from './roles.decorator';
 import { Role } from './enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
 import { PERMISSIONS_KEY } from './permissions.decorator';
+import { normalizeRoleName } from './role-normalization.util';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -168,50 +169,7 @@ export class RolesGuard implements CanActivate {
   }
 
   private normalizeRole(role?: string | Role): Role | null {
-    if (!role) {
-      return null;
-    }
-
-    const roleAliases: Record<string, Role> = {
-      SUPER_ADMIN: Role.ADMIN_GERAL,
-      'ADMINISTRADOR GERAL': Role.ADMIN_GERAL,
-      'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
-      'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
-      'ADMIN EMPRESA': Role.ADMIN_EMPRESA,
-      ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
-      GERENTE: Role.SUPERVISOR,
-      TECNICO: Role.TST,
-      'TECNICO SST': Role.TST,
-      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
-      'TECNICO DE SEGURANCA DO TRABALHO (TST)': Role.TST,
-      TST: Role.TST,
-      SUPERVISOR: Role.SUPERVISOR,
-      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
-      VISUALIZADOR: Role.TRABALHADOR,
-      COLABORADOR: Role.COLABORADOR,
-      TRABALHADOR: Role.TRABALHADOR,
-    };
-
-    if (Object.values(Role).includes(role as Role)) {
-      return role as Role;
-    }
-
-    const normalizedRole = String(role)
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
-    const aliasedRole = roleAliases[normalizedRole];
-    if (aliasedRole) {
-      return aliasedRole;
-    }
-
-    const matchedEntry = Object.entries(Role).find(
-      ([key, value]) =>
-        key === normalizedRole || value.toUpperCase() === normalizedRole,
-    );
-
-    return matchedEntry ? (matchedEntry[1] as Role) : null;
+    return normalizeRoleName(role);
   }
 
   private hasRequiredRole(userRole: Role, requiredRoles: Role[]): boolean {

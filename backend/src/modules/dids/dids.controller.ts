@@ -32,6 +32,7 @@ import { FileInspectionService } from '../../shared/security/file-inspection.ser
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { CreateDidDto } from './dto/create-did.dto';
 import { FindDidsQueryDto } from './dto/find-dids-query.dto';
+import { ListDidPeopleQueryDto } from './dto/list-did-people-query.dto';
 import { UpdateDidDto } from './dto/update-did.dto';
 import { DidsService } from './dids.service';
 import { DidStatus } from './entities/did.entity';
@@ -134,6 +135,16 @@ export class DidsController {
   @Authorize('can_view_dids')
   findAll(@Query() query: FindDidsQueryDto) {
     return this.didsService.findPaginated(query);
+  }
+
+  @Get('people')
+  @Authorize('can_view_dids')
+  listPeople(@Query() query: ListDidPeopleQueryDto) {
+    return this.didsService.listPeople({
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+      siteId: query.site_id,
+    });
   }
 
   @Get(':id')

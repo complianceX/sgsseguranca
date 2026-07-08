@@ -6,10 +6,11 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
 import { DidsController } from './dids.controller';
 import { DidsService } from './dids.service';
 import { Did } from './entities/did.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Did]),
+    TypeOrmModule.forFeature([Did, User]),
     CommonModule,
     forwardRef(() => AuthModule),
     DocumentRegistryModule,

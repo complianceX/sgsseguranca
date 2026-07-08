@@ -54,6 +54,13 @@ export interface DashboardHeroProps {
   statusTone: DashboardHeroTone;
   statusTitle: string;
   statusDescription: string;
+  queueTotal: number;
+  criticalCount: number;
+  highCount: number;
+  slaBreached: number;
+  slaDueToday: number;
+  complianceScore: number | null;
+  complianceLabel: string;
   loadError?: string | null;
   actionsDisabled?: boolean;
   buildDailyReportPayload: () => DailyReportPdfSource;
@@ -67,6 +74,13 @@ export function DashboardHero({
   statusTone,
   statusTitle,
   statusDescription,
+  queueTotal,
+  criticalCount,
+  highCount,
+  slaBreached,
+  slaDueToday,
+  complianceScore,
+  complianceLabel,
   loadError,
   actionsDisabled,
   buildDailyReportPayload,
@@ -78,23 +92,25 @@ export function DashboardHero({
   return (
     <section
       aria-label="Resumo operacional do dashboard"
-      className="rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--component-card-bg)] px-5 py-5 shadow-[var(--ds-shadow-xs)] sm:px-6"
+      className="ds-dashboard-hero rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--component-card-bg)] px-4 py-4 shadow-[var(--ds-shadow-xs)] sm:px-5"
     >
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:items-start">
+        <div className="min-w-0 space-y-3">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
               Painel operacional
             </p>
-            <h1 className="mt-1 text-[24px] font-black leading-tight tracking-[-0.03em] text-[var(--title)] sm:text-[30px]">
-              {greeting}, {firstName}
+            <h1 className="mt-1 text-[22px] font-black leading-tight text-[var(--title)] sm:text-[26px]">
+              Cockpit SST
             </h1>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{dateLabel}</p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              {greeting}, {firstName} · {dateLabel}
+            </p>
           </div>
 
           <div
             className={cn(
-              "rounded-2xl border px-4 py-3",
+              "rounded-lg border px-4 py-3",
               statusConfig.container,
             )}
             aria-live="polite"
@@ -102,7 +118,7 @@ export function DashboardHero({
             <div className="flex items-start gap-3">
               <span
                 className={cn(
-                  "mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-current/20 bg-[var(--component-card-bg-elevated)]",
+                  "mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-current/20 bg-[var(--component-card-bg-elevated)]",
                   statusConfig.icon,
                 )}
                 aria-hidden="true"
@@ -112,7 +128,7 @@ export function DashboardHero({
                 />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-90">
+                <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-90">
                   {statusConfig.label}
                 </p>
                 <p className="mt-1 text-sm font-semibold">{statusTitle}</p>
@@ -124,21 +140,44 @@ export function DashboardHero({
           {loadError ? (
             <p
               role="alert"
-              className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning-fg)]"
+              className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning-fg)]"
             >
               {loadError}
             </p>
           ) : null}
         </div>
 
-        <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <DailyReportButton
               disabled={actionsDisabled}
               buildPayload={buildDailyReportPayload}
             />
             <LastUpdatedLabel lastFetchedAt={lastUpdatedAt} />
           </div>
+
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2">
+            <div className="ds-dashboard-status-metric">
+              <dt>Fila</dt>
+              <dd>{queueTotal}</dd>
+              <span>{criticalCount} críticos</span>
+            </div>
+            <div className="ds-dashboard-status-metric">
+              <dt>Altos</dt>
+              <dd>{highCount}</dd>
+              <span>risco operacional</span>
+            </div>
+            <div className="ds-dashboard-status-metric">
+              <dt>SLA</dt>
+              <dd>{slaBreached > 0 ? slaBreached : slaDueToday}</dd>
+              <span>{slaBreached > 0 ? "vencidos" : "vencem hoje"}</span>
+            </div>
+            <div className="ds-dashboard-status-metric">
+              <dt>Conformidade</dt>
+              <dd>{complianceScore == null ? "—" : `${complianceScore}%`}</dd>
+              <span>{complianceLabel}</span>
+            </div>
+          </dl>
         </div>
       </div>
     </section>

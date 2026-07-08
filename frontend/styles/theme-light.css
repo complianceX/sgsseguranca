@@ -260,8 +260,8 @@
   --component-card-border-strong: #b6cde4;
   --component-card-hover-border: rgba(29, 91, 141, 0.28);
   --component-card-topline: rgba(29, 91, 141, 0.08);
-  --component-card-shadow: 0 1px 2px rgba(14, 42, 76, 0.04);
-  --component-card-shadow-elevated: 0 8px 20px rgba(14, 42, 76, 0.06);
+  --component-card-shadow: 0 1px 2px rgba(14, 42, 76, 0.035);
+  --component-card-shadow-elevated: 0 6px 14px rgba(14, 42, 76, 0.055);
   --component-page-header-border: rgba(198, 215, 232, 0.72);
   --component-page-header-kicker-bg: rgba(248, 251, 255, 0.96);
   --component-page-header-kicker-border: rgba(198, 215, 232, 0.88);

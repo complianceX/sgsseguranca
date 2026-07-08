@@ -404,8 +404,8 @@
     var(--ds-border-default) 26%
   );
   --component-card-topline: color-mix(in srgb, var(--ds-color-info) 12%, transparent);
-  --component-card-shadow: 0 8px 18px rgba(2, 8, 15, 0.14);
-  --component-card-shadow-elevated: 0 14px 28px rgba(2, 8, 15, 0.2);
+  --component-card-shadow: 0 5px 12px rgba(2, 8, 15, 0.14);
+  --component-card-shadow-elevated: 0 10px 22px rgba(2, 8, 15, 0.2);
   --component-page-header-border: color-mix(in srgb, var(--ds-border-subtle) 78%, transparent);
   --component-page-header-kicker-bg: color-mix(
     in srgb,

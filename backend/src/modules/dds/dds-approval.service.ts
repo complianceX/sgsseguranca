@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
@@ -23,6 +24,7 @@ import { User } from '../users/entities/user.entity';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type ApprovalActorContext = {
   userId: string;
@@ -74,14 +76,19 @@ const DEFAULT_DDS_APPROVAL_STEPS: DdsApprovalStepInputDto[] = [
 
 @Injectable()
 export class DdsApprovalService {
+  private readonly logger = new Logger(DdsApprovalService.name);
+
   constructor(
     @InjectRepository(DdsApprovalRecord)
     private readonly approvalRepository: Repository<DdsApprovalRecord>,
     @InjectRepository(Dds)
     private readonly ddsRepository: Repository<Dds>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly ddsService: DdsService,
     private readonly signaturesService: SignaturesService,
     private readonly tenantService: TenantService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getFlow(ddsId: string): Promise<DdsApprovalFlow> {
@@ -208,7 +215,63 @@ export class DdsApprovalService {
       },
     );
 
-    return this.getFlow(ddsId);
+    const flow = await this.getFlow(ddsId);
+
+    // Notificar o próximo aprovador de forma assíncrona (fire-and-forget).
+    // Erros de notificação nunca bloqueiam o fluxo de aprovação.
+    void this.tryNotifyNextApprover(ddsId, flow);
+
+    return flow;
+  }
+
+  /** Envia notificação in-app para usuários elegíveis a aprovar a próxima etapa. */
+  private async tryNotifyNextApprover(
+    ddsId: string,
+    flow: DdsApprovalFlow,
+  ): Promise<void> {
+    if (flow.status !== 'pending' || !flow.currentStep) return;
+    try {
+      const companyId = this.tenantService.getTenantId();
+      if (!companyId) return;
+
+      const nextStep = flow.currentStep;
+      const requiredRole = this.normalizeRole(nextStep.approver_role);
+
+      // Filtrar por role no banco — evita carregar todos os usuários da empresa.
+      // Inclui ADMIN_GERAL (pode aprovar qualquer etapa) e o role exigido pela etapa.
+      const eligible = await this.userRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.profile', 'p')
+        .where('u.company_id = :companyId', { companyId })
+        .andWhere('u.deleted_at IS NULL')
+        .andWhere('p.nome IN (:...roles)', {
+          roles: [requiredRole, Role.ADMIN_GERAL].filter(Boolean),
+        })
+        .getMany();
+
+      await Promise.all(
+        eligible.map((u) =>
+          this.notificationsService
+            .create({
+              companyId,
+              userId: u.id,
+              type: 'info',
+              title: 'Aprovação de DDS pendente',
+              message: `A etapa "${nextStep.title}" aguarda sua aprovação.`,
+              data: { event: 'dds_approval_pending', ddsId },
+            })
+            .catch((err) =>
+              this.logger.warn(
+                `Falha ao notificar usuário ${u.id} sobre aprovação DDS: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            ),
+        ),
+      );
+    } catch (err) {
+      this.logger.error(
+        `tryNotifyNextApprover falhou para ddsId=${ddsId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   async rejectStep(

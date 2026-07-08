@@ -5,7 +5,8 @@ import type { ConfigService } from '@nestjs/config';
 const DEFAULT_ACCESS_TOKEN_TTL = '15m';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 10;
-const REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
+const REFRESH_TOKEN_COOKIE_PATH = '/';
+const LEGACY_REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
 const LEGACY_REFRESH_CSRF_COOKIE_PATH = '/auth/refresh';
 const REFRESH_CSRF_COOKIE_PATH = '/';
 export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
@@ -244,6 +245,17 @@ export function getRefreshTokenClearCookieOptions(): CookieOptions {
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
     path: REFRESH_TOKEN_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function getLegacyRefreshTokenClearCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: true,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    path: LEGACY_REFRESH_TOKEN_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }

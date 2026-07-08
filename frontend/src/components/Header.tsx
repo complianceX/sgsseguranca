@@ -194,7 +194,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
             <div className="hidden xl:flex min-w-0 flex-col pr-1">
               <span className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                Operação SST
+                Cockpit operacional
               </span>
             </div>
 

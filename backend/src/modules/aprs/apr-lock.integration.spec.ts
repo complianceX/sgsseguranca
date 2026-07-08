@@ -1074,8 +1074,9 @@ describe('APR lock (http integration)', () => {
   });
 
   it('mantém finalize como fluxo formal mesmo quando a APR já possui PDF final', async () => {
+    // Usa a rota canônica PATCH (o alias legado POST foi descontinuado/sunset).
     await request(getHttpServer())
-      .post(`/aprs/${PDF_LOCKED_APR_ID}/finalize`)
+      .patch(`/aprs/${PDF_LOCKED_APR_ID}/finalize`)
       .expect(200);
 
     expect(store.aprs.get(PDF_LOCKED_APR_ID)?.status).toBe(AprStatus.ENCERRADA);

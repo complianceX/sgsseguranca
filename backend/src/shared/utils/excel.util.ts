@@ -8,28 +8,41 @@ function toExcelJsBuffer(buffer: Buffer): ExcelJS.Buffer {
 }
 
 /**
- * Neutralizes Excel formula injection for user-controlled string cells.
- * Prefixes with apostrophe any value starting with = + - @ TAB CR,
- * which would otherwise be interpreted as a formula by Excel/LibreOffice.
- */
-export function sanitizeExcelCell(value: unknown): unknown {
-  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
-    return `'${value}`;
-  }
-  return value;
-}
-
-/**
- * Sanitizes all string cells in a row array against formula injection.
- */
-function sanitizeRow(row: unknown[]): unknown[] {
-  return row.map(sanitizeExcelCell);
-}
-
-/**
  * Utility functions to generate Excel buffers using ExcelJS.
  * Replaces the vulnerable `xlsx` package (Prototype Pollution + ReDoS).
  */
+
+/**
+ * Caracteres que, no início de uma célula de texto, podem ser interpretados
+ * como fórmula ao abrir a planilha no Excel/LibreOffice/Google Sheets ou ao
+ * convertê-la para CSV (CWE-1236 — Formula/CSV Injection).
+ */
+const FORMULA_INJECTION_TRIGGERS = new Set([
+  '=',
+  '+',
+  '-',
+  '@',
+  '\t',
+  '\r',
+  '\n',
+]);
+
+/**
+ * Neutraliza fórmula/CSV injection em valores de célula destinados a EXPORT.
+ *
+ * Somente strings são afetadas: quando o primeiro caractere é um gatilho de
+ * fórmula, prefixamos com apóstrofo para forçar interpretação literal como
+ * texto. Números, datas, null/undefined e objetos ExcelJS (ex.: `{ formula }`)
+ * passam intactos.
+ *
+ * Exportado para reuso e cobertura de testes por outros módulos.
+ */
+export function neutralizeExcelFormulaInjection<T>(value: T): T | string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return value;
+  }
+  return FORMULA_INJECTION_TRIGGERS.has(value[0]) ? `'${value}` : value;
+}
 
 /**
  * Creates an Excel buffer from an array of key-value row objects.
@@ -46,11 +59,11 @@ export async function jsonToExcelBuffer(
     const keys = Object.keys(rows[0]);
     worksheet.columns = keys.map((key) => ({ header: key, key, width: 20 }));
     for (const row of rows) {
-      const sanitized: Record<string, unknown> = {};
+      const safeRow: Record<string, unknown> = {};
       for (const key of keys) {
-        sanitized[key] = sanitizeExcelCell(row[key]);
+        safeRow[key] = neutralizeExcelFormulaInjection(row[key]);
       }
-      worksheet.addRow(sanitized);
+      worksheet.addRow(safeRow);
     }
   }
 
@@ -81,7 +94,9 @@ export async function aoaToExcelBuffer(
     const worksheet = workbook.addWorksheet(sheet.name);
 
     for (const row of sheet.rows) {
-      worksheet.addRow(sanitizeRow(row));
+      worksheet.addRow(
+        row.map((cell) => neutralizeExcelFormulaInjection(cell)),
+      );
     }
 
     if (sheet.colWidths) {

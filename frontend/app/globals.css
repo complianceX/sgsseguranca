@@ -1673,13 +1673,131 @@ html[data-theme="light"] {
     color: var(--ds-color-info);
   }
 
+  .ds-dashboard-hero {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ds-dashboard-status-metric,
+  .ds-dashboard-queue-stat {
+    border: 1px solid var(--component-card-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--component-card-bg-elevated);
+  }
+
+  .ds-dashboard-status-metric {
+    padding: 0.72rem 0.78rem;
+  }
+
+  .ds-dashboard-status-metric dt,
+  .ds-dashboard-queue-stat dt {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ds-color-text-secondary);
+  }
+
+  .ds-dashboard-status-metric dd {
+    margin-top: 0.12rem;
+    font-size: 1.32rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-text-primary);
+  }
+
+  .ds-dashboard-status-metric span {
+    margin-top: 0.18rem;
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ds-color-text-secondary);
+  }
+
+  .ds-dashboard-actions-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border: 1px solid var(--component-card-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--component-card-bg);
+    padding: 0.78rem 0.9rem;
+    box-shadow: var(--component-card-shadow);
+  }
+
+  .ds-dashboard-actions-list {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .ds-dashboard-action-link {
+    display: inline-flex;
+    min-height: 2.45rem;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid var(--component-card-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--component-card-bg-elevated);
+    padding: 0 0.74rem;
+    transition:
+      background-color var(--ds-motion-fast) ease,
+      border-color var(--ds-motion-fast) ease,
+      color var(--ds-motion-fast) ease;
+  }
+
+  .ds-dashboard-action-link:hover {
+    border-color: var(--component-card-hover-border);
+    background: var(--ds-color-surface-muted);
+  }
+
+  .ds-dashboard-action-link__icon {
+    display: inline-flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-primary-subtle);
+    color: var(--ds-color-action-primary);
+  }
+
+  .ds-dashboard-queue-stat {
+    padding: 0.58rem 0.66rem;
+  }
+
+  .ds-dashboard-queue-stat dd {
+    margin-top: 0.12rem;
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-text-primary);
+  }
+
   .ds-kpi-card {
     --ds-kpi-accent: var(--component-card-border-strong);
-    border-radius: var(--ds-radius-xl);
-    padding: 1.15rem 1.2rem;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--ds-radius-sm);
+    padding: 1rem 1.05rem 0.95rem 1.1rem;
     border: 1px solid var(--ds-color-border-default);
     color: var(--ds-color-text-primary);
     box-shadow: var(--component-card-shadow);
+  }
+
+  .ds-kpi-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--ds-kpi-accent);
   }
 
   .ds-kpi-card--primary {
@@ -1738,7 +1856,7 @@ html[data-theme="light"] {
     flex-direction: column;
     gap: 0.7rem;
     border: 1px solid var(--component-card-border);
-    border-radius: 1.25rem;
+    border-radius: var(--ds-radius-sm);
     background: var(--component-card-bg-elevated);
     box-shadow: var(--component-card-shadow);
     transition:
@@ -1760,7 +1878,7 @@ html[data-theme="light"] {
   .ds-dashboard-link-card:hover {
     border-color: var(--component-card-hover-border);
     box-shadow: var(--component-card-shadow-elevated);
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
 
   .ds-dashboard-link-card--center {
@@ -1773,7 +1891,7 @@ html[data-theme="light"] {
     align-items: center;
     justify-content: center;
     border: 1px solid color-mix(in srgb, var(--component-card-border-strong) 82%, transparent);
-    border-radius: 1rem;
+    border-radius: var(--ds-radius-sm);
     background: color-mix(
       in srgb,
       var(--ds-color-primary-subtle) 76%,
@@ -2628,6 +2746,21 @@ html[data-theme="light"] {
 @media (max-width: 639px) {
   .ds-topbar {
     padding: 0.75rem 0.85rem;
+  }
+
+  .ds-dashboard-actions-strip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ds-dashboard-actions-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .ds-dashboard-action-link {
+    width: 100%;
   }
 
   .ds-page-header__actions,

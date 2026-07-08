@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -29,6 +30,8 @@ import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
+import { Role } from '../auth/enums/roles.enum';
+import { normalizeRoleName } from '../auth/role-normalization.util';
 import { Activity } from '../activities/entities/activity.entity';
 import { Risk } from '../risks/entities/risk.entity';
 import { Epi } from '../epis/entities/epi.entity';
@@ -1208,7 +1211,40 @@ export class AprsService {
 
   // ─── CRUD ────────────────────────────────────────────────────────────────────
 
-  async create(createAprDto: CreateAprDto, userId?: string): Promise<Apr> {
+  /**
+   * Definir o modelo-padrão da empresa (`is_modelo_padrao`) substitui o template
+   * default de TODOS os usuários do tenant. É uma ação administrativa e não deve
+   * ser permitida a papéis operacionais (Supervisor/Colaborador), ainda que
+   * tenham permissão de criar/editar APRs.
+   */
+  private assertCanManageCompanyTemplate(
+    roleNames?: Array<string | null | undefined>,
+  ): void {
+    // Usa a mesma normalização canônica do RolesGuard (aliases, acentos, maiúsculas)
+    // e considera todos os sinais de papel disponíveis (profile.nome + roles
+    // resolvidos via RBAC), evitando bloquear admins legítimos com grafia divergente
+    // ou perfil não carregado no token.
+    const privilegedRoles = new Set<Role>([
+      Role.ADMIN_GERAL,
+      Role.ADMIN_EMPRESA,
+      Role.TST,
+    ]);
+    const isPrivileged = (roleNames ?? []).some((name) => {
+      const normalized = normalizeRoleName(name ?? undefined);
+      return normalized != null && privilegedRoles.has(normalized);
+    });
+    if (!isPrivileged) {
+      throw new ForbiddenException(
+        'Apenas Administrador Geral, Administrador da Empresa ou TST podem definir o modelo-padrão da empresa.',
+      );
+    }
+  }
+
+  async create(
+    createAprDto: CreateAprDto,
+    userId?: string,
+    actor?: { roleNames?: Array<string | null | undefined> },
+  ): Promise<Apr> {
     const {
       activities,
       risks,
@@ -1237,6 +1273,12 @@ export class AprsService {
       participants,
       riskItems: normalizedRiskItems,
     });
+
+    // Definir o modelo-padrão da empresa é ação administrativa (afeta todos os
+    // usuários do tenant). Falha rápido antes de abrir a transação.
+    if (createAprDto.is_modelo_padrao) {
+      this.assertCanManageCompanyTemplate(actor?.roleNames);
+    }
 
     const savedId = await this.aprsRepository.manager.transaction(
       async (manager) => {
@@ -1772,7 +1814,11 @@ export class AprsService {
     id: string,
     updateAprDto: UpdateAprDto,
     userId?: string,
+    actor?: { roleNames?: Array<string | null | undefined> },
   ): Promise<Apr> {
+    if (updateAprDto.is_modelo_padrao) {
+      this.assertCanManageCompanyTemplate(actor?.roleNames);
+    }
     if ('status' in updateAprDto && updateAprDto.status !== undefined) {
       throw new BadRequestException(
         'Use os endpoints /approve, /reject ou /finalize para alterar o status da APR.',
@@ -2233,6 +2279,23 @@ export class AprsService {
       };
     }
 
+    // A verificação pública lê a APR do tenant dono do documento. O companyId
+    // vem de um token de validação ASSINADO (PublicValidationGrantService), então
+    // escopamos a leitura estritamente a esse tenant: a RLS libera apenas as
+    // linhas dessa empresa (isSuperAdmin=false, sem bypass cross-tenant). Sem
+    // companyId (fluxo legado) mantém o contexto atual — fail-closed sob RLS.
+    return companyId
+      ? this.tenantService.run(
+          { companyId, isSuperAdmin: false, siteScope: 'all' },
+          () => this.resolveFinalPdfVerification(normalizedCode, companyId),
+        )
+      : this.resolveFinalPdfVerification(normalizedCode, companyId);
+  }
+
+  private async resolveFinalPdfVerification(
+    normalizedCode: string,
+    companyId?: string,
+  ) {
     const apr = await this.aprsRepository.findOne({
       where: {
         verification_code: normalizedCode,

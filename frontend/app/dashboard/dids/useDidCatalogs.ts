@@ -4,10 +4,9 @@ import { logger } from '@/lib/logger';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { companiesService, type Company } from '@/services/companiesService';
+import { didsService, type DidPerson } from '@/services/didsService';
 import { sitesService, type Site } from '@/services/sitesService';
-import { usersService, type User } from '@/services/usersService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
-import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 
 type UseDidCatalogsOptions = {
   selectedCompanyId: string;
@@ -38,7 +37,7 @@ export function useDidCatalogs({
 }: UseDidCatalogsOptions) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<DidPerson[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,9 +149,7 @@ export function useDidCatalogs({
       }
 
       try {
-        const usersResult = await usersService.findPaginated({
-          page: 1,
-          limit: 100,
+        const usersData = await didsService.listAllPeople({
           companyId: selectedCompanyId,
           siteId: selectedSiteId || undefined,
         });
@@ -161,19 +158,14 @@ export function useDidCatalogs({
           return;
         }
 
-        setUsers(usersResult.data);
-
-        if (usersResult.lastPage > 1) {
-          toast.warning(
-            'A lista de usuários foi limitada aos primeiros 100 registros para manter performance.',
-          );
-        }
+        setUsers(usersData);
       } catch (error) {
         if (cancelled) {
           return;
         }
         setUsers([]);
-        logger.error('Erro ao carregar usuários do DID:', error);
+        logger.error('Erro ao carregar catálogo de pessoas do DID:', error);
+        toast.error('Não foi possível carregar a equipe disponível para o DID.');
       }
     }
 
@@ -189,13 +181,7 @@ export function useDidCatalogs({
     [selectedCompanyId, sites],
   );
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (user) => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
-      ),
-    [selectedCompanyId, selectedSiteId, users],
-  );
+  const filteredUsers = useMemo(() => users, [users]);
 
   useEffect(() => {
     if (!selectedSiteId) {
