@@ -65,6 +65,38 @@ describe('api client', () => {
     });
   });
 
+  it('ignora tentativa de trocar empresa via x-company-id para usuario comum', async () => {
+    tokenStore.set('access-token');
+    sessionStore.set({
+      userId: 'user-1',
+      companyId: 'company-1',
+      user: {
+        id: 'user-1',
+        companyId: 'company-1',
+        isAdminGeral: false,
+      },
+    });
+
+    const response = await api.get('/users', {
+      headers: { 'x-company-id': 'company-999' },
+      adapter: async (config) => ({
+        data: {
+          authorization: config.headers.Authorization,
+          companyId: config.headers['x-company-id'],
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }),
+    });
+
+    expect(response.data).toEqual({
+      authorization: 'Bearer access-token',
+      companyId: 'company-1',
+    });
+  });
+
   it('não usa a empresa da sessão como tenant implícito para admin geral sem seleção explícita', async () => {
     tokenStore.set('access-token');
     sessionStore.set({

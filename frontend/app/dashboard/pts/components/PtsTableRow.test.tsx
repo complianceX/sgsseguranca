@@ -1,0 +1,120 @@
+import type { ReactNode } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { PtsTableRow } from './PtsTableRow';
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
+
+jest.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-1',
+      nome: 'Tecnico',
+    },
+    hasPermission: () => true,
+  }),
+}));
+
+jest.mock('@/components/SignatureModal', () => ({
+  SignatureModal: ({
+    isOpen,
+    onSave,
+  }: {
+    isOpen: boolean;
+    onSave: (signatureData: string, type: string) => void;
+  }) =>
+    isOpen ? (
+      <button type="button" onClick={() => onSave('signature-data', 'draw')}>
+        Salvar assinatura
+      </button>
+    ) : null,
+}));
+
+jest.mock('@/components/SignaturesPanel', () => ({
+  SignaturesPanel: () => null,
+}));
+
+const createSignature = jest.fn();
+const onDismissApprovalIssue = jest.fn();
+const onDismissApprovalReview = jest.fn();
+
+jest.mock('@/services/signaturesService', () => ({
+  signaturesService: {
+    create: (...args: unknown[]) => createSignature(...args),
+  },
+}));
+
+describe('PtsTableRow', () => {
+  beforeEach(() => {
+    createSignature.mockResolvedValue(undefined);
+    onDismissApprovalIssue.mockClear();
+    onDismissApprovalReview.mockClear();
+  });
+
+  it('limpa o estado de revisão e bloqueio após salvar uma assinatura', async () => {
+    const pt = {
+      id: 'pt-1',
+      numero: 'PT-001',
+      titulo: 'PT de teste',
+      data_hora_inicio: '2026-07-01T08:00:00.000Z',
+      data_hora_fim: '2026-07-01T10:00:00.000Z',
+      status: 'Pendente',
+      company_id: 'company-1',
+    };
+
+    render(
+      <table>
+        <tbody>
+          <PtsTableRow
+            pt={pt as never}
+            onDelete={jest.fn()}
+            onPrint={jest.fn()}
+            onSendEmail={jest.fn()}
+            onDownloadPdf={jest.fn()}
+            onPrepareApproval={jest.fn()}
+            onApprove={jest.fn()}
+            onReject={jest.fn()}
+            onFinalize={jest.fn()}
+            approvingId={null}
+            rejectingId={null}
+            finalizingId={null}
+            approvalReviewLoadingId={null}
+            approvalIssue={undefined}
+            approvalReview={undefined}
+            approvalChecklist={{
+              reviewedReadiness: false,
+              reviewedWorkers: false,
+              confirmedRelease: false,
+            }}
+            onDismissApprovalIssue={onDismissApprovalIssue}
+            onDismissApprovalReview={onDismissApprovalReview}
+            onUpdateApprovalChecklist={jest.fn()}
+          />
+        </tbody>
+      </table>,
+    );
+
+    fireEvent.click(screen.getByTitle('Assinar PT'));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Salvar assinatura' }));
+
+    await waitFor(() => {
+      expect(createSignature).toHaveBeenCalledWith({
+        document_id: 'pt-1',
+        document_type: 'PT',
+        signature_data: 'signature-data',
+        type: 'draw',
+        user_id: 'user-1',
+        company_id: 'company-1',
+      });
+      expect(onDismissApprovalReview).toHaveBeenCalledWith('pt-1');
+      expect(onDismissApprovalIssue).toHaveBeenCalledWith('pt-1');
+    });
+  });
+});

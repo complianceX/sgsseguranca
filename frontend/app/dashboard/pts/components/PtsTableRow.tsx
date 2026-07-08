@@ -177,6 +177,8 @@ export const PtsTableRow = React.memo(
           user_id: user?.id,
           company_id: pt.company_id,
         });
+        onDismissApprovalReview(pt.id);
+        onDismissApprovalIssue(pt.id);
         toast.success('Assinatura registrada com sucesso.');
       } catch {
         toast.error('Erro ao registrar assinatura.');

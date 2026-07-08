@@ -26,12 +26,13 @@ import { DID_TURNO_LABEL } from '@/app/dashboard/dids/didMeta';
 import type { DidFormData } from '@/app/dashboard/dids/didForm.schema';
 
 export const inputClassName =
-  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'mt-2 block min-h-12 w-full rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[var(--component-field-bg)] px-3.5 py-3 text-sm font-medium leading-6 text-[var(--ds-color-text-primary)] shadow-[0_1px_2px_rgba(15,23,42,0.05)] placeholder:text-[color:var(--ds-color-text-secondary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
-export const textareaClassName = `${inputClassName} min-h-[128px]`;
+export const textareaClassName = `${inputClassName} min-h-[152px] resize-y align-top`;
 export const labelClassName =
-  'text-sm font-medium text-[var(--ds-color-text-secondary)]';
-export const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
+  'text-sm font-semibold text-[var(--ds-color-text-primary)]';
+export const helperClassName =
+  'mt-2 text-xs font-medium leading-5 text-[var(--ds-color-text-secondary)]';
 export const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
 
 function getUserInitials(name?: string | null) {
@@ -86,10 +87,10 @@ export function DidFormPageShell({
 }: DidFormPageShellProps) {
   return (
     <FormPageLayout
-      className="space-y-7"
+      className="space-y-8"
       eyebrow="Formalização diária"
       title={id ? 'Editar Diálogo do Início do Dia' : 'Novo Diálogo do Início do Dia'}
-      description="Um layout mais limpo para registrar equipe, atividade e combinados do turno sem burocracia."
+      description="Registro diário com leitura direta para equipe, atividade, riscos e combinados do turno."
       icon={<ClipboardList className="h-5 w-5" />}
       actions={
         <div className="flex flex-wrap items-center gap-2">
@@ -171,13 +172,15 @@ export function DidFormPageShell({
           </div>
         </>
       }
-      footer={footer}
     >
       <fieldset
         disabled={isReadOnly || saving || isSubmitting}
-        className={cn('space-y-6', isReadOnly && 'opacity-90')}
+        className={cn('space-y-7', isReadOnly && 'opacity-90')}
       >
         {children}
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] px-5 py-5 shadow-[var(--ds-shadow-sm)]">
+          {footer}
+        </div>
       </fieldset>
     </FormPageLayout>
   );
@@ -189,6 +192,8 @@ type DidContextSectionProps = {
   companies: Array<{ id: string; razao_social: string }>;
   filteredSites: Array<{ id: string; nome: string }>;
   filteredUsers: Array<{ id: string; nome: string }>;
+  isAdminGeral: boolean;
+  companyLabel?: string | null;
   selectedCompanyId: string;
   handleCompanyChange: (companyId: string) => void;
 };
@@ -199,13 +204,15 @@ export function DidContextSection({
   companies,
   filteredSites,
   filteredUsers,
+  isAdminGeral,
+  companyLabel,
   selectedCompanyId,
   handleCompanyChange,
 }: DidContextSectionProps) {
   return (
     <FormSection
       title="Contexto do dia"
-      description="Defina o básico do alinhamento com mais clareza visual."
+      description="Defina o contexto do documento com mais contraste e menos ruído visual."
       icon={<CalendarDays className="h-4 w-4" />}
       badge="Etapa 1"
       className="border-l-4 border-l-[var(--ds-color-info)]"
@@ -261,19 +268,33 @@ export function DidContextSection({
           <label htmlFor="did-company" className={labelClassName}>
             Empresa
           </label>
-          <select
-            id="did-company"
-            {...register('company_id')}
-            onChange={(event) => handleCompanyChange(event.target.value)}
-            className={inputClassName}
-          >
-            <option value="">Selecione a empresa</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.razao_social}
-              </option>
-            ))}
-          </select>
+          {isAdminGeral ? (
+            <select
+              id="did-company"
+              {...register('company_id')}
+              onChange={(event) => handleCompanyChange(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="">Selecione a empresa</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.razao_social}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <>
+              <input type="hidden" {...register('company_id')} />
+              <div className="mt-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-3.5 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {companyLabel || 'Empresa vinculada ao seu acesso'}
+                </p>
+                <p className={cn(helperClassName, 'mt-2')}>
+                  Empresa fixa para este usuário. A troca de empresa é exclusiva do Administrador Geral.
+                </p>
+              </div>
+            </>
+          )}
           {errors.company_id ? (
             <p className={errorClassName}>{errors.company_id.message}</p>
           ) : null}
@@ -366,7 +387,7 @@ export function DidOperationalSection({
   return (
     <FormSection
       title="Conteúdo operacional"
-      description="Separe o plano do turno, os pontos de atenção e os complementos em blocos mais legíveis."
+      description="Separe o plano do turno, os pontos de atenção e os complementos em blocos mais claros e fáceis de revisar."
       icon={<BriefcaseBusiness className="h-4 w-4" />}
       badge="Etapa 2"
       className="border-l-4 border-l-[var(--ds-color-warning)]"
@@ -376,7 +397,7 @@ export function DidOperationalSection({
           tone="primary"
           label="Plano do turno"
           description="Organize o que será feito e como a equipe deve se orientar."
-          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
         >
           <FormGrid cols={1}>
             <div>
@@ -416,7 +437,7 @@ export function DidOperationalSection({
           tone="warning"
           label="Riscos e controles"
           description="Deixe claro o que merece atenção e como a equipe deve se organizar."
-          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
         >
           <FormGrid cols={2}>
             <div>
@@ -455,7 +476,7 @@ export function DidOperationalSection({
           tone="default"
           label="Complementos"
           description="Campos extras para reforçar o combinado visual do turno."
-          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+          className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
         >
           <FormGrid cols={2}>
             <div>
@@ -506,7 +527,7 @@ export function DidParticipantsSection({
   return (
     <FormSection
       title="Participantes"
-      description="A seleção da equipe ficou mais visual para facilitar a conferência do alinhamento."
+      description="A seleção da equipe usa contraste mais forte para facilitar a conferência antes do fechamento do DID."
       icon={<Users className="h-4 w-4" />}
       badge="Etapa 3"
       actions={<StatusPill tone="info">{selectedParticipantIds.length} selecionado(s)</StatusPill>}
@@ -553,8 +574,10 @@ export function DidParticipantsSection({
                     {getUserInitials(user.nome)}
                   </div>
                   <div className="space-y-1">
-                    <p className="font-medium">{user.nome}</p>
-                    <p className="text-xs text-[var(--ds-color-text-muted)]">
+                    <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                      {user.nome}
+                    </p>
+                    <p className="text-xs font-medium leading-5 text-[var(--ds-color-text-secondary)]">
                       {selected
                         ? 'Participante incluído na equipe deste DID'
                         : 'Participante disponível para este DID'}

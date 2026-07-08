@@ -95,7 +95,7 @@ export function applyDocumentFooter(
     ctx.doc.setFont("helvetica", "normal");
     ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
     ctx.doc.text(
-      `Pagina ${page} de ${pages}`,
+      `Página ${page} de ${pages}`,
       ctx.pageWidth - ctx.margin,
       292.7,
       { align: "right" },

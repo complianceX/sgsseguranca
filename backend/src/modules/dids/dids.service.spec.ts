@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { DidsService } from './dids.service';
 import { Did, DidStatus } from './entities/did.entity';
+import { User } from '../users/entities/user.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
@@ -14,6 +15,7 @@ type RegisterFinalDocumentInput = Parameters<
 describe('DidsService', () => {
   let service: DidsService;
   let didRepository: jest.Mocked<Repository<Did>>;
+  let usersRepository: jest.Mocked<Repository<User>>;
   let tenantService: Partial<TenantService>;
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
@@ -26,6 +28,10 @@ describe('DidsService', () => {
       create: jest.fn((input: Partial<Did>) => input),
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<Did>>;
+
+    usersRepository = {
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<User>>;
 
     tenantService = {
       getTenantId: jest.fn().mockReturnValue('company-1'),
@@ -50,6 +56,7 @@ describe('DidsService', () => {
 
     service = new DidsService(
       didRepository as unknown as Repository<Did>,
+      usersRepository as unknown as Repository<User>,
       tenantService as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
@@ -214,6 +221,77 @@ describe('DidsService', () => {
     ).resolves.toBeTruthy();
 
     expect(didRepository.save).toHaveBeenCalled();
+  });
+
+  it('listPeople: usa ACL do modulo DID e inclui usuarios company-scoped', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [
+          {
+            id: 'user-site-1',
+            nome: 'Equipe Site',
+            funcao: 'Operador',
+            company_id: 'company-1',
+            site_id: 'site-1',
+            status: true,
+          },
+          {
+            id: 'user-company',
+            nome: 'Equipe Global',
+            funcao: 'Supervisor',
+            company_id: 'company-1',
+            site_id: null,
+            status: true,
+          },
+        ],
+        2,
+      ]),
+    };
+    usersRepository.createQueryBuilder.mockReturnValue(queryBuilder as never);
+    tenantService.getContext = jest.fn(() => ({
+      companyId: 'company-1',
+      userId: 'user-tst',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds: ['site-1'],
+    }));
+
+    await expect(
+      service.listPeople({ page: 1, limit: 100, siteId: 'site-1' }),
+    ).resolves.toMatchObject({
+      total: 2,
+      data: [
+        { id: 'user-site-1', site_id: 'site-1' },
+        { id: 'user-company', site_id: null },
+      ],
+    });
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      '(user.site_id IN (:...siteIds) OR user.site_id IS NULL)',
+      { siteIds: ['site-1'] },
+    );
+  });
+
+  it('listPeople: rejeita obra fora do escopo do usuario atual', async () => {
+    tenantService.getContext = jest.fn(() => ({
+      companyId: 'company-1',
+      userId: 'user-tst',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds: ['site-1'],
+    }));
+
+    await expect(
+      service.listPeople({ page: 1, limit: 20, siteId: 'site-2' }),
+    ).rejects.toThrow('Obra fora do escopo do usuário atual.');
+
+    expect(usersRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('emite 20 PDFs finais de DID simultaneamente sem degradar o fluxo governado', async () => {

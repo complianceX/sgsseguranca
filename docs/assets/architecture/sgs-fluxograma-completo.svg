@@ -1,0 +1,340 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2550" viewBox="0 0 1600 2550" role="img" aria-labelledby="title desc">
+  <title id="title">SGS - Fluxograma Completo do Sistema</title>
+  <desc id="desc">Diagrama visual do SGS com topologia macro, autenticacao, governanca documental e processamento assincrono.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#eef4f8"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5f6f89"/>
+    </marker>
+    <style>
+      .title { font: 700 34px Arial, sans-serif; fill: #0f1f33; }
+      .subtitle { font: 400 16px Arial, sans-serif; fill: #4a5d78; }
+      .section-title { font: 700 22px Arial, sans-serif; fill: #17324d; }
+      .label { font: 700 15px Arial, sans-serif; fill: #17324d; }
+      .text { font: 400 13px Arial, sans-serif; fill: #36506e; }
+      .mini { font: 700 12px Arial, sans-serif; fill: #5f6f89; letter-spacing: 0.08em; }
+      .legend { font: 400 12px Arial, sans-serif; fill: #415872; }
+      .box { stroke: #8ea2bd; stroke-width: 1.5; rx: 18; ry: 18; }
+      .section { fill: #ffffff; stroke: #d7e1ec; stroke-width: 1.5; rx: 28; ry: 28; }
+      .line { stroke: #5f6f89; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 8 7; }
+      .softline { stroke: #8ea2bd; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="2550" fill="url(#bg)"/>
+
+  <text x="70" y="70" class="title">SGS - Fluxograma Completo do Sistema</text>
+  <text x="70" y="102" class="subtitle">Baseado no estado versionado do repo: frontend em Vercel, backend-web e worker em Vultr/Coolify, banco em Neon, Redis externo e storage em Backblaze B2.</text>
+
+  <rect x="70" y="140" width="1460" height="720" class="section"/>
+  <text x="105" y="185" class="section-title">1. Topologia macro do sistema</text>
+
+  <rect x="105" y="220" width="180" height="90" class="box" fill="#fff8e7"/>
+  <circle cx="155" cy="255" r="16" fill="#f4c95d"/>
+  <path d="M138 284c8-16 34-16 42 0" stroke="#9b6a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <text x="185" y="252" class="label">Usuario</text>
+  <text x="185" y="274" class="text">web autenticado</text>
+
+  <rect x="105" y="340" width="180" height="90" class="box" fill="#f5f1ff"/>
+  <circle cx="155" cy="375" r="16" fill="#a78bfa"/>
+  <path d="M140 403h30" stroke="#5b45b8" stroke-width="4" stroke-linecap="round"/>
+  <text x="185" y="372" class="label">Consumidor</text>
+  <text x="185" y="394" class="text">links publicos</text>
+
+  <rect x="370" y="220" width="240" height="100" class="box" fill="#e8f1ff"/>
+  <rect x="390" y="243" width="40" height="28" rx="6" fill="#4b8de8"/>
+  <rect x="398" y="278" width="24" height="6" rx="3" fill="#4b8de8"/>
+  <text x="448" y="255" class="label">Frontend web</text>
+  <text x="448" y="277" class="text">Next.js 16</text>
+  <text x="448" y="297" class="text">Vercel</text>
+
+  <rect x="370" y="350" width="240" height="100" class="box" fill="#eef5ff"/>
+  <circle cx="410" cy="390" r="18" fill="#8ab4f8"/>
+  <path d="M402 390h16M410 382v16" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <text x="448" y="386" class="label">Rotas publicas</text>
+  <text x="448" y="408" class="text">validacao, assinatura, onboarding</text>
+
+  <rect x="700" y="220" width="310" height="120" class="box" fill="#e9fbef"/>
+  <rect x="724" y="247" width="48" height="34" rx="7" fill="#33b36b"/>
+  <rect x="731" y="289" width="34" height="6" rx="3" fill="#33b36b"/>
+  <text x="792" y="256" class="label">Backend web</text>
+  <text x="792" y="278" class="text">NestJS 11 HTTP API</text>
+  <text x="792" y="298" class="text">auth, guards, regras de negocio, webhooks</text>
+  <text x="792" y="318" class="text">health, swagger controlado e observabilidade</text>
+
+  <rect x="700" y="375" width="145" height="90" class="box" fill="#fff4d8"/>
+  <path d="M724 405h32l8 10-8 10h-32z" fill="#f7b500"/>
+  <text x="768" y="404" class="label">Auth</text>
+  <text x="768" y="424" class="text">JWT, CSRF</text>
+  <text x="768" y="442" class="text">RBAC, MFA</text>
+
+  <rect x="865" y="375" width="145" height="90" class="box" fill="#eaf7ff"/>
+  <path d="M890 432v-22l20-12 20 12v22l-20 12z" fill="#59a4e8"/>
+  <text x="938" y="404" class="label">Tenant</text>
+  <text x="938" y="424" class="text">middleware</text>
+  <text x="938" y="442" class="text">ALS + contexto</text>
+
+  <rect x="1045" y="220" width="210" height="100" class="box" fill="#f3efff"/>
+  <rect x="1065" y="243" width="30" height="30" rx="8" fill="#8d72e8"/>
+  <rect x="1105" y="243" width="30" height="30" rx="8" fill="#8d72e8"/>
+  <rect x="1145" y="243" width="30" height="30" rx="8" fill="#8d72e8"/>
+  <text x="1065" y="293" class="label">Modulos SST</text>
+  <text x="1065" y="313" class="text">APR, PT, DDS, RDO, CAT,</text>
+  <text x="1065" y="331" class="text">checklists, riscos, users etc</text>
+
+  <rect x="1045" y="350" width="210" height="100" class="box" fill="#eefcf7"/>
+  <path d="M1072 380h40v50h-40z" fill="#2dbb7f"/>
+  <path d="M1112 392l18 18-18 18" stroke="#2dbb7f" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <text x="1140" y="386" class="label">Governanca documental</text>
+  <text x="1140" y="406" class="text">registry, assinaturas,</text>
+  <text x="1140" y="424" class="text">videos e validacao publica</text>
+
+  <rect x="1295" y="220" width="200" height="100" class="box" fill="#eef2f7"/>
+  <circle cx="1325" cy="255" r="9" fill="#5f6f89"/>
+  <circle cx="1325" cy="278" r="9" fill="#5f6f89"/>
+  <circle cx="1325" cy="301" r="9" fill="#5f6f89"/>
+  <text x="1348" y="255" class="label">Observabilidade</text>
+  <text x="1348" y="277" class="text">logs JSON</text>
+  <text x="1348" y="295" class="text">Sentry e OTEL opcionais</text>
+
+  <rect x="700" y="545" width="220" height="110" class="box" fill="#edf8ff"/>
+  <rect x="722" y="568" width="50" height="36" rx="7" fill="#4aa3d9"/>
+  <rect x="780" y="568" width="50" height="36" rx="7" fill="#4aa3d9"/>
+  <rect x="838" y="568" width="50" height="36" rx="7" fill="#4aa3d9"/>
+  <text x="722" y="627" class="label">Redis externo</text>
+  <text x="722" y="646" class="text">auth, cache e queue</text>
+
+  <rect x="955" y="545" width="220" height="110" class="box" fill="#effaf1"/>
+  <ellipse cx="985" cy="579" rx="16" ry="8" fill="#3cbf6a"/>
+  <path d="M969 579v26c0 4 7 8 16 8s16-4 16-8v-26" fill="#3cbf6a"/>
+  <ellipse cx="985" cy="605" rx="16" ry="8" fill="#2ba85b"/>
+  <text x="1015" y="585" class="label">Neon PostgreSQL</text>
+  <text x="1015" y="606" class="text">TypeORM + RLS</text>
+  <text x="1015" y="625" class="text">persistencia principal</text>
+
+  <rect x="1210" y="545" width="220" height="110" class="box" fill="#fff2ea"/>
+  <path d="M1240 600c0-20 18-36 40-36 7-16 22-26 40-26 25 0 45 20 45 45 19 2 34 18 34 38 0 22-18 40-40 40h-74c-25 0-45-20-45-45 0-7 0-10 0-16z" fill="#ff9f69"/>
+  <text x="1310" y="585" class="label">Backblaze B2</text>
+  <text x="1310" y="606" class="text">storage S3 compativel</text>
+  <text x="1310" y="625" class="text">PDFs, anexos, videos</text>
+
+  <rect x="700" y="705" width="270" height="110" class="box" fill="#f4f0ff"/>
+  <rect x="726" y="730" width="52" height="36" rx="7" fill="#8d72e8"/>
+  <path d="M736 748h32M736 758h24" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <text x="798" y="746" class="label">Worker</text>
+  <text x="798" y="767" class="text">processo separado</text>
+  <text x="798" y="786" class="text">mail, pdf, import, retention, DR</text>
+
+  <rect x="1010" y="705" width="485" height="110" class="box" fill="#f8fbff"/>
+  <text x="1035" y="740" class="label">Integracoes externas</text>
+  <text x="1035" y="765" class="text">OpenAI / Sophie   |   Google Calendar   |   SMTP / Resend / Brevo   |   ClamAV</text>
+  <text x="1035" y="790" class="text">Sempre atras de consentimento, validacao de dominio, trilha auditavel e observabilidade.</text>
+
+  <path class="line" d="M285 265 L370 265"/>
+  <path class="line" d="M285 385 L370 385"/>
+  <path class="line" d="M610 270 L700 280"/>
+  <path class="line" d="M610 400 L700 405"/>
+  <path class="softline" d="M855 340 L855 375"/>
+  <path class="softline" d="M1010 280 L1045 280"/>
+  <path class="softline" d="M1010 410 L1045 400"/>
+  <path class="softline" d="M1255 270 L1295 270"/>
+  <path class="line" d="M810 465 L810 545"/>
+  <path class="line" d="M940 465 L1065 545"/>
+  <path class="line" d="M1150 450 L1320 545"/>
+  <path class="line" d="M810 655 L810 705"/>
+  <path class="line" d="M970 765 L1010 765"/>
+  <path class="line" d="M1175 600 L1210 600"/>
+
+  <rect x="70" y="900" width="1460" height="350" class="section"/>
+  <text x="105" y="945" class="section-title">2. Fluxo de autenticacao, sessao e tenant scoping</text>
+
+  <rect x="105" y="1010" width="180" height="82" class="box" fill="#fff8e7"/>
+  <text x="135" y="1050" class="label">1. Login</text>
+  <text x="135" y="1071" class="text">usuario abre /login</text>
+
+  <rect x="320" y="1010" width="190" height="82" class="box" fill="#e8f1ff"/>
+  <text x="350" y="1040" class="label">2. Bootstrap CSRF</text>
+  <text x="350" y="1061" class="text">frontend chama /auth/csrf</text>
+  <text x="350" y="1080" class="text">cookie e header</text>
+
+  <rect x="545" y="1010" width="190" height="82" class="box" fill="#e9fbef"/>
+  <text x="575" y="1040" class="label">3. Credenciais</text>
+  <text x="575" y="1061" class="text">POST /auth/login</text>
+  <text x="575" y="1080" class="text">validacao de entrada</text>
+
+  <rect x="770" y="1010" width="215" height="82" class="box" fill="#fff4d8"/>
+  <text x="800" y="1040" class="label">4. Auth e seguranca</text>
+  <text x="800" y="1061" class="text">JWT, MFA, rate limit,</text>
+  <text x="800" y="1080" class="text">status do usuario e papel</text>
+
+  <rect x="1020" y="1010" width="220" height="82" class="box" fill="#eef5ff"/>
+  <text x="1050" y="1040" class="label">5. Sessao emitida</text>
+  <text x="1050" y="1061" class="text">access token + refresh token</text>
+  <text x="1050" y="1080" class="text">cookies protegidos</text>
+
+  <rect x="1275" y="1010" width="220" height="82" class="box" fill="#f4f0ff"/>
+  <text x="1305" y="1040" class="label">6. Rotas protegidas</text>
+  <text x="1305" y="1061" class="text">frontend usa API autenticada</text>
+  <text x="1305" y="1080" class="text">x-company-id quando aplicavel</text>
+
+  <path class="line" d="M285 1051 L320 1051"/>
+  <path class="line" d="M510 1051 L545 1051"/>
+  <path class="line" d="M735 1051 L770 1051"/>
+  <path class="line" d="M985 1051 L1020 1051"/>
+  <path class="line" d="M1240 1051 L1275 1051"/>
+
+  <rect x="160" y="1135" width="300" height="80" class="box" fill="#f8fbff"/>
+  <text x="190" y="1168" class="label">TenantMiddleware</text>
+  <text x="190" y="1188" class="text">resolve company atual, site scope e contexto do request</text>
+
+  <rect x="505" y="1135" width="300" height="80" class="box" fill="#f8fbff"/>
+  <text x="535" y="1168" class="label">AsyncLocalStorage</text>
+  <text x="535" y="1188" class="text">propaga contexto para services, repositorios e jobs</text>
+
+  <rect x="850" y="1135" width="300" height="80" class="box" fill="#f8fbff"/>
+  <text x="880" y="1168" class="label">TenantDbContextService</text>
+  <text x="880" y="1188" class="text">injeta contexto de sessao SQL para reforco com RLS</text>
+
+  <rect x="1195" y="1135" width="260" height="80" class="box" fill="#effaf1"/>
+  <text x="1225" y="1168" class="label">Banco com RLS</text>
+  <text x="1225" y="1188" class="text">defesa em profundidade para dados multi-tenant</text>
+
+  <path class="line" d="M1385 1092 L1385 1135"/>
+  <path class="line" d="M1275 1175 L1195 1175"/>
+  <path class="line" d="M1150 1175 L850 1175"/>
+  <path class="line" d="M805 1175 L505 1175"/>
+  <path class="line" d="M460 1175 L160 1175"/>
+
+  <rect x="70" y="1290" width="1460" height="470" class="section"/>
+  <text x="105" y="1335" class="section-title">3. Fluxo documental governado</text>
+
+  <rect x="120" y="1400" width="230" height="84" class="box" fill="#e8f1ff"/>
+  <text x="150" y="1436" class="label">Criacao / edicao</text>
+  <text x="150" y="1458" class="text">APR, PT, DDS, RDO, checklist,</text>
+  <text x="150" y="1476" class="text">dossie ou outro documento</text>
+
+  <rect x="395" y="1400" width="230" height="84" class="box" fill="#fff4d8"/>
+  <text x="425" y="1436" class="label">Validacoes de dominio</text>
+  <text x="425" y="1458" class="text">tenant, papel, estado, regras,</text>
+  <text x="425" y="1476" class="text">travas e prontidao</text>
+
+  <rect x="670" y="1400" width="230" height="84" class="box" fill="#f4f0ff"/>
+  <text x="700" y="1436" class="label">Rascunho / pendencia</text>
+  <text x="700" y="1458" class="text">autosave, anexos, pre-aprovacao,</text>
+  <text x="700" y="1476" class="text">assinaturas e revisoes</text>
+
+  <rect x="945" y="1400" width="230" height="84" class="box" fill="#eefcf7"/>
+  <text x="975" y="1436" class="label">Artefato oficial</text>
+  <text x="975" y="1458" class="text">geracao de PDF final, bundle,</text>
+  <text x="975" y="1476" class="text">hash e metadados</text>
+
+  <rect x="1220" y="1400" width="230" height="84" class="box" fill="#fff2ea"/>
+  <text x="1250" y="1436" class="label">Storage governado</text>
+  <text x="1250" y="1458" class="text">upload para B2/S3 e</text>
+  <text x="1250" y="1476" class="text">controle da chave do documento</text>
+
+  <path class="line" d="M350 1442 L395 1442"/>
+  <path class="line" d="M625 1442 L670 1442"/>
+  <path class="line" d="M900 1442 L945 1442"/>
+  <path class="line" d="M1175 1442 L1220 1442"/>
+
+  <rect x="230" y="1540" width="320" height="92" class="box" fill="#f8fbff"/>
+  <text x="260" y="1575" class="label">Registry documental</text>
+  <text x="260" y="1596" class="text">grava hash, id de referencia, documento final, metadados</text>
+  <text x="260" y="1615" class="text">e trilha de governanca</text>
+
+  <rect x="640" y="1540" width="320" height="92" class="box" fill="#f8fbff"/>
+  <text x="670" y="1575" class="label">Assinaturas e validacao</text>
+  <text x="670" y="1596" class="text">aceites, provas, verificacoes publicas e leitura controlada</text>
+  <text x="670" y="1615" class="text">por token / URL assinada / grants</text>
+
+  <rect x="1050" y="1540" width="320" height="92" class="box" fill="#f8fbff"/>
+  <text x="1080" y="1575" class="label">Read-only final</text>
+  <text x="1080" y="1596" class="text">documento fechado deixa de aceitar mutacao de fluxo comum</text>
+  <text x="1080" y="1615" class="text">e passa a operar por leitura e validacao</text>
+
+  <path class="line" d="M1335 1484 L1210 1540"/>
+  <path class="line" d="M1170 1586 L1050 1586"/>
+  <path class="line" d="M960 1586 L640 1586"/>
+  <path class="line" d="M550 1586 L430 1586"/>
+
+  <rect x="185" y="1665" width="1230" height="62" class="box" fill="#eef5ff"/>
+  <text x="215" y="1703" class="legend">Dominios onde a governanca documental pesa mais: PT, APR, DDS, RDO, checklist, dossie, relatorios e assinaturas.</text>
+
+  <rect x="70" y="1800" width="1460" height="520" class="section"/>
+  <text x="105" y="1845" class="section-title">4. Processamento assincrono, filas e integracoes</text>
+
+  <rect x="115" y="1905" width="250" height="92" class="box" fill="#eef5ff"/>
+  <text x="145" y="1940" class="label">Modulos publicam jobs</text>
+  <text x="145" y="1962" class="text">mail, PDF, importacao, retention, SLA,</text>
+  <text x="145" y="1980" class="text">dashboard, notificacoes e DR</text>
+
+  <rect x="420" y="1905" width="250" height="92" class="box" fill="#edf8ff"/>
+  <text x="450" y="1940" class="label">Redis / BullMQ</text>
+  <text x="450" y="1962" class="text">enfileiramento, retry, estado,</text>
+  <text x="450" y="1980" class="text">consumo e DLQ</text>
+
+  <rect x="725" y="1905" width="250" height="92" class="box" fill="#f4f0ff"/>
+  <text x="755" y="1940" class="label">Worker executa</text>
+  <text x="755" y="1962" class="text">jobs fora da request HTTP</text>
+  <text x="755" y="1980" class="text">com politicas de fila e timeout</text>
+
+  <rect x="1030" y="1905" width="365" height="92" class="box" fill="#effaf1"/>
+  <text x="1060" y="1940" class="label">Persistencia e reflexo</text>
+  <text x="1060" y="1962" class="text">atualiza banco, storage, auditoria, registry e status visiveis no frontend</text>
+
+  <path class="line" d="M365 1950 L420 1950"/>
+  <path class="line" d="M670 1950 L725 1950"/>
+  <path class="line" d="M975 1950 L1030 1950"/>
+
+  <rect x="135" y="2055" width="260" height="190" class="box" fill="#fff8e7"/>
+  <text x="165" y="2092" class="label">Jobs centrais</text>
+  <text x="165" y="2120" class="text">- mail</text>
+  <text x="165" y="2142" class="text">- pdf-generation</text>
+  <text x="165" y="2164" class="text">- document-import</text>
+  <text x="165" y="2186" class="text">- expiry-notifications</text>
+  <text x="165" y="2208" class="text">- document-retention</text>
+
+  <rect x="445" y="2055" width="320" height="190" class="box" fill="#f8fbff"/>
+  <text x="475" y="2092" class="label">Integracoes externas</text>
+  <text x="475" y="2120" class="text">- OpenAI / Sophie</text>
+  <text x="475" y="2142" class="text">- Google Calendar</text>
+  <text x="475" y="2164" class="text">- SMTP / Resend / Brevo</text>
+  <text x="475" y="2186" class="text">- ClamAV / inspecao de arquivo</text>
+  <text x="475" y="2208" class="text">- webhooks e notificacoes</text>
+
+  <rect x="815" y="2055" width="330" height="190" class="box" fill="#eefcf7"/>
+  <text x="845" y="2092" class="label">Guardrails obrigatorios</text>
+  <text x="845" y="2120" class="text">- consentimento IA quando aplicavel</text>
+  <text x="845" y="2142" class="text">- sanitizacao de PII antes de trafego externo</text>
+  <text x="845" y="2164" class="text">- observabilidade e trilha auditavel</text>
+  <text x="845" y="2186" class="text">- throttling dedicado em superficies sensiveis</text>
+  <text x="845" y="2208" class="text">- noeviction para fila e contratos fail-closed</text>
+
+  <rect x="1195" y="2055" width="280" height="190" class="box" fill="#fff2ea"/>
+  <text x="1225" y="2092" class="label">Topologia operacional</text>
+  <text x="1225" y="2120" class="text">Frontend: Vercel</text>
+  <text x="1225" y="2142" class="text">Backend-web: Vultr / Coolify</text>
+  <text x="1225" y="2164" class="text">Worker: Vultr / Coolify</text>
+  <text x="1225" y="2186" class="text">Banco: Neon</text>
+  <text x="1225" y="2208" class="text">Storage: Backblaze B2</text>
+
+  <path class="softline dashed" d="M395 2148 L445 2148"/>
+  <path class="softline dashed" d="M765 2148 L815 2148"/>
+  <path class="softline dashed" d="M1145 2148 L1195 2148"/>
+
+  <rect x="70" y="2360" width="1460" height="120" class="section"/>
+  <text x="105" y="2405" class="section-title">Legenda de leitura</text>
+  <rect x="105" y="2428" width="24" height="24" rx="6" fill="#e8f1ff" stroke="#8ea2bd"/>
+  <text x="145" y="2445" class="legend">Azul: acesso, frontend, tenant e plataforma</text>
+  <rect x="505" y="2428" width="24" height="24" rx="6" fill="#e9fbef" stroke="#8ea2bd"/>
+  <text x="545" y="2445" class="legend">Verde: backend, banco, execucao e integridade</text>
+  <rect x="895" y="2428" width="24" height="24" rx="6" fill="#fff4d8" stroke="#8ea2bd"/>
+  <text x="935" y="2445" class="legend">Amarelo: auth, seguranca, validacoes e checkpoints</text>
+  <rect x="1285" y="2428" width="24" height="24" rx="6" fill="#f4f0ff" stroke="#8ea2bd"/>
+  <text x="1325" y="2445" class="legend">Roxo: modulos, fila e fluxos transversais</text>
+</svg>

@@ -37,49 +37,44 @@ const EMPTY_RISK_SUMMARY = { alto: 0, medio: 0, baixo: 0 };
 
 function resolveScoreClasses(
   score: number | null,
-): { stroke: string; text: string; glow: string } {
+): { stroke: string; text: string } {
   if (score == null) {
     return {
       stroke: "stroke-[var(--ds-color-border-strong)]",
       text: "text-[var(--ds-color-text-secondary)]",
-      glow: "transparent",
     };
   }
   if (score >= 85) {
     return {
       stroke: "stroke-[var(--ds-color-success)]",
       text: "text-[var(--ds-color-success)]",
-      glow: "var(--ds-color-success)",
     };
   }
   if (score >= 70) {
     return {
       stroke: "stroke-[var(--ds-color-info)]",
       text: "text-[var(--ds-color-info)]",
-      glow: "var(--ds-color-info)",
     };
   }
   if (score >= 50) {
     return {
       stroke: "stroke-[var(--ds-color-warning)]",
       text: "text-[var(--ds-color-warning)]",
-      glow: "var(--ds-color-warning)",
     };
   }
   return {
     stroke: "stroke-[var(--ds-color-danger)]",
     text: "text-[var(--ds-color-danger)]",
-    glow: "var(--ds-color-danger)",
   };
 }
 
 const ScoreRing = memo(function ScoreRing({ score }: { score: number | null }) {
-  const strokeWidth = 10;
-  const size = 156;
+  const strokeWidth = 9;
+  const size = 132;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - (score ?? 0) / 100);
-  const { stroke: strokeClass, text: textClass, glow } = resolveScoreClasses(score);
+  const { stroke: strokeClass, text: textClass } = resolveScoreClasses(score);
 
   return (
     <div
@@ -88,13 +83,6 @@ const ScoreRing = memo(function ScoreRing({ score }: { score: number | null }) {
       role="img"
       aria-label={`Score de conformidade: ${score ?? "calculando"} pontos`}
     >
-      {score != null && (
-        <div
-          className="absolute inset-4 rounded-full opacity-15 blur-2xl"
-          style={{ background: glow }}
-          aria-hidden="true"
-        />
-      )}
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className="relative h-full w-full -rotate-90"
@@ -124,10 +112,10 @@ const ScoreRing = memo(function ScoreRing({ score }: { score: number | null }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className={cn("text-[28px] font-black leading-none tracking-tight", textClass)}>
+        <p className={cn("text-[26px] font-black leading-none tabular-nums", textClass)}>
           {score == null ? "—" : score}
         </p>
-        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--ds-color-text-secondary)]">
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--ds-color-text-secondary)]">
           pontos
         </p>
       </div>
@@ -245,14 +233,14 @@ function SSTScoreRingsComponent({
       <DashboardSectionBoundary fallbackTitle="Score SST">
         <section
           aria-label="Score de conformidade geral"
-          className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+          className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
         >
-          <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+          <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3.5 sm:px-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
               Score de Conformidade
             </p>
           </div>
-          <div className="flex flex-col items-center gap-4 px-5 py-6">
+          <div className="flex flex-col items-center gap-3 px-5 py-5">
             <ScoreRing score={complianceScore} />
             <div className="flex flex-col items-center gap-2 text-center">
               <span
@@ -282,14 +270,14 @@ function SSTScoreRingsComponent({
 
       <section
         aria-label="Distribuição de riscos"
-        className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+        className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
       >
-        <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+        <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3.5 sm:px-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
             Distribuição de Riscos
           </p>
         </div>
-        <div className="space-y-3.5 px-5 py-4">
+        <div className="space-y-3.5 px-4 py-3.5 sm:px-5">
           {[
             {
               label: "Alto",
@@ -343,10 +331,10 @@ function SSTScoreRingsComponent({
 
       <section
         aria-label="Fila por categoria"
-        className="overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
+        className="overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]"
       >
-        <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+        <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3.5 sm:px-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
             Fila por Categoria
           </p>
         </div>

@@ -166,6 +166,30 @@ export class AprsController {
     return req.user?.profile?.nome ?? undefined;
   }
 
+  /**
+   * Coleta todos os sinais de papel disponíveis para autorização baseada em
+   * papel: o `profile.nome` do token e o array `roles` que o RolesGuard popula
+   * (via RBAC) quando o token não carrega o nome do perfil. O serviço normaliza
+   * cada um com a mesma lógica canônica do RolesGuard.
+   */
+  private getRequestRoleSignals(
+    req: Request & {
+      user?: {
+        profile?: { nome?: string | null };
+        roles?: string[];
+      };
+    },
+  ): string[] {
+    const signals = [
+      req.user?.profile?.nome,
+      ...(Array.isArray(req.user?.roles) ? req.user.roles : []),
+    ];
+    return signals.filter(
+      (value): value is string =>
+        typeof value === 'string' && value.trim().length > 0,
+    );
+  }
+
   private getRequestUserId(
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
@@ -206,11 +230,19 @@ export class AprsController {
     @Body() createAprDto: CreateAprDto,
     @Req()
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+        roles?: string[];
+      };
     },
   ): Promise<AprResponseDto> {
     return this.aprsService
-      .create(createAprDto, this.getRequestUserId(req))
+      .create(createAprDto, this.getRequestUserId(req), {
+        roleNames: this.getRequestRoleSignals(req),
+      })
       .then(toAprResponseDto);
   }
 
@@ -839,11 +871,19 @@ export class AprsController {
     @Body() updateAprDto: UpdateAprDto,
     @Req()
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+        roles?: string[];
+      };
     },
   ): Promise<AprResponseDto> {
     return this.aprsService
-      .update(id, updateAprDto, this.getRequestUserId(req))
+      .update(id, updateAprDto, this.getRequestUserId(req), {
+        roleNames: this.getRequestRoleSignals(req),
+      })
       .then(toAprResponseDto);
   }
 

@@ -107,7 +107,7 @@ const menuSections: MenuSection[] = [
   {
     id: 'relatorios',
     label: 'Relatórios',
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { icon: BarChart3, label: 'Central de relatórios', href: '/dashboard/relatorios' },
       { icon: FileText, label: 'Relatório fotográfico', href: '/dashboard/relatorios/fotografico' },
@@ -117,7 +117,7 @@ const menuSections: MenuSection[] = [
   {
     id: 'saude-ocupacional',
     label: 'Saúde ocupacional',
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       {
         icon: GraduationCap,
@@ -179,7 +179,7 @@ const menuSections: MenuSection[] = [
   {
     id: 'checklists',
     label: 'Checklists',
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { icon: ClipboardList, label: 'Central de modelos', href: '/dashboard/checklist-models' },
       {

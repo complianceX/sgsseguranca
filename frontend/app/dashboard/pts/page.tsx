@@ -11,6 +11,7 @@ import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
 import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
 import { ptsService } from '@/services/ptsService';
+import { companiesService } from '@/services/companiesService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState, InlineLoadingState } from '@/components/ui/state';
@@ -19,6 +20,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Permission } from '@/lib/permissions';
+import { logger } from '@/lib/logger';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -40,6 +42,9 @@ const StoredFilesPanel = dynamic(
 export default function PtsPage() {
   const { hasPermission } = useAuth();
   const [hasDraft, setHasDraft] = useState(false);
+  const [storedFileCompanyOptions, setStoredFileCompanyOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const {
     loading,
     loadError,
@@ -93,13 +98,57 @@ export default function PtsPage() {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
 
-  const companyOptions = Array.from(
-    new Map(
-      filteredPts
-        .filter((item) => item.company_id)
-        .map((item) => [item.company_id, item.company_id]),
-    ).entries(),
-  ).map(([id, name]) => ({ id, name }));
+  const companyOptions = useMemo(() => {
+    const optionsMap = new Map<string, string>();
+
+    storedFileCompanyOptions.forEach((item) => {
+      if (item.id) {
+        optionsMap.set(item.id, item.name);
+      }
+    });
+
+    filteredPts.forEach((item) => {
+      if (item.company_id && !optionsMap.has(item.company_id)) {
+        optionsMap.set(item.company_id, item.company_id);
+      }
+    });
+
+    return Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [filteredPts, storedFileCompanyOptions]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCompanyOptions() {
+      try {
+        const companies = await companiesService.findAll();
+        if (!mounted) {
+          return;
+        }
+
+        setStoredFileCompanyOptions(
+          Array.from(
+            new Map(
+              companies
+                .filter((company) => company.id)
+                .map((company) => [company.id, company.razao_social || company.id]),
+            ).entries(),
+          ).map(([id, name]) => ({ id, name })),
+        );
+      } catch (error) {
+        logger.error('Falha ao carregar empresas para o filtro de arquivos da PT:', error);
+        if (mounted) {
+          setStoredFileCompanyOptions([]);
+        }
+      }
+    }
+
+    void loadCompanyOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
 import {
   ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
@@ -84,7 +85,7 @@ type SignatureLookupResult = Awaited<
 
 describe('AprsService', () => {
   let service: AprsService;
-  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
   let aprRepository: AprRepositoryMock;
   let aprLogsRepository: {
     create: jest.Mock;
@@ -343,7 +344,8 @@ describe('AprsService', () => {
         siteScope: 'all',
         isSuperAdmin: false,
       })),
-    };
+      run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
+    } as unknown as Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
     const documentBundleService = {
       buildWeeklyPdfBundle: jest.fn(),
     };
@@ -467,6 +469,115 @@ describe('AprsService', () => {
       'company-1',
       AprStatus.PENDENTE,
     );
+  });
+
+  describe('is_modelo_padrao (modelo-padrão da empresa) — restrição de papel', () => {
+    const callGuard = (roleNames?: Array<string | null | undefined>): void =>
+      (
+        service as unknown as {
+          assertCanManageCompanyTemplate: (
+            r?: Array<string | null | undefined>,
+          ) => void;
+        }
+      ).assertCanManageCompanyTemplate(roleNames);
+
+    it.each([
+      ['Administrador Geral'],
+      ['Administrador da Empresa'],
+      ['Técnico de Segurança do Trabalho (TST)'],
+    ])('permite papel privilegiado definir o modelo-padrão (%s)', (role) => {
+      expect(() => callGuard([role])).not.toThrow();
+    });
+
+    it.each([
+      // Variantes não-canônicas (aliases/acentos/maiúsculas) resolvidas via
+      // normalizeRoleName — não devem bloquear admin legítimo.
+      ['ADMIN_EMPRESA'],
+      ['ADMINISTRADOR DA EMPRESA'],
+      ['SUPER_ADMIN'],
+      ['TECNICO SST'],
+    ])('permite papel privilegiado em grafia divergente (%s)', (role) => {
+      expect(() => callGuard([role])).not.toThrow();
+    });
+
+    it('permite quando profile.nome está vazio mas roles (RBAC) trazem papel privilegiado', () => {
+      expect(() => callGuard(['', 'Administrador da Empresa'])).not.toThrow();
+    });
+
+    it.each([
+      ['Supervisor / Encarregado'],
+      ['Operador / Colaborador'],
+      ['Trabalhador'],
+      [''],
+    ])('bloqueia papel operacional de definir o modelo-padrão (%s)', (role) => {
+      expect(() => callGuard([role])).toThrow(ForbiddenException);
+    });
+
+    it('bloqueia quando não há nenhum sinal de papel (vazio/undefined/null)', () => {
+      expect(() => callGuard([])).toThrow(ForbiddenException);
+      expect(() => callGuard(undefined)).toThrow(ForbiddenException);
+      expect(() => callGuard([undefined, null, ''])).toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('create() rejeita is_modelo_padrao=true vindo de papel operacional', async () => {
+      await expect(
+        service.create(
+          {
+            numero: 'APR-MODELO',
+            titulo: 'APR Modelo',
+            data_inicio: new Date('2026-03-24'),
+            data_fim: new Date('2026-03-25'),
+            site_id: 'site-1',
+            elaborador_id: 'user-1',
+            itens_risco: [],
+            participants: [],
+            is_modelo_padrao: true,
+          } as never,
+          'user-1',
+          { roleNames: ['Operador / Colaborador'] },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('verifyFinalPdfPublic — isolamento por tenant do token', () => {
+    it('escopa a leitura ao companyId do token via tenantService.run (RLS)', async () => {
+      aprRepository.findOne.mockResolvedValueOnce({
+        id: 'apr-1',
+        numero: 'APR-001',
+        titulo: 'APR Teste',
+        status: AprStatus.APROVADA,
+        versao: 1,
+        verification_code: 'ABC123',
+        final_pdf_hash_sha256: null,
+        pdf_file_key: 'documents/company-9/apr/apr-1.pdf',
+        pdf_generated_at: null,
+        aprovado_em: null,
+        company_id: 'company-9',
+        company: { razao_social: 'ACME' },
+        site: { nome: 'Obra 1' },
+        approval_steps: [],
+      } as unknown as ConfiguredApr);
+
+      const result = await service.verifyFinalPdfPublic('ABC123', 'company-9');
+
+      expect(result.valid).toBe(true);
+      expect(tenantService.run).toHaveBeenCalledWith(
+        { companyId: 'company-9', isSuperAdmin: false, siteScope: 'all' },
+        expect.any(Function),
+      );
+    });
+
+    it('não eleva contexto quando não há companyId (fail-closed sob RLS)', async () => {
+      aprRepository.findOne.mockResolvedValueOnce(null);
+
+      const result = await service.verifyFinalPdfPublic('ABC123');
+
+      expect(result.valid).toBe(false);
+      expect(tenantService.run).not.toHaveBeenCalled();
+    });
   });
 
   it('bloqueia usuarios que nao pertencem a obra selecionada da APR', async () => {

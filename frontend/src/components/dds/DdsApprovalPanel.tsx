@@ -62,6 +62,7 @@ export function DdsApprovalPanel({
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState("");
   const [pin, setPin] = useState("");
+  const [pendingAction, setPendingAction] = useState<"approve" | "reject" | "reopen" | null>(null);
 
   const ddsId = dds?.id;
   const locked = Boolean(
@@ -125,19 +126,8 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    const pendingRecordId = flow.currentStep.pending_record_id;
-    await execute('approve', async () => {
-      const next = await ddsService.approveApprovalStep(
-        ddsId,
-        pendingRecordId,
-        { reason: reason.trim() || undefined, pin: pin.trim() },
-      );
-      setFlow(next);
-      setReason("");
-      setPin("");
-      void refreshDds();
-      toast.success("Etapa aprovada.");
-    });
+    // Solicitar confirmação antes de executar a aprovação
+    setPendingAction("approve");
   };
 
   const reject = async () => {
@@ -150,19 +140,8 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    const pendingRecordId = flow.currentStep.pending_record_id;
-    await execute('reject', async () => {
-      const next = await ddsService.rejectApprovalStep(
-        ddsId,
-        pendingRecordId,
-        { reason: reason.trim(), pin: pin.trim() },
-      );
-      setFlow(next);
-      setReason("");
-      setPin("");
-      void refreshDds();
-      toast.warning("DDS reprovado nesta etapa.");
-    });
+    // Solicitar confirmação antes de reprovar
+    setPendingAction("reject");
   };
 
   const reopen = async () => {
@@ -177,17 +156,59 @@ export function DdsApprovalPanel({
       toast.error("Informe o PIN com 4 a 6 dígitos para assinar a decisão.");
       return;
     }
-    await execute('reopen', async () => {
-      const next = await ddsService.reopenApprovalFlow(ddsId, {
-        reason: reason.trim(),
-        pin: pin.trim(),
+    setPendingAction("reopen");
+  };
+
+  /** Executa a ação após confirmação do modal de segurança. */
+  const confirmAction = async () => {
+    if (!pendingAction || !ddsId) {
+      setPendingAction(null);
+      return;
+    }
+    const action = pendingAction;
+    setPendingAction(null);
+
+    if (action === "approve" && flow?.currentStep?.pending_record_id) {
+      const pendingRecordId = flow.currentStep.pending_record_id;
+      await execute("approve", async () => {
+        const next = await ddsService.approveApprovalStep(
+          ddsId,
+          pendingRecordId,
+          { reason: reason.trim() || undefined, pin: pin.trim() },
+        );
+        setFlow(next);
+        setReason("");
+        setPin("");
+        void refreshDds();
+        toast.success("Etapa aprovada com sucesso.");
       });
-      setFlow(next);
-      setReason("");
-      setPin("");
-      void refreshDds();
-      toast.success("Fluxo de aprovação reaberto em novo ciclo.");
-    });
+    } else if (action === "reject" && flow?.currentStep?.pending_record_id) {
+      const pendingRecordId = flow.currentStep.pending_record_id;
+      await execute("reject", async () => {
+        const next = await ddsService.rejectApprovalStep(
+          ddsId,
+          pendingRecordId,
+          { reason: reason.trim(), pin: pin.trim() },
+        );
+        setFlow(next);
+        setReason("");
+        setPin("");
+        void refreshDds();
+        toast.warning("DDS reprovado nesta etapa.");
+      });
+    } else if (action === "reopen") {
+      await execute("reopen", async () => {
+        const next = await ddsService.reopenApprovalFlow(ddsId, {
+          reason: reason.trim(),
+          pin: pin.trim(),
+        });
+        setFlow(next);
+        setReason("");
+        setPin("");
+        void refreshDds();
+        toast.success("Fluxo de aprovação reaberto em novo ciclo.");
+      });
+    }
   };
 
   return (
@@ -345,6 +366,65 @@ export function DdsApprovalPanel({
           </div>
         </div>
       ) : null}
+      {/* Modal de confirmação de segurança para ações irreversíveis */}
+      {pendingAction ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar ação de aprovação"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        >
+          <div className="mx-4 w-full max-w-sm rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-2xl">
+            <div className="mb-4">
+              <h3 className="text-base font-bold text-[var(--ds-color-text-primary)]">
+                {pendingAction === "approve"
+                  ? "Confirmar aprovação"
+                  : pendingAction === "reject"
+                    ? "Confirmar reprovação"
+                    : "Confirmar reabertura de ciclo"}
+              </h3>
+              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                {pendingAction === "approve"
+                  ? "Você está prestes a aprovar esta etapa do fluxo DDS. Esta ação será registrada na trilha de auditoria com sua assinatura HMAC."
+                  : pendingAction === "reject"
+                    ? "Você está prestes a reprovar esta etapa. O fluxo será marcado como reprovado e deverá ser reaberto para nova tentativa."
+                    : "Você está prestes a reabrir o ciclo de aprovação do DDS. Um novo ciclo será criado com os passos configurados."}
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingAction(null)}
+                disabled={acting !== null}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant={
+                  pendingAction === "approve"
+                    ? "success"
+                    : pendingAction === "reject"
+                      ? "destructive"
+                      : "warning"
+                }
+                loading={acting !== null}
+                onClick={() => void confirmAction()}
+              >
+                {pendingAction === "approve"
+                  ? "Confirmar aprovação"
+                  : pendingAction === "reject"
+                    ? "Confirmar reprovação"
+                    : "Confirmar reabertura"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }
+
+
+

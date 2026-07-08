@@ -48,7 +48,15 @@ jest.mock('./BasicInfoSection', () => ({
   BasicInfoSection: () => {
     const { useFormContext } = jest.requireActual('react-hook-form');
     const { watch } = useFormContext();
-    return <div>Status atual: {watch('status')}</div>;
+    return (
+      <div>
+        <div>Status atual: {watch('status')}</div>
+        <div>Empresa atual: {watch('company_id') || ''}</div>
+        <div>Obra atual: {watch('site_id') || ''}</div>
+        <div>Responsável atual: {watch('responsavel_id') || ''}</div>
+        <div>APR atual: {watch('apr_id') || ''}</div>
+      </div>
+    );
   },
 }));
 
@@ -232,6 +240,41 @@ describe('PtForm', () => {
 
     expect(await screen.findByText('Etapa 1 de 3')).toBeInTheDocument();
     expect(screen.getByText('Status atual: Pendente')).toBeInTheDocument();
+  });
+
+  it('auto-preenche obra e responsável quando a APR chega depois da restauração do draft', async () => {
+    findAprsPaginated.mockResolvedValue({
+      data: [
+        {
+          id: 'apr-1',
+          numero: 'APR-001',
+          titulo: 'APR de manutenção',
+          company_id: 'company-1',
+          site_id: 'site-1',
+          elaborador_id: 'user-1',
+        },
+      ],
+    });
+
+    localStorage.setItem(
+      'gst.pt.wizard.draft.company-1',
+      JSON.stringify({
+        step: 1,
+        values: {
+          company_id: 'company-1',
+          apr_id: 'apr-1',
+          titulo: 'PT com APR',
+          executantes: ['user-1'],
+        },
+        metadata: {},
+      }),
+    );
+
+    render(<PtForm />);
+
+    expect(await screen.findByText('APR atual: apr-1')).toBeInTheDocument();
+    expect(await screen.findByText('Obra atual: site-1')).toBeInTheDocument();
+    expect(await screen.findByText('Responsável atual: user-1')).toBeInTheDocument();
   });
 
   it('hides the SOPHIE helper block when the restored draft opens in the final step', async () => {
