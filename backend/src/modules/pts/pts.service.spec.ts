@@ -785,10 +785,16 @@ describe('PtsService', () => {
       pdf_file_key: null,
     } as unknown as Pt);
 
-    await expect(service.finalize('pt-1', 'user-1')).resolves.toEqual(
+    await expect(
+      service.finalize('pt-1', 'user-1', {
+        condicao_area: 'Limpa e liberada',
+      }),
+    ).resolves.toEqual(
       expect.objectContaining({
         id: 'pt-1',
         status: PtStatus.ENCERRADA,
+        condicao_area_encerramento: 'Limpa e liberada',
+        encerrado_por_id: 'user-1',
       }),
     );
   });
@@ -1127,6 +1133,273 @@ describe('PtsService', () => {
         }),
       ).resolves.toBeTruthy();
       expect(ptsSaveMock).toHaveBeenCalled();
+    });
+  });
+
+  describe('evidências fotográficas governadas', () => {
+    const basePt = () =>
+      ({
+        id: 'pt-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        status: PtStatus.APROVADA,
+        pdf_file_key: null,
+        fotos_evidencia: [],
+      }) as unknown as Pt;
+
+    it('anexa foto de evidência em PT aprovada e retorna referência governada sem fileKey cru', async () => {
+      ptsRepository.findOne.mockResolvedValue(basePt());
+
+      const result = await service.attachEvidencePhoto(
+        'pt-1',
+        Buffer.from('fake-image'),
+        'antes.jpg',
+        'image/jpeg',
+        { fase: 'antes', legenda: 'Área isolada' },
+        'user-1',
+      );
+
+      expect(documentStorageService.uploadFile).toHaveBeenCalled();
+      expect(result.photoReference.startsWith('gst:pt-photo:')).toBe(true);
+      expect(result.fase).toBe('antes');
+      expect(result.legenda).toBe('Área isolada');
+      expect(JSON.stringify(result)).not.toContain('documents/company-1');
+    });
+
+    it('bloqueia foto quando a PT já possui PDF final governado', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...basePt(),
+        pdf_file_key: 'documents/company-1/pts/pt-1/final.pdf',
+      } as unknown as Pt);
+
+      await expect(
+        service.attachEvidencePhoto(
+          'pt-1',
+          Buffer.from('fake'),
+          'foto.jpg',
+          'image/jpeg',
+          { fase: 'depois' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia foto quando a PT está encerrada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...basePt(),
+        status: PtStatus.ENCERRADA,
+      } as unknown as Pt);
+
+      await expect(
+        service.attachEvidencePhoto(
+          'pt-1',
+          Buffer.from('fake'),
+          'foto.jpg',
+          'image/jpeg',
+          { fase: 'depois' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('remove o arquivo do storage quando a persistência da foto falha (compensação)', async () => {
+      const pt = basePt();
+      ptsRepository.findOne.mockResolvedValue(pt);
+      const manager = (
+        ptsRepository as unknown as {
+          manager: { transaction: jest.Mock };
+        }
+      ).manager;
+      manager.transaction.mockRejectedValueOnce(new Error('db down'));
+
+      await expect(
+        service.attachEvidencePhoto(
+          'pt-1',
+          Buffer.from('fake'),
+          'foto.jpg',
+          'image/jpeg',
+          { fase: 'antes' },
+        ),
+      ).rejects.toThrow('db down');
+      expect(documentStorageService.deleteFile).toHaveBeenCalled();
+    });
+  });
+
+  describe('medições atmosféricas (NR-33)', () => {
+    const reading = {
+      id: 'm1',
+      hora: '08:30',
+      oxigenio: 20.9,
+      inflamaveis_lel: 0,
+      co: 2,
+      h2s: 0,
+      instrumento: 'Detector MX6',
+      responsavel: 'Fabio TST',
+    };
+
+    it('permite registrar medição em PT aprovada (append-only)', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        status: PtStatus.APROVADA,
+        pdf_file_key: null,
+        medicoes_atmosfericas: [],
+      } as unknown as Pt);
+
+      const saved = await service.appendAtmosphericReading(
+        'pt-1',
+        reading,
+        'user-1',
+      );
+      expect(saved.medicoes_atmosfericas).toHaveLength(1);
+      expect(saved.medicoes_atmosfericas?.[0]).toMatchObject(reading);
+    });
+
+    it('bloqueia medição em PT encerrada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        status: PtStatus.ENCERRADA,
+        pdf_file_key: null,
+      } as unknown as Pt);
+
+      await expect(
+        service.appendAtmosphericReading('pt-1', reading),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('encerramento estruturado', () => {
+    it('rejeita término real anterior ao início da PT', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        status: PtStatus.APROVADA,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-16T08:00:00.000Z'),
+      } as unknown as Pt);
+
+      await expect(
+        service.finalize('pt-1', 'user-1', {
+          condicao_area: 'Limpa e liberada',
+          data_hora_real_fim: '2026-06-15T08:00:00.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('persiste os campos de devolução da área ao encerrar', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        status: PtStatus.APROVADA,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-16T08:00:00.000Z'),
+      } as unknown as Pt);
+
+      const saved = await service.finalize('pt-1', 'user-9', {
+        condicao_area: 'Isolada com pendências',
+        data_hora_real_fim: '2026-06-16T17:30:00.000Z',
+        observacoes: 'Pendência de limpeza fina.',
+      });
+
+      expect(saved.status).toBe(PtStatus.ENCERRADA);
+      expect(saved.encerrado_por_id).toBe('user-9');
+      expect(saved.condicao_area_encerramento).toBe('Isolada com pendências');
+      expect(saved.observacoes_encerramento).toBe('Pendência de limpeza fina.');
+      expect(saved.data_hora_real_fim).toEqual(
+        new Date('2026-06-16T17:30:00.000Z'),
+      );
+    });
+  });
+
+  describe('hardening de anexo_ref no update()', () => {
+    it('descarta anexo_ref forjado pelo cliente e restaura o valor persistido', async () => {
+      getRepositoryMock.mockImplementation((entity: unknown) => {
+        if (entity === User) {
+          return {
+            exist: jest.fn().mockResolvedValue(true),
+            count: jest.fn().mockResolvedValue(1),
+          };
+        }
+        if (entity === Site || entity === Apr) {
+          return { exist: jest.fn().mockResolvedValue(true) };
+        }
+        return defaultScopedRepository;
+      });
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        status: PtStatus.PENDENTE,
+        pdf_file_key: null,
+        data_hora_inicio: new Date('2026-06-16T08:00:00.000Z'),
+        data_hora_fim: new Date('2026-06-16T18:00:00.000Z'),
+        executantes: [],
+        trabalho_altura_checklist: [
+          {
+            id: 'item-1',
+            pergunta: 'Pergunta 1',
+            anexo_ref: 'gst:pt-checklist-anexo:legitimo',
+          },
+          { id: 'item-2', pergunta: 'Pergunta 2' },
+        ],
+      } as unknown as Pt);
+
+      const saved = await service.update('pt-1', {
+        trabalho_altura_checklist: [
+          {
+            id: 'item-1',
+            pergunta: 'Pergunta 1',
+            anexo_ref: 'gst:pt-checklist-anexo:FORJADO',
+          },
+          {
+            id: 'item-2',
+            pergunta: 'Pergunta 2',
+            anexo_ref: 'gst:pt-checklist-anexo:FORJADO2',
+          },
+        ],
+      });
+
+      const items = saved.trabalho_altura_checklist ?? [];
+      expect(items[0]?.anexo_ref).toBe('gst:pt-checklist-anexo:legitimo');
+      expect(items[1]?.anexo_ref).toBeUndefined();
+    });
+  });
+
+  describe('anexo de item de checklist', () => {
+    it('bloqueia anexo quando a PT não está pendente', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        id: 'pt-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        status: PtStatus.APROVADA,
+        pdf_file_key: null,
+        trabalho_altura_checklist: [{ id: 'item-1', pergunta: 'P1' }],
+      } as unknown as Pt);
+
+      await expect(
+        service.attachChecklistItemAttachment(
+          'pt-1',
+          'trabalho_altura_checklist',
+          0,
+          Buffer.from('fake'),
+          'anexo.pdf',
+          'application/pdf',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejeita campo de checklist fora da whitelist', async () => {
+      await expect(
+        service.attachChecklistItemAttachment(
+          'pt-1',
+          'recomendacoes_gerais_checklist',
+          0,
+          Buffer.from('fake'),
+          'anexo.pdf',
+          'application/pdf',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

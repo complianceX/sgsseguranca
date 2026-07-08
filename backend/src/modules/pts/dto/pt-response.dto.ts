@@ -1,7 +1,11 @@
 import { Exclude, Expose, Type, plainToInstance } from 'class-transformer';
 import { SiteResponseDto } from '../../sites/dto/site-response.dto';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
-import { Pt } from '../entities/pt.entity';
+import {
+  Pt,
+  PtCondicaoAreaEncerramento,
+  PtEvidencePhotoFase,
+} from '../entities/pt.entity';
 
 @Exclude()
 class PtChecklistItemResponseDto {
@@ -12,6 +16,9 @@ class PtChecklistItemResponseDto {
   pergunta: string;
 
   @Expose()
+  section?: string;
+
+  @Expose()
   resposta?: 'Sim' | 'Não' | 'Não aplicável';
 
   @Expose()
@@ -19,6 +26,54 @@ class PtChecklistItemResponseDto {
 
   @Expose()
   anexo_nome?: string;
+
+  @Expose()
+  anexo_ref?: string;
+}
+
+@Exclude()
+class PtEvidencePhotoResponseDto {
+  @Expose()
+  ref: string;
+
+  @Expose()
+  legenda?: string;
+
+  @Expose()
+  fase: PtEvidencePhotoFase;
+
+  @Expose()
+  uploaded_by_id?: string;
+
+  @Expose()
+  uploaded_at: string;
+}
+
+@Exclude()
+class PtAtmosphericReadingResponseDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  hora: string;
+
+  @Expose()
+  oxigenio: number;
+
+  @Expose()
+  inflamaveis_lel: number;
+
+  @Expose()
+  co: number;
+
+  @Expose()
+  h2s: number;
+
+  @Expose()
+  instrumento: string;
+
+  @Expose()
+  responsavel: string;
 }
 
 @Exclude()
@@ -218,6 +273,52 @@ export class PtResponseDto {
 
   @Expose()
   analise_risco_rapida_observacoes?: string | null;
+
+  @Expose()
+  @Type(() => PtEvidencePhotoResponseDto)
+  fotos_evidencia?: PtEvidencePhotoResponseDto[];
+
+  @Expose()
+  @Type(() => PtAtmosphericReadingResponseDto)
+  medicoes_atmosfericas?: PtAtmosphericReadingResponseDto[];
+
+  @Expose()
+  epis_obrigatorios?: string[];
+
+  @Expose()
+  contato_emergencia?: string | null;
+
+  @Expose()
+  plano_resgate?: string | null;
+
+  @Expose()
+  ponto_encontro?: string | null;
+
+  @Expose()
+  vigia_user_id?: string | null;
+
+  @Expose()
+  vigia_nome?: string | null;
+
+  @Expose()
+  @Type(() => UserResponseDto)
+  vigia?: UserResponseDto;
+
+  @Expose()
+  encerrado_por_id?: string | null;
+
+  @Expose()
+  @Type(() => UserResponseDto)
+  encerrado_por?: UserResponseDto;
+
+  @Expose()
+  data_hora_real_fim?: Date | null;
+
+  @Expose()
+  condicao_area_encerramento?: PtCondicaoAreaEncerramento | null;
+
+  @Expose()
+  observacoes_encerramento?: string | null;
 
   @Expose()
   @Type(() => SiteResponseDto)

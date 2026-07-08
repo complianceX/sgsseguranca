@@ -8,8 +8,12 @@ import {
   IsEnum,
   IsBoolean,
   IsInt,
+  IsNumber,
+  Matches,
+  MaxLength,
   Min,
   Max,
+  ArrayMaxSize,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -22,6 +26,10 @@ export class HeightChecklistItemDto {
   pergunta: string;
 
   @IsOptional()
+  @IsString()
+  section?: string;
+
+  @IsOptional()
   @IsEnum(['Sim', 'Não', 'Não aplicável'])
   resposta?: 'Sim' | 'Não' | 'Não aplicável';
 
@@ -32,6 +40,54 @@ export class HeightChecklistItemDto {
   @IsOptional()
   @IsString()
   anexo_nome?: string;
+
+  // Aceito para round-trip do form, mas o service sempre restaura o valor
+  // persistido — o cliente não consegue forjar referências governadas.
+  @IsOptional()
+  @IsString()
+  anexo_ref?: string;
+}
+
+export class PtAtmosphericReadingDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'hora deve estar no formato HH:mm',
+  })
+  hora: string;
+
+  @IsNumber()
+  @Min(0)
+  @Max(25)
+  oxigenio: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  inflamaveis_lel: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  co: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(500)
+  h2s: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  instrumento: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  responsavel: string;
 }
 
 export class RecommendationChecklistItemDto {
@@ -211,6 +267,44 @@ export class CreatePtDto {
   @IsString()
   @IsOptional()
   analise_risco_rapida_observacoes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => PtAtmosphericReadingDto)
+  medicoes_atmosfericas?: PtAtmosphericReadingDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  epis_obrigatorios?: string[];
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  contato_emergencia?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  plano_resgate?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(300)
+  ponto_encontro?: string;
+
+  @IsUUID()
+  @IsOptional()
+  vigia_user_id?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  vigia_nome?: string;
 
   @IsUUID()
   @IsOptional()

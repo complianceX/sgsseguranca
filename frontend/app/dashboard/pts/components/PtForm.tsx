@@ -114,6 +114,27 @@ const ResponsibleExecutorsSection = dynamic(
 
 const ChecklistSection = dynamic(() => import('./ChecklistSection'));
 
+const EmergencyRescueSection = dynamic(
+  () =>
+    import('./EmergencyRescueSection').then(
+      (module) => module.EmergencyRescueSection,
+    ),
+);
+
+const AtmosphericReadingsSection = dynamic(
+  () =>
+    import('./AtmosphericReadingsSection').then(
+      (module) => module.AtmosphericReadingsSection,
+    ),
+);
+
+const PtEvidencePhotosSection = dynamic(
+  () =>
+    import('./PtEvidencePhotosSection').then(
+      (module) => module.PtEvidencePhotosSection,
+    ),
+);
+
 const PtPreApprovalHistoryPanel = dynamic(
   () =>
     import('./PtPreApprovalHistoryPanel').then(
@@ -305,6 +326,17 @@ function buildPtMutationPayload(values: PtFormData): PtMutationPayload {
     apr_id: normalizeOptionalUuid(rest.apr_id),
     auditado_por_id: normalizeOptionalUuid(rest.auditado_por_id),
     data_auditoria: normalizeOptionalDate(rest.data_auditoria),
+    vigia_user_id: normalizeOptionalUuid(rest.vigia_user_id),
+    contato_emergencia: rest.contato_emergencia?.trim() || undefined,
+    plano_resgate: rest.plano_resgate?.trim() || undefined,
+    ponto_encontro: rest.ponto_encontro?.trim() || undefined,
+    vigia_nome: rest.vigia_nome?.trim() || undefined,
+    epis_obrigatorios: rest.epis_obrigatorios?.length
+      ? rest.epis_obrigatorios
+      : undefined,
+    medicoes_atmosfericas: rest.medicoes_atmosfericas?.length
+      ? rest.medicoes_atmosfericas
+      : undefined,
     executantes: (rest.executantes || []).filter((executanteId) =>
       Boolean(String(executanteId || '').trim()),
     ),
@@ -450,6 +482,13 @@ export function PtForm({ id }: PtFormProps) {
       data_auditoria: '',
       resultado_auditoria: '',
       notas_auditoria: '',
+      contato_emergencia: '',
+      plano_resgate: '',
+      ponto_encontro: '',
+      vigia_user_id: '',
+      vigia_nome: '',
+      epis_obrigatorios: [],
+      medicoes_atmosfericas: [],
     },
   });
 
@@ -529,6 +568,25 @@ export function PtForm({ id }: PtFormProps) {
     : currentPt?.status && currentPt.status !== 'Pendente'
       ? `A PT está com status ${currentPt.status} e não aceita mais alterações por fluxo comum.`
       : null;
+  // Evidências (fotos/medições) seguem regra própria: mutáveis em
+  // Pendente/Aprovada/Expirada enquanto não houver PDF final governado.
+  const canUploadPhotos =
+    Boolean(id) &&
+    !currentPt?.pdf_file_key &&
+    ['Pendente', 'Aprovada', 'Expirada'].includes(currentPt?.status ?? '');
+  const canAppendReadings =
+    Boolean(id) &&
+    !currentPt?.pdf_file_key &&
+    ['Pendente', 'Aprovada'].includes(currentPt?.status ?? '');
+  const refetchCurrentPt = useCallback(async () => {
+    if (!id) return;
+    try {
+      const fresh = await ptsService.findOne(id);
+      setCurrentPt(fresh);
+    } catch (error) {
+      logger.error('Erro ao atualizar PT após mutação de evidência:', error);
+    }
+  }, [id]);
   const canManageMail = hasPermission(Permission.CAN_MANAGE_MAIL);
   const rapidRiskChecklist =
     watch('analise_risco_rapida_checklist') ?? initialChecklists.analise_risco_rapida_checklist;
@@ -1310,6 +1368,13 @@ export function PtForm({ id }: PtFormProps) {
             data_auditoria: toInputDateValue(pt.data_auditoria),
             resultado_auditoria: pt.resultado_auditoria || '',
             notas_auditoria: pt.notas_auditoria || '',
+            contato_emergencia: pt.contato_emergencia || '',
+            plano_resgate: pt.plano_resgate || '',
+            ponto_encontro: pt.ponto_encontro || '',
+            vigia_user_id: pt.vigia_user_id || '',
+            vigia_nome: pt.vigia_nome || '',
+            epis_obrigatorios: pt.epis_obrigatorios || [],
+            medicoes_atmosfericas: pt.medicoes_atmosfericas || [],
           });
           setSophieSuggestedRisks([]);
           setSophieMandatoryChecklists([]);
@@ -1740,12 +1805,19 @@ export function PtForm({ id }: PtFormProps) {
     let fields: (keyof PtFormData)[] = [];
     if (currentStep === 1) {
       fields = ['numero', 'titulo', 'data_hora_inicio', 'data_hora_fim', 'company_id', 'site_id', 'apr_id', 'responsavel_id'];
+      if (workConfined) {
+        fields.push('contato_emergencia', 'plano_resgate', 'vigia_nome');
+      }
     } else if (currentStep === 2) {
       fields = ['recomendacoes_gerais_checklist'];
       if (workAtHeight) fields.push('trabalho_altura_checklist');
       if (workElectric) fields.push('trabalho_eletrico_checklist');
       if (workHot) fields.push('trabalho_quente_checklist');
-      if (workConfined) fields.push('trabalho_espaco_confinado_checklist');
+      if (workConfined)
+        fields.push(
+          'trabalho_espaco_confinado_checklist',
+          'medicoes_atmosfericas',
+        );
       if (workExcavation) fields.push('trabalho_escavacao_checklist');
     }
 
@@ -1820,8 +1892,8 @@ export function PtForm({ id }: PtFormProps) {
       <FormProvider {...methods}>
         <form
           onSubmit={handleSubmit(onSubmit, (errors) => {
-            const step1Fields = ['numero', 'titulo', 'data_hora_inicio', 'data_hora_fim', 'company_id', 'site_id', 'responsavel_id'];
-            const step2Fields = ['recomendacoes_gerais_checklist', 'trabalho_altura_checklist', 'trabalho_eletrico_checklist', 'trabalho_quente_checklist', 'trabalho_espaco_confinado_checklist', 'trabalho_escavacao_checklist'];
+            const step1Fields = ['numero', 'titulo', 'data_hora_inicio', 'data_hora_fim', 'company_id', 'site_id', 'responsavel_id', 'contato_emergencia', 'plano_resgate', 'ponto_encontro', 'vigia_user_id', 'vigia_nome', 'epis_obrigatorios'];
+            const step2Fields = ['recomendacoes_gerais_checklist', 'trabalho_altura_checklist', 'trabalho_eletrico_checklist', 'trabalho_quente_checklist', 'trabalho_espaco_confinado_checklist', 'trabalho_escavacao_checklist', 'medicoes_atmosfericas'];
             const errorKeys = Object.keys(errors);
             if (errorKeys.some((k) => step1Fields.includes(k))) {
               setCurrentStep(1);
@@ -2173,6 +2245,7 @@ export function PtForm({ id }: PtFormProps) {
                 >
                   <RiskTypesSection />
                   <RapidRiskAnalysisSection />
+                  <EmergencyRescueSection users={filteredUsers} />
                 </div>
               </div>
             )}
@@ -2198,6 +2271,7 @@ export function PtForm({ id }: PtFormProps) {
                     questions={alturaQuestions}
                     baseResponses={['Sim', 'Não', 'Não aplicável']}
                     showJustificationOn={['Não', 'Não aplicável']}
+                    ptId={id}
                   />
                 )}
                 {workElectric && (
@@ -2208,6 +2282,7 @@ export function PtForm({ id }: PtFormProps) {
                     questions={eletricoQuestions}
                     baseResponses={['Sim', 'Não', 'Não aplicável']}
                     showJustificationOn={['Não']}
+                    ptId={id}
                   />
                 )}
                 {workHot && (
@@ -2218,17 +2293,27 @@ export function PtForm({ id }: PtFormProps) {
                     questions={quenteQuestions}
                     baseResponses={['Sim', 'Não', 'Não aplicável']}
                     showJustificationOn={['Não']}
+                    ptId={id}
                   />
                 )}
                 {workConfined && (
-                  <ChecklistSection
-                    name="trabalho_espaco_confinado_checklist"
-                    title="Espaço Confinado - Verificação das Condições"
-                    description="Todos os itens devem ser verificados antes da emissão da PT."
-                    questions={confinadoQuestions}
-                    baseResponses={['Sim', 'Não', 'Não aplicável']}
-                    showJustificationOn={['Não']}
-                  />
+                  <>
+                    <ChecklistSection
+                      name="trabalho_espaco_confinado_checklist"
+                      title="Espaço Confinado - Verificação das Condições"
+                      description="Todos os itens devem ser verificados antes da emissão da PT."
+                      questions={confinadoQuestions}
+                      baseResponses={['Sim', 'Não', 'Não aplicável']}
+                      showJustificationOn={['Não']}
+                      ptId={id}
+                    />
+                    <AtmosphericReadingsSection
+                      ptId={id}
+                      readOnly={isPtReadOnly}
+                      canAppendReadings={canAppendReadings}
+                      onReadingAppended={() => void refetchCurrentPt()}
+                    />
+                  </>
                 )}
                 {workExcavation && (
                   <ChecklistSection
@@ -2238,6 +2323,7 @@ export function PtForm({ id }: PtFormProps) {
                     questions={escavacaoQuestions}
                     baseResponses={['Sim', 'Não', 'Não aplicável']}
                     showJustificationOn={['Não']}
+                    ptId={id}
                   />
                 )}
               </div>
@@ -2253,6 +2339,13 @@ export function PtForm({ id }: PtFormProps) {
                   selectedCompanyId={selectedCompanyId}
                   signatures={signatures}
                   onToggleExecutante={toggleExecutante}
+                />
+                <PtEvidencePhotosSection
+                  ptId={id}
+                  ptStatus={currentPt?.status}
+                  photos={currentPt?.fotos_evidencia ?? []}
+                  canUploadPhotos={canUploadPhotos}
+                  onPhotosChanged={() => void refetchCurrentPt()}
                 />
                 <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

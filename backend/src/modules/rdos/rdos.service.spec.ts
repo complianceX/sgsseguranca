@@ -446,7 +446,7 @@ describe('RdosService', () => {
     expect(qb.leftJoin).toHaveBeenCalledWith('rdo.site', 'site');
     expect(qb.leftJoin).toHaveBeenCalledWith('rdo.responsavel', 'responsavel');
     expect(qb.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('ILIKE'),
+      "(rdo.numero ILIKE :search ESCAPE '\\\\' OR site.nome ILIKE :search ESCAPE '\\\\' OR responsavel.nome ILIKE :search ESCAPE '\\\\')",
       expect.objectContaining({ search: '%Central%' }),
     );
   });
