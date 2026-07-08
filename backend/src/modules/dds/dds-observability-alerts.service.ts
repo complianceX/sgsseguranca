@@ -247,10 +247,19 @@ export class DdsObservabilityAlertsService {
     }
 
     try {
-      const companies = await this.companyRepository.find({
-        where: { status: true },
-        select: ['id'],
-      });
+      // Enumeração cross-tenant precisa rodar como super-admin: a tabela
+      // `companies` tem RLS (id = current_company() OR is_super_admin()) e este
+      // cron não tem contexto de tenant — sem o wrap, a RLS retornaria 0 e os
+      // alertas DDS nunca seriam despachados. O dispatch por empresa já roda no
+      // contexto do tenant via runInTenantScope(companyId).
+      const companies = await this.tenantService.run(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        () =>
+          this.companyRepository.find({
+            where: { status: true },
+            select: ['id'],
+          }),
+      );
       for (const company of companies) {
         const companyId = typeof company.id === 'string' ? company.id : null;
         if (!companyId) {

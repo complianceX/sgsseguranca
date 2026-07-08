@@ -4,6 +4,7 @@ import { Company } from '../companies/entities/company.entity';
 import { DashboardDocumentAvailabilitySnapshotService } from './dashboard-document-availability-snapshot.service';
 import { DashboardDocumentAvailabilityWarmupService } from './dashboard-document-availability-warmup.service';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 
 describe('DashboardDocumentAvailabilityWarmupService', () => {
   let service: DashboardDocumentAvailabilityWarmupService;
@@ -41,11 +42,16 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
       warmPreparedBaseCache: jest.fn().mockResolvedValue(undefined),
     };
 
+    const tenantService = {
+      run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
+    } as unknown as TenantService;
+
     service = new DashboardDocumentAvailabilityWarmupService(
       userSessionRepository,
       companiesRepository,
       snapshotService as DashboardDocumentAvailabilitySnapshotService,
       documentPendenciesService as DashboardDocumentPendenciesService,
+      tenantService,
     );
   });
 

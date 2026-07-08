@@ -10,6 +10,7 @@ import { Cache } from 'cache-manager';
 import { StorageService } from '../../shared/services/storage.service';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -75,6 +76,12 @@ describe('CompaniesService', () => {
             deleteCompanyData: jest
               .fn()
               .mockResolvedValue({ status: 'success' }),
+          },
+        },
+        {
+          provide: TenantService,
+          useValue: {
+            run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
           },
         },
       ],
