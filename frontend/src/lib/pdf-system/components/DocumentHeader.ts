@@ -1,6 +1,5 @@
 import type { PdfContext } from "../core/types";
 import { sanitize } from "../core/format";
-import { moveY } from "../core/grid";
 
 export type DocumentHeaderOptions = {
   title: string;
@@ -220,6 +219,6 @@ export function drawDocumentHeader(
     doc.text(valueLines, cardX + 4.5, metaY + 9.1);
   });
 
-  // Compacta levemente o espaçamento após o cabeçalho para reduzir área vazia no início.
-  moveY(ctx, headerHeight + 4.5);
+  // headerHeight is measured from the page top, so do not add the page margin twice.
+  ctx.y = Math.max(ctx.y, headerHeight + 4.5);
 }

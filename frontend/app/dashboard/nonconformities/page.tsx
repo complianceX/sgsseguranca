@@ -7,7 +7,6 @@ import {
   useState,
   useCallback,
   useDeferredValue,
-  useMemo,
 } from "react";
 import Link from "next/link";
 import {
@@ -48,6 +47,7 @@ import {
 import { InlineCallout } from "@/components/ui/inline-callout";
 import { PaginationControls } from "@/components/PaginationControls";
 import { ListPageLayout } from "@/components/layout";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { Permission } from "@/lib/permissions";
@@ -102,9 +102,12 @@ export default function NonConformitiesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [statusFilter, setStatusFilter] = useState<NcStatus | "">("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -139,6 +142,7 @@ export default function NonConformitiesPage() {
         page,
         limit: 10,
         search: deferredSearchTerm || undefined,
+        status: statusFilter || undefined,
       });
 
       setItems(pageResult.data);
@@ -151,7 +155,7 @@ export default function NonConformitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [deferredSearchTerm, page]);
+  }, [deferredSearchTerm, page, statusFilter]);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -170,27 +174,34 @@ export default function NonConformitiesPage() {
     void loadSummary();
   }, [loadSummary]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!canManageNc) {
       toast.error("Você não tem permissão para excluir não conformidades.");
       return;
     }
-    if (!confirm("Tem certeza que deseja excluir esta nao conformidade?"))
-      return;
+    setDeleteTarget(id);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await nonConformitiesService.remove(id);
-      toast.success("Nao conformidade excluida com sucesso");
+      await nonConformitiesService.remove(deleteTarget);
+      toast.success("Não conformidade excluída com sucesso");
       if (items.length === 1 && page > 1) {
         void loadSummary();
         setPage((current) => current - 1);
+        setDeleteTarget(null);
         return;
       }
       await fetchItems();
       void loadSummary();
     } catch (error) {
       logger.error("Erro ao excluir nao conformidade:", error);
-      toast.error("Erro ao excluir nao conformidade");
+      toast.error("Erro ao excluir não conformidade");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -269,18 +280,6 @@ export default function NonConformitiesPage() {
       toast.error("Erro ao atualizar status da nao conformidade");
     }
   };
-
-  const companyOptions = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          items
-            .filter((item) => item.company_id)
-            .map((item) => [item.company_id, item.company_id]),
-        ).entries(),
-      ).map(([id, name]) => ({ id, name })),
-    [items],
-  );
 
   if (!canViewNc && !canManageNc) {
     return (
@@ -378,18 +377,35 @@ export default function NonConformitiesPage() {
         toolbarTitle="Base de nao conformidades"
         toolbarDescription={`${total} registro(s) encontrados com busca por codigo, local, tipo e status.`}
         toolbarContent={
-          <div className="ds-list-search ds-list-search--wide">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-            <input
-              type="text"
-              placeholder="Buscar por codigo, local, tipo ou status"
-              className={cn(inputClassName, "pl-10")}
-              value={searchTerm}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="ds-list-search ds-list-search--wide">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+              <input
+                type="text"
+                placeholder="Buscar por codigo, local, tipo..."
+                className={cn(inputClassName, "pl-10")}
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              aria-label="Filtrar por status"
               onChange={(event) => {
-                setSearchTerm(event.target.value);
+                setStatusFilter(event.target.value as NcStatus | "");
                 setPage(1);
               }}
-            />
+              className={cn(inputClassName, "min-w-[11rem]")}
+            >
+              <option value="">Todos os status</option>
+              <option value={NcStatus.ABERTA}>{NC_STATUS_LABEL[NcStatus.ABERTA]}</option>
+              <option value={NcStatus.EM_ANDAMENTO}>{NC_STATUS_LABEL[NcStatus.EM_ANDAMENTO]}</option>
+              <option value={NcStatus.AGUARDANDO_VALIDACAO}>{NC_STATUS_LABEL[NcStatus.AGUARDANDO_VALIDACAO]}</option>
+              <option value={NcStatus.ENCERRADA}>{NC_STATUS_LABEL[NcStatus.ENCERRADA]}</option>
+            </select>
           </div>
         }
         footer={
@@ -465,45 +481,12 @@ export default function NonConformitiesPage() {
                       {item.codigo_nc}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
-                        {item.tipo}
-                      </span>
+                      <StatusPill tone="neutral">{item.tipo}</StatusPill>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <StatusPill
-                          tone={getNcStatusTone(item.status as NcStatus)}
-                        >
-                          {NC_STATUS_LABEL[item.status as NcStatus] ??
-                            item.status}
-                        </StatusPill>
-                        {canManageNc &&
-                        NC_ALLOWED_TRANSITIONS[item.status as NcStatus]
-                          ?.length > 0 ? (
-                          <StatusSelect
-                            title="Alterar status"
-                            className="h-8 min-w-[10rem]"
-                            value=""
-                            onChange={(event) => {
-                              if (event.target.value) {
-                                void handleStatusChange(
-                                  item.id,
-                                  event.target.value as NcStatus,
-                                );
-                              }
-                            }}
-                          >
-                            <option value="">Mover para...</option>
-                            {NC_ALLOWED_TRANSITIONS[
-                              item.status as NcStatus
-                            ].map((status) => (
-                              <option key={status} value={status}>
-                                {NC_STATUS_LABEL[status]}
-                              </option>
-                            ))}
-                          </StatusSelect>
-                        ) : null}
-                      </div>
+                      <StatusPill tone={getNcStatusTone(item.status as NcStatus)}>
+                        {NC_STATUS_LABEL[item.status as NcStatus] ?? item.status}
+                      </StatusPill>
                     </TableCell>
                     <TableCell>{item.local_setor_area}</TableCell>
                     <TableCell>
@@ -515,6 +498,26 @@ export default function NonConformitiesPage() {
                     <TableCell className="text-right">
                       {canManageNc ? (
                         <div className="flex items-center justify-end gap-1">
+                          {NC_ALLOWED_TRANSITIONS[item.status as NcStatus]?.length > 0 ? (
+                            <StatusSelect
+                              title="Mover status"
+                              className="h-8 min-w-[9rem]"
+                              value=""
+                              onChange={(event) => {
+                                if (event.target.value) {
+                                  void handleStatusChange(
+                                    item.id,
+                                    event.target.value as NcStatus,
+                                  );
+                                }
+                              }}
+                            >
+                              <option value="">Mover...</option>
+                              {NC_ALLOWED_TRANSITIONS[item.status as NcStatus].map((s) => (
+                                <option key={s} value={s}>{NC_STATUS_LABEL[s]}</option>
+                              ))}
+                            </StatusSelect>
+                          ) : null}
                           <Button
                             type="button"
                             size="icon"
@@ -574,7 +577,7 @@ export default function NonConformitiesPage() {
         listStoredFiles={nonConformitiesService.listStoredFiles}
         getPdfAccess={nonConformitiesService.getPdfAccess}
         downloadWeeklyBundle={nonConformitiesService.downloadWeeklyBundle}
-        companyOptions={companyOptions}
+        companyOptions={[]}
       />
 
       {selectedDoc ? (
@@ -590,6 +593,17 @@ export default function NonConformitiesPage() {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+
+      <ConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleConfirmDelete()}
+        loading={deleting}
+        title="Excluir não conformidade"
+        description="Tem certeza que deseja excluir esta não conformidade? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        danger
+      />
     </>
   );
 }

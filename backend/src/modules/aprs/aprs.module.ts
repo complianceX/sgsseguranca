@@ -31,6 +31,7 @@ import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
 import { FileInspectionModule } from '../../shared/security/file-inspection.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AprFeatureFlagService } from './services/apr-feature-flag.service';
 import { AprMetricsService } from './services/apr-metrics.service';
 import { AprFeatureFlagGuard } from './guards/apr-feature-flag.guard';
@@ -53,6 +54,7 @@ import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
       AprRule,
     ]),
     CommonModule,
+    NotificationsModule,
     forwardRef(() => AuthModule),
     StorageModule,
     DocumentRegistryModule,

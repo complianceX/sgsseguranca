@@ -311,7 +311,7 @@ export function useAprInitialData({
           })();
 
           reset({
-            pdf_signed: Boolean(apr.pdf_file_key),
+            pdf_signed: Boolean(apr.has_final_pdf),
             numero: apr.numero,
             titulo: apr.titulo,
             descricao: apr.descricao || "",

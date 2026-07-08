@@ -25,6 +25,7 @@ import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { normalizeRoleName } from '../auth/role-normalization.util';
 
 type ApprovalActorContext = {
   userId: string;
@@ -83,8 +84,6 @@ export class DdsApprovalService {
     private readonly approvalRepository: Repository<DdsApprovalRecord>,
     @InjectRepository(Dds)
     private readonly ddsRepository: Repository<Dds>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     private readonly ddsService: DdsService,
     private readonly signaturesService: SignaturesService,
     private readonly tenantService: TenantService,
@@ -235,38 +234,14 @@ export class DdsApprovalService {
       if (!companyId) return;
 
       const nextStep = flow.currentStep;
-      const requiredRole = this.normalizeRole(nextStep.approver_role);
-
-      // Filtrar por role no banco — evita carregar todos os usuários da empresa.
-      // Inclui ADMIN_GERAL (pode aprovar qualquer etapa) e o role exigido pela etapa.
-      const eligible = await this.userRepository
-        .createQueryBuilder('u')
-        .innerJoin('u.profile', 'p')
-        .where('u.company_id = :companyId', { companyId })
-        .andWhere('u.deleted_at IS NULL')
-        .andWhere('p.nome IN (:...roles)', {
-          roles: [requiredRole, Role.ADMIN_GERAL].filter(Boolean),
-        })
-        .getMany();
-
-      await Promise.all(
-        eligible.map((u) =>
-          this.notificationsService
-            .create({
-              companyId,
-              userId: u.id,
-              type: 'info',
-              title: 'Aprovação de DDS pendente',
-              message: `A etapa "${nextStep.title}" aguarda sua aprovação.`,
-              data: { event: 'dds_approval_pending', ddsId },
-            })
-            .catch((err) =>
-              this.logger.warn(
-                `Falha ao notificar usuário ${u.id} sobre aprovação DDS: ${err instanceof Error ? err.message : String(err)}`,
-              ),
-            ),
-        ),
-      );
+      await this.notificationsService.notifyEligibleApprovers({
+        companyId,
+        requiredRoleRaw: nextStep.approver_role,
+        title: 'Aprovação de DDS pendente',
+        message: `A etapa "${nextStep.title}" aguarda sua aprovação.`,
+        data: { event: 'dds_approval_pending', ddsId },
+        logContext: `DDS ddsId=${ddsId}`,
+      });
     } catch (err) {
       this.logger.error(
         `tryNotifyNextApprover falhou para ddsId=${ddsId}: ${err instanceof Error ? err.message : String(err)}`,
@@ -479,7 +454,7 @@ export class DdsApprovalService {
     }
 
     const invalidStep = normalized.find(
-      (step) => !this.normalizeRole(step.approver_role),
+      (step) => !normalizeRoleName(step.approver_role),
     );
     if (invalidStep) {
       throw new BadRequestException(
@@ -544,8 +519,8 @@ export class DdsApprovalService {
     actor: User,
     pendingStep: DdsApprovalRecord,
   ): void {
-    const actorRole = this.normalizeRole(actor.profile?.nome);
-    const requiredRole = this.normalizeRole(pendingStep.approver_role);
+    const actorRole = normalizeRoleName(actor.profile?.nome);
+    const requiredRole = normalizeRoleName(pendingStep.approver_role);
 
     if (actorRole === Role.ADMIN_GERAL) {
       return;
@@ -556,43 +531,6 @@ export class DdsApprovalService {
         `A etapa "${pendingStep.title}" exige aprovação do perfil "${pendingStep.approver_role}".`,
       );
     }
-  }
-
-  private normalizeRole(role?: string | Role | null): Role | null {
-    if (!role) {
-      return null;
-    }
-    if (Object.values(Role).includes(role as Role)) {
-      return role as Role;
-    }
-
-    const normalizedRole = String(role)
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
-
-    const aliases: Record<string, Role> = {
-      SUPER_ADMIN: Role.ADMIN_GERAL,
-      GERENTE: Role.SUPERVISOR,
-      VISUALIZADOR: Role.TRABALHADOR,
-      TECNICO: Role.TST,
-      'TECNICO SST': Role.TST,
-      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
-      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
-    };
-
-    const aliasRole = aliases[normalizedRole];
-    if (aliasRole) {
-      return aliasRole;
-    }
-
-    const matchedEntry = Object.entries(Role).find(
-      ([key, value]) =>
-        key === normalizedRole || value.toUpperCase() === normalizedRole,
-    );
-
-    return matchedEntry ? (matchedEntry[1] as Role) : null;
   }
 
   private async getPendingStepOrThrow(

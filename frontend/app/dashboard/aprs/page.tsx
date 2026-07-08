@@ -92,6 +92,7 @@ export default function AprsPage() {
   }, [searchParams]);
   const {
     loading,
+    refetching,
     loadError,
     searchTerm,
     setSearchTerm,
@@ -337,12 +338,16 @@ export default function AprsPage() {
             : ("neutral" as const),
       },
       {
-        label: "Score médio",
+        label: "Score médio (GRH)",
         value:
           overviewMetrics?.mediaScoreRisco !== undefined
             ? overviewMetrics.mediaScoreRisco
             : "—",
-        note: "matriz de risco",
+        note: (
+          <abbr title="Grau de Risco Hierarquizado (GRH) = Probabilidade × Severidade. Escala 1–25.">
+            Prob × Sev (1–25)
+          </abbr>
+        ),
         tone: "neutral" as const,
       },
       ],
@@ -415,8 +420,8 @@ export default function AprsPage() {
     <>
       <ListPageLayout
         eyebrow="Fila operacional"
-        title="APR Intelligence"
-        description="Controle premium de análises preliminares de risco com status, assinaturas, PDFs e prioridades em uma fila operacional clara."
+        title="Análises Preliminares de Risco"
+        description="Crie, gerencie e emita APRs com fluxo de aprovação e rastreabilidade documental."
         icon={<FileText className="h-5 w-5" />}
         metrics={aprMetrics}
         actions={
@@ -515,6 +520,7 @@ export default function AprsPage() {
                 onCreateNewVersion={handleCreateNewVersion}
                 pendingActionById={pendingActionById}
                 onClearFilters={clearAllFilters}
+                refetching={refetching}
               />
             </div>
 
@@ -606,3 +612,5 @@ export default function AprsPage() {
     </>
   );
 }
+
+

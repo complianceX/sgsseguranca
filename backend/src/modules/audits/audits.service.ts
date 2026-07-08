@@ -46,6 +46,12 @@ type AuditPdfAccessResponse = GovernedPdfAccessResponseDto;
 type AuditNonComplianceClassification = NonNullable<
   CreateAuditDto['resultados_nao_conformidades']
 >[number]['classificacao'];
+type AuditChecklistAnswer = NonNullable<
+  CreateAuditDto['checklist_respostas']
+>[number];
+type AuditChecklistEvidence = NonNullable<
+  NonNullable<AuditChecklistAnswer['evidences']>
+>[number];
 
 type AuditorSiteLink = {
   site_id: string;
@@ -134,7 +140,7 @@ export class AuditsService {
     return normalized.length > 0 ? normalized : undefined;
   }
 
-  private normalizeObjectArray<T extends Record<string, unknown>>(
+  private normalizeObjectArray<T extends object>(
     values: T[] | undefined | null,
     mapper: (value: T) => T,
   ): T[] | undefined {
@@ -148,6 +154,82 @@ export class AuditsService {
           return Boolean(entry);
         }),
       );
+
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private normalizeChecklistEvidence(
+    evidence: AuditChecklistEvidence,
+  ): AuditChecklistEvidence | null {
+    const dataUrl = this.normalizeOptionalText(evidence.dataUrl);
+    const fileName = this.normalizeOptionalText(evidence.fileName);
+    const id = this.normalizeOptionalText(evidence.id);
+    const capturedAt = this.normalizeOptionalText(evidence.capturedAt);
+
+    if (!dataUrl || !fileName || !id || !capturedAt) {
+      return null;
+    }
+
+    if (!dataUrl.startsWith('data:image/')) {
+      return null;
+    }
+
+    return {
+      id,
+      fileName,
+      mimeType: evidence.mimeType,
+      size: evidence.size,
+      dataUrl,
+      capturedAt,
+      hash: this.normalizeOptionalText(evidence.hash),
+    };
+  }
+
+  private normalizeChecklistAnswers(
+    values?: AuditChecklistAnswer[] | null,
+  ): AuditChecklistAnswer[] | undefined {
+    const normalized = (values ?? [])
+      .slice(0, 80)
+      .map((item): AuditChecklistAnswer | null => {
+        const sectionId = this.normalizeOptionalText(item.sectionId);
+        const sectionTitle = this.normalizeOptionalText(item.sectionTitle);
+        const questionId = this.normalizeOptionalText(item.questionId);
+        const question = this.normalizeOptionalText(item.question);
+        const requirement = this.normalizeOptionalText(item.requirement);
+
+        if (
+          !sectionId ||
+          !sectionTitle ||
+          !questionId ||
+          !question ||
+          !requirement
+        ) {
+          return null;
+        }
+
+        const evidences = (item.evidences ?? [])
+          .slice(0, 3)
+          .map((evidence) => this.normalizeChecklistEvidence(evidence))
+          .filter(
+            (evidence): evidence is AuditChecklistEvidence => evidence !== null,
+          );
+
+        return {
+          sectionId,
+          sectionTitle,
+          questionId,
+          question,
+          requirement,
+          criticality: item.criticality,
+          answer: item.answer,
+          observation: this.normalizeOptionalText(item.observation),
+          allowsPhoto: Boolean(item.allowsPhoto),
+          photoRequiredWhen: item.photoRequiredWhen,
+          suggestedAction: this.normalizeOptionalText(item.suggestedAction),
+          evidences: evidences.length > 0 ? evidences : undefined,
+        };
+      })
+      .filter((item): item is AuditChecklistAnswer => item !== null);
 
     return normalized.length > 0 ? normalized : undefined;
   }
@@ -242,6 +324,9 @@ export class AuditsService {
           prazo: this.normalizeOptionalText(item.prazo) ?? '',
           status: this.normalizeOptionalText(item.status) ?? '',
         }),
+      ),
+      checklist_respostas: this.normalizeChecklistAnswers(
+        auditDto.checklist_respostas,
       ),
       conclusao: this.normalizeOptionalText(auditDto.conclusao),
     };

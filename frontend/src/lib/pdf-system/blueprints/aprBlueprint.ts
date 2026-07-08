@@ -66,7 +66,7 @@ type AprStructuredRiskRow = {
   status_acao?: string | null;
 };
 
-type AprParticipantLike = { nome?: string; funcao?: string | null };
+type AprParticipantLike = { id?: string; nome?: string; funcao?: string | null };
 
 const APR_TEAL: [number, number, number] = [0, 128, 128];
 const APR_TEAL_SOFT: [number, number, number] = [255, 255, 255];
@@ -509,6 +509,13 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
   const { doc, margin, contentWidth, theme } = ctx;
   ensureSpace(ctx, 86);
 
+  // Larguras calculadas para preencher o contentWidth em paisagem (A4: ~265mm)
+  const sevHdrLabelW = 30;
+  const sevHdrColW = Number(((contentWidth - sevHdrLabelW) / 5).toFixed(2));
+  const matProbLabelW = 14;
+  const matDescW = 45;
+  const matCellW = Number(((contentWidth - matProbLabelW - matDescW) / 5).toFixed(2));
+
   doc.setDrawColor(120, 120, 120);
   doc.setFillColor(...APR_TEAL_SOFT);
   doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
@@ -546,33 +553,33 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
     ],
     body: [["Severidade", "1", "2", "3", "4", "5"]],
     columnStyles: {
-      0: { cellWidth: 28, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      0: { cellWidth: sevHdrLabelW, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
       1: {
-        cellWidth: 31,
+        cellWidth: sevHdrColW,
         fillColor: [44, 184, 162],
         textColor: APR_DARK,
         fontStyle: "bold",
       },
       2: {
-        cellWidth: 31,
+        cellWidth: sevHdrColW,
         fillColor: [39, 183, 163],
         textColor: APR_DARK,
         fontStyle: "bold",
       },
       3: {
-        cellWidth: 31,
+        cellWidth: sevHdrColW,
         fillColor: [35, 182, 164],
         textColor: APR_DARK,
         fontStyle: "bold",
       },
       4: {
-        cellWidth: 31,
+        cellWidth: sevHdrColW,
         fillColor: [31, 179, 162],
         textColor: APR_DARK,
         fontStyle: "bold",
       },
       5: {
-        cellWidth: 31,
+        cellWidth: sevHdrColW,
         fillColor: [26, 176, 160],
         textColor: APR_DARK,
         fontStyle: "bold",
@@ -646,13 +653,13 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
       ],
     ],
     columnStyles: {
-      0: { cellWidth: 14, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
-      1: { cellWidth: 32, fillColor: [245, 245, 245], fontStyle: "bold" },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 24 },
-      4: { cellWidth: 24 },
-      5: { cellWidth: 24 },
-      6: { cellWidth: 24 },
+      0: { cellWidth: matProbLabelW, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      1: { cellWidth: matDescW, fillColor: [245, 245, 245], fontStyle: "bold" },
+      2: { cellWidth: matCellW },
+      3: { cellWidth: matCellW },
+      4: { cellWidth: matCellW },
+      5: { cellWidth: matCellW },
+      6: { cellWidth: matCellW },
     },
     didParseCell: (hookData: CellHookData) => {
       if (hookData.section !== "body") return;
@@ -741,10 +748,12 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
 function drawAprParticipantRoster(
   ctx: PdfContext,
   autoTable: AutoTableFn,
-  participants: Array<{ name?: string; role?: string | null }>,
+  participants: Array<{ name?: string; role?: string | null; userId?: string }>,
+  signedUserIds?: Set<string>,
 ) {
   if (!participants.length) return;
   const { doc, margin, contentWidth, theme } = ctx;
+  const showSigned = signedUserIds !== undefined && signedUserIds.size > 0;
   ensureSpace(ctx, 26);
 
   doc.setDrawColor(120, 120, 120);
@@ -761,6 +770,12 @@ function drawAprParticipantRoster(
     ctx.y + 5.7,
   );
   moveY(ctx, 9.8);
+
+  const signedColW = 20;
+  const roleColW = showSigned ? 40 : 52;
+  const nameColW = showSigned
+    ? contentWidth - 12 - roleColW - signedColW
+    : contentWidth - 64;
 
   autoTable(doc, {
     startY: ctx.y,
@@ -780,12 +795,13 @@ function drawAprParticipantRoster(
       overflow: "linebreak",
       valign: "middle",
     },
-    head: [["#", "Nome do participante", "Função"]],
-    body: participants.map((participant, index) => [
-      index + 1,
-      sanitize(participant.name),
-      sanitize(participant.role),
-    ]),
+    head: [showSigned ? ["#", "Nome do participante", "Função", "Assinou"] : ["#", "Nome do participante", "Função"]],
+    body: participants.map((participant, index) => {
+      const signed = participant.userId && signedUserIds?.has(participant.userId) ? "Sim" : "Não";
+      return showSigned
+        ? [index + 1, sanitize(participant.name), sanitize(participant.role), signed]
+        : [index + 1, sanitize(participant.name), sanitize(participant.role)];
+    }),
     headStyles: {
       fillColor: APR_ATTENTION,
       textColor: APR_WHITE,
@@ -795,17 +811,137 @@ function drawAprParticipantRoster(
     alternateRowStyles: {
       fillColor: [244, 249, 255],
     },
-    columnStyles: {
-      0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
-      1: { cellWidth: contentWidth - 64 },
-      2: { cellWidth: 52 },
-    },
+    columnStyles: showSigned
+      ? {
+          0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: nameColW },
+          2: { cellWidth: roleColW },
+          3: { cellWidth: signedColW, halign: "center" },
+        }
+      : {
+          0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: nameColW },
+          2: { cellWidth: roleColW },
+        },
+    didParseCell: showSigned
+      ? (hookData: CellHookData) => {
+          if (hookData.section !== "body" || hookData.column.index !== 3) return;
+          const val = String(hookData.cell.raw ?? "").toLowerCase();
+          if (val === "sim") {
+            hookData.cell.styles.fillColor = APR_ACCEPTABLE;
+            hookData.cell.styles.textColor = APR_WHITE;
+            hookData.cell.styles.fontStyle = "bold";
+          } else if (val === "não" || val === "nao") {
+            hookData.cell.styles.fillColor = APR_CRITICAL;
+            hookData.cell.styles.textColor = APR_WHITE;
+            hookData.cell.styles.fontStyle = "bold";
+          }
+        }
+      : undefined,
     didDrawPage: (hookData: HookData) => {
       ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
     },
   });
 }
 
+type AprApprovalStepPdf = {
+  level_order?: number;
+  title?: string;
+  approver_role?: string;
+  status?: string;
+  decided_at?: string | Date | null;
+  decision_reason?: string | null;
+};
+
+const APR_STEP_STATUS_LABEL: Record<string, string> = {
+  pending: "Aguardando",
+  approved: "Aprovado",
+  rejected: "Reprovado",
+  skipped: "Ignorado",
+  PENDING: "Aguardando",
+  APPROVED: "Aprovado",
+  REJECTED: "Reprovado",
+  SKIPPED: "Ignorado",
+};
+
+function drawAprApprovalStepsHistory(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  steps: AprApprovalStepPdf[],
+) {
+  if (!steps.length) return;
+  const { doc, margin, contentWidth, theme } = ctx;
+  const stepTextColW = Number(((contentWidth - 70) / 2).toFixed(2)); // 70 = cols 0+3+4 fixos
+  ensureSpace(ctx, 26);
+
+  doc.setDrawColor(120, 120, 120);
+  doc.setFillColor(...APR_TEAL_SOFT);
+  doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
+  doc.setFillColor(...APR_TEAL);
+  doc.rect(margin, ctx.y, 2.3, 8.6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(theme.typography.headingSm);
+  doc.setTextColor(...APR_DARK);
+  doc.text("Histórico de aprovação", margin + 4, ctx.y + 5.7);
+  moveY(ctx, 9.8);
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 7.6,
+      cellPadding: 1.8,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: APR_DARK,
+      overflow: "linebreak",
+      valign: "middle",
+    },
+    head: [["Nível", "Etapa", "Papel aprovador", "Status", "Decisão em"]],
+    body: steps.map((step) => [
+      String(step.level_order ?? ""),
+      sanitize(step.title),
+      sanitize(step.approver_role),
+      APR_STEP_STATUS_LABEL[step.status ?? ""] ?? sanitize(step.status),
+      step.decided_at ? formatDate(String(step.decided_at)) : "—",
+    ]),
+    headStyles: {
+      fillColor: APR_TEAL,
+      textColor: APR_WHITE,
+      fontStyle: "bold",
+      fontSize: 7.6,
+    },
+    columnStyles: {
+      0: { cellWidth: 14, halign: "center" },
+      1: { cellWidth: stepTextColW },
+      2: { cellWidth: stepTextColW },
+      3: { cellWidth: 28, halign: "center" },
+      4: { cellWidth: 28, halign: "center" },
+    },
+    didParseCell: (hookData: CellHookData) => {
+      if (hookData.section !== "body" || hookData.column.index !== 3) return;
+      const val = String(hookData.cell.raw ?? "").toLowerCase();
+      if (val.includes("aprovad")) {
+        hookData.cell.styles.fillColor = APR_ACCEPTABLE;
+        hookData.cell.styles.textColor = APR_WHITE;
+        hookData.cell.styles.fontStyle = "bold";
+      } else if (val.includes("reprovad") || val.includes("cancelad")) {
+        hookData.cell.styles.fillColor = APR_CRITICAL;
+        hookData.cell.styles.textColor = APR_WHITE;
+        hookData.cell.styles.fontStyle = "bold";
+      } else if (val.includes("aguard")) {
+        hookData.cell.styles.fillColor = APR_SUBSTANTIAL;
+        hookData.cell.styles.textColor = APR_DARK;
+        hookData.cell.styles.fontStyle = "bold";
+      }
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+    },
+  });
+}
 export function resolveAprRiskRows(apr: Apr) {
   const structuredRows = Array.isArray(apr.risk_items) ? apr.risk_items : [];
   if (structuredRows.length > 0) {
@@ -929,14 +1065,29 @@ export async function drawAprBlueprint(
 
   drawAprComplementaryInfo(ctx, autoTable, apr);
   drawAprRiskMatrixReference(ctx, autoTable);
+  const signedUserIds = new Set<string>(
+    signatures.filter((s) => Boolean(s.user_id)).map((s) => s.user_id as string),
+  );
   drawAprParticipantRoster(
     ctx,
     autoTable,
-    (apr.participants ?? []).map((participant) => ({
+    (apr.participants ?? []).map((participant: AprParticipantLike) => ({
       name: participant.nome,
       role: participant.funcao,
+      userId: participant.id,
     })),
+    signedUserIds.size > 0 ? signedUserIds : undefined,
   );
+
+
+  // Historico de etapas de aprovacao
+  const approvalSteps = Array.isArray(apr.approval_steps)
+    ? (apr.approval_steps as AprApprovalStepPdf[])
+    : [];
+  const decidedSteps = approvalSteps.filter(
+    (s) => s.status && s.status !== "pending" && s.status !== "PENDING",
+  );
+  drawAprApprovalStepsHistory(ctx, autoTable, decidedSteps.length > 0 ? approvalSteps : []);
 
   await drawEvidenceGallery(ctx, {
     title: "Evidências visuais",
@@ -981,3 +1132,6 @@ export async function drawAprBlueprint(
     accentSoftColor: [240, 249, 248],
   });
 }
+
+
+

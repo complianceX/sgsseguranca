@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { ElementType, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   Building2,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Download,
   FileCheck2,
   FileWarning,
@@ -39,6 +41,13 @@ import {
   getAprStatusMeta,
   getToneClasses,
 } from "./aprListingUtils";
+
+const STATUS_ICON: Record<string, ElementType> = {
+  Pendente: Clock,
+  Aprovada: ShieldCheck,
+  Encerrada: Archive,
+  Cancelada: XCircle,
+};
 
 interface AprListingRowProps {
   apr: AprListingRecord;
@@ -84,7 +93,7 @@ export function AprListingRow({
   const signatureTone = getToneClasses(signature.tone);
   const pdfTone = getToneClasses(pdf.tone);
   const isApproved = apr.status === "Aprovada";
-  const hasGovernedPdf = Boolean(apr.pdf_file_key);
+  const hasGovernedPdf = Boolean(apr.has_final_pdf);
   const canUpdateApr = hasPermission(Permission.CAN_UPDATE_APR);
   const canApproveApr = hasPermission(Permission.CAN_APPROVE_APR);
   const canRejectApr = hasPermission(Permission.CAN_REJECT_APR);
@@ -92,6 +101,7 @@ export function AprListingRow({
   const canDeleteApr = hasPermission(Permission.CAN_DELETE_APR);
   const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
   const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
+  const StatusIcon = STATUS_ICON[apr.status] ?? ShieldCheck;
   const cellPadding = density === "compact" ? "py-3" : "py-4";
   const criticalCount = apr.classificacao_resumo?.critico ?? 0;
   const substantialCount = apr.classificacao_resumo?.substancial ?? 0;
@@ -250,6 +260,8 @@ export function AprListingRow({
         label: hasGovernedPdf ? "Abrir PDF final" : "PDF final indisponível",
         icon: <Download className="h-4 w-4" />,
         onClick: handleOpenPdf,
+        disabled: !hasGovernedPdf,
+        title: !hasGovernedPdf ? "Disponível após aprovação e geração do PDF" : undefined,
       },
       {
         label: hasGovernedPdf ? "Imprimir PDF final" : "Pré-visualizar APR",
@@ -367,7 +379,7 @@ export function AprListingRow({
             statusTone.badge,
           )}
         >
-          <ShieldCheck className="h-3.5 w-3.5" />
+          <StatusIcon className="h-3.5 w-3.5" />
           {status.label}
         </span>
         {criticalCount > 0 || substantialCount > 0 ? (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { aprsService } from "@/services/aprsService";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Clock, Circle, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
+import { CheckCircle2, Clock, Circle, AlertCircle, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AprReopenModal } from "./AprReopenModal";
 import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
@@ -72,6 +72,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [reopenModalOpen, setReopenModalOpen] = useState(false);
+  const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -89,7 +90,12 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
     loadStatus();
   }, [loadStatus]);
 
-  const handleApprove = async () => {
+  const handleApprove = () => {
+    setConfirmApproveOpen(true);
+  };
+
+  const confirmApprove = async () => {
+    setConfirmApproveOpen(false);
     await execute('approve', async () => {
       await aprsService.workflowApprove(aprId);
       toast.success("Passo de aprovação registrado.");
@@ -232,7 +238,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
                 onClick={handleApprove}
                 className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-success)] motion-safe:transition-opacity hover:opacity-80 disabled:opacity-50"
               >
-                <ThumbsUp className="h-4 w-4" />
+                {acting === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className="h-4 w-4" />}
                 {acting === 'approve' ? "Aprovando..." : "Aprovar"}
               </button>
               <button
@@ -254,6 +260,14 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
                 rows={3}
                 className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
               />
+              <p
+                className={cn(
+                  "mt-1 text-xs text-right",
+                  rejectReason.length < 10 ? "text-red-500" : "text-green-600",
+                )}
+              >
+                {rejectReason.length} / mín. 10 caracteres
+              </p>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -261,6 +275,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
                   onClick={handleReject}
                   className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--color-danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
+                  {acting === 'reject' && <Loader2 className="h-4 w-4 animate-spin" />}
                   {acting === 'reject' ? "Reprovando..." : "Confirmar reprovação"}
                 </button>
                 <button
@@ -285,8 +300,9 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
             type="button"
             disabled={acting !== null}
             onClick={() => setReopenModalOpen(true)}
-            className="text-xs text-[var(--ds-color-text-secondary)] underline underline-offset-2 hover:text-[var(--ds-color-text-primary)] disabled:opacity-40 disabled:pointer-events-none"
+            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-transparent px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:border-[var(--color-warning)] hover:text-[var(--color-warning)] motion-safe:transition-colors disabled:pointer-events-none disabled:opacity-40"
           >
+            {acting === 'reopen' && <Loader2 className="h-3 w-3 animate-spin" />}
             Reabrir passo anterior
           </button>
         </div>
@@ -297,6 +313,51 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
         onClose={() => setReopenModalOpen(false)}
         onConfirm={handleReopen}
       />
+
+      {/* Confirmação de aprovação */}
+      {confirmApproveOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--component-overlay)] px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 shadow-xl">
+            <div className="mb-3 flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 shrink-0 text-[var(--color-success)]" />
+              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                Confirmar aprovação
+              </h2>
+            </div>
+            <p className="mb-5 text-sm text-[var(--ds-color-text-secondary)]">
+              Você está prestes a aprovar o passo{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                {currentStep?.stepOrder} — {currentStep?.roleName}
+              </strong>
+              . Esta ação ficará registrada na trilha de auditoria e não pode ser desfeita sem justificativa formal.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmApproveOpen(false)}
+                className="px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmApprove()}
+                disabled={acting !== null}
+                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--color-success)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {acting === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className="h-4 w-4" />}
+                {acting === 'approve' ? "Aprovando..." : "Confirmar aprovação"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+

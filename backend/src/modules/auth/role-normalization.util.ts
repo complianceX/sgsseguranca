@@ -22,6 +22,7 @@ const ROLE_ALIASES: Record<string, Role> = {
   'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
   VISUALIZADOR: Role.TRABALHADOR,
   COLABORADOR: Role.COLABORADOR,
+  'OPERADOR / COLABORADOR': Role.COLABORADOR,
   TRABALHADOR: Role.TRABALHADOR,
 };
 
@@ -55,7 +56,11 @@ export function normalizeRoleName(role?: string | Role | null): Role | null {
 
   const matchedEntry = Object.entries(Role).find(
     ([key, value]) =>
-      key === normalizedRole || value.toUpperCase() === normalizedRole,
+      key === normalizedRole ||
+      String(value)
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toUpperCase() === normalizedRole,
   );
 
   return matchedEntry ? (matchedEntry[1] as Role) : null;

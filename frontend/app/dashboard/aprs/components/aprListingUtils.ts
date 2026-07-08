@@ -235,14 +235,14 @@ export function getAprBlockingMeta(apr: AprListingRecord): BlockingMeta {
     };
   }
 
-  if (apr.status === "Aprovada" && !apr.pdf_file_key) {
+  if (apr.status === "Aprovada" && !apr.has_final_pdf) {
     return {
       label: "PDF final não emitido",
       tone: "warning",
     };
   }
 
-  if (apr.status === "Aprovada" && apr.pdf_file_key) {
+  if (apr.status === "Aprovada" && apr.has_final_pdf) {
     return {
       label: "Pronta para encerramento",
       tone: "info",
@@ -326,7 +326,7 @@ export function getAprSignatureMeta(apr: AprListingRecord): SignatureMeta {
 }
 
 export function getAprPdfMeta(apr: AprListingRecord): PdfMeta {
-  if (apr.pdf_file_key) {
+  if (apr.has_final_pdf) {
     return {
       label: "Emitido",
       detail: apr.pdf_original_name || "PDF final governado",

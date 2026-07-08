@@ -212,12 +212,14 @@ describe('DdsApprovalService', () => {
 
     const tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
 
-    const notificationsService = { create: jest.fn(() => Promise.resolve({})) };
+    const notificationsService = {
+      create: jest.fn(() => Promise.resolve({})),
+      notifyEligibleApprovers: jest.fn(() => Promise.resolve()),
+    };
 
     service = new DdsApprovalService(
       approvalRepository as never,
       ddsRepository as never,
-      userRepository as never,
       ddsService as never,
       signaturesService as never,
       tenantService as never,

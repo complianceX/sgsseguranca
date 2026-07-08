@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import NextImage from 'next/image';
 import { auditsService } from '@/services/auditsService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
@@ -9,7 +10,7 @@ import { useForm, useFieldArray, Control, FieldValues } from 'react-hook-form';
 import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Plus, Trash2, Loader2, ClipboardCheck } from 'lucide-react';
+import { Camera, Save, Plus, Trash2, Loader2, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
@@ -21,6 +22,41 @@ import { PageHeader } from '@/components/layout';
 import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
+import {
+  AUDIT_CHECKLIST_SECTIONS,
+  createDefaultAuditChecklistAnswers,
+  formatAuditChecklistAnswer,
+  mergeAuditChecklistAnswers,
+  type AuditChecklistAnswer,
+  type AuditChecklistEvidence,
+} from '@/lib/auditChecklist';
+
+const MAX_CHECKLIST_PHOTOS_PER_ITEM = 3;
+
+const checklistEvidenceSchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  size: z.number(),
+  dataUrl: z.string(),
+  capturedAt: z.string(),
+  hash: z.string().optional(),
+});
+
+const checklistAnswerSchema = z.object({
+  sectionId: z.string(),
+  sectionTitle: z.string(),
+  questionId: z.string(),
+  question: z.string(),
+  requirement: z.string(),
+  criticality: z.enum(['baixa', 'media', 'alta', 'critica']),
+  answer: z.enum(['sim', 'nao', 'na']),
+  observation: z.string().optional(),
+  allowsPhoto: z.boolean().optional(),
+  photoRequiredWhen: z.enum(['always', 'nao']).optional(),
+  suggestedAction: z.string().optional(),
+  evidences: z.array(checklistEvidenceSchema).optional(),
+});
 
 const auditSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
@@ -63,6 +99,7 @@ const auditSchema = z.object({
     prazo: z.string(),
     status: z.string(),
   })).optional(),
+  checklist_respostas: z.array(checklistAnswerSchema).optional(),
   conclusao: z.string().optional(),
 });
 
@@ -111,6 +148,7 @@ export function AuditForm({ id }: AuditFormProps) {
       resultados_oportunidades: [''],
       avaliacao_riscos: [],
       plano_acao: [],
+      checklist_respostas: createDefaultAuditChecklistAnswers(),
     },
   });
 
@@ -126,6 +164,7 @@ export function AuditForm({ id }: AuditFormProps) {
   const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
   const selectedSiteId = watch('site_id');
   const selectedAuditorId = watch('auditor_id');
+  const checklistAnswers = watch('checklist_respostas') ?? [];
   const filteredUsers = useMemo(
     () =>
       users.filter((user) =>
@@ -184,6 +223,9 @@ export function AuditForm({ id }: AuditFormProps) {
               reset({
                 ...audit,
                 data_auditoria: toInputDateValue(audit.data_auditoria),
+                checklist_respostas: mergeAuditChecklistAnswers(
+                  audit.checklist_respostas,
+                ),
               });
             }
           })
@@ -231,46 +273,242 @@ export function AuditForm({ id }: AuditFormProps) {
     return normalized.length > 0 ? normalized : undefined;
   };
 
-  const normalizeSubmitPayload = (data: AuditFormData): AuditFormData => ({
-    ...data,
-    titulo: normalizeText(data.titulo) ?? '',
-    data_auditoria: normalizeText(data.data_auditoria) ?? '',
-    tipo_auditoria: normalizeText(data.tipo_auditoria) ?? '',
-    site_id: normalizeText(data.site_id) ?? '',
-    auditor_id: normalizeText(data.auditor_id) ?? '',
-    representantes_empresa: normalizeText(data.representantes_empresa),
-    objetivo: normalizeText(data.objetivo),
-    escopo: normalizeText(data.escopo),
-    referencias: normalizeStringArray(data.referencias),
-    metodologia: normalizeText(data.metodologia),
-    caracterizacao: data.caracterizacao
-      ? (() => {
-          const normalizedCaracterizacao = {
-            cnae: normalizeText(data.caracterizacao?.cnae),
-            grau_risco: normalizeText(data.caracterizacao?.grau_risco),
-            num_trabalhadores:
-              typeof data.caracterizacao?.num_trabalhadores === 'number'
-                ? data.caracterizacao.num_trabalhadores
-                : undefined,
-            turnos: normalizeText(data.caracterizacao?.turnos),
-            atividades_principais: normalizeText(
-              data.caracterizacao?.atividades_principais,
-            ),
-          };
+  const fileToDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () =>
+        reject(new Error('Não foi possível ler a foto selecionada.'));
+      reader.readAsDataURL(file);
+    });
 
-          return Object.values(normalizedCaracterizacao).some(
-            (value) => value !== undefined && value !== null && value !== '',
-          )
-            ? normalizedCaracterizacao
-            : undefined;
-        })()
-      : undefined,
-    documentos_avaliados: normalizeStringArray(data.documentos_avaliados),
-    resultados_conformidades: normalizeStringArray(
-      data.resultados_conformidades,
-    ),
-    resultados_nao_conformidades: normalizeRows(
-      data.resultados_nao_conformidades,
+  const sha256 = async (value: string) => {
+    if (!globalThis.crypto?.subtle) {
+      return undefined;
+    }
+    const data = new TextEncoder().encode(value);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
+  const resizeChecklistPhoto = async (
+    file: File,
+  ): Promise<AuditChecklistEvidence> => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      throw new Error('Use apenas imagens JPG, PNG ou WebP.');
+    }
+
+    const source = await fileToDataUrl(file);
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Não foi possível processar a foto.'));
+      img.src = source;
+    });
+
+    const maxWidth = 960;
+    const scale = Math.min(1, maxWidth / image.width);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Não foi possível preparar a foto.');
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+
+    return {
+      id:
+        globalThis.crypto?.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      fileName: file.name,
+      mimeType: 'image/jpeg',
+      size: Math.round((dataUrl.length * 3) / 4),
+      dataUrl,
+      capturedAt: new Date().toISOString(),
+      hash: await sha256(dataUrl),
+    };
+  };
+
+  const findChecklistIndex = (questionId: string) =>
+    (checklistAnswers ?? []).findIndex(
+      (answer) => answer.questionId === questionId,
+    );
+
+  const handleChecklistPhotoChange = async (
+    questionId: string,
+    files: FileList | null,
+  ) => {
+    if (!files?.length) {
+      return;
+    }
+
+    const answerIndex = findChecklistIndex(questionId);
+    if (answerIndex < 0) {
+      return;
+    }
+
+    try {
+      const current =
+        checklistAnswers[answerIndex]?.evidences?.slice(
+          0,
+          MAX_CHECKLIST_PHOTOS_PER_ITEM,
+        ) ?? [];
+      const remainingSlots = Math.max(
+        0,
+        MAX_CHECKLIST_PHOTOS_PER_ITEM - current.length,
+      );
+      if (remainingSlots === 0) {
+        toast.warning('Limite de 3 fotos por pergunta atingido.');
+        return;
+      }
+
+      const nextEvidence = await Promise.all(
+        Array.from(files)
+          .slice(0, remainingSlots)
+          .map((file) => resizeChecklistPhoto(file)),
+      );
+      setValue(
+        `checklist_respostas.${answerIndex}.evidences`,
+        [...current, ...nextEvidence],
+        { shouldDirty: true, shouldValidate: true },
+      );
+      toast.success(`${nextEvidence.length} foto(s) adicionada(s).`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível anexar a foto.',
+      );
+    }
+  };
+
+  const removeChecklistEvidence = (questionId: string, evidenceId: string) => {
+    const answerIndex = findChecklistIndex(questionId);
+    if (answerIndex < 0) {
+      return;
+    }
+    const nextEvidence = (checklistAnswers[answerIndex]?.evidences ?? []).filter(
+      (evidence) => evidence.id !== evidenceId,
+    );
+    setValue(`checklist_respostas.${answerIndex}.evidences`, nextEvidence, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const normalizeChecklistAnswers = (
+    values?: AuditChecklistAnswer[],
+  ): AuditChecklistAnswer[] | undefined => {
+    const normalized = mergeAuditChecklistAnswers(values).map((answer) => ({
+      ...answer,
+      observation: normalizeText(answer.observation),
+      evidences: (answer.evidences ?? []).slice(
+        0,
+        MAX_CHECKLIST_PHOTOS_PER_ITEM,
+      ),
+    }));
+
+    return normalized.length > 0 ? normalized : undefined;
+  };
+
+  const isGeneratedChecklistText = (value?: string) =>
+    String(value || '').startsWith('[Checklist]');
+
+  const buildChecklistDerivedFields = (answers?: AuditChecklistAnswer[]) => {
+    const normalized = normalizeChecklistAnswers(answers) ?? [];
+    const negatives = normalized.filter((answer) => answer.answer === 'nao');
+
+    const classify = (
+      criticality: AuditChecklistAnswer['criticality'],
+    ): NonComplianceClassification => {
+      if (criticality === 'critica') return 'Crítica';
+      if (criticality === 'alta') return 'Grave';
+      if (criticality === 'media') return 'Moderada';
+      return 'Leve';
+    };
+
+    return {
+      conformidades: normalized
+        .filter((answer) => answer.answer === 'sim')
+        .map(
+          (answer) =>
+            `[Checklist] ${answer.sectionTitle}: ${answer.question}`,
+        ),
+      naoConformidades: negatives.map((answer) => ({
+        descricao: `[Checklist] ${answer.sectionTitle}: ${answer.question}`,
+        requisito: answer.requirement,
+        evidencia: [
+          answer.observation
+            ? `Observação: ${answer.observation}`
+            : 'Resposta marcada como Não.',
+          answer.evidences?.length
+            ? `Fotos anexadas: ${answer.evidences.length}`
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        classificacao: classify(answer.criticality),
+      })),
+      observacoes: normalized
+        .filter((answer) => answer.answer === 'na' && answer.observation)
+        .map(
+          (answer) =>
+            `[Checklist] ${answer.sectionTitle}: ${answer.question} - ${answer.observation}`,
+        ),
+      planoAcao: negatives.map((answer) => ({
+        item: `CHK-${answer.questionId}`,
+        acao:
+          answer.suggestedAction ||
+          `Tratar não conformidade do checklist: ${answer.question}`,
+        responsavel: 'Responsável SST',
+        prazo: 'Definir prazo',
+        status: 'Pendente',
+      })),
+    };
+  };
+
+  const validateChecklistBeforeSubmit = (
+    answers?: AuditChecklistAnswer[],
+  ): string | null => {
+    for (const answer of answers ?? []) {
+      if (
+        answer.answer === 'nao' &&
+        (!answer.observation || answer.observation.trim().length < 5)
+      ) {
+        return `Informe uma observação para a resposta "Não": ${answer.question}`;
+      }
+      const photoRequired =
+        answer.photoRequiredWhen === 'always' ||
+        (answer.photoRequiredWhen === 'nao' && answer.answer === 'nao');
+      if (photoRequired && (answer.evidences?.length ?? 0) === 0) {
+        return `Anexe ao menos uma foto para: ${answer.question}`;
+      }
+    }
+
+    return null;
+  };
+
+  const normalizeSubmitPayload = (data: AuditFormData): AuditFormData => {
+    const checklist = normalizeChecklistAnswers(data.checklist_respostas);
+    const derived = buildChecklistDerivedFields(checklist);
+    const manualConformities = normalizeStringArray(
+      data.resultados_conformidades?.filter(
+        (item) => !isGeneratedChecklistText(item),
+      ),
+    );
+    const manualObservations = normalizeStringArray(
+      data.resultados_observacoes?.filter(
+        (item) => !isGeneratedChecklistText(item),
+      ),
+    );
+    const manualNonConformities = normalizeRows(
+      data.resultados_nao_conformidades?.filter(
+        (item) => !isGeneratedChecklistText(item.descricao),
+      ),
       (item) => ({
         descricao: normalizeText(item.descricao) || '',
         requisito: normalizeText(item.requisito) || '',
@@ -278,31 +516,97 @@ export function AuditForm({ id }: AuditFormProps) {
         classificacao:
           (normalizeText(item.classificacao) || '') as NonComplianceClassification,
       }),
-    ),
-    resultados_observacoes: normalizeStringArray(data.resultados_observacoes),
-    resultados_oportunidades: normalizeStringArray(
-      data.resultados_oportunidades,
-    ),
-    avaliacao_riscos: normalizeRows(data.avaliacao_riscos, (item) => ({
-      perigo: normalizeText(item.perigo) || '',
-      classificacao: normalizeText(item.classificacao) || '',
-      impactos: normalizeText(item.impactos) || '',
-      medidas_controle: normalizeText(item.medidas_controle) || '',
-    })),
-    plano_acao: normalizeRows(data.plano_acao, (item) => ({
-      item: normalizeText(item.item) || '',
-      acao: normalizeText(item.acao) || '',
-      responsavel: normalizeText(item.responsavel) || '',
-      prazo: normalizeText(item.prazo) || '',
-      status: normalizeText(item.status) || '',
-    })),
-    conclusao: normalizeText(data.conclusao),
-  });
+    );
+    const manualActionPlan = normalizeRows(
+      data.plano_acao?.filter(
+        (item) => !String(item.item || '').startsWith('CHK-'),
+      ),
+      (item) => ({
+        item: normalizeText(item.item) || '',
+        acao: normalizeText(item.acao) || '',
+        responsavel: normalizeText(item.responsavel) || '',
+        prazo: normalizeText(item.prazo) || '',
+        status: normalizeText(item.status) || '',
+      }),
+    );
+
+    return {
+      ...data,
+      titulo: normalizeText(data.titulo) ?? '',
+      data_auditoria: normalizeText(data.data_auditoria) ?? '',
+      tipo_auditoria: normalizeText(data.tipo_auditoria) ?? '',
+      site_id: normalizeText(data.site_id) ?? '',
+      auditor_id: normalizeText(data.auditor_id) ?? '',
+      representantes_empresa: normalizeText(data.representantes_empresa),
+      objetivo: normalizeText(data.objetivo),
+      escopo: normalizeText(data.escopo),
+      referencias: normalizeStringArray(data.referencias),
+      metodologia: normalizeText(data.metodologia),
+      caracterizacao: data.caracterizacao
+        ? (() => {
+            const normalizedCaracterizacao = {
+              cnae: normalizeText(data.caracterizacao?.cnae),
+              grau_risco: normalizeText(data.caracterizacao?.grau_risco),
+              num_trabalhadores:
+                typeof data.caracterizacao?.num_trabalhadores === 'number'
+                  ? data.caracterizacao.num_trabalhadores
+                  : undefined,
+              turnos: normalizeText(data.caracterizacao?.turnos),
+              atividades_principais: normalizeText(
+                data.caracterizacao?.atividades_principais,
+              ),
+            };
+
+            return Object.values(normalizedCaracterizacao).some(
+              (value) => value !== undefined && value !== null && value !== '',
+            )
+              ? normalizedCaracterizacao
+              : undefined;
+          })()
+        : undefined,
+      documentos_avaliados: normalizeStringArray(data.documentos_avaliados),
+      resultados_conformidades:
+        [...(manualConformities ?? []), ...derived.conformidades].length > 0
+          ? [...(manualConformities ?? []), ...derived.conformidades]
+          : undefined,
+      resultados_nao_conformidades:
+        [...(manualNonConformities ?? []), ...derived.naoConformidades]
+          .length > 0
+          ? [...(manualNonConformities ?? []), ...derived.naoConformidades]
+          : undefined,
+      resultados_observacoes:
+        [...(manualObservations ?? []), ...derived.observacoes].length > 0
+          ? [...(manualObservations ?? []), ...derived.observacoes]
+          : undefined,
+      resultados_oportunidades: normalizeStringArray(
+        data.resultados_oportunidades,
+      ),
+      avaliacao_riscos: normalizeRows(data.avaliacao_riscos, (item) => ({
+        perigo: normalizeText(item.perigo) || '',
+        classificacao: normalizeText(item.classificacao) || '',
+        impactos: normalizeText(item.impactos) || '',
+        medidas_controle: normalizeText(item.medidas_controle) || '',
+      })),
+      plano_acao: [...(manualActionPlan ?? []), ...derived.planoAcao].length > 0
+        ? [...(manualActionPlan ?? []), ...derived.planoAcao]
+        : undefined,
+      checklist_respostas: checklist,
+      conclusao: normalizeText(data.conclusao),
+    };
+  };
 
   const onSubmit = async (data: AuditFormData) => {
     setLoading(true);
     try {
       setSubmitError(null);
+      const checklistError = validateChecklistBeforeSubmit(
+        data.checklist_respostas,
+      );
+      if (checklistError) {
+        setSubmitError(checklistError);
+        toast.error(checklistError);
+        return;
+      }
       const normalizedData = normalizeSubmitPayload(data);
       if (id) {
         const updated = await auditsService.update(id, normalizedData);
@@ -638,14 +942,213 @@ export function AuditForm({ id }: AuditFormProps) {
         </div>
       </div>
 
-      {/* 8. Resultados */}
+      {/* 8. Checklist estruturado */}
+      <div className="sst-card p-6">
+        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+              Perguntas marcadas
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">
+              8. Checklist de Auditoria HSE
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">
+              Marque Sim, Não ou N/A. Respostas &quot;Não&quot; geram não conformidade e plano de ação automaticamente; perguntas críticas podem exigir foto.
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-2 text-xs text-[var(--ds-color-text-secondary)]">
+            {checklistAnswers.filter((answer) => answer.answer === 'nao').length} NC(s) gerada(s) pelo checklist
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {AUDIT_CHECKLIST_SECTIONS.map((section) => (
+            <section
+              key={section.id}
+              className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm"
+            >
+              <div className="mb-4 flex flex-col gap-1 border-b border-[var(--ds-color-border-subtle)] pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-sm font-bold text-[var(--ds-color-text-primary)]">
+                  {section.title}
+                </h3>
+                <span className="text-xs text-[var(--ds-color-text-secondary)]">
+                  {section.questions.length} pergunta(s)
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {section.questions.map((question) => {
+                  const answerIndex = findChecklistIndex(question.questionId);
+                  const answer =
+                    answerIndex >= 0 ? checklistAnswers[answerIndex] : null;
+                  if (!answer || answerIndex < 0) {
+                    return null;
+                  }
+
+                  const photoRequired =
+                    answer.photoRequiredWhen === 'always' ||
+                    (answer.photoRequiredWhen === 'nao' &&
+                      answer.answer === 'nao');
+
+                  return (
+                    <div
+                      key={question.questionId}
+                      className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/35 p-4"
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            {answer.question}
+                          </p>
+                          <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                            <span className="rounded-full bg-[var(--ds-color-surface-base)] px-2 py-1 text-[var(--ds-color-text-secondary)]">
+                              {answer.requirement}
+                            </span>
+                            <span className="rounded-full bg-[var(--ds-color-warning-subtle)] px-2 py-1 text-[var(--ds-color-warning)]">
+                              Criticidade: {answer.criticality}
+                            </span>
+                            {photoRequired ? (
+                              <span className="rounded-full bg-[var(--ds-color-danger-subtle)] px-2 py-1 text-[var(--ds-color-danger)]">
+                                Foto obrigatória
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-[var(--ds-color-surface-base)] p-1">
+                          {(['sim', 'nao', 'na'] as const).map((value) => (
+                            <label
+                              key={value}
+                              className={`cursor-pointer rounded-md border px-3 py-2 text-center text-sm font-semibold transition ${
+                                answer.answer === value
+                                  ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
+                                  : 'border-[var(--ds-color-border-subtle)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                value={value}
+                                {...register(
+                                  `checklist_respostas.${answerIndex}.answer` as const,
+                                )}
+                                className="sr-only"
+                              />
+                              {formatAuditChecklistAnswer(value)}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                        <div>
+                          <label
+                            htmlFor={`checklist-observation-${question.questionId}`}
+                            className="mb-1 block text-xs font-bold text-[var(--ds-color-text-muted)]"
+                          >
+                            Observação {answer.answer === 'nao' ? '(obrigatória para Não)' : '(opcional)'}
+                          </label>
+                          <textarea
+                            id={`checklist-observation-${question.questionId}`}
+                            rows={2}
+                            {...register(
+                              `checklist_respostas.${answerIndex}.observation` as const,
+                            )}
+                            className="w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm"
+                            placeholder="Descreva evidência, exceção, justificativa de N/A ou orientação para ação corretiva."
+                          />
+                        </div>
+
+                        {answer.allowsPhoto ? (
+                          <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-3">
+                            <label
+                              htmlFor={`checklist-photo-${question.questionId}`}
+                              className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--ds-color-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
+                            >
+                              <Camera className="h-4 w-4" />
+                              Adicionar foto
+                            </label>
+                            <input
+                              id={`checklist-photo-${question.questionId}`}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              className="sr-only"
+                              onChange={(event) => {
+                                const input = event.currentTarget;
+                                void handleChecklistPhotoChange(
+                                  question.questionId,
+                                  input.files,
+                                ).finally(() => {
+                                  input.value = '';
+                                });
+                              }}
+                            />
+                            <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                              Até 3 fotos por pergunta. As imagens são comprimidas antes do envio.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 text-xs text-[var(--ds-color-text-secondary)]">
+                            Evidência fotográfica não exigida para este item.
+                          </div>
+                        )}
+                      </div>
+
+                      {answer.evidences?.length ? (
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {answer.evidences.map((evidence) => (
+                            <figure
+                              key={evidence.id}
+                              className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+                            >
+                              <NextImage
+                                src={evidence.dataUrl}
+                                alt={`Evidência fotográfica: ${evidence.fileName}`}
+                                width={320}
+                                height={128}
+                                unoptimized
+                                className="h-32 w-full object-cover"
+                              />
+                              <figcaption className="flex items-center justify-between gap-2 px-3 py-2">
+                                <span className="truncate text-xs text-[var(--ds-color-text-secondary)]">
+                                  {evidence.fileName}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeChecklistEvidence(
+                                      question.questionId,
+                                      evidence.id,
+                                    )
+                                  }
+                                  className="text-[var(--ds-color-danger)]"
+                                  aria-label={`Remover foto ${evidence.fileName}`}
+                                  title="Remover foto"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </figcaption>
+                            </figure>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+
+      {/* 9. Resultados */}
       <div className="space-y-6">
-        <h2 className="text-xl font-bold text-[var(--ds-color-text-primary)] border-b pb-2">8. Resultados da Auditoria</h2>
+        <h2 className="text-xl font-bold text-[var(--ds-color-text-primary)] border-b pb-2">9. Resultados da Auditoria</h2>
         
         {/* Conformidades */}
         <div className="rounded-xl border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-bold text-[var(--ds-color-success)]">8.1 Conformidades</h3>
+            <h3 className="font-bold text-[var(--ds-color-success)]">9.1 Conformidades</h3>
             <button
               type="button"
               onClick={() => appendConf('')}
@@ -678,7 +1181,7 @@ export function AuditForm({ id }: AuditFormProps) {
         {/* Não Conformidades */}
         <div className="rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-bold text-[var(--ds-color-danger)]">8.2 Não Conformidades</h3>
+            <h3 className="font-bold text-[var(--ds-color-danger)]">9.2 Não Conformidades</h3>
             <button
               type="button"
               onClick={() => appendNC({ descricao: '', requisito: '', evidencia: '', classificacao: 'Moderada' })}
@@ -733,7 +1236,7 @@ export function AuditForm({ id }: AuditFormProps) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold text-[var(--ds-color-text-primary)]">8.3 Observações</h3>
+              <h3 className="font-bold text-[var(--ds-color-text-primary)]">9.3 Observações</h3>
               <button
                 type="button"
                 onClick={() => appendObs('')}
@@ -761,7 +1264,7 @@ export function AuditForm({ id }: AuditFormProps) {
           </div>
           <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold text-[var(--ds-color-warning)]">8.4 Oportunidades de Melhoria</h3>
+              <h3 className="font-bold text-[var(--ds-color-warning)]">9.4 Oportunidades de Melhoria</h3>
               <button
                 type="button"
                 onClick={() => appendOp('')}
@@ -790,10 +1293,10 @@ export function AuditForm({ id }: AuditFormProps) {
         </div>
       </div>
 
-      {/* 9. Avaliação de Riscos */}
+      {/* 10. Avaliação de Riscos */}
       <div className="sst-card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">9. Avaliação de Riscos Identificados</h2>
+          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">10. Avaliação de Riscos Identificados</h2>
           <button
             type="button"
             onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
@@ -839,10 +1342,10 @@ export function AuditForm({ id }: AuditFormProps) {
         </div>
       </div>
 
-      {/* 10. Plano de Ação */}
+      {/* 11. Plano de Ação */}
       <div className="sst-card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">10. Plano de Ação</h2>
+          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">11. Plano de Ação</h2>
           <button
             type="button"
             onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
@@ -897,9 +1400,9 @@ export function AuditForm({ id }: AuditFormProps) {
         </div>
       </div>
 
-      {/* 11. Conclusão */}
+      {/* 12. Conclusão */}
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">11. Conclusão da Auditoria</h2>
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">12. Conclusão da Auditoria</h2>
         <textarea
           {...register('conclusao')}
           rows={6}

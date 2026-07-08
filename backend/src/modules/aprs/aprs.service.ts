@@ -90,6 +90,7 @@ import {
   findAprActivityTemplate,
   listAprActivityTemplateTypes,
 } from './apr-activity-templates.catalog';
+import { APR_DEFAULT_APPROVAL_STEP_TEMPLATES } from './apr-permissions.constants';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -947,26 +948,6 @@ export class AprsService {
     }
   }
 
-  private getDefaultApprovalStepTemplates() {
-    return [
-      {
-        level_order: 1,
-        title: 'Validação técnica SST',
-        approver_role: 'Técnico de Segurança do Trabalho (TST)',
-      },
-      {
-        level_order: 2,
-        title: 'Liberação da supervisão operacional',
-        approver_role: 'Supervisor / Encarregado',
-      },
-      {
-        level_order: 3,
-        title: 'Aprovação gerencial da empresa',
-        approver_role: 'Administrador da Empresa',
-      },
-    ] as const;
-  }
-
   private async ensureDefaultApprovalSteps(
     manager: EntityManager,
     aprId: string,
@@ -982,7 +963,7 @@ export class AprsService {
     }
 
     await approvalStepRepository.save(
-      this.getDefaultApprovalStepTemplates().map((step) =>
+      APR_DEFAULT_APPROVAL_STEP_TEMPLATES.map((step) =>
         approvalStepRepository.create({
           apr_id: aprId,
           level_order: step.level_order,
@@ -1267,7 +1248,6 @@ export class AprsService {
       risk_items,
     });
     this.assertAprDraftIntegrity({
-      status: createAprDto.status,
       dataInicio: createAprDto.data_inicio,
       dataFim: createAprDto.data_fim,
       participants,
@@ -1816,7 +1796,13 @@ export class AprsService {
     userId?: string,
     actor?: { roleNames?: Array<string | null | undefined> },
   ): Promise<Apr> {
-    if (updateAprDto.is_modelo_padrao) {
+    // Verifica privilégio ao promover (true) OU rebaixar (false) o template da empresa.
+    // is_modelo: false aciona o mesmo efeito via coerção na linha abaixo — ambos os
+    // vetores são bloqueados aqui, antes de qualquer mutação.
+    if (
+      updateAprDto.is_modelo_padrao !== undefined ||
+      updateAprDto.is_modelo === false
+    ) {
       this.assertCanManageCompanyTemplate(actor?.roleNames);
     }
     if ('status' in updateAprDto && updateAprDto.status !== undefined) {
@@ -2279,17 +2265,22 @@ export class AprsService {
       };
     }
 
-    // A verificação pública lê a APR do tenant dono do documento. O companyId
-    // vem de um token de validação ASSINADO (PublicValidationGrantService), então
-    // escopamos a leitura estritamente a esse tenant: a RLS libera apenas as
-    // linhas dessa empresa (isSuperAdmin=false, sem bypass cross-tenant). Sem
-    // companyId (fluxo legado) mantém o contexto atual — fail-closed sob RLS.
-    return companyId
-      ? this.tenantService.run(
-          { companyId, isSuperAdmin: false, siteScope: 'all' },
-          () => this.resolveFinalPdfVerification(normalizedCode, companyId),
-        )
-      : this.resolveFinalPdfVerification(normalizedCode, companyId);
+    // O companyId vem de um token de validação ASSINADO (PublicValidationGrantService).
+    // Sem ele o contexto de tenant seria indeterminado numa rota @Public — falha segura.
+    if (!companyId) {
+      this.logger.warn(
+        `verifyFinalPdfPublic: companyId ausente para código ${normalizedCode} — retornando inválido.`,
+      );
+      return {
+        valid: false,
+        message: 'APR não localizada para o código informado.',
+      };
+    }
+
+    return this.tenantService.run(
+      { companyId, isSuperAdmin: false, siteScope: 'all' },
+      () => this.resolveFinalPdfVerification(normalizedCode, companyId),
+    );
   }
 
   private async resolveFinalPdfVerification(

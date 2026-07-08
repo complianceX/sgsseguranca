@@ -346,9 +346,36 @@ export function DdsForm({ id }: DdsFormProps) {
       ? "O DDS já possui PDF final emitido."
       : currentDds?.status === "auditado"
         ? "O DDS já foi auditado."
-        : currentDds?.status === "arquivado"
-          ? "O DDS está arquivado."
-          : null;
+    : currentDds?.status === "arquivado"
+      ? "O DDS está arquivado."
+      : null;
+
+  const formSectionHighlights = [
+    {
+      step: "01",
+      title: "Base do DDS",
+      description: "tema, resumo e contexto operacional",
+      tone: "primary",
+    },
+    {
+      step: "02",
+      title: "Participantes",
+      description: "equipe, facilitador e assinaturas",
+      tone: "neutral",
+    },
+    {
+      step: "03",
+      title: "Evidências",
+      description: "foto da equipe e justificativa de reuso",
+      tone: "neutral",
+    },
+    {
+      step: "04",
+      title: "Aprovação",
+      description: "trilha, PDF e fechamento governado",
+      tone: "neutral",
+    },
+  ] as const;
 
   useEffect(() => {
     if (isAdminGeral) {
@@ -1238,18 +1265,84 @@ export function DdsForm({ id }: DdsFormProps) {
             </p>
           </div>
         ) : null}
+        <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.2))] px-5 py-4 backdrop-blur-sm dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                Resumo do documento
+              </p>
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {ddsReadOnly ? "Leitura controlada" : "Edição em andamento"}
+              </p>
+              <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                {ddsReadOnly
+                  ? "Os campos abaixo estão travados para manter a integridade do DDS publicado."
+                  : "Preencha os dados principais antes de avançar para participantes, fotos e aprovação."}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {currentDds?.status ? (
+                <StatusPill tone={ddsReadOnly ? "warning" : "primary"}>
+                  {currentDds.status}
+                </StatusPill>
+              ) : (
+                <StatusPill tone="neutral">Novo DDS</StatusPill>
+              )}
+              {selectedParticipantIds.length > 0 ? (
+                <StatusPill tone="success">
+                  {selectedParticipantIds.length} participante(s)
+                </StatusPill>
+              ) : null}
+              <StatusPill tone="neutral">
+                {teamPhotos.length} foto(s)
+              </StatusPill>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {formSectionHighlights.map((section) => (
+              <div
+                key={section.step}
+                className={`rounded-[var(--ds-radius-md)] border px-3 py-3 shadow-[0_1px_0_rgba(0,0,0,0.02)] ${
+                  section.tone === "primary"
+                    ? "border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8"
+                    : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/65"
+                }`}
+              >
+                <p
+                  className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                    section.tone === "primary"
+                      ? "text-[var(--ds-color-action-primary)]"
+                      : "text-[var(--ds-color-text-muted)]"
+                  }`}
+                >
+                  {section.step}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {section.title}
+                </p>
+                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  {section.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
         <fieldset
           disabled={ddsReadOnly}
           className={`space-y-8 ${ddsReadOnly ? "opacity-80" : ""}`}
         >
           <Card tone="default" padding="lg">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                  Base do DDS
+                </p>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                   Informações Básicas
                 </h2>
-                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                  Contexto mínimo do DDS para empresa, data, facilitador e tema.
+                <p className="max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
+                  Defina o contexto mínimo do DDS. A leitura precisa começar
+                  por aqui.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1280,8 +1373,8 @@ export function DdsForm({ id }: DdsFormProps) {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 p-4 md:col-span-2">
                 <label
                   htmlFor="dds-tema"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1307,7 +1400,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 p-4 md:col-span-2">
                 <label
                   htmlFor="dds-conteudo"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1328,7 +1421,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 </p>
               </div>
 
-              <div>
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/15 p-4">
                 <label
                   htmlFor="dds-data"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1345,7 +1438,7 @@ export function DdsForm({ id }: DdsFormProps) {
               </div>
 
               {isAdminGeral ? (
-                <div>
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/15 p-4">
                   <label
                     htmlFor="dds-company-id"
                     className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1400,7 +1493,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 <input type="hidden" {...register("company_id")} />
               )}
 
-              <div>
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/15 p-4">
                 <label
                   htmlFor="dds-site-id"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1448,7 +1541,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 )}
               </div>
 
-              <div>
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/15 p-4">
                 <label
                   htmlFor="dds-facilitador-id"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
@@ -1484,14 +1577,17 @@ export function DdsForm({ id }: DdsFormProps) {
           </Card>
 
           <Card tone="default" padding="lg">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                  Participação
+                </p>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                   Participantes
                 </h2>
-                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                  Ao selecionar um participante, a assinatura é capturada antes
-                  da inclusão no DDS.
+                <p className="max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
+                  Escolha quem participa e deixe a captura de assinatura
+                  explícita no fluxo.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1516,7 +1612,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 Nenhum usuário ou funcionário encontrado para esta obra
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {filteredUsers.map((user) => (
                   <button
                     key={user.id}
@@ -1559,17 +1655,20 @@ export function DdsForm({ id }: DdsFormProps) {
           </Card>
 
           <Card tone="default" padding="lg">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                  Evidências
+                </p>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                   Registro Fotográfico da Equipe
                 </h2>
-                <p className="text-xs text-[var(--ds-color-text-muted)]">
+                <p className="max-w-2xl text-sm text-[var(--ds-color-text-muted)]">
                   Use a câmera do celular para registrar presença e evidência do
                   DDS.
                 </p>
               </div>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] shadow-sm hover:brightness-110">
                 <Camera className="h-4 w-4" />
                 Adicionar Foto
                 <input
@@ -1669,45 +1768,58 @@ export function DdsForm({ id }: DdsFormProps) {
             onDdsChanged={setCurrentDds}
           />
 
-          <div className="flex justify-end space-x-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-            >
-              Cancelar
-            </Button>
-            {currentDds?.id ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={previewLoading}
-                onClick={() => void handlePreviewPdf()}
-                leftIcon={
-                  previewLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileText className="h-4 w-4" />
-                  )
-                }
-                title="Gera uma prévia do PDF com marca d'água de rascunho"
-              >
-                {previewLoading ? "Gerando..." : "Prévia PDF"}
-              </Button>
-            ) : null}
-            <Button
-              type="submit"
-              disabled={ddsReadOnly || loading || isSubmitting}
-              leftIcon={
-                loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )
-              }
-            >
-              {loading ? "Salvando..." : "Salvar DDS"}
-            </Button>
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-4 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Pronto para finalizar o bloco atual?
+                </p>
+                <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                  Revise os campos principais, confira participantes e siga para
+                  gravação governada do documento.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                >
+                  Cancelar
+                </Button>
+                {currentDds?.id ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={previewLoading}
+                    onClick={() => void handlePreviewPdf()}
+                    leftIcon={
+                      previewLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )
+                    }
+                    title="Gera uma prévia do PDF com marca d'água de rascunho"
+                  >
+                    {previewLoading ? "Gerando..." : "Prévia PDF"}
+                  </Button>
+                ) : null}
+                <Button
+                  type="submit"
+                  disabled={ddsReadOnly || loading || isSubmitting}
+                  leftIcon={
+                    loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )
+                  }
+                >
+                  {loading ? "Salvando..." : "Salvar DDS"}
+                </Button>
+              </div>
+            </div>
           </div>
         </fieldset>
 
