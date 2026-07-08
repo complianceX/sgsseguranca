@@ -40,7 +40,6 @@ interface UseAprWorkflowActionsOptions {
   evidenceLatitude: string;
   evidenceLongitude: string;
   evidenceAccuracy: string;
-  hashToVerify: string;
   formActionModal: AprFormAction | null;
   watch: UseFormWatch<AprFormData>;
   setValue: UseFormSetValue<AprFormData>;
@@ -63,14 +62,6 @@ interface UseAprWorkflowActionsOptions {
   setEvidenceAccuracy: Dispatch<SetStateAction<string>>;
   setUploadingEvidence: Dispatch<SetStateAction<boolean>>;
   setAprEvidences: Dispatch<SetStateAction<AprWorkflowEvidenceItem[]>>;
-  setVerifyingHash: Dispatch<SetStateAction<boolean>>;
-  setVerificationResult: Dispatch<
-    SetStateAction<{
-      verified: boolean;
-      matchedIn?: "original" | "watermarked";
-      message?: string;
-    } | null>
-  >;
   setFormActionModal: Dispatch<SetStateAction<AprFormAction | null>>;
   setFormActionModalLoading: Dispatch<SetStateAction<boolean>>;
   setFinalizing: Dispatch<SetStateAction<boolean>>;
@@ -90,7 +81,6 @@ export function useAprWorkflowActions({
   evidenceLatitude,
   evidenceLongitude,
   evidenceAccuracy,
-  hashToVerify,
   formActionModal,
   watch,
   setValue,
@@ -111,8 +101,6 @@ export function useAprWorkflowActions({
   setEvidenceAccuracy,
   setUploadingEvidence,
   setAprEvidences,
-  setVerifyingHash,
-  setVerificationResult,
   setFormActionModal,
   setFormActionModalLoading,
   setFinalizing,

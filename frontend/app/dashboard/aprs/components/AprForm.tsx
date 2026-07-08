@@ -285,20 +285,6 @@ const aprFieldStatCardClass =
   "rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3";
 const renderLegacyAprContext = false;
 
-const ROLE_LABELS: Record<string, string> = {
-  "ADMIN_GERAL": "Administrador Geral",
-  "TST": "Técnico de Segurança do Trabalho",
-  "SUPERVISOR": "Supervisor / Encarregado",
-  "TECNICO_SEGURANCA": "Técnico de Segurança do Trabalho",
-  "Técnico de Segurança do Trabalho (TST)": "Técnico de Segurança do Trabalho",
-  "Supervisor / Encarregado": "Supervisor / Encarregado",
-  "Administrador da Empresa": "Administrador da Empresa",
-};
-
-function formatRole(role?: string): string {
-  if (!role) return "—";
-  return ROLE_LABELS[role] ?? role;
-}
 
 /* function getCategoriaBadgeClass(categoria?: string) {
   switch (categoria) {
@@ -400,13 +386,6 @@ export function AprForm({ id }: AprFormProps) {
       integrity_flags?: Record<string, unknown>;
     }>
   >([]);
-  const [hashToVerify, setHashToVerify] = useState("");
-  const [verifyingHash, setVerifyingHash] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<{
-    verified: boolean;
-    matchedIn?: "original" | "watermarked";
-    message?: string;
-  } | null>(null);
   const [suggestingControls, setSuggestingControls] = useState(false);
   const [importingExcel, setImportingExcel] = useState(false);
   const [excelPreview, setExcelPreview] =
@@ -1926,7 +1905,6 @@ export function AprForm({ id }: AprFormProps) {
     evidenceLatitude,
     evidenceLongitude,
     evidenceAccuracy,
-    hashToVerify,
     formActionModal,
     watch,
     setValue,
@@ -1947,8 +1925,6 @@ export function AprForm({ id }: AprFormProps) {
     setEvidenceAccuracy,
     setUploadingEvidence,
     setAprEvidences,
-    setVerifyingHash,
-    setVerificationResult,
     setFormActionModal,
     setFormActionModalLoading,
     setFinalizing,

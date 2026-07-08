@@ -87,7 +87,9 @@ export class AprListItemDto {
   aprovado_por_id?: string | null;
 
   @Expose()
-  @Transform(({ obj }) => Boolean(obj.pdf_file_key))
+  @Transform(({ obj }: { obj: Record<string, unknown> }) =>
+    Boolean(obj.pdf_file_key),
+  )
   has_final_pdf: boolean;
 
   @Expose()

@@ -152,7 +152,8 @@ describe('AuditsController (http)', () => {
           sectionId: 'apr-pt-dds',
           sectionTitle: 'APR / PT / DDS',
           questionId: 'apr-antes-atividade',
-          question: 'A APR é preenchida antes do início das atividades críticas?',
+          question:
+            'A APR é preenchida antes do início das atividades críticas?',
           requirement: 'NR-01 / Procedimento APR',
           criticality: 'alta',
           answer: 'nao',
@@ -196,7 +197,8 @@ describe('AuditsController (http)', () => {
             sectionId: 'apr-pt-dds',
             sectionTitle: 'APR / PT / DDS',
             questionId: 'apr-antes-atividade',
-            question: 'A APR é preenchida antes do início das atividades críticas?',
+            question:
+              'A APR é preenchida antes do início das atividades críticas?',
             requirement: 'NR-01 / Procedimento APR',
             criticality: 'alta',
             answer: 'talvez',

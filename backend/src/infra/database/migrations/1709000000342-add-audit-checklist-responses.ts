@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAuditChecklistResponses1709000000342
-  implements MigrationInterface
-{
+export class AddAuditChecklistResponses1709000000342 implements MigrationInterface {
   name = 'AddAuditChecklistResponses1709000000342';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

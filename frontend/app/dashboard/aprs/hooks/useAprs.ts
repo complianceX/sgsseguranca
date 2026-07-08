@@ -524,7 +524,7 @@ useEffect(() => {
         });
       }
     },
-    [actionModal, loadAprs],
+    [actionModal, aprs, loadAprs],
   );
 
   const handleDelete = useCallback(

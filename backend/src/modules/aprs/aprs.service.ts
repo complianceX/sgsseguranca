@@ -2271,7 +2271,10 @@ export class AprsService {
       this.logger.warn(
         `verifyFinalPdfPublic: companyId ausente para código ${normalizedCode} — retornando inválido.`,
       );
-      return { valid: false, message: 'APR não localizada para o código informado.' };
+      return {
+        valid: false,
+        message: 'APR não localizada para o código informado.',
+      };
     }
 
     return this.tenantService.run(

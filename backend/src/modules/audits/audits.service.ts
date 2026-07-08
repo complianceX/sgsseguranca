@@ -211,8 +211,7 @@ export class AuditsService {
           .slice(0, 3)
           .map((evidence) => this.normalizeChecklistEvidence(evidence))
           .filter(
-            (evidence): evidence is AuditChecklistEvidence =>
-              evidence !== null,
+            (evidence): evidence is AuditChecklistEvidence => evidence !== null,
           );
 
         return {
