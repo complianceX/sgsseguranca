@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import pLimit from 'p-limit';
 import { FindOptionsWhere, In, Repository } from 'typeorm';
@@ -60,6 +60,30 @@ export class AprsEvidenceService {
     private readonly tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
   ) {}
+
+  private maskIpAddress(ip: string | null | undefined): string | null {
+    if (!ip) return null;
+    // Reduz IPv4 para /24 (último octeto zerado). IPv6: trunca ao /48.
+    const ipv4 = ip.replace(/^(\d+\.\d+\.\d+\.)\d+$/, '$10');
+    if (ipv4 !== ip) return ipv4;
+    // IPv6: manter só os primeiros 3 grupos
+    const ipv6 = ip.replace(/^([0-9a-fA-F:]+:){3}[0-9a-fA-F:]+$/, (m) => {
+      const parts = m.split(':');
+      return parts.slice(0, 3).join(':') + '::';
+    });
+    return ipv6 !== ip ? ipv6 : ip.replace(/[^:]+$/, '0');
+  }
+
+  private hashDeviceId(deviceId: string | null | undefined): string | null {
+    if (!deviceId?.trim()) return null;
+    const key = process.env.FIELD_ENCRYPTION_KEY ?? 'default-device-hash-key';
+    return createHmac('sha256', key).update(deviceId.trim()).digest('hex');
+  }
+
+  private roundCoordinate(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    return Math.round(value * 100) / 100; // 2 casas decimais (~1km precision)
+  }
 
   private ensureAprStatus(status: string): AprStatus {
     const knownStatuses = Object.values(AprStatus);
@@ -227,14 +251,12 @@ export class AprsEvidenceService {
         watermarked_hash_sha256: null,
         watermark_text: null,
         captured_at: parseOptionalDate(metadata.captured_at),
-        latitude:
-          typeof metadata.latitude === 'number' ? metadata.latitude : null,
-        longitude:
-          typeof metadata.longitude === 'number' ? metadata.longitude : null,
+        latitude: this.roundCoordinate(metadata.latitude),
+        longitude: this.roundCoordinate(metadata.longitude),
         accuracy_m:
           typeof metadata.accuracy_m === 'number' ? metadata.accuracy_m : null,
-        device_id: metadata.device_id?.trim() || null,
-        ip_address: ipAddress || null,
+        device_id: this.hashDeviceId(metadata.device_id),
+        ip_address: this.maskIpAddress(ipAddress),
         exif_datetime: parseOptionalDate(metadata.exif_datetime),
         integrity_flags: {
           gps:
@@ -289,15 +311,21 @@ export class AprsEvidenceService {
       };
     }
 
-    const evidence = await this.aprsRepository.manager
-      .getRepository(AprRiskEvidence)
-      .findOne({
-        where: [
-          { hash_sha256: normalizedHash },
-          { watermarked_hash_sha256: normalizedHash },
-        ],
-        relations: ['apr', 'apr_risk_item'],
-      });
+    // Rota pública sem contexto de tenant — RLS bloquearia todas as linhas.
+    // Executamos a query como super-admin (is_super_admin() = true), que é
+    // permitido pela policy RESTRICTIVE de apr_risk_evidences (migration 079).
+    // O retorno é mínimo (verified + matchedIn) — sem metadados sensíveis.
+    const evidence = await this.tenantService.run(
+      { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+      () =>
+        this.aprsRepository.manager.getRepository(AprRiskEvidence).findOne({
+          where: [
+            { hash_sha256: normalizedHash },
+            { watermarked_hash_sha256: normalizedHash },
+          ],
+          select: ['id', 'hash_sha256', 'watermarked_hash_sha256'],
+        }),
+    );
 
     if (!evidence) {
       return {

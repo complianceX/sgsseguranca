@@ -1,5 +1,6 @@
 ﻿import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -90,19 +91,21 @@ export class AprWorkflowService {
         );
       } catch (error: unknown) {
         const retryDelayMs = APR_ROW_LOCK_RETRY_DELAYS_MS[attempt];
-        if (
-          retryDelayMs === undefined ||
-          !this.isPostgresLockNotAvailableError(error)
-        ) {
+        if (!this.isPostgresLockNotAvailableError(error)) {
           throw error;
+        }
+        if (retryDelayMs === undefined) {
+          throw new ConflictException(
+            'Outra operação está em andamento para esta APR. Tente novamente em instantes.',
+          );
         }
 
         await this.waitForRetry(retryDelayMs);
       }
     }
 
-    throw new InternalServerErrorException(
-      'Falha inesperada em transição de APR',
+    throw new ConflictException(
+      'Outra operação está em andamento para esta APR. Tente novamente em instantes.',
     );
   }
 
@@ -384,7 +387,9 @@ export class AprWorkflowService {
     if (Object.values(AprStatus).includes(status as AprStatus)) {
       return status as AprStatus;
     }
-    return AprStatus.PENDENTE;
+    throw new BadRequestException(
+      `Status de APR inválido ou desconhecido: "${String(status)}". Valores aceitos: ${Object.values(AprStatus).join(', ')}.`,
+    );
   }
 
   assertAprFormMutable(apr: Apr): void {
