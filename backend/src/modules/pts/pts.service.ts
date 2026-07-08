@@ -18,12 +18,19 @@ import {
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
-import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
+import {
+  Pt,
+  PtStatus,
+  PT_ALLOWED_TRANSITIONS,
+  PtEvidencePhoto,
+  PtEvidencePhotoFase,
+} from './entities/pt.entity';
 import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
-import { CreatePtDto } from './dto/create-pt.dto';
+import { CreatePtDto, PtAtmosphericReadingDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
+import { FinalizePtDto } from './dto/finalize-pt.dto';
 import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
@@ -91,6 +98,44 @@ const PT_FINAL_PDF_ALLOWED_STATUSES = new Set<PtStatus>([
   PtStatus.EXPIRADA,
 ]);
 
+// Fotos 'durante'/'depois' acontecem após a aprovação — por isso evidências
+// continuam mutáveis em Aprovada/Expirada. O PDF final é o congelamento único.
+const PT_EVIDENCE_MUTABLE_STATUSES = new Set<PtStatus>([
+  PtStatus.PENDENTE,
+  PtStatus.APROVADA,
+  PtStatus.EXPIRADA,
+]);
+
+const GOVERNED_PT_PHOTO_REF_PREFIX = 'gst:pt-photo:';
+const GOVERNED_PT_CHECKLIST_ANEXO_REF_PREFIX = 'gst:pt-checklist-anexo:';
+
+type GovernedPtFileReferencePayload = {
+  v: 1;
+  kind: 'governed-storage';
+  scope: 'evidence' | 'checklist-anexo';
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes?: number;
+};
+
+export const PT_CHECKLIST_ATTACHMENT_FIELDS = [
+  'trabalho_altura_checklist',
+  'trabalho_eletrico_checklist',
+  'trabalho_quente_checklist',
+  'trabalho_espaco_confinado_checklist',
+  'trabalho_escavacao_checklist',
+] as const;
+
+export type PtChecklistAttachmentField =
+  (typeof PT_CHECKLIST_ATTACHMENT_FIELDS)[number];
+
+const isPtChecklistAttachmentField = (
+  value: string,
+): value is PtChecklistAttachmentField =>
+  (PT_CHECKLIST_ATTACHMENT_FIELDS as readonly string[]).includes(value);
+
 @Injectable()
 export class PtsService {
   private readonly logger = new Logger(PtsService.name);
@@ -149,6 +194,107 @@ export class PtsService {
       throw new BadRequestException(
         'A PT precisa estar aprovada, encerrada ou expirada antes do anexo do PDF final.',
       );
+    }
+  }
+
+  private assertPtEvidenceMutable(pt: Pick<Pt, 'status' | 'pdf_file_key'>) {
+    this.assertPtDocumentMutable(pt);
+
+    if (!PT_EVIDENCE_MUTABLE_STATUSES.has(pt.status as PtStatus)) {
+      throw new BadRequestException(
+        'Evidências só podem ser alteradas enquanto a PT está pendente, aprovada ou expirada.',
+      );
+    }
+  }
+
+  private encodeBase64Url(value: string): string {
+    return Buffer.from(value, 'utf8').toString('base64url');
+  }
+
+  private decodeBase64Url(value: string): string {
+    return Buffer.from(value, 'base64url').toString('utf8');
+  }
+
+  private buildGovernedPtFileReference(
+    payload: GovernedPtFileReferencePayload,
+  ): string {
+    const prefix =
+      payload.scope === 'evidence'
+        ? GOVERNED_PT_PHOTO_REF_PREFIX
+        : GOVERNED_PT_CHECKLIST_ANEXO_REF_PREFIX;
+    return `${prefix}${this.encodeBase64Url(JSON.stringify(payload))}`;
+  }
+
+  private parseGovernedPtFileReference(
+    value: string | null | undefined,
+    expectedScope: GovernedPtFileReferencePayload['scope'],
+  ): GovernedPtFileReferencePayload | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    const prefix =
+      expectedScope === 'evidence'
+        ? GOVERNED_PT_PHOTO_REF_PREFIX
+        : GOVERNED_PT_CHECKLIST_ANEXO_REF_PREFIX;
+    if (!normalized || !normalized.startsWith(prefix)) {
+      return null;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(
+        this.decodeBase64Url(normalized.slice(prefix.length)),
+      );
+    } catch {
+      throw new BadRequestException(
+        'Referência de arquivo governado inválida.',
+      );
+    }
+
+    const candidate = parsed as GovernedPtFileReferencePayload;
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      candidate.v !== 1 ||
+      candidate.kind !== 'governed-storage' ||
+      candidate.scope !== expectedScope ||
+      typeof candidate.fileKey !== 'string' ||
+      typeof candidate.originalName !== 'string' ||
+      typeof candidate.mimeType !== 'string' ||
+      typeof candidate.uploadedAt !== 'string'
+    ) {
+      throw new BadRequestException(
+        'Referência de arquivo governado inválida.',
+      );
+    }
+
+    return candidate;
+  }
+
+  /**
+   * Referências governadas de anexo são server-authoritative: o valor
+   * persistido sempre vence o enviado pelo cliente (item casado por id) —
+   * impede forjar `anexo_ref` apontando para arquivos de outros documentos.
+   */
+  private preservePersistedChecklistAnexoRefs(
+    existing: Pt,
+    incoming: Partial<Pick<Pt, PtChecklistAttachmentField>>,
+  ): void {
+    for (const field of PT_CHECKLIST_ATTACHMENT_FIELDS) {
+      const incomingItems = incoming[field];
+      if (!Array.isArray(incomingItems)) {
+        continue;
+      }
+      const persistedByItemId = new Map(
+        (existing[field] ?? []).map((item) => [item.id, item.anexo_ref]),
+      );
+      for (const item of incomingItems) {
+        const persistedRef = persistedByItemId.get(item.id);
+        if (persistedRef) {
+          item.anexo_ref = persistedRef;
+        } else {
+          delete item.anexo_ref;
+        }
+      }
     }
   }
 
@@ -421,6 +567,10 @@ export class PtsService {
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
+    // PT recém-criada não pode ter anexos governados — descarta qualquer ref do cliente.
+    for (const field of PT_CHECKLIST_ATTACHMENT_FIELDS) {
+      rest[field]?.forEach((item) => delete item.anexo_ref);
+    }
     if (new Date(rest.data_hora_fim) <= new Date(rest.data_hora_inicio)) {
       throw new BadRequestException(
         'A data/hora de término deve ser posterior à data/hora de início.',
@@ -719,7 +869,15 @@ export class PtsService {
     void this.refreshExpiredStatuses(companyId);
     const pt = await this.ptsRepository.findOne({
       where: { id, company_id: companyId },
-      relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
+      relations: [
+        'site',
+        'apr',
+        'responsavel',
+        'executantes',
+        'auditado_por',
+        'vigia',
+        'encerrado_por',
+      ],
     });
     if (!pt) {
       throw new NotFoundException(`PT com ID ${id} não encontrada`);
@@ -735,6 +893,7 @@ export class PtsService {
     this.assertPtEditableStatus(pt.status);
     this.assertPtDocumentMutable(pt);
     const { executantes, status, ...rest } = updatePtDto;
+    this.preservePersistedChecklistAnexoRefs(pt, rest);
     const effectiveInicio = rest.data_hora_inicio ?? pt.data_hora_inicio;
     const effectiveFim = rest.data_hora_fim ?? pt.data_hora_fim;
     if (
@@ -1060,7 +1219,11 @@ export class PtsService {
     return saved;
   }
 
-  async finalize(id: string, finalizedByUserId: string): Promise<Pt> {
+  async finalize(
+    id: string,
+    finalizedByUserId: string,
+    closure: FinalizePtDto,
+  ): Promise<Pt> {
     const before = await this.findOne(id);
     const saved = await this.executePtWorkflowTransition(
       id,
@@ -1071,7 +1234,24 @@ export class PtsService {
             `Transição inválida: ${pt.status} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
           );
         }
+
+        const realFim = closure.data_hora_real_fim
+          ? new Date(closure.data_hora_real_fim)
+          : new Date();
+        if (Number.isNaN(realFim.getTime())) {
+          throw new BadRequestException('Data/hora real de término inválida.');
+        }
+        if (pt.data_hora_inicio && realFim < new Date(pt.data_hora_inicio)) {
+          throw new BadRequestException(
+            'A data/hora real de término não pode ser anterior ao início da PT.',
+          );
+        }
+
         pt.status = PtStatus.ENCERRADA;
+        pt.encerrado_por_id = finalizedByUserId;
+        pt.data_hora_real_fim = realFim;
+        pt.condicao_area_encerramento = closure.condicao_area;
+        pt.observacoes_encerramento = closure.observacoes?.trim() || null;
         return manager.getRepository(Pt).save(pt);
       },
     );
@@ -1087,6 +1267,392 @@ export class PtsService {
       ptId: saved.id,
       companyId: saved.company_id,
       userId: finalizedByUserId,
+      condicaoArea: saved.condicao_area_encerramento,
+    });
+    return saved;
+  }
+
+  async attachEvidencePhoto(
+    id: string,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    meta: { fase: PtEvidencePhotoFase; legenda?: string },
+    userId?: string,
+  ): Promise<{
+    entityId: string;
+    photoIndex: number;
+    storageMode: 'governed-storage';
+    photoReference: string;
+    fase: PtEvidencePhotoFase;
+    legenda?: string;
+    photo: { originalName: string; mimeType: string };
+  }> {
+    const pt = await this.findOne(id);
+    this.assertPtEvidenceMutable(pt);
+
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      pt.company_id,
+      'pt-photos',
+      pt.id,
+      originalName,
+      { folderSegments: ['sites', pt.site_id] },
+    );
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+
+    const photoReference = this.buildGovernedPtFileReference({
+      v: 1,
+      kind: 'governed-storage',
+      scope: 'evidence',
+      fileKey,
+      originalName,
+      mimeType,
+      uploadedAt: new Date().toISOString(),
+      sizeBytes: buffer.byteLength,
+    });
+
+    const photo: PtEvidencePhoto = {
+      ref: photoReference,
+      legenda: meta.legenda?.trim() || undefined,
+      fase: meta.fase,
+      uploaded_by_id: userId || RequestContext.getUserId() || undefined,
+      uploaded_at: new Date().toISOString(),
+    };
+
+    let saved: Pt;
+    try {
+      saved = await this.executePtWorkflowTransition(
+        id,
+        async (lockedPt, manager) => {
+          this.assertPtEvidenceMutable(lockedPt);
+          lockedPt.fotos_evidencia = [
+            ...(lockedPt.fotos_evidencia ?? []),
+            photo,
+          ];
+          return manager.getRepository(Pt).save(lockedPt);
+        },
+      );
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `pt-photo:${pt.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+
+    await this.logAudit({
+      action: AuditAction.UPDATE,
+      entityId: saved.id,
+      after: { fotos_evidencia: saved.fotos_evidencia },
+      fallbackUserId: userId,
+    });
+    this.logger.log({
+      event: 'pt_evidence_photo_uploaded',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      fase: meta.fase,
+      userId,
+    });
+
+    return {
+      entityId: saved.id,
+      photoIndex: (saved.fotos_evidencia?.length ?? 1) - 1,
+      storageMode: 'governed-storage',
+      photoReference,
+      fase: photo.fase,
+      legenda: photo.legenda,
+      photo: { originalName, mimeType },
+    };
+  }
+
+  async getEvidencePhotoAccess(
+    id: string,
+    photoIndex: number,
+  ): Promise<{
+    entityId: string;
+    photoIndex: number;
+    fase: PtEvidencePhotoFase;
+    legenda?: string;
+    originalName: string;
+    mimeType: string;
+    url: string | null;
+    degraded: boolean;
+  }> {
+    const pt = await this.findOne(id);
+    const photo = pt.fotos_evidencia?.[photoIndex];
+    if (!photo) {
+      throw new NotFoundException('Foto de evidência não encontrada.');
+    }
+
+    const payload = this.parseGovernedPtFileReference(photo.ref, 'evidence');
+    if (!payload) {
+      throw new NotFoundException('Foto de evidência não encontrada.');
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        payload.fileKey,
+        3600,
+      );
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: pt.id,
+      photoIndex,
+      fase: photo.fase,
+      legenda: photo.legenda,
+      originalName: payload.originalName,
+      mimeType: payload.mimeType,
+      url,
+      degraded: url === null,
+    };
+  }
+
+  async removeEvidencePhoto(
+    id: string,
+    photoIndex: number,
+    userId?: string,
+  ): Promise<{ entityId: string; removed: true; remaining: number }> {
+    const saved = await this.executePtWorkflowTransition(
+      id,
+      async (pt, manager) => {
+        this.assertPtEvidenceMutable(pt);
+        const photos = pt.fotos_evidencia ?? [];
+        const photo = photos[photoIndex];
+        if (!photo) {
+          throw new NotFoundException('Foto de evidência não encontrada.');
+        }
+
+        const payload = this.parseGovernedPtFileReference(
+          photo.ref,
+          'evidence',
+        );
+        if (payload) {
+          await cleanupUploadedFile(
+            this.logger,
+            `pt-photo-remove:${pt.id}`,
+            payload.fileKey,
+            (key) => this.documentStorageService.deleteFile(key),
+          );
+        }
+
+        pt.fotos_evidencia = photos.filter((_, index) => index !== photoIndex);
+        return manager.getRepository(Pt).save(pt);
+      },
+    );
+
+    this.logger.log({
+      event: 'pt_evidence_photo_removed',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      photoIndex,
+      userId,
+    });
+
+    return {
+      entityId: saved.id,
+      removed: true,
+      remaining: saved.fotos_evidencia?.length ?? 0,
+    };
+  }
+
+  async attachChecklistItemAttachment(
+    id: string,
+    checklistField: string,
+    itemIndex: number,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    userId?: string,
+  ): Promise<{
+    entityId: string;
+    checklistField: PtChecklistAttachmentField;
+    itemIndex: number;
+    storageMode: 'governed-storage';
+    anexoReference: string;
+    anexoNome: string;
+  }> {
+    if (!isPtChecklistAttachmentField(checklistField)) {
+      throw new BadRequestException('Checklist inválido para anexo.');
+    }
+
+    const pt = await this.findOne(id);
+    this.assertPtEditableStatus(pt.status);
+    this.assertPtDocumentMutable(pt);
+    const existingItem = pt[checklistField]?.[itemIndex];
+    if (!existingItem) {
+      throw new NotFoundException('Item de checklist não encontrado.');
+    }
+
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      pt.company_id,
+      'pt-checklist-anexos',
+      pt.id,
+      originalName,
+      { folderSegments: ['sites', pt.site_id] },
+    );
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+
+    const anexoReference = this.buildGovernedPtFileReference({
+      v: 1,
+      kind: 'governed-storage',
+      scope: 'checklist-anexo',
+      fileKey,
+      originalName,
+      mimeType,
+      uploadedAt: new Date().toISOString(),
+      sizeBytes: buffer.byteLength,
+    });
+
+    let saved: Pt;
+    try {
+      saved = await this.executePtWorkflowTransition(
+        id,
+        async (lockedPt, manager) => {
+          this.assertPtEditableStatus(lockedPt.status);
+          this.assertPtDocumentMutable(lockedPt);
+          const items = lockedPt[checklistField] ?? [];
+          const item = items[itemIndex];
+          if (!item) {
+            throw new NotFoundException('Item de checklist não encontrado.');
+          }
+
+          const previousRef = this.parseGovernedPtFileReference(
+            item.anexo_ref,
+            'checklist-anexo',
+          );
+          if (previousRef) {
+            await cleanupUploadedFile(
+              this.logger,
+              `pt-checklist-anexo-replace:${lockedPt.id}`,
+              previousRef.fileKey,
+              (key) => this.documentStorageService.deleteFile(key),
+            );
+          }
+
+          item.anexo_ref = anexoReference;
+          item.anexo_nome = originalName;
+          lockedPt[checklistField] = [...items];
+          return manager.getRepository(Pt).save(lockedPt);
+        },
+      );
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `pt-checklist-anexo:${pt.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+
+    this.logger.log({
+      event: 'pt_checklist_anexo_uploaded',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      checklistField,
+      itemIndex,
+      userId,
+    });
+
+    return {
+      entityId: saved.id,
+      checklistField,
+      itemIndex,
+      storageMode: 'governed-storage',
+      anexoReference,
+      anexoNome: originalName,
+    };
+  }
+
+  async getChecklistItemAttachmentAccess(
+    id: string,
+    checklistField: string,
+    itemIndex: number,
+  ): Promise<{
+    entityId: string;
+    checklistField: PtChecklistAttachmentField;
+    itemIndex: number;
+    originalName: string;
+    mimeType: string;
+    url: string | null;
+    degraded: boolean;
+  }> {
+    if (!isPtChecklistAttachmentField(checklistField)) {
+      throw new BadRequestException('Checklist inválido para anexo.');
+    }
+
+    const pt = await this.findOne(id);
+    const item = pt[checklistField]?.[itemIndex];
+    const payload = this.parseGovernedPtFileReference(
+      item?.anexo_ref,
+      'checklist-anexo',
+    );
+    if (!item || !payload) {
+      throw new NotFoundException('Anexo do item de checklist não encontrado.');
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        payload.fileKey,
+        3600,
+      );
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: pt.id,
+      checklistField,
+      itemIndex,
+      originalName: payload.originalName,
+      mimeType: payload.mimeType,
+      url,
+      degraded: url === null,
+    };
+  }
+
+  async appendAtmosphericReading(
+    id: string,
+    reading: PtAtmosphericReadingDto,
+    userId?: string,
+  ): Promise<Pt> {
+    const saved = await this.executePtWorkflowTransition(
+      id,
+      async (pt, manager) => {
+        this.assertPtDocumentMutable(pt);
+        const status = pt.status as PtStatus;
+        if (status !== PtStatus.PENDENTE && status !== PtStatus.APROVADA) {
+          throw new BadRequestException(
+            'Medições atmosféricas só podem ser registradas em PTs pendentes ou aprovadas.',
+          );
+        }
+
+        pt.medicoes_atmosfericas = [
+          ...(pt.medicoes_atmosfericas ?? []),
+          { ...reading },
+        ];
+        return manager.getRepository(Pt).save(pt);
+      },
+    );
+
+    await this.logAudit({
+      action: AuditAction.UPDATE,
+      entityId: saved.id,
+      after: { medicoes_atmosfericas: saved.medicoes_atmosfericas },
+      fallbackUserId: userId,
+    });
+    this.logger.log({
+      event: 'pt_atmospheric_reading_appended',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      userId,
     });
     return saved;
   }

@@ -10,6 +10,7 @@ import { PtsFilters } from './components/PtsFilters';
 import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
 import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
+import { PtClosureModal } from './components/PtClosureModal';
 import { ptsService } from '@/services/ptsService';
 import { companiesService } from '@/services/companiesService';
 import { PaginationControls } from '@/components/PaginationControls';
@@ -87,6 +88,9 @@ export default function PtsPage() {
     handleApprove,
     handleReject,
     handleFinalize,
+    closingPt,
+    setClosingPt,
+    confirmFinalize,
     loadPts,
   } = usePts();
 
@@ -350,6 +354,13 @@ export default function PtsPage() {
         description="Esta ação é irreversível. A Permissão de Trabalho e todos os dados associados serão removidos permanentemente."
         confirmLabel="Excluir"
         loading={deleteLoading}
+      />
+
+      <PtClosureModal
+        pt={closingPt}
+        loading={Boolean(finalizingId)}
+        onClose={() => setClosingPt(null)}
+        onConfirm={(payload) => void confirmFinalize(payload)}
       />
     </>
   );

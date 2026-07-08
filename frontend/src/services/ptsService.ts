@@ -41,6 +41,115 @@ export function isPtOfflineSignatureBlockedError(
   return payload?.code === 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
 }
 
+type PtOfflineUploadErrorPayload = {
+  code: 'PT_OFFLINE_UPLOAD_NOT_SUPPORTED';
+  message: string;
+};
+
+const PT_OFFLINE_UPLOAD_MESSAGE =
+  'Envio de fotos, anexos e encerramento da PT exigem conexão ativa. Tente novamente quando estiver online.';
+
+function createPtOfflineUploadBlockedError(): AxiosError<PtOfflineUploadErrorPayload> {
+  const error = new Error(PT_OFFLINE_UPLOAD_MESSAGE) as AxiosError<PtOfflineUploadErrorPayload>;
+  error.name = 'AxiosError';
+  Object.assign(error, {
+    isAxiosError: true,
+    response: {
+      status: 400,
+      data: {
+        code: 'PT_OFFLINE_UPLOAD_NOT_SUPPORTED',
+        message: PT_OFFLINE_UPLOAD_MESSAGE,
+      },
+    },
+  });
+  return error;
+}
+
+export function isPtOfflineUploadBlockedError(
+  error: unknown,
+): error is AxiosError<PtOfflineUploadErrorPayload> {
+  const payload = (error as AxiosError<PtOfflineUploadErrorPayload>)?.response?.data;
+  return payload?.code === 'PT_OFFLINE_UPLOAD_NOT_SUPPORTED';
+}
+
+async function rethrowOfflineUploadAware<T>(request: () => Promise<T>): Promise<T> {
+  try {
+    return await request();
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    if (axiosError.code === 'ERR_NETWORK') {
+      throw createPtOfflineUploadBlockedError();
+    }
+    throw error;
+  }
+}
+
+export type PtEvidencePhotoFase = 'antes' | 'durante' | 'depois';
+
+export const PT_EVIDENCE_FASE_LABELS: Record<PtEvidencePhotoFase, string> = {
+  antes: 'Antes da atividade',
+  durante: 'Durante a atividade',
+  depois: 'Depois da atividade',
+};
+
+export type PtCondicaoArea =
+  | 'Limpa e liberada'
+  | 'Isolada com pendências'
+  | 'Outro';
+
+export const PT_CONDICOES_AREA: PtCondicaoArea[] = [
+  'Limpa e liberada',
+  'Isolada com pendências',
+  'Outro',
+];
+
+export interface PtEvidencePhoto {
+  ref: string;
+  legenda?: string;
+  fase: PtEvidencePhotoFase;
+  uploaded_by_id?: string;
+  uploaded_at: string;
+}
+
+export interface PtAtmosphericReading {
+  id: string;
+  hora: string;
+  oxigenio: number;
+  inflamaveis_lel: number;
+  co: number;
+  h2s: number;
+  instrumento: string;
+  responsavel: string;
+}
+
+export type PtChecklistAttachmentField =
+  | 'trabalho_altura_checklist'
+  | 'trabalho_eletrico_checklist'
+  | 'trabalho_quente_checklist'
+  | 'trabalho_espaco_confinado_checklist'
+  | 'trabalho_escavacao_checklist';
+
+export interface PtEvidencePhotoAccessResponse {
+  entityId: string;
+  photoIndex: number;
+  fase: PtEvidencePhotoFase;
+  legenda?: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+}
+
+export interface PtChecklistAttachmentAccessResponse {
+  entityId: string;
+  checklistField: PtChecklistAttachmentField;
+  itemIndex: number;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+}
+
 export interface Pt {
   id: string;
   numero: string;
@@ -74,6 +183,7 @@ export interface Pt {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
   trabalho_eletrico_checklist?: Array<{
     id: string;
@@ -81,6 +191,7 @@ export interface Pt {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
   trabalho_quente_checklist?: Array<{
     id: string;
@@ -88,20 +199,25 @@ export interface Pt {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
   trabalho_espaco_confinado_checklist?: Array<{
     id: string;
     pergunta: string;
+    section?: string;
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
   trabalho_escavacao_checklist?: Array<{
     id: string;
     pergunta: string;
+    section?: string;
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
   recomendacoes_gerais_checklist?: Array<{
     id: string;
@@ -116,6 +232,20 @@ export interface Pt {
     resposta?: 'Sim' | 'Não';
   }>;
   analise_risco_rapida_observacoes?: string;
+  fotos_evidencia?: PtEvidencePhoto[];
+  medicoes_atmosfericas?: PtAtmosphericReading[];
+  epis_obrigatorios?: string[];
+  contato_emergencia?: string;
+  plano_resgate?: string;
+  ponto_encontro?: string;
+  vigia_user_id?: string;
+  vigia_nome?: string;
+  vigia?: { nome: string };
+  encerrado_por_id?: string;
+  encerrado_por?: { nome: string };
+  data_hora_real_fim?: string;
+  condicao_area_encerramento?: PtCondicaoArea;
+  observacoes_encerramento?: string;
   auditado_por_id?: string;
   data_auditoria?: string;
   resultado_auditoria?: string;
@@ -395,9 +525,110 @@ export const ptsService = {
     return response.data;
   },
 
-  finalize: async (id: string) => {
-    const response = await api.post<Pt>(`/pts/${id}/finalize`);
+  finalize: async (
+    id: string,
+    payload: {
+      condicao_area: PtCondicaoArea;
+      data_hora_real_fim?: string;
+      observacoes?: string;
+    },
+  ) => {
+    return rethrowOfflineUploadAware(async () => {
+      const response = await api.post<Pt>(`/pts/${id}/finalize`, payload);
+      return response.data;
+    });
+  },
+
+  attachEvidencePhoto: async (
+    id: string,
+    file: File,
+    meta: { fase: PtEvidencePhotoFase; legenda?: string },
+  ) => {
+    return rethrowOfflineUploadAware(async () => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fase', meta.fase);
+      if (meta.legenda?.trim()) {
+        formData.append('legenda', meta.legenda.trim());
+      }
+      const response = await api.post(`/pts/${id}/photos`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data as {
+        entityId: string;
+        photoIndex: number;
+        photoReference: string;
+        fase: PtEvidencePhotoFase;
+        legenda?: string;
+        photo: { originalName: string; mimeType: string };
+      };
+    });
+  },
+
+  getEvidencePhotoAccess: async (id: string, photoIndex: number) => {
+    const response = await api.get<PtEvidencePhotoAccessResponse>(
+      `/pts/${id}/photos/${photoIndex}/access`,
+    );
     return response.data;
+  },
+
+  removeEvidencePhoto: async (id: string, photoIndex: number) => {
+    return rethrowOfflineUploadAware(async () => {
+      const response = await api.delete(`/pts/${id}/photos/${photoIndex}`);
+      return response.data as {
+        entityId: string;
+        removed: true;
+        remaining: number;
+      };
+    });
+  },
+
+  attachChecklistItemFile: async (
+    id: string,
+    checklistField: PtChecklistAttachmentField,
+    itemIndex: number,
+    file: File,
+  ) => {
+    return rethrowOfflineUploadAware(async () => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post(
+        `/pts/${id}/checklists/${checklistField}/items/${itemIndex}/attachment`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      return response.data as {
+        entityId: string;
+        checklistField: PtChecklistAttachmentField;
+        itemIndex: number;
+        anexoReference: string;
+        anexoNome: string;
+      };
+    });
+  },
+
+  getChecklistItemAttachmentAccess: async (
+    id: string,
+    checklistField: PtChecklistAttachmentField,
+    itemIndex: number,
+  ) => {
+    const response = await api.get<PtChecklistAttachmentAccessResponse>(
+      `/pts/${id}/checklists/${checklistField}/items/${itemIndex}/attachment/access`,
+    );
+    return response.data;
+  },
+
+  appendAtmosphericReading: async (
+    id: string,
+    reading: PtAtmosphericReading,
+  ) => {
+    return rethrowOfflineUploadAware(async () => {
+      const response = await api.post<Pt>(
+        `/pts/${id}/atmospheric-readings`,
+        reading,
+      );
+      return response.data;
+    });
   },
 
   attachFile: async (id: string, file: File) => {

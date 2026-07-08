@@ -8,6 +8,7 @@ import {
   PtApprovalBlockedPayload,
   PtApprovalRules,
   PtAnalyticsOverview,
+  PtCondicaoArea,
   ptsService,
 } from '@/services/ptsService';
 import { aiService } from '@/services/aiService';
@@ -108,6 +109,7 @@ const timerRef = useRef<number | undefined>(undefined);
     string | null
   >(null);
   const [finalizingId, setFinalizingId] = useState<string | null>(null);
+  const [closingPt, setClosingPt] = useState<Pt | null>(null);
   const [approvalReviewById, setApprovalReviewById] = useState<
     Record<string, PtApprovalReview>
   >({});
@@ -478,6 +480,19 @@ useEffect(() => {
           );
         });
 
+      // Avisos NR-33/registro fotográfico — não bloqueiam a aprovação porque a
+      // medição inicial e as fotos 'durante'/'depois' ocorrem após a liberação.
+      if (pt.espaco_confinado && !(pt.medicoes_atmosfericas?.length)) {
+        warnings.push(
+          'Espaço confinado sem medição atmosférica registrada (NR-33). Registre a leitura inicial antes da entrada.',
+        );
+      }
+      if (!pt.fotos_evidencia?.some((foto) => foto.fase === 'antes')) {
+        warnings.push(
+          'Nenhuma foto "antes da atividade" anexada como evidência da área.',
+        );
+      }
+
       return {
         readyForRelease: blockers.length === 0,
         blockers,
@@ -752,25 +767,46 @@ useEffect(() => {
     }
   }, [dismissApprovalIssue, loadOverview, loadPts]);
 
-  const handleFinalize = useCallback(async (id: string) => {
-    if (!confirm('Tem certeza que deseja encerrar esta PT?')) {
-      return;
-    }
+  const handleFinalize = useCallback(
+    (id: string) => {
+      const target = pts.find((pt) => pt.id === id) ?? null;
+      if (!target) {
+        toast.error('PT não encontrada para encerramento.');
+        return;
+      }
+      setClosingPt(target);
+    },
+    [pts],
+  );
 
-    setFinalizingId(id);
-    try {
-      await ptsService.finalize(id);
-      dismissApprovalIssue(id);
-      dismissApprovalReview(id);
-      toast.success('PT encerrada com sucesso.');
-      await loadPts();
-      void loadOverview();
-    } catch (error) {
-      handleApiError(error, 'PT');
-    } finally {
-      setFinalizingId((current) => (current === id ? null : current));
-    }
-  }, [dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts]);
+  const confirmFinalize = useCallback(
+    async (payload: {
+      condicao_area: PtCondicaoArea;
+      data_hora_real_fim?: string;
+      observacoes?: string;
+    }) => {
+      const target = closingPt;
+      if (!target) return;
+
+      setFinalizingId(target.id);
+      try {
+        await ptsService.finalize(target.id, payload);
+        dismissApprovalIssue(target.id);
+        dismissApprovalReview(target.id);
+        toast.success('PT encerrada com sucesso.');
+        setClosingPt(null);
+        await loadPts();
+        void loadOverview();
+      } catch (error) {
+        handleApiError(error, 'PT');
+      } finally {
+        setFinalizingId((current) =>
+          current === target.id ? null : current,
+        );
+      }
+    },
+    [closingPt, dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts],
+  );
 
   // Filtering is now server-side — pts already contains the filtered page
   const filteredPts = pts;
@@ -819,6 +855,9 @@ useEffect(() => {
     handleApprove,
     handleReject,
     handleFinalize,
+    closingPt,
+    setClosingPt,
+    confirmFinalize,
     loadPts,
   };
 }
