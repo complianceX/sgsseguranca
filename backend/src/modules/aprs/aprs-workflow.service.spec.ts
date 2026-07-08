@@ -98,6 +98,10 @@ describe('AprWorkflowService', () => {
     save: jest.Mock;
     create: jest.Mock;
   };
+  let notificationsService: {
+    create: jest.Mock;
+    notifyEligibleApprovers: jest.Mock;
+  };
   let tenantService: { getTenantId: jest.Mock };
   let forensicTrailService: { append: jest.Mock };
   let service: AprWorkflowService;
@@ -125,6 +129,10 @@ describe('AprWorkflowService', () => {
 
     tenantService = { getTenantId: jest.fn().mockReturnValue('company-1') };
     forensicTrailService = { append: jest.fn() };
+    notificationsService = {
+      create: jest.fn().mockResolvedValue(undefined),
+      notifyEligibleApprovers: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new AprWorkflowService(
       aprsRepository as never,
@@ -132,6 +140,7 @@ describe('AprWorkflowService', () => {
       approvalRecordRepo as never,
       tenantService as never,
       forensicTrailService as never,
+      notificationsService as never,
     );
   });
 
@@ -563,7 +572,9 @@ describe('AprWorkflowService', () => {
           ),
         );
 
-      await service.reject('apr-1', 'user-1', 'Motivo suficientemente longo');
+      await service.reject('apr-1', 'user-1', 'Motivo suficientemente longo', {
+        roleName: 'Técnico de Segurança do Trabalho (TST)',
+      });
       expect(forensicTrailService.append).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: expect.stringContaining('CANCEL'),
@@ -862,6 +873,102 @@ describe('AprWorkflowService', () => {
 
       expect(createdSteps.length).toBeGreaterThan(0);
     });
+
+    it('ator com roleName null não é tratado como privilegiado', async () => {
+      const steps = [
+        makeStep({
+          approver_role: 'Técnico de Segurança do Trabalho (TST)',
+          status: AprApprovalStepStatus.PENDING,
+        }),
+      ];
+
+      jest
+        .spyOn(service, 'executeAprWorkflowTransition')
+        .mockImplementation(async (_id, fn) =>
+          fn(
+            makeApr() as never,
+            {
+              query: jest
+                .fn()
+                .mockResolvedValueOnce([{ count: '1' }])
+                .mockResolvedValueOnce([
+                  {
+                    count: '1',
+                    sem_atividade: '0',
+                    sem_agente: '0',
+                    sem_medidas: '0',
+                    sem_responsavel: '0',
+                  },
+                ]),
+              getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'AprApprovalStep') {
+                  return {
+                    find: jest.fn(() => Promise.resolve(steps)),
+                    save: jest.fn((i: unknown) => Promise.resolve(i)),
+                    create: jest.fn((i: unknown) => i),
+                  };
+                }
+                return {
+                  save: jest.fn((i: unknown) => Promise.resolve(i)),
+                  create: jest.fn((i: unknown) => i),
+                };
+              }),
+            } as never,
+          ),
+        );
+
+      await expect(
+        service.approve('apr-1', 'user-1', 'ok', { roleName: null }),
+      ).rejects.toThrow('A próxima etapa de aprovação exige o perfil');
+    });
+
+    it('ator com roleName undefined não é tratado como privilegiado', async () => {
+      const steps = [
+        makeStep({
+          approver_role: 'Técnico de Segurança do Trabalho (TST)',
+          status: AprApprovalStepStatus.PENDING,
+        }),
+      ];
+
+      jest
+        .spyOn(service, 'executeAprWorkflowTransition')
+        .mockImplementation(async (_id, fn) =>
+          fn(
+            makeApr() as never,
+            {
+              query: jest
+                .fn()
+                .mockResolvedValueOnce([{ count: '1' }])
+                .mockResolvedValueOnce([
+                  {
+                    count: '1',
+                    sem_atividade: '0',
+                    sem_agente: '0',
+                    sem_medidas: '0',
+                    sem_responsavel: '0',
+                  },
+                ]),
+              getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'AprApprovalStep') {
+                  return {
+                    find: jest.fn(() => Promise.resolve(steps)),
+                    save: jest.fn((i: unknown) => Promise.resolve(i)),
+                    create: jest.fn((i: unknown) => i),
+                  };
+                }
+                return {
+                  save: jest.fn((i: unknown) => Promise.resolve(i)),
+                  create: jest.fn((i: unknown) => i),
+                };
+              }),
+            } as never,
+          ),
+        );
+
+      await expect(
+        service.approve('apr-1', 'user-1', 'ok', {}),
+      ).rejects.toThrow('A próxima etapa de aprovação exige o perfil');
+    });
   });
 
   // ─── finalize ────────────────────────────────────────────────────────────
@@ -1098,6 +1205,7 @@ describe('AprWorkflowService', () => {
         approvalRecordRepo as never,
         tenantService as never,
         forensicTrailService as never,
+        notificationsService as never,
         mockResolver as never,
       );
 
@@ -1120,6 +1228,7 @@ describe('AprWorkflowService', () => {
         approvalRecordRepo as never,
         tenantService as never,
         forensicTrailService as never,
+        notificationsService as never,
         mockResolver as never,
       );
 
@@ -1142,6 +1251,7 @@ describe('AprWorkflowService', () => {
         approvalRecordRepo as never,
         tenantService as never,
         forensicTrailService as never,
+        notificationsService as never,
         mockResolver as never,
       );
 
@@ -1186,6 +1296,7 @@ describe('AprWorkflowService', () => {
         approvalRecordRepo as never,
         tenantService as never,
         forensicTrailService as never,
+        notificationsService as never,
         { resolveWorkflow: jest.fn(), isFallback: jest.fn() } as never,
       );
 

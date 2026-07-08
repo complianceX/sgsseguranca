@@ -46,6 +46,8 @@ import { AprApprovalRecord } from './entities/apr-approval-record.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
+import { User } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 jest.setTimeout(15000);
 
@@ -904,6 +906,22 @@ describe('APR lock (http integration)', () => {
             save: jest.fn((input) => Promise.resolve(input)),
             find: jest.fn().mockResolvedValue([]),
           },
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              innerJoin: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              getMany: jest.fn().mockResolvedValue([]),
+            }),
+            findOne: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { create: jest.fn().mockResolvedValue(undefined) },
         },
         {
           provide: getRepositoryToken(Signature),

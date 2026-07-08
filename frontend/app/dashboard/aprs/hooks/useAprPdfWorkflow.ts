@@ -121,7 +121,7 @@ export function useAprPdfWorkflow({
       toast.info("Preparando impressão da APR...");
       const current = await aprsService.findOne(aprId);
       const shouldUseGovernedPdf =
-        Boolean(current.pdf_file_key) || current.status === "Aprovada";
+        Boolean(current.has_final_pdf) || current.status === "Aprovada";
 
       if (shouldUseGovernedPdf) {
         const access = await ensureGovernedPdf(current);

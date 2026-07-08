@@ -237,6 +237,7 @@ export const nonConformitiesService = {
     page?: number;
     limit?: number;
     search?: string;
+    status?: string;
   }): Promise<PaginatedResponse<NonConformity>> => {
     const response = await api.get<PaginatedResponse<NonConformity>>(
       "/nonconformities",
@@ -245,6 +246,7 @@ export const nonConformitiesService = {
           page: opts?.page ?? 1,
           limit: opts?.limit ?? 20,
           ...(opts?.search ? { search: opts.search } : {}),
+          ...(opts?.status ? { status: opts.status } : {}),
         },
       },
     );

@@ -35,7 +35,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
-  fileUploadOptions,
   inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
@@ -70,6 +69,7 @@ export class NonConformitiesController {
       page: query.page ?? 1,
       limit: query.limit ?? 20,
       search: query.search,
+      status: query.status,
     });
   }
 
@@ -151,7 +151,12 @@ export class NonConformitiesController {
 
   @Post(':id/file')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @UseInterceptors(FileInterceptor('file', fileUploadOptions))
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 20 * 1024 * 1024 }),
+    ),
+  )
   @Authorize('can_manage_nc')
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,

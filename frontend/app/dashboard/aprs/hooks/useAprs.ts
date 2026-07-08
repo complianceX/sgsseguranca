@@ -1,7 +1,7 @@
 'use client';
 import { logger } from "@/lib/logger";
 
-import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import { isAxiosError } from "axios";
 import { aprsService, Apr } from "@/services/aprsService";
 import { aiService } from "@/services/aiService";
@@ -12,6 +12,8 @@ import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled, isAprAnalyticsEnabled } from "@/lib/featureFlags";
 import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
 import { AprDueFilter, AprSortOption } from "../components/aprListingUtils";
+
+type AprContextFilter = "minhas" | "vence-hoje" | "preciso-assinar" | "";
 
 interface Insight {
   type: "warning" | "success" | "info";
@@ -36,6 +38,7 @@ type UseAprsOptions = {
   initialDueFilter?: AprDueFilter;
   initialSortBy?: AprSortOption;
   initialPage?: number;
+  initialContextFilter?: AprContextFilter;
 };
 
 type AprActionKind =
@@ -89,8 +92,10 @@ async function loadAprPdfGenerator() {
 
 export function useAprs(options?: UseAprsOptions) {
   const [aprs, setAprs] = useState<Apr[]>([]);
-const timerRef = useRef<number | undefined>(undefined);
+  const aprsCountRef = useRef(0);
+  aprsCountRef.current = aprs.length;
   const [loading, setLoading] = useState(true);
+  const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [overviewMetrics, setOverviewMetrics] =
     useState<AprOverviewMetrics | null>(null);
@@ -112,6 +117,9 @@ const timerRef = useRef<number | undefined>(undefined);
   );
   const [sortBy, setSortBy] = useState<AprSortOption>(
     options?.initialSortBy || "priority",
+  );
+  const [contextFilter, setContextFilter] = useState<AprContextFilter>(
+    options?.initialContextFilter || "",
   );
   const [insights, setInsights] = useState<Insight[]>([]);
   const [page, setPage] = useState(options?.initialPage || 1);
@@ -145,7 +153,11 @@ const timerRef = useRef<number | undefined>(undefined);
 
   const loadAprs = useCallback(async () => {
     try {
-      setLoading(true);
+      // Se ja temos dados (refetch), usa indicator de refetching ao inves de skeleton de loading inicial
+      setLoading((prev) => {
+        setRefetching(aprsCountRef.current > 0 && !prev);
+        return true;
+      });
       setLoadError(null);
       const res = await aprsService.findPaginated({
         page,
@@ -156,6 +168,7 @@ const timerRef = useRef<number | undefined>(undefined);
         responsibleId: responsibleFilter || undefined,
         dueFilter: dueFilter || undefined,
         sort: sortBy,
+        contextFilter: contextFilter || undefined,
       });
       setAprs(res.data);
       setTotal(res.total);
@@ -165,6 +178,7 @@ const timerRef = useRef<number | undefined>(undefined);
       // Não duplica toast — resolveLoadError já fornece mensagem para o ErrorState na UI
     } finally {
       setLoading(false);
+      setRefetching(false);
     }
   }, [
     page,
@@ -175,6 +189,7 @@ const timerRef = useRef<number | undefined>(undefined);
     responsibleFilter,
     dueFilter,
     sortBy,
+    contextFilter,
   ]);
 
   const loadOverview = useCallback(async () => {
@@ -199,17 +214,6 @@ const timerRef = useRef<number | undefined>(undefined);
     }
   }, []);
 
-  // Reset page when filters change
-  useEffect(() => {
-    const timer = timerRef.current;
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, []);
-
 useEffect(() => {
     setPage(1);
   }, [
@@ -219,6 +223,7 @@ useEffect(() => {
     responsibleFilter,
     dueFilter,
     sortBy,
+    contextFilter,
   ]);
 
   const loadInsights = useCallback(async () => {
@@ -327,7 +332,7 @@ useEffect(() => {
           aprs.find((item) => item.id === id) ||
           (await aprsService.findOne(id));
         const shouldUseGovernedPdf =
-          Boolean(apr.pdf_file_key) || apr.status === "Aprovada";
+          Boolean(apr.has_final_pdf) || apr.status === "Aprovada";
 
         if (shouldUseGovernedPdf) {
           const access = await ensureGovernedPdf(apr);
@@ -361,7 +366,7 @@ useEffect(() => {
           aprs.find((item) => item.id === apr.id) ||
           (await aprsService.findOne(apr.id));
         const shouldUseGovernedPdf =
-          Boolean(currentApr.pdf_file_key) || currentApr.status === "Aprovada";
+          Boolean(currentApr.has_final_pdf) || currentApr.status === "Aprovada";
 
         if (shouldUseGovernedPdf) {
           const access = await ensureGovernedPdf(currentApr);
@@ -405,7 +410,7 @@ useEffect(() => {
           aprs.find((item) => item.id === id) ||
           (await aprsService.findOne(id));
         const shouldUseGovernedPdf =
-          Boolean(apr.pdf_file_key) || apr.status === "Aprovada";
+          Boolean(apr.has_final_pdf) || apr.status === "Aprovada";
 
         if (shouldUseGovernedPdf) {
           const access = await ensureGovernedPdf(apr);
@@ -462,7 +467,10 @@ useEffect(() => {
           setAprs((prev) => prev.filter((item) => item.id !== aprId));
           toast.success("APR excluída com sucesso!");
         } else if (action === "approve") {
-          const updated = await aprsService.approve(aprId);
+          const aprObj = aprs.find((item) => item.id === aprId);
+          const updated = aprObj?.workflowConfigId
+            ? await aprsService.workflowApprove(aprId)
+            : await aprsService.approve(aprId);
           setAprs((prev) =>
             prev.map((item) => (item.id === updated.id ? updated : item)),
           );
@@ -485,7 +493,10 @@ useEffect(() => {
             );
             return;
           }
-          const updated = await aprsService.reject(aprId, rejectReason);
+          const aprObj = aprs.find((item) => item.id === aprId);
+          const updated = aprObj?.workflowConfigId
+            ? await aprsService.workflowReject(aprId, rejectReason)
+            : await aprsService.reject(aprId, rejectReason);
           setAprs((prev) =>
             prev.map((item) => (item.id === updated.id ? updated : item)),
           );
@@ -513,7 +524,7 @@ useEffect(() => {
         });
       }
     },
-    [actionModal, loadAprs],
+    [actionModal, aprs, loadAprs],
   );
 
   const handleDelete = useCallback(
@@ -554,6 +565,7 @@ useEffect(() => {
   return {
     aprs,
     loading,
+    refetching,
     loadError,
     searchTerm,
     setSearchTerm,
@@ -567,6 +579,8 @@ useEffect(() => {
     setDueFilter,
     sortBy,
     setSortBy,
+    contextFilter,
+    setContextFilter,
     insights,
     overviewMetrics,
     page,
@@ -594,3 +608,5 @@ useEffect(() => {
     loadAprs,
   };
 }
+
+

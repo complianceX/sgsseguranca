@@ -92,11 +92,25 @@ function approvalActorLabel(event?: DdsApprovalRecord): string {
 }
 
 function eventHashPreview(hash?: string | null): string {
-  return hash ? `${hash.slice(0, 18)}...` : "Não registrado";
+  return hash ? `${hash.slice(0, 12)}...` : "Não registrado";
 }
 
 function signatureHashPreview(hash?: string | null): string {
-  return hash ? `${hash.slice(0, 18)}...` : "Não registrada";
+  return hash ? `${hash.slice(0, 12)}...` : "Não registrada";
+}
+
+function approvalTrailPreview(event: DdsApprovalRecord): string {
+  const parts = [
+    event.actor_signature_hash
+      ? `Ass: ${signatureHashPreview(event.actor_signature_hash)}`
+      : null,
+    event.previous_event_hash
+      ? `Ant: ${eventHashPreview(event.previous_event_hash)}`
+      : null,
+    `Evt: ${eventHashPreview(event.event_hash)}`,
+  ].filter(Boolean);
+
+  return parts.join(" | ");
 }
 
 function compactPdfFileName(value?: string | null): string {
@@ -432,22 +446,20 @@ export async function drawDdsBlueprint(
           ];
         }),
         overrides: {
-          tableWidth: ctx.contentWidth - 4,
+          tableWidth: ctx.contentWidth - 8,
           columnStyles: {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 35 },
-            2: { cellWidth: 24 },
-            3: { cellWidth: 18 },
-            4: { cellWidth: 37 },
-            5: { cellWidth: 39 },
-            6: { cellWidth: 24 },
+            0: { cellWidth: 10 },
+            1: { cellWidth: 31 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 16 },
+            4: { cellWidth: 31 },
+            5: { cellWidth: 34 },
+            6: { cellWidth: 20 },
           },
         },
       });
     }
 
-    // Histórico reduzido para 5 colunas — remove IP (dado sensível), une hashes
-    // numa coluna compacta para melhor legibilidade em página A4.
     if (approvalFlow.events.length > 0) {
       drawSemanticTable(ctx, {
         title: "Histórico técnico de aprovação",
@@ -458,8 +470,7 @@ export async function drawDdsBlueprint(
             "Data/hora",
             "Ação",
             "Ator",
-            "Assinatura",
-            "Hash (ant. → evento)",
+            "Rastro técnico",
           ],
         ],
         semanticRules: { columns: [1] },
@@ -467,26 +478,15 @@ export async function drawDdsBlueprint(
           formatDateTime(event.event_at),
           approvalStatusLabel(event.action),
           approvalActorLabel(event),
-          event.actor_signature_hash
-            ? [
-                signatureHashPreview(event.actor_signature_hash),
-                event.actor_signature_signed_at
-                  ? formatDateTime(event.actor_signature_signed_at)
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" | ")
-            : "Sem assinatura",
-          `${eventHashPreview(event.previous_event_hash)} → ${eventHashPreview(event.event_hash)}`,
+          approvalTrailPreview(event),
         ]),
         overrides: {
-          tableWidth: ctx.contentWidth - 4,
+          tableWidth: ctx.contentWidth - 8,
           columnStyles: {
-            0: { cellWidth: 26 },
+            0: { cellWidth: 24 },
             1: { cellWidth: 18 },
-            2: { cellWidth: 26 },
-            3: { cellWidth: 46 },
-            4: { cellWidth: 58 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 94 },
           },
         },
       });

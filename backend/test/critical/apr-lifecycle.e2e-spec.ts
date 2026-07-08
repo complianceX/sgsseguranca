@@ -627,7 +627,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
 
       const res = await testApp
         .request()
-        .post(`/aprs/${apr.id}/approve`)
+        .patch(`/aprs/${apr.id}/approve`)
         .set(testApp.authHeaders(workerSession))
         .set(csrfHeaders)
         .send({});

@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Save, Plus, Trash2, Loader2, Camera, X } from "lucide-react";
+import { Save, Plus, Trash2, Loader2, Camera, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import {
   NC_STATUS_LABEL,
@@ -36,6 +36,9 @@ import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { InlineCallout } from "@/components/ui/inline-callout";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 
 const nonConformitySchema = z.object({
@@ -560,10 +563,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         eyebrow="Gestão de não conformidades"
         title={id ? "Editar não conformidade" : "Nova não conformidade"}
         description="Registre a origem do desvio, o risco associado, o plano de ação e as evidências em um único fluxo."
-        icon={<X className="h-5 w-5" />}
+        icon={<ShieldAlert className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap gap-2">
-            <StatusPill tone="danger">NC</StatusPill>
+            <StatusPill tone="neutral">Não Conformidade</StatusPill>
             <StatusPill tone={id ? "warning" : "success"}>
               {id ? "Edição" : "Novo cadastro"}
             </StatusPill>
@@ -584,6 +587,44 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           Revise tipo, local, risco e plano de ação antes de salvar para manter o processo de NC consistente.
         </p>
       </div>
+
+      <nav
+        aria-label="Seções do formulário"
+        className="sticky top-16 z-10 -mx-1 overflow-x-auto rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 shadow-[var(--ds-shadow-sm)]"
+      >
+        <ol className="flex min-w-max items-center gap-0.5 text-[11px]">
+          {([
+            { n: 1, label: "Identificação", anchor: "secao-1" },
+            { n: 2, label: "Classificação", anchor: "secao-2" },
+            { n: 3, label: "Descrição", anchor: "secao-3" },
+            { n: 4, label: "Requisito", anchor: "secao-4" },
+            { n: 5, label: "Risco", anchor: "secao-5" },
+            { n: 6, label: "Causa", anchor: "secao-6" },
+            { n: 7, label: "Ação Imediata", anchor: "secao-7" },
+            { n: 8, label: "Ação Definitiva", anchor: "secao-8" },
+            { n: 9, label: "Ação Preventiva", anchor: "secao-9" },
+            { n: 10, label: "Verificação", anchor: "secao-10" },
+            { n: 11, label: "Status", anchor: "secao-11" },
+            { n: 12, label: "Anexos", anchor: "secao-12" },
+            { n: 13, label: "Assinaturas", anchor: "secao-13" },
+          ] as const).map(({ n, label, anchor }) => (
+            <li key={n} className="flex shrink-0 items-center">
+              <a
+                href={`#${anchor}`}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 font-semibold text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+              >
+                <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[var(--ds-color-surface-muted)] text-[10px] font-bold text-[var(--ds-color-text-secondary)]">
+                  {n}
+                </span>
+                <span className="hidden lg:inline">{label}</span>
+              </a>
+              {n < 13 && (
+                <span className="px-0.5 text-[var(--ds-color-border-default)]" aria-hidden>›</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
       {!canManageNc ? (
         <div
           role="alert"
@@ -724,7 +765,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           ) : null}
         </div>
       ) : null}
-      <div className="sst-card p-6">
+      <div id="secao-1" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           1. Identificação da Não Conformidade
         </h2>
@@ -736,13 +777,11 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Código da NC
             </label>
-            <input
+            <Input
               id="nc-codigo"
               {...register("codigo_nc")}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.codigo_nc ? "border-[var(--ds-color-danger)]" : ""
-              }`}
-              aria-invalid={errors.codigo_nc ? "true" : undefined}
+              hasError={!!errors.codigo_nc}
+              placeholder="Ex: NC-2024-001"
             />
             {errors.codigo_nc && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -757,21 +796,18 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Tipo
             </label>
-            <select
+            <Select
               id="nc-tipo"
               {...register("tipo")}
               aria-label="Tipo da não conformidade"
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.tipo ? "border-[var(--ds-color-danger)]" : ""
-              }`}
-              aria-invalid={errors.tipo ? "true" : undefined}
+              hasError={!!errors.tipo}
             >
               {tiposNc.map((tipo) => (
                 <option key={tipo} value={tipo}>
                   {tipo}
                 </option>
               ))}
-            </select>
+            </Select>
             {errors.tipo && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.tipo.message}</p>
             )}
@@ -788,7 +824,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               type="date"
               {...register("data_identificacao")}
               aria-label="Data da identificação"
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div className="md:col-span-2">
@@ -798,11 +834,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Site / Unidade
             </label>
-            <select
+            <Select
               id="nc-site-id"
               {...register("site_id")}
               aria-label="Site ou unidade da não conformidade"
-              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">Selecione o site</option>
               {sites.map((site) => (
@@ -810,7 +845,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   {site.nome}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label
@@ -819,13 +854,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Local / Setor / Área
             </label>
-            <input
+            <Input
               id="nc-local-setor-area"
               {...register("local_setor_area")}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.local_setor_area ? "border-[var(--ds-color-danger)]" : ""
-              }`}
-              aria-invalid={errors.local_setor_area ? "true" : undefined}
+              hasError={!!errors.local_setor_area}
             />
             {errors.local_setor_area && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -840,15 +872,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Atividade envolvida
             </label>
-            <input
+            <Input
               id="nc-atividade-envolvida"
               {...register("atividade_envolvida")}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.atividade_envolvida
-                  ? "border-[var(--ds-color-danger)]"
-                  : ""
-              }`}
-              aria-invalid={errors.atividade_envolvida ? "true" : undefined}
+              hasError={!!errors.atividade_envolvida}
             />
             {errors.atividade_envolvida && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -863,13 +890,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Responsável pela área
             </label>
-            <input
+            <Input
               id="nc-responsavel-area"
               {...register("responsavel_area")}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.responsavel_area ? "border-[var(--ds-color-danger)]" : ""
-              }`}
-              aria-invalid={errors.responsavel_area ? "true" : undefined}
+              hasError={!!errors.responsavel_area}
             />
             {errors.responsavel_area && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -884,15 +908,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Auditor / Técnico / Inspetor
             </label>
-            <input
+            <Input
               id="nc-auditor-responsavel"
               {...register("auditor_responsavel")}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.auditor_responsavel
-                  ? "border-[var(--ds-color-danger)]"
-                  : ""
-              }`}
-              aria-invalid={errors.auditor_responsavel ? "true" : undefined}
+              hasError={!!errors.auditor_responsavel}
             />
             {errors.auditor_responsavel && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -919,7 +938,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-2" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           2. Classificação da Não Conformidade
         </h2>
@@ -938,7 +957,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-3" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           3. Descrição da Não Conformidade
         </h2>
@@ -950,12 +969,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Descrição
             </label>
-            <textarea
+            <Textarea
               id="nc-descricao"
               {...register("descricao")}
               aria-label="Descrição da não conformidade"
               rows={3}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              hasError={!!errors.descricao}
             />
             {errors.descricao && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -970,12 +989,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Evidência observada
             </label>
-            <textarea
+            <Textarea
               id="nc-evidencia-observada"
               {...register("evidencia_observada")}
               aria-label="Evidência observada"
               rows={3}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              hasError={!!errors.evidencia_observada}
             />
             {errors.evidencia_observada && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -990,12 +1009,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Condição insegura identificada
             </label>
-            <textarea
+            <Textarea
               id="nc-condicao-insegura"
               {...register("condicao_insegura")}
               aria-label="Condição insegura identificada"
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              hasError={!!errors.condicao_insegura}
             />
             {errors.condicao_insegura && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -1010,18 +1029,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Ato inseguro
             </label>
-            <textarea
+            <Textarea
               id="nc-ato-inseguro"
               {...register("ato_inseguro")}
               aria-label="Ato inseguro"
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-4" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           4. Requisito Não Atendido
         </h2>
@@ -1036,7 +1054,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-requisito-nr"
               {...register("requisito_nr")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
             {errors.requisito_nr && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -1054,7 +1072,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-requisito-item"
               {...register("requisito_item")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
             {errors.requisito_item && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -1072,7 +1090,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-requisito-procedimento"
               {...register("requisito_procedimento")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1085,13 +1103,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-requisito-politica"
               {...register("requisito_politica")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-5" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           5. Análise de Risco Associada
         </h2>
@@ -1106,7 +1124,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-risco-perigo"
               {...register("risco_perigo")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
             {errors.risco_perigo && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -1124,7 +1142,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-risco-associado"
               {...register("risco_associado")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
             {errors.risco_associado && (
               <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
@@ -1161,17 +1179,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           >
             Nível de risco
           </label>
-          <select
+          <Select
             id="nc-risco-nivel"
             {...register("risco_nivel")}
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            hasError={!!errors.risco_nivel}
           >
             {niveisRisco.map((nivel) => (
               <option key={nivel} value={nivel}>
                 {nivel}
               </option>
             ))}
-          </select>
+          </Select>
           {errors.risco_nivel && (
             <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
               {errors.risco_nivel.message}
@@ -1180,7 +1198,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-6" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           6. Causa da Não Conformidade
         </h2>
@@ -1207,12 +1225,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <input
             id="nc-causa-outro"
             {...register("causa_outro")}
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
           />
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-7" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           7. Ação Corretiva Imediata
         </h2>
@@ -1224,11 +1242,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Medida adotada
             </label>
-            <textarea
+            <Textarea
               id="nc-acao-imediata-descricao"
               {...register("acao_imediata_descricao")}
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -1242,7 +1259,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-acao-imediata-data"
               type="date"
               {...register("acao_imediata_data")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1255,7 +1272,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               id="nc-acao-imediata-responsavel"
               {...register("acao_imediata_responsavel")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1265,22 +1282,21 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             >
               Status
             </label>
-            <select
+            <Select
               id="nc-acao-imediata-status"
               {...register("acao_imediata_status")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               {statusAcao.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-8" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           8. Ação Corretiva Definitiva
         </h2>
@@ -1289,10 +1305,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Descrição detalhada
             </label>
-            <textarea
+            <Textarea
               {...register("acao_definitiva_descricao")}
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -1302,7 +1317,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               type="date"
               {...register("acao_definitiva_prazo")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1311,7 +1326,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_definitiva_responsavel")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div className="md:col-span-2">
@@ -1320,7 +1335,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_definitiva_recursos")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1330,13 +1345,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               type="date"
               {...register("acao_definitiva_data_prevista")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-9" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           9. Ação Preventiva
         </h2>
@@ -1345,10 +1360,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Medidas para evitar reincidência
             </label>
-            <textarea
+            <Textarea
               {...register("acao_preventiva_medidas")}
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -1357,7 +1371,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_preventiva_treinamento")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1366,7 +1380,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_preventiva_revisao_procedimento")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1375,7 +1389,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_preventiva_melhoria_processo")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1384,13 +1398,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("acao_preventiva_epc_epi")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-10" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           10. Verificação de Eficácia
         </h2>
@@ -1399,16 +1413,15 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Ação eliminou ou reduziu o risco?
             </label>
-            <select
+            <Select
               {...register("verificacao_resultado")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               {resultadoEficacia.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
@@ -1417,17 +1430,16 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <input
               type="date"
               {...register("verificacao_data")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Evidências
             </label>
-            <textarea
+            <Textarea
               {...register("verificacao_evidencias")}
               rows={2}
-              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -1436,39 +1448,38 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("verificacao_responsavel")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
         </div>
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-11" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           11. Status da Não Conformidade
         </h2>
-        <select
+        <Select
           {...register("status")}
-          className="w-full rounded-md border px-3 py-2 text-sm"
+          hasError={!!errors.status}
         >
           {statusOptions.map((item) => (
             <option key={item} value={item}>
               {NC_STATUS_LABEL[item]}
             </option>
           ))}
-        </select>
+        </Select>
         {errors.status && (
           <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.status.message}</p>
         )}
       </div>
 
-      <div className="sst-card p-6">
+      <div id="secao-12" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           12. Observações Gerais
         </h2>
-        <textarea
+        <Textarea
           {...register("observacoes_gerais")}
           rows={3}
-          className="w-full rounded-md border px-3 py-2 text-sm"
         />
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
@@ -1630,9 +1641,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       </button>
                     </div>
                   ) : (
-                    <input
+                    <Input
                       {...register(`anexos.${index}.url` as const)}
-                      className="flex-1 rounded-md border px-3 py-2 text-sm"
+                      className="flex-1"
                       placeholder="URL ou identificação do anexo"
                     />
                   )}
@@ -1693,7 +1704,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       )}
 
-      <div className="sst-card p-6">
+      <div id="secao-13" className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           13. Assinaturas
         </h2>
@@ -1704,7 +1715,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("assinatura_responsavel_area")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1713,7 +1724,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("assinatura_tecnico_auditor")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
           <div>
@@ -1722,7 +1733,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </label>
             <input
               {...register("assinatura_gestao")}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
             />
           </div>
         </div>

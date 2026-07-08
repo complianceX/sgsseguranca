@@ -4,6 +4,7 @@ import { formatDate, sanitize } from "../core/format";
 import {
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
+  drawEvidenceGallery,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
@@ -30,6 +31,23 @@ type AuditRiskLike = {
   classificacao?: string;
   impactos?: string;
   medidas_controle?: string;
+};
+
+type AuditChecklistEvidenceLike = {
+  fileName?: string;
+  dataUrl?: string;
+  capturedAt?: string;
+  hash?: string;
+};
+
+type AuditChecklistAnswerLike = {
+  sectionTitle?: string;
+  question?: string;
+  requirement?: string;
+  criticality?: string;
+  answer?: string;
+  observation?: string;
+  evidences?: AuditChecklistEvidenceLike[];
 };
 
 function joinBulletedList(values?: Array<string | null | undefined>) {
@@ -66,6 +84,61 @@ function formatRiskEntries(values?: AuditRiskLike[]) {
     );
 
   return normalized.length > 0 ? normalized.join("\n\n") : undefined;
+}
+
+function formatChecklistAnswer(value?: string) {
+  if (value === "sim") return "Sim";
+  if (value === "nao") return "Nao";
+  return "N/A";
+}
+
+function formatChecklistCriticality(value?: string) {
+  if (value === "critica") return "Critica";
+  if (value === "alta") return "Alta";
+  if (value === "media") return "Media";
+  if (value === "baixa") return "Baixa";
+  return sanitize(value);
+}
+
+function buildChecklistRows(values?: AuditChecklistAnswerLike[]) {
+  return (values ?? [])
+    .filter((answer) => sanitize(answer.question).trim().length > 0)
+    .map((answer, index) => ({
+      item: `${index + 1}. ${sanitize(answer.sectionTitle)}: ${sanitize(answer.question)}`,
+      requirement: answer.requirement,
+      evidence: [
+        `Resposta: ${formatChecklistAnswer(answer.answer)}`,
+        answer.observation ? `Observacao: ${answer.observation}` : undefined,
+        answer.evidences?.length ? `Fotos anexadas: ${answer.evidences.length}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      classification: formatChecklistCriticality(answer.criticality),
+    }));
+}
+
+function buildChecklistEvidenceItems(values?: AuditChecklistAnswerLike[]) {
+  return (values ?? []).flatMap((answer) =>
+    (answer.evidences ?? [])
+      .filter((evidence) => sanitize(evidence.dataUrl).startsWith("data:image/"))
+      .map((evidence) => ({
+        title: `${sanitize(answer.sectionTitle)} - ${sanitize(answer.question)}`,
+        description: [
+          `Resposta: ${formatChecklistAnswer(answer.answer)}`,
+          answer.observation ? `Obs.: ${answer.observation}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" | "),
+        meta: [
+          sanitize(evidence.fileName),
+          sanitize(answer.requirement),
+          evidence.capturedAt ? `Capturada em: ${formatDate(evidence.capturedAt)}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" | "),
+        source: evidence.dataUrl,
+      })),
+  );
 }
 
 export async function drawAuditBlueprint(
@@ -137,6 +210,28 @@ export async function drawAuditBlueprint(
     title: "Documentos avaliados",
     content: joinBulletedList(audit.documentos_avaliados),
   });
+
+  const checklistRows = buildChecklistRows(
+    audit.checklist_respostas as AuditChecklistAnswerLike[] | undefined,
+  );
+  if (checklistRows.length > 0) {
+    drawComplianceTable(
+      ctx,
+      autoTable,
+      "Checklist de auditoria (Sim/Nao/N/A)",
+      checklistRows,
+      { semanticRules: { profile: "audit", columns: [2, 3] } },
+    );
+  }
+
+  await drawEvidenceGallery(ctx, {
+    title: "Evidencias fotograficas do checklist",
+    items: buildChecklistEvidenceItems(
+      audit.checklist_respostas as AuditChecklistAnswerLike[] | undefined,
+    ).slice(0, 24),
+    strict: false,
+  });
+
   drawNarrativeSection(ctx, {
     title: "Conformidades identificadas",
     content: joinBulletedList(audit.resultados_conformidades),

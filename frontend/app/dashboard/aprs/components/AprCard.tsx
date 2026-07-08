@@ -102,7 +102,7 @@ export const AprCard = React.memo(
     const isApproved = apr.status === "Aprovada";
     const isPending = apr.status === "Pendente";
     const isLocked = apr.status === "Cancelada" || apr.status === "Encerrada";
-    const hasGovernedPdf = Boolean(apr.pdf_file_key);
+    const hasGovernedPdf = Boolean(apr.has_final_pdf);
     const canUpdateApr = hasPermission(Permission.CAN_UPDATE_APR);
     const canApproveApr = hasPermission(Permission.CAN_APPROVE_APR);
     const canRejectApr = hasPermission(Permission.CAN_REJECT_APR);
@@ -431,6 +431,11 @@ export const AprCard = React.memo(
                   ? "Imprimir PDF final governado da APR"
                   : "Pré-visualizar rascunho da APR"
               }
+              aria-label={
+                hasGovernedPdf
+                  ? "Imprimir PDF final governado da APR"
+                  : "Pré-visualizar rascunho da APR"
+              }
             >
               <Printer className="h-4 w-4" />
             </Button>
@@ -440,6 +445,11 @@ export const AprCard = React.memo(
               variant="ghost"
               onClick={handleDownloadClick}
               title={
+                hasGovernedPdf
+                  ? "Abrir PDF final governado da APR"
+                  : "PDF final oficial ainda não gerado"
+              }
+              aria-label={
                 hasGovernedPdf
                   ? "Abrir PDF final governado da APR"
                   : "PDF final oficial ainda não gerado"
@@ -462,10 +472,17 @@ export const AprCard = React.memo(
                     ? `APR ${apr.status.toLowerCase()}: edição bloqueada`
                     : "Editar APR"
               }
+              aria-label={
+                isApproved
+                  ? "APR aprovada: edição bloqueada"
+                  : isLocked
+                    ? `APR ${apr.status.toLowerCase()}: edição bloqueada`
+                    : "Editar APR"
+              }
             >
               <Pencil className="h-4 w-4" />
             </Link>
-            <ActionMenu items={actionItems} />
+            <ActionMenu items={actionItems} triggerAriaLabel="Mais ações" />
           </div>
         </CardContent>
 

@@ -48,6 +48,7 @@ import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { buildPdfFilename } from "@/lib/pdf-system/core/format";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ActionMenu } from "@/components/ActionMenu";
 import {
   Card,
   CardContent,
@@ -192,6 +193,31 @@ export default function DdsPage() {
       ? (v as "rascunho" | "publicado" | "auditado" | "arquivado")
       : "all";
   });
+  const hasActiveDdsFilters = useMemo(
+    () =>
+      searchTerm.trim().length > 0 ||
+      modelFilter !== "regular" ||
+      statusFilter !== "all",
+    [modelFilter, searchTerm, statusFilter],
+  );
+  const activeDdsFilters = useMemo(() => {
+    const filters: string[] = [];
+    const query = searchTerm.trim();
+    if (query) {
+      filters.push(
+        query.length > 28 ? `Busca: ${query.slice(0, 28)}...` : `Busca: ${query}`,
+      );
+    }
+    if (modelFilter === "model") {
+      filters.push("Somente modelos");
+    } else if (modelFilter === "all") {
+      filters.push("Todos os tipos");
+    }
+    if (statusFilter !== "all") {
+      filters.push(`Status: ${DDS_STATUS_LABEL[statusFilter]}`);
+    }
+    return filters;
+  }, [modelFilter, searchTerm, statusFilter]);
   const [page, setPage] = useState(() => {
     const p = Number(searchParams.get("page"));
     return p > 0 ? p : 1;
@@ -222,6 +248,13 @@ export default function DdsPage() {
   const handleNextPage = useCallback(() => {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
+
+  const clearDdsFilters = useCallback(() => {
+    setSearchTerm("");
+    setModelFilter("regular");
+    setStatusFilter("all");
+    setPage(1);
+  }, []);
 
   // Sincronizar filtros com URL — permite bookmark e voltar ao mesmo estado
   useEffect(() => {
@@ -1024,6 +1057,48 @@ useEffect(() => {
     [ddsList, storedFiles.length, total],
   );
 
+  const moduleHighlights = useMemo(
+    () => [
+      {
+        label: "DDS cadastrados",
+        value: ddsSummary.total,
+        detail: "visão total do tenant",
+        accent:
+          "border-[color:var(--ds-color-info)]/20 bg-[color:var(--ds-color-info)]/8 text-[var(--ds-color-info)]",
+      },
+      {
+        label: "Nesta página",
+        value: ddsSummary.registros,
+        detail: "registros em destaque",
+        accent:
+          "border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8 text-[var(--ds-color-action-primary)]",
+      },
+      {
+        label: "PDFs armazenados",
+        value: ddsSummary.arquivos,
+        detail: "storage governado",
+        accent:
+          "border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/8 text-[var(--ds-color-success)]",
+      },
+      {
+        label: "Consultas 7d",
+        value: observabilityLoading
+          ? "..."
+          : (observability?.publicValidation.totalLast7d ?? 0),
+        detail: "portal público monitorado",
+        accent:
+          "border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning)]/8 text-[var(--ds-color-warning)]",
+      },
+    ],
+    [
+      ddsSummary.arquivos,
+      ddsSummary.registros,
+      ddsSummary.total,
+      observability?.publicValidation.totalLast7d,
+      observabilityLoading,
+    ],
+  );
+
   const totalFilesPages = useMemo(
     () => Math.max(1, Math.ceil(storedFiles.length / filesPageSize)),
     [storedFiles.length, filesPageSize],
@@ -1068,58 +1143,133 @@ useEffect(() => {
         </Card>
       ) : null}
 
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">
-              Diálogo Diário de Segurança (DDS)
-            </CardTitle>
-            <CardDescription>
-              Gerencie registros de DDS, evidências e PDFs armazenados por
-              empresa.
-            </CardDescription>
+      <section className="relative overflow-hidden rounded-[var(--ds-radius-2xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(135deg,var(--ds-color-surface-base),var(--ds-color-surface-muted))] p-6 shadow-[var(--ds-shadow-sm)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_right,rgba(21,94,117,0.14),transparent_62%)]" />
+        <div className="pointer-events-none absolute -right-12 top-8 h-40 w-40 rounded-full bg-[color:var(--ds-color-action-primary)]/10 blur-3xl" />
+        <div className="pointer-events-none absolute left-6 top-6 h-12 w-12 rounded-full bg-[color:var(--ds-color-success)]/10 blur-2xl" />
+        <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-action-primary)]">
+                Cockpit DDS
+              </span>
+              <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                {observability?.tenantScope === "global" ? "Escopo global" : "Escopo tenant"}
+              </span>
+              <span className="rounded-full border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-success)]">
+                {observabilityLoading
+                  ? "Telemetria em carga"
+                  : `${observability?.publicValidation.totalLast7d ?? 0} consultas públicas`}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--ds-color-text-primary)] sm:text-4xl">
+                Diálogo Diário de Segurança
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-[var(--ds-color-text-secondary)] sm:text-[0.96rem]">
+                Gestão de registros, evidências e PDFs governados em uma superfície única, com foco em leitura rápida, rastreabilidade e emissão segura.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {moduleHighlights.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/85 p-4 shadow-[var(--ds-shadow-sm)]"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--ds-color-text-primary)]">
+                    {item.value}
+                  </p>
+                  <p className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${item.accent}`}>
+                    {item.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-          {canManageDds ? (
-            <Link
-              href="/dashboard/dds/new"
-              className={cn(buttonVariants(), "inline-flex items-center")}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Novo DDS
-            </Link>
-          ) : null}
-        </CardHeader>
-      </Card>
 
-      {!loading || ddsList.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card interactive padding="md">
-            <CardHeader>
-              <CardDescription>Total de DDS</CardDescription>
-              <CardTitle className="text-3xl">{ddsSummary.total}</CardTitle>
+          <Card tone="elevated" padding="lg" className="relative overflow-hidden">
+            <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-[color:var(--ds-color-action-primary)]/10 blur-3xl" />
+            <CardHeader className="relative gap-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+                <CardTitle className="text-base">Ações rápidas</CardTitle>
+              </div>
+              <CardDescription>
+                Entrada operacional para criar, revisar e navegar no módulo.
+              </CardDescription>
             </CardHeader>
-          </Card>
-          <Card interactive padding="md">
-            <CardHeader>
-              <CardDescription>Registros (nesta página)</CardDescription>
-              <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
-                {ddsSummary.registros}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card interactive padding="md">
-            <CardHeader>
-              <CardDescription>PDFs armazenados</CardDescription>
-              <CardTitle className="text-3xl text-[var(--ds-color-success)]">
-                {ddsSummary.arquivos}
-              </CardTitle>
-            </CardHeader>
+            <CardContent className="relative mt-0 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/85 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                    Registros
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--ds-color-text-primary)]">
+                    {ddsSummary.total}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    DDS visíveis no tenant.
+                  </p>
+                </div>
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/85 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                    PDFs
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--ds-color-success)]">
+                    {ddsSummary.arquivos}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Arquivos armazenados com trilha governada.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  Snapshot do módulo
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {observabilityLoading
+                    ? "Atualizando snapshot..."
+                    : safeFormatDate(
+                        observability?.generatedAt ?? new Date().toISOString(),
+                        "dd/MM/yyyy HH:mm",
+                        { locale: ptBR },
+                      )}
+                </p>
+                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  Visão do tenant com foco em emissão, governança e validação pública.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canManageDds ? (
+                  <Link
+                    href="/dashboard/dds/new"
+                    className={cn(buttonVariants(), "inline-flex items-center")}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo DDS
+                  </Link>
+                ) : null}
+                <a
+                  href="#registros-dds"
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "inline-flex items-center",
+                  )}
+                >
+                  Ver registros
+                </a>
+              </div>
+            </CardContent>
           </Card>
         </div>
-      ) : null}
+      </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card tone="default" padding="md">
+        <Card tone="info" padding="md">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
@@ -1179,7 +1329,7 @@ useEffect(() => {
           </CardContent>
         </Card>
 
-        <Card tone="default" padding="md">
+        <Card tone="warning" padding="md">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
@@ -1530,86 +1680,91 @@ useEffect(() => {
       </Card>
 
       <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-5 py-4">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.02),rgba(15,23,42,0))] px-5 py-4">
           <div className="space-y-1">
-            <CardTitle>Arquivos DDS (Storage)</CardTitle>
+            <div className="flex items-center gap-2">
+              <Folder className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+              <CardTitle>Arquivos DDS (Storage)</CardTitle>
+            </div>
             <CardDescription>
               PDFs salvos automaticamente por empresa, obra, ano e semana operacional.
             </CardDescription>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <select
-              value={fileCompanyId}
-              onChange={(event) => setFileCompanyId(event.target.value)}
-              className={inputClassName}
-              aria-label="Filtro empresa"
-            >
-              <option value="">Todas empresas</option>
-              {companyOptions.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={2020}
-              max={2100}
-              placeholder="Ano"
-              aria-label="Filtro por ano"
-              value={fileYear}
-              onChange={(event) => setFileYear(event.target.value)}
-              className={inputClassName}
-            />
-            <input
-              type="number"
-              min={1}
-              max={53}
-              placeholder="Semana ISO"
-              aria-label="Filtro por semana ISO"
-              value={fileWeek}
-              onChange={(event) => setFileWeek(event.target.value)}
-              className={inputClassName}
-            />
-            <select
-              value={filesPageSize}
-              onChange={(event) => setFilesPageSize(Number(event.target.value))}
-              className={inputClassName}
-              aria-label="Itens por página"
-            >
-              <option value={10}>10 / página</option>
-              <option value={25}>25 / página</option>
-              <option value={50}>50 / página</option>
-            </select>
-            <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
-              <Button
-                type="button"
-                variant="outline"
-                leftIcon={
-                  <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
-                }
-                onClick={handleExportStoredFilesCsv}
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/80 p-3 shadow-[var(--ds-shadow-sm)]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <select
+                value={fileCompanyId}
+                onChange={(event) => setFileCompanyId(event.target.value)}
+                className={inputClassName}
+                aria-label="Filtro empresa"
               >
-                Exportar CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                leftIcon={<Download className="h-4 w-4" />}
-                onClick={handleDownloadWeeklyBundle}
-                disabled={!fileYear || !fileWeek}
+                <option value="">Todas empresas</option>
+                {companyOptions.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={2020}
+                max={2100}
+                placeholder="Ano"
+                aria-label="Filtro por ano"
+                value={fileYear}
+                onChange={(event) => setFileYear(event.target.value)}
+                className={inputClassName}
+              />
+              <input
+                type="number"
+                min={1}
+                max={53}
+                placeholder="Semana ISO"
+                aria-label="Filtro por semana ISO"
+                value={fileWeek}
+                onChange={(event) => setFileWeek(event.target.value)}
+                className={inputClassName}
+              />
+              <select
+                value={filesPageSize}
+                onChange={(event) => setFilesPageSize(Number(event.target.value))}
+                className={inputClassName}
+                aria-label="Itens por página"
               >
-                Baixar semana
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                leftIcon={<Printer className="h-4 w-4" />}
-                onClick={handlePrintWeeklyBundle}
-                disabled={!fileYear || !fileWeek}
-              >
-                Imprimir semana
-              </Button>
+                <option value={10}>10 / página</option>
+                <option value={25}>25 / página</option>
+                <option value={50}>50 / página</option>
+              </select>
+              <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  leftIcon={
+                    <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
+                  }
+                  onClick={handleExportStoredFilesCsv}
+                >
+                  Exportar CSV
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  leftIcon={<Download className="h-4 w-4" />}
+                  onClick={handleDownloadWeeklyBundle}
+                  disabled={!fileYear || !fileWeek}
+                >
+                  Baixar semana
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  leftIcon={<Printer className="h-4 w-4" />}
+                  onClick={handlePrintWeeklyBundle}
+                  disabled={!fileYear || !fileWeek}
+                >
+                  Imprimir semana
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -1745,7 +1900,7 @@ useEffect(() => {
         </CardContent>
       </Card>
 
-      <Card tone="default" padding="none">
+      <Card id="registros-dds" tone="default" padding="none">
         <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -1756,84 +1911,140 @@ useEffect(() => {
               {total} registro(s) encontrados com filtros por tema e tipo.
             </CardDescription>
           </div>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-            <div className="relative min-w-[260px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-              <input
-                type="text"
-                placeholder="Pesquisar DDS"
-                aria-label="Pesquisar DDS"
-                className={cn(inputClassName, "pl-10")}
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </div>
-            <select
-              aria-label="Filtro de DDS"
-              className={cn(inputClassName, "min-w-[180px]")}
-              value={modelFilter}
-              onChange={(event) =>
-                setModelFilter(
-                  event.target.value as "all" | "model" | "regular",
-                )
-              }
-            >
-              <option value="all">Todos</option>
-              <option value="regular">Registros</option>
-              <option value="model">Modelos</option>
-            </select>
-            <select
-              aria-label="Filtro de status"
-              className={cn(inputClassName, "min-w-[160px]")}
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value as
-                    | "all"
-                    | "rascunho"
-                    | "publicado"
-                    | "auditado"
-                    | "arquivado",
-                )
-              }
-            >
-              <option value="all">Todos os status</option>
-              <option value="rascunho">Rascunho</option>
-              <option value="publicado">Publicado</option>
-              <option value="auditado">Auditado</option>
-              <option value="arquivado">Arquivado</option>
-            </select>
-          </div>
         </CardHeader>
+        <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/10 px-5 py-4">
+          <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/90 p-3 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  Filtros operacionais
+                </p>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Ajuste a busca e reduza o escopo da lista antes de agir.
+                </p>
+              </div>
+              {hasActiveDdsFilters ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearDdsFilters}
+                >
+                  Limpar filtros
+                </Button>
+              ) : null}
+            </div>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {activeDdsFilters.length ? (
+                activeDdsFilters.map((filter) => (
+                  <span
+                    key={filter}
+                    className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/28 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]"
+                  >
+                    {filter}
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                  Nenhum filtro adicional aplicado
+                </span>
+              )}
+            </div>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(180px,0.8fr)_minmax(160px,0.8fr)]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar DDS"
+                  aria-label="Pesquisar DDS"
+                  className={cn(inputClassName, "pl-10")}
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </div>
+              <select
+                aria-label="Filtro de DDS"
+                className={inputClassName}
+                value={modelFilter}
+                onChange={(event) =>
+                  setModelFilter(
+                    event.target.value as "all" | "model" | "regular",
+                  )
+                }
+              >
+                <option value="all">Todos</option>
+                <option value="regular">Registros</option>
+                <option value="model">Modelos</option>
+              </select>
+              <select
+                aria-label="Filtro de status"
+                className={inputClassName}
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value as
+                      | "all"
+                      | "rascunho"
+                      | "publicado"
+                      | "auditado"
+                      | "arquivado",
+                  )
+                }
+              >
+                <option value="all">Todos os status</option>
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="auditado">Auditado</option>
+                <option value="arquivado">Arquivado</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
         <CardContent className="mt-0">
           {ddsList.length === 0 ? (
             <EmptyState
               title="Nenhum DDS encontrado"
               description={
-                deferredSearchTerm || modelFilter !== "all" || statusFilter !== "all"
+                hasActiveDdsFilters
                   ? "Nenhum resultado corresponde aos filtros aplicados."
                   : "Ainda não existem registros de DDS para este tenant."
               }
               action={
-                !deferredSearchTerm &&
-                modelFilter === "all" &&
-                statusFilter === "all" &&
                 canManageDds ? (
-                  <Link
-                    href="/dashboard/dds/new"
-                    className={cn(buttonVariants(), "inline-flex items-center")}
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {hasActiveDdsFilters ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={clearDdsFilters}
+                      >
+                        Limpar filtros
+                      </Button>
+                    ) : null}
+                    <Link
+                      href="/dashboard/dds/new"
+                      className={cn(buttonVariants(), "inline-flex items-center")}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo DDS
+                    </Link>
+                  </div>
+                ) : hasActiveDdsFilters ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearDdsFilters}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo DDS
-                  </Link>
+                    Limpar filtros
+                  </Button>
                 ) : undefined
               }
             />
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-[color:var(--ds-color-surface-muted)]/40">
                   <TableHead>Data</TableHead>
                   <TableHead>Tema</TableHead>
                   <TableHead>Participantes</TableHead>
@@ -1866,28 +2077,47 @@ useEffect(() => {
                     currentStatus === "auditado" ||
                     currentStatus === "arquivado";
                   return (
-                    <TableRow key={dds.id}>
+                    <TableRow
+                      key={dds.id}
+                      className="group transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/35"
+                    >
                       <TableCell>
-                        {safeFormatDate(dds.data, "dd/MM/yyyy", {
-                          locale: ptBR,
-                        })}
+                        <div className="space-y-1">
+                          <p className="font-medium text-[var(--ds-color-text-primary)]">
+                            {safeFormatDate(dds.data, "dd/MM/yyyy", {
+                              locale: ptBR,
+                            })}
+                          </p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">
+                            {dds.is_modelo ? "Modelo operacional" : "Registro operacional"}
+                          </p>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="space-y-1">
                           <div className="font-medium text-[var(--ds-color-text-primary)]">
                             {dds.tema}
                           </div>
-                          {dds.is_modelo ? (
-                            <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
-                              Modelo
-                            </span>
-                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {dds.is_modelo ? (
+                              <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                                Modelo
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-[color:var(--ds-color-text-muted)]/8 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                                DDS padrão
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
-                          <span>{participantCount}</span>
+                          <span className="font-medium text-[var(--ds-color-text-primary)]">
+                            {participantCount}
+                          </span>
+                          <span>participantes</span>
                           {/* Indicadores de governança: PDF emitido e fluxo aprovado */}
                           {dds.pdf_file_key ? (
                             <span
@@ -1908,7 +2138,7 @@ useEffect(() => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={cn(
                               "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
@@ -1940,8 +2170,8 @@ useEffect(() => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <TableCell className="whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             type="button"
                             size="icon"
@@ -1963,112 +2193,104 @@ useEffect(() => {
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                           </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleCopySignatureLinks(dds)}
-                            title={
-                              dds.is_modelo
-                                ? "Modelos não recebem link público de assinatura"
-                                : dds.pdf_file_key
-                                  ? "DDS com PDF final emitido não recebe novas assinaturas"
-                                  : currentStatus === "arquivado"
-                                    ? "DDS arquivado não recebe link público de assinatura"
-                                    : participantCount === 0
-                                      ? "Adicione participantes antes de gerar links"
-                                      : "Gerar e copiar links públicos de assinatura"
-                            }
-                            disabled={
-                              !canManageDds ||
-                              Boolean(dds.is_modelo) ||
-                              Boolean(dds.pdf_file_key) ||
-                              currentStatus === "arquivado" ||
-                              participantCount === 0 ||
-                              issuingSignatureLinksId === dds.id
-                            }
-                          >
-                            <Link2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handlePrint(dds)}
-                            title="Imprimir DDS"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleEmail(dds)}
-                            title="Enviar por e-mail"
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                          {dds.is_modelo && canManageDds ? (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleOperationalize(dds)}
-                              title="Criar DDS a partir deste modelo"
-                            >
-                              <Copy className="h-4 w-4 text-[var(--ds-color-action-success)]" />
-                            </Button>
-                          ) : null}
                           {canManageDds ? (
-                            <>
-                              <Link
-                                href={`/dashboard/dds/edit/${dds.id}`}
-                                aria-disabled={isWorkflowLocked || undefined}
-                                className={cn(
-                                  buttonVariants({
-                                    size: "icon",
-                                    variant: "ghost",
-                                  }),
-                                  isWorkflowLocked
-                                    ? "cursor-not-allowed opacity-45"
-                                    : "",
-                                )}
-                                title={
-                                  isLockedByFinalPdf
-                                    ? "DDS com PDF final emitido: edição bloqueada"
-                                    : currentStatus === "auditado"
-                                      ? "DDS auditado: edição bloqueada"
-                                      : currentStatus === "arquivado"
-                                        ? "DDS arquivado: edição bloqueada"
-                                        : "Editar DDS"
+                            <Link
+                              href={`/dashboard/dds/edit/${dds.id}`}
+                              aria-disabled={isWorkflowLocked || undefined}
+                              className={cn(
+                                buttonVariants({
+                                  size: "icon",
+                                  variant: "ghost",
+                                }),
+                                isWorkflowLocked
+                                  ? "cursor-not-allowed opacity-45"
+                                  : "",
+                              )}
+                              title={
+                                isLockedByFinalPdf
+                                  ? "DDS com PDF final emitido: edição bloqueada"
+                                  : currentStatus === "auditado"
+                                    ? "DDS auditado: edição bloqueada"
+                                    : currentStatus === "arquivado"
+                                      ? "DDS arquivado: edição bloqueada"
+                                      : "Editar DDS"
+                              }
+                              onClick={(event) => {
+                                if (isWorkflowLocked) {
+                                  event.preventDefault();
+                                  toast.error(
+                                    isLockedByFinalPdf
+                                      ? "DDS com PDF final emitido. Gere um novo DDS para alterações."
+                                      : currentStatus === "auditado"
+                                        ? "DDS auditado. Gere um novo DDS para um novo ciclo operacional."
+                                        : "DDS arquivado. Gere um novo DDS para retomar o fluxo.",
+                                  );
                                 }
-                                onClick={(event) => {
-                                  if (isWorkflowLocked) {
-                                    event.preventDefault();
-                                    toast.error(
-                                      isLockedByFinalPdf
-                                        ? "DDS com PDF final emitido. Gere um novo DDS para alterações."
-                                        : currentStatus === "auditado"
-                                          ? "DDS auditado. Gere um novo DDS para um novo ciclo operacional."
-                                          : "DDS arquivado. Gere um novo DDS para retomar o fluxo.",
-                                    );
-                                  }
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Link>
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleDelete(dds.id)}
-                                title="Excluir DDS"
-                                className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Link>
                           ) : null}
+                          <ActionMenu
+                            triggerAriaLabel={`Ações do DDS ${dds.tema}`}
+                            items={[
+                              {
+                                label: "Imprimir",
+                                icon: <Printer className="h-4 w-4" />,
+                                onClick: () => handlePrint(dds),
+                              },
+                              {
+                                label: "Enviar por e-mail",
+                                icon: <Mail className="h-4 w-4" />,
+                                onClick: () => handleEmail(dds),
+                              },
+                              {
+                                label: "Copiar links de assinatura",
+                                icon: <Link2 className="h-4 w-4" />,
+                                onClick: () => handleCopySignatureLinks(dds),
+                                disabled:
+                                  !canManageDds ||
+                                  Boolean(dds.is_modelo) ||
+                                  Boolean(dds.pdf_file_key) ||
+                                  currentStatus === "arquivado" ||
+                                  participantCount === 0 ||
+                                  issuingSignatureLinksId === dds.id,
+                                title:
+                                  dds.is_modelo
+                                    ? "Modelos não recebem link público de assinatura"
+                                    : dds.pdf_file_key
+                                      ? "DDS com PDF final emitido não recebe novas assinaturas"
+                                      : currentStatus === "arquivado"
+                                        ? "DDS arquivado não recebe link público de assinatura"
+                                        : participantCount === 0
+                                          ? "Adicione participantes antes de gerar links"
+                                          : "Gerar e copiar links públicos de assinatura",
+                              },
+                              ...(dds.is_modelo && canManageDds
+                                ? [
+                                    {
+                                      label: "Operacionalizar modelo",
+                                      icon: (
+                                        <Copy className="h-4 w-4 text-[var(--ds-color-action-success)]" />
+                                      ),
+                                      onClick: () => handleOperationalize(dds),
+                                    },
+                                  ]
+                                : []),
+                              ...(canManageDds
+                                ? [
+                                    {
+                                      label: "Excluir",
+                                      icon: (
+                                        <Trash2 className="h-4 w-4" />
+                                      ),
+                                      onClick: () => handleDelete(dds.id),
+                                      variant: "danger" as const,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

@@ -44,17 +44,16 @@ function estimateValidationPanelHeight(
   width: number,
   subtitle: string,
   code: string,
-  url: string,
   hash?: string,
 ) {
   const { doc } = ctx;
   const textWidth = Math.max(36, width - 30);
   const subtitleLines = doc.splitTextToSize(subtitle, textWidth);
+  const portalLines = doc.splitTextToSize("Portal público via QR", textWidth);
   const codeLines = doc.splitTextToSize(
     `Código: ${wrapLongToken(sanitize(code), 24)}`,
     textWidth,
   );
-  const urlLines = doc.splitTextToSize(wrapLongToken(url), textWidth);
   const hashLines = hash
     ? doc.splitTextToSize(`Hash: ${wrapLongToken(hash, 28)}`, textWidth)
     : [];
@@ -64,8 +63,9 @@ function estimateValidationPanelHeight(
       22,
       subtitleLines.length * 3.3 +
         10 +
+        portalLines.length * 3 +
+        4 +
         codeLines.length * 3.3 +
-        urlLines.length * 3 +
         hashLines.length * 3 +
         6,
     )
@@ -205,11 +205,11 @@ function drawValidationPanel(
   const textX = qrX + qrSize + 3;
   const textWidth = validationW - (textX - validationX) - 2.5;
   const subtitleLines = doc.splitTextToSize(subtitle, textWidth);
+  const portalLines = doc.splitTextToSize("Portal público via QR", textWidth);
   const codeLines = doc.splitTextToSize(
     `Código: ${wrapLongToken(sanitize(code), 24)}`,
     textWidth,
   );
-  const urlLines = doc.splitTextToSize(wrapLongToken(url), textWidth);
   const hashLines = hash
     ? doc.splitTextToSize(`Hash: ${wrapLongToken(hash, 28)}`, textWidth)
     : [];
@@ -219,21 +219,24 @@ function drawValidationPanel(
   doc.setTextColor(...theme.tone.textSecondary);
   doc.text(subtitleLines, textX, qrY + 3);
 
-  const codeY = qrY + 3 + subtitleLines.length * 3.4 + 2.5;
+  const portalY = qrY + 3 + subtitleLines.length * 3.4 + 2.2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(theme.typography.caption);
+  doc.setTextColor(...accent);
+  doc.text(portalLines, textX, portalY);
+
+  const codeY = portalY + portalLines.length * 3 + 2.4;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(...theme.tone.textPrimary);
   doc.text(codeLines, textX, codeY, { maxWidth: textWidth });
 
-  const urlY = codeY + codeLines.length * 3.5 + 0.8;
+  const hashY = codeY + codeLines.length * 3.5 + 1;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
-  doc.setTextColor(...accent);
-  doc.text(urlLines, textX, urlY);
-
   if (hash) {
     doc.setTextColor(...theme.tone.textMuted);
-    doc.text(hashLines, textX, urlY + urlLines.length * 3 + 1.4);
+    doc.text(hashLines, textX, hashY);
   }
 
   // Badge VÁLIDO com fundo verde sólido e texto branco (identidade visual de segurança)
@@ -290,7 +293,6 @@ export async function drawGovernanceClosingBlock(
     validationW - 4,
     subtitle,
     options.code,
-    options.url,
     options.hash,
   );
   const qrDataUrl = await QRCode.toDataURL(options.url, {

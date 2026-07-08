@@ -1,10 +1,12 @@
 import { Repository } from 'typeorm';
 import { NotificationsService } from './notifications.service';
 import { Notification } from './entities/notification.entity';
+import { User } from '../users/entities/user.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 
 describe('NotificationsService', () => {
   let repo: jest.Mocked<Partial<Repository<Notification>>>;
+  let userRepository: jest.Mocked<Partial<Repository<User>>>;
   let gateway: { sendToUser: jest.Mock };
   let tenantService: Pick<TenantService, 'run'>;
   let service: NotificationsService;
@@ -22,6 +24,9 @@ describe('NotificationsService', () => {
       count: jest.fn(),
       findAndCount: jest.fn(),
     };
+    userRepository = {
+      createQueryBuilder: jest.fn(),
+    };
     gateway = {
       sendToUser: jest.fn(),
     };
@@ -31,6 +36,7 @@ describe('NotificationsService', () => {
 
     service = new NotificationsService(
       repo as Repository<Notification>,
+      userRepository as Repository<User>,
       gateway as never,
       tenantService as TenantService,
     );

@@ -89,6 +89,7 @@ import {
 import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
 import { AprApprovalPanel } from "./AprApprovalPanel";
 import { AprCompliancePanel } from "./AprCompliancePanel";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import type { AprValidationResult } from "@/services/aprsService";
 import {
   getOfflineQueueSnapshot,
@@ -222,8 +223,8 @@ const APR_STEPS = [
   },
   {
     id: 2,
-    title: "Riscos e controles",
-    description: "Participantes, assinaturas e planilha técnica.",
+    title: "Riscos, participantes e assinaturas",
+    description: "Matriz de riscos, participantes, EPIs, ferramentas e assinaturas.",
     icon: ClipboardList,
   },
   {
@@ -240,6 +241,9 @@ const aprSectionTitleClass =
   "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
   "mb-1.5 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]";
+const AprRequiredMark = () => (
+  <span aria-hidden="true" className="ml-0.5 text-[var(--color-danger)]">*</span>
+);
 const aprLabelCompactClass =
   "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]";
 const aprFieldClass =
@@ -280,6 +284,7 @@ const aprPrimarySubmitActionClass =
 const aprFieldStatCardClass =
   "rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3";
 const renderLegacyAprContext = false;
+
 
 /* function getCategoriaBadgeClass(categoria?: string) {
   switch (categoria) {
@@ -381,13 +386,6 @@ export function AprForm({ id }: AprFormProps) {
       integrity_flags?: Record<string, unknown>;
     }>
   >([]);
-  const [hashToVerify, setHashToVerify] = useState("");
-  const [verifyingHash, setVerifyingHash] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<{
-    verified: boolean;
-    matchedIn?: "original" | "watermarked";
-    message?: string;
-  } | null>(null);
   const [suggestingControls, setSuggestingControls] = useState(false);
   const [importingExcel, setImportingExcel] = useState(false);
   const [excelPreview, setExcelPreview] =
@@ -430,6 +428,17 @@ export function AprForm({ id }: AprFormProps) {
     "approve" | "finalize" | null
   >(null);
   const [formActionModalLoading, setFormActionModalLoading] = useState(false);
+  // C01 — Confirmar descarte de sync offline
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  // C03 — Confirmar troca de empresa com dados preenchidos
+  const [confirmCompanyChangeOpen, setConfirmCompanyChangeOpen] = useState(false);
+  const [pendingCompanyId, setPendingCompanyId] = useState<string | null>(null);
+  // C09 — Confirmar aplicação de template
+  const [confirmTemplateOpen, setConfirmTemplateOpen] = useState(false);
+  // C10 — Steps visitados pelo usuário
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([1]));
+  // M03 — Tick para timestamp relativo do draft
+  const [, setDraftRelativeTick] = useState(0);
 
   const {
     register,
@@ -509,7 +518,7 @@ export function AprForm({ id }: AprFormProps) {
     (step) => step.status !== "pending",
   );
   const isApproved = currentApr?.status === "Aprovada";
-  const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
+  const hasFinalPdf = Boolean(currentApr?.has_final_pdf);
   const isReadOnly =
     lacksWritePermission ||
     watchedStatus === "Aprovada" ||
@@ -1870,6 +1879,8 @@ export function AprForm({ id }: AprFormProps) {
   };
 
   const {
+    capturingGps,
+    gpsReady,
     handleSuggestControls,
     handleApproveApr,
     handleEmitGovernedPdf,
@@ -1880,7 +1891,6 @@ export function AprForm({ id }: AprFormProps) {
     handleCompareVersions,
     handleCaptureLocation,
     handleUploadEvidence,
-    handleVerifyHash,
   } = useAprWorkflowActions({
     id,
     currentApr,
@@ -1895,7 +1905,6 @@ export function AprForm({ id }: AprFormProps) {
     evidenceLatitude,
     evidenceLongitude,
     evidenceAccuracy,
-    hashToVerify,
     formActionModal,
     watch,
     setValue,
@@ -1916,8 +1925,6 @@ export function AprForm({ id }: AprFormProps) {
     setEvidenceAccuracy,
     setUploadingEvidence,
     setAprEvidences,
-    setVerifyingHash,
-    setVerificationResult,
     setFormActionModal,
     setFormActionModalLoading,
     setFinalizing,
@@ -2252,6 +2259,30 @@ export function AprForm({ id }: AprFormProps) {
     scheduleDraftPersist,
   ]);
 
+  // M01 — Auto-seleciona empresa/site quando há apenas uma opção (nova APR)
+  useEffect(() => {
+    if (id || isReadOnly) return;
+    const onlyCompany = companies[0];
+    if (companies.length === 1 && !selectedCompanyId && onlyCompany) {
+      setValue("company_id", onlyCompany.id, { shouldDirty: false });
+    }
+  }, [companies, id, isReadOnly, selectedCompanyId, setValue]);
+
+  useEffect(() => {
+    if (id || isReadOnly) return;
+    const onlySite = filteredSites[0];
+    if (filteredSites.length === 1 && selectedCompanyId && !selectedSiteId && onlySite) {
+      setValue("site_id", onlySite.id, { shouldDirty: false });
+    }
+  }, [filteredSites, id, isReadOnly, selectedCompanyId, selectedSiteId, setValue]);
+
+  // M03 — Força re-render a cada 10s para manter o timestamp relativo do draft atualizado
+  useEffect(() => {
+    if (!draftLastSavedAt) return;
+    const timer = setInterval(() => setDraftRelativeTick((t) => t + 1), 10000);
+    return () => clearInterval(timer);
+  }, [draftLastSavedAt]);
+
   const toggleSelection = useCallback(
     (
       field:
@@ -2385,23 +2416,21 @@ export function AprForm({ id }: AprFormProps) {
         : "O estado pendente foi liberado. Verifique a listagem antes de reenviar para evitar duplicidade operacional.",
     );
   }, [draftPendingOfflineSync, persistPendingOfflineSync]);
-  const handleDiscardPendingOfflineSync = useCallback(async () => {
+  const handleDiscardPendingOfflineSync = useCallback(() => {
     if (!draftPendingOfflineSync) {
       return;
     }
+    setConfirmDiscardOpen(true);
+  }, [draftPendingOfflineSync]);
 
-    if (
-      !confirm(
-        "Descartar o envio local remove esta APR da fila offline e libera o rascunho para um novo envio. Deseja continuar?",
-      )
-    ) {
+  const handleConfirmDiscardPendingOfflineSync = useCallback(async () => {
+    if (!draftPendingOfflineSync) {
+      setConfirmDiscardOpen(false);
       return;
     }
-
     if (draftPendingOfflineSync.queueItemId) {
       await removeOfflineQueueItem(draftPendingOfflineSync.queueItemId);
     }
-
     persistPendingOfflineSync(null);
     trackAprOfflineTelemetry("offline_discarded", {
       draftId: draftPendingOfflineSync.draftId,
@@ -2410,10 +2439,28 @@ export function AprForm({ id }: AprFormProps) {
       syncStatus: draftPendingOfflineSync.status,
       source: "manual_discard",
     });
+    setConfirmDiscardOpen(false);
     toast.info(
       "O envio local foi descartado. O rascunho sanitizado continua disponível para novo envio controlado.",
     );
   }, [draftPendingOfflineSync, persistPendingOfflineSync]);
+  // C03 — Confirma troca de empresa descartando dados preenchidos
+  const handleConfirmCompanyChange = useCallback(() => {
+    if (!pendingCompanyId) return;
+    setValue("company_id", pendingCompanyId);
+    setValue("site_id", "");
+    setValue("elaborador_id", "");
+    setValue("activities", []);
+    setValue("risks", []);
+    setValue("epis", []);
+    setValue("tools", []);
+    setValue("machines", []);
+    setValue("participants", []);
+    replaceRisk([]);
+    setConfirmCompanyChangeOpen(false);
+    setPendingCompanyId(null);
+  }, [pendingCompanyId, replaceRisk, setValue]);
+
   const handleRetryPendingOfflineSync = useCallback(async () => {
     if (!draftPendingOfflineSync?.queueItemId) {
       return;
@@ -2540,7 +2587,11 @@ export function AprForm({ id }: AprFormProps) {
 
     if (hasBlockingError) return;
 
-    setCurrentStep((prev) => prev + 1);
+    setCurrentStep((prev) => {
+      const next = prev + 1;
+      setVisitedSteps((vs) => new Set([...vs, next]));
+      return next;
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [
     clearErrors,
@@ -2940,10 +2991,10 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={handleCaptureLocation}
-                disabled={isReadOnly}
+                disabled={isReadOnly || capturingGps}
                 className={aprSoftPrimaryButtonClass}
               >
-                Capturar GPS
+                {capturingGps ? "Capturando..." : gpsReady ? "Atualizar GPS" : "Capturar GPS"}
               </button>
             </div>
           </div>
@@ -3019,36 +3070,6 @@ export function AprForm({ id }: AprFormProps) {
               ))}
           </div>
 
-          <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/30 p-3">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">
-              Verificação criptográfica
-            </h3>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={hashToVerify}
-                onChange={(e) => setHashToVerify(e.target.value)}
-                placeholder="Cole o hash SHA-256 da evidência"
-                aria-label="Hash SHA-256 para verificação"
-                className={aprFieldClass}
-              />
-              <button
-                type="button"
-                onClick={handleVerifyHash}
-                disabled={verifyingHash}
-                className={aprNeutralButtonClass}
-              >
-                {verifyingHash ? "Validando..." : "Validar hash"}
-              </button>
-            </div>
-            {verificationResult && (
-              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                {verificationResult.verified
-                  ? `Hash válido (${verificationResult.matchedIn === "watermarked" ? "imagem com watermark" : "imagem original"}).`
-                  : verificationResult.message || "Hash não validado."}
-              </p>
-            )}
-          </div>
         </div>
       )}
 
@@ -3252,13 +3273,14 @@ export function AprForm({ id }: AprFormProps) {
                   const isActive = currentStep === step.id;
                   const isCompleted = currentStep > step.id;
 
+                  const canNavigate = visitedSteps.has(step.id);
                   return (
                     <button
                       key={step.id}
                       type="button"
                       aria-current={isActive ? "step" : undefined}
                       onClick={() => {
-                        if (step.id <= currentStep) {
+                        if (canNavigate) {
                           setCurrentStep(step.id);
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }
@@ -3269,7 +3291,9 @@ export function AprForm({ id }: AprFormProps) {
                           ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
                           : isCompleted
                             ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/55"
-                            : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18",
+                            : visitedSteps.has(step.id)
+                              ? "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 hover:border-[var(--ds-color-action-primary)]/40"
+                              : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 cursor-default",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -3468,18 +3492,20 @@ export function AprForm({ id }: AprFormProps) {
           </div>
         ) : null}
 
-        <div className={aprDangerInlineClass}>
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <p className="font-semibold">Revisão final obrigatória</p>
-              <p className="mt-1 text-[var(--color-danger)]/90">
-                Não finalize a APR sem revisar a matriz de risco, controles
-                sugeridos e evidências associadas ao trabalho.
-              </p>
+        {materiallyCompleteRiskCount === 0 && (
+          <div className={aprDangerInlineClass}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Revisão final obrigatória</p>
+                <p className="mt-1 text-[var(--color-danger)]/90">
+                  Não finalize a APR sem revisar a matriz de risco, controles
+                  sugeridos e evidências associadas ao trabalho.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {renderLegacyAprContext ? (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)]">
@@ -3510,15 +3536,16 @@ export function AprForm({ id }: AprFormProps) {
                     const isActive = currentStep === step.id;
                     const isCompleted = currentStep > step.id;
 
+                    const canNavigateMobile = visitedSteps.has(step.id);
                     return (
                       <button
                         key={step.id}
                         type="button"
                         role="listitem"
                         aria-current={isActive ? "step" : undefined}
-                        aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? " (concluída)" : isActive ? " (em edição)" : ""}`}
+                        aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? " (concluída)" : isActive ? " (em edição)" : canNavigateMobile ? " (visitada)" : ""}`}
                         onClick={() => {
-                          if (step.id <= currentStep) {
+                          if (canNavigateMobile) {
                             setCurrentStep(step.id);
                             window.scrollTo({ top: 0, behavior: "smooth" });
                           }
@@ -3810,18 +3837,20 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
               ) : null}
 
-              <div className={aprDangerInlineClass}>
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <p className="font-semibold">Revisão final obrigatória</p>
-                    <p className="mt-1 text-[var(--color-danger)]/90">
-                      Não finalize a APR sem revisar a matriz de risco,
-                      controles sugeridos e evidências associadas ao trabalho.
-                    </p>
+              {materiallyCompleteRiskCount === 0 && (
+                <div className={aprDangerInlineClass}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-semibold">Revisão final obrigatória</p>
+                      <p className="mt-1 text-[var(--color-danger)]/90">
+                        Não finalize a APR sem revisar a matriz de risco,
+                        controles sugeridos e evidências associadas ao trabalho.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         ) : null}
@@ -3915,10 +3944,14 @@ export function AprForm({ id }: AprFormProps) {
                     </button>
                   )}
                 </div>
+                <p className="text-xs text-[var(--ds-color-text-secondary)]">
+                  Campos marcados com{" "}
+                  <span className="text-[var(--color-danger)]">*</span> são obrigatórios
+                </p>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
                     <label htmlFor="apr-numero" className={aprLabelClass}>
-                      Número da APR
+                      Número da APR<AprRequiredMark />
                     </label>
                     <input
                       id="apr-numero"
@@ -3939,7 +3972,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-titulo" className={aprLabelClass}>
-                      Título da APR
+                      Título da APR<AprRequiredMark />
                     </label>
                     <input
                       id="apr-titulo"
@@ -3977,7 +4010,7 @@ export function AprForm({ id }: AprFormProps) {
                       htmlFor="apr-tipo-atividade"
                       className={aprLabelClass}
                     >
-                      Tipo de atividade
+                      Tipo de atividade<AprRequiredMark />
                     </label>
                     <select
                       id="apr-tipo-atividade"
@@ -4006,7 +4039,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-turno" className={aprLabelClass}>
-                      Turno
+                      Turno<AprRequiredMark />
                     </label>
                     <select
                       id="apr-turno"
@@ -4085,7 +4118,7 @@ export function AprForm({ id }: AprFormProps) {
                         </div>
                         <button
                           type="button"
-                          onClick={applySelectedActivityTemplate}
+                          onClick={() => setConfirmTemplateOpen(true)}
                           disabled={
                             loadingActivityTemplate || !selectedActivityTemplate
                           }
@@ -4104,7 +4137,7 @@ export function AprForm({ id }: AprFormProps) {
                       htmlFor="apr-local-detalhado"
                       className={aprLabelClass}
                     >
-                      Local detalhado de execução
+                      Local detalhado de execução<AprRequiredMark />
                     </label>
                     <textarea
                       id="apr-local-detalhado"
@@ -4128,7 +4161,7 @@ export function AprForm({ id }: AprFormProps) {
                       htmlFor="apr-responsavel-tecnico"
                       className={aprLabelClass}
                     >
-                      Responsável técnico
+                      Responsável técnico<AprRequiredMark />
                     </label>
                     <input
                       id="apr-responsavel-tecnico"
@@ -4221,7 +4254,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-company" className={aprLabelClass}>
-                      Empresa
+                      Empresa<AprRequiredMark />
                     </label>
                     <select
                       id="apr-company"
@@ -4232,6 +4265,14 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                       onChange={(e) => {
                         const companyId = e.target.value;
+                        const hasFilledData =
+                          riskFields.length > 0 ||
+                          selectedParticipantIds.length > 0;
+                        if (hasFilledData) {
+                          setPendingCompanyId(companyId);
+                          setConfirmCompanyChangeOpen(true);
+                          return;
+                        }
                         setValue("company_id", companyId);
                         setValue("site_id", "");
                         setValue("elaborador_id", "");
@@ -4259,7 +4300,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-site" className={aprLabelClass}>
-                      Site/Obra
+                      Site/Obra<AprRequiredMark />
                     </label>
                     <select
                       id="apr-site"
@@ -4291,7 +4332,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-elaborador" className={aprLabelClass}>
-                      Elaborador
+                      Elaborador<AprRequiredMark />
                     </label>
                     <select
                       id="apr-elaborador"
@@ -4348,7 +4389,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-data-inicio" className={aprLabelClass}>
-                      Data Início
+                      Data Início<AprRequiredMark />
                     </label>
                     <input
                       id="apr-data-inicio"
@@ -4368,7 +4409,7 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div>
                     <label htmlFor="apr-data-fim" className={aprLabelClass}>
-                      Data Fim
+                      Data Fim<AprRequiredMark />
                     </label>
                     <input
                       id="apr-data-fim"
@@ -4903,6 +4944,47 @@ export function AprForm({ id }: AprFormProps) {
 
             {currentStep === 3 && (
               <>
+                {/* M02 — Checklist de completude antes da revisão */}
+                {(() => {
+                  const watchedNumero = watch("numero");
+                  const watchedTitulo = watch("titulo");
+                  const watchedDataInicio = watch("data_inicio");
+                  const items = [
+                    { label: "Número da APR preenchido", ok: Boolean(watchedNumero) },
+                    { label: "Título da APR preenchido", ok: Boolean(watchedTitulo) },
+                    { label: "Data de início definida", ok: Boolean(watchedDataInicio) },
+                    { label: "Ao menos 1 linha de risco completa", ok: materiallyCompleteRiskCount > 0 },
+                    { label: "Ao menos 1 participante selecionado", ok: selectedParticipantIds.length > 0 },
+                  ];
+                  const allOk = items.every((i) => i.ok);
+                  return (
+                    <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-5 py-4 shadow-[var(--ds-shadow-sm)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                        Checklist de completude
+                      </p>
+                      <ul className="mt-3 space-y-2">
+                        {items.map((item) => (
+                          <li key={item.label} className="flex items-center gap-2.5 text-sm">
+                            {item.ok ? (
+                              <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--color-success)]" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--color-warning,#ca8a04)]" />
+                            )}
+                            <span className={item.ok ? "text-[var(--ds-color-text-primary)]" : "text-[var(--ds-color-text-secondary)]"}>
+                              {item.label}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      {allOk && (
+                        <p className="mt-3 text-xs font-semibold text-[var(--color-success)]">
+                          APR pronta para revisão e envio.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                     Revisão operacional
@@ -4933,13 +5015,22 @@ export function AprForm({ id }: AprFormProps) {
                         {selectedParticipantIds.length} selecionado(s) ·{" "}
                         {completedSignatures} assinatura(s)
                       </p>
+                      {selectedParticipantIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentStep(2)}
+                          className="mt-1 text-xs text-[var(--ds-color-action-primary)] hover:underline"
+                        >
+                          Ver todos os {selectedParticipantIds.length} participantes →
+                        </button>
+                      )}
                     </div>
                     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Evidência documental
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                        {currentApr?.pdf_file_key
+                        {currentApr?.has_final_pdf
                           ? "PDF final governado emitido"
                           : isApproved
                             ? "Aguardando emissão final governada"
@@ -5103,7 +5194,8 @@ export function AprForm({ id }: AprFormProps) {
 
           <div
             className={cn(
-              "sticky bottom-4 z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-overlay)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
+              "sticky z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-overlay)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
+              !id && draftStorageKey && !isReadOnly ? "bottom-14" : "bottom-4",
             )}
           >
             <div className="flex items-center gap-2">
@@ -5346,10 +5438,14 @@ export function AprForm({ id }: AprFormProps) {
                 : draftSaveError
                   ? "Falha ao salvar"
                   : draftLastSavedAt
-                    ? `Salvo às ${draftLastSavedAt.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}`
+                    ? (() => {
+                        const diffMin = Math.floor(
+                          (Date.now() - draftLastSavedAt.getTime()) / 60000,
+                        );
+                        if (diffMin < 1) return "Salvo agora";
+                        if (diffMin < 60) return `Salvo há ${diffMin} min`;
+                        return `Salvo às ${draftLastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+                      })()
                     : "Salvo"}
             </div>
             {draftSaveError ? (
@@ -5415,6 +5511,44 @@ export function AprForm({ id }: AprFormProps) {
         }}
         onSave={handleSaveSignature}
         userName={currentSigningUser?.nome || ""}
+      />
+
+      {/* C01 — Confirmação de descarte de sync offline */}
+      <ConfirmModal
+        open={confirmDiscardOpen}
+        onClose={() => setConfirmDiscardOpen(false)}
+        onConfirm={() => void handleConfirmDiscardPendingOfflineSync()}
+        title="Descartar envio local?"
+        description="Esta ação remove permanentemente o rascunho offline da fila. O dado local será perdido. Verifique a listagem antes de confirmar para evitar duplicidade."
+        confirmLabel="Descartar"
+        danger
+      />
+
+      {/* C03 — Confirmação de troca de empresa com dados preenchidos */}
+      <ConfirmModal
+        open={confirmCompanyChangeOpen}
+        onClose={() => {
+          setConfirmCompanyChangeOpen(false);
+          setPendingCompanyId(null);
+        }}
+        onConfirm={handleConfirmCompanyChange}
+        title="Trocar empresa apagará dados preenchidos"
+        description="A matriz de riscos e participantes serão removidos ao trocar a empresa. Esta ação não pode ser desfeita. Deseja continuar?"
+        confirmLabel="Trocar empresa"
+        danger
+      />
+
+      {/* C09 — Confirmação de aplicação de template */}
+      <ConfirmModal
+        open={confirmTemplateOpen}
+        onClose={() => setConfirmTemplateOpen(false)}
+        onConfirm={() => {
+          applySelectedActivityTemplate();
+          setConfirmTemplateOpen(false);
+        }}
+        title="Aplicar template à grade?"
+        description={`O template "${selectedActivityTemplate?.label ?? ""}" será mesclado à matriz de riscos atual. Linhas já presentes não serão duplicadas.`}
+        confirmLabel="Aplicar template"
       />
     </div>
   );

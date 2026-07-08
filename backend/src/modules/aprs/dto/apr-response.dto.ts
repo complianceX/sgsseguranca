@@ -277,9 +277,6 @@ class AprApprovalStepResponseDto {
   decision_reason?: string | null;
 
   @Expose()
-  decided_ip?: string | null;
-
-  @Expose()
   decided_at?: Date | null;
 
   @Expose()
@@ -395,7 +392,7 @@ export class AprResponseDto {
   notas_auditoria?: string | null;
 
   @Expose()
-  pdf_file_key?: string | null;
+  has_final_pdf: boolean;
 
   @Expose()
   pdf_folder_path?: string | null;
@@ -500,7 +497,9 @@ export class AprResponseDto {
 }
 
 export function toAprResponseDto(apr: Apr): AprResponseDto {
-  return plainToInstance(AprResponseDto, apr, {
+  const dto = plainToInstance(AprResponseDto, apr, {
     excludeExtraneousValues: true,
   });
+  dto.has_final_pdf = Boolean(apr.pdf_file_key);
+  return dto;
 }
