@@ -1,13 +1,15 @@
 import type { Pt } from "@/services/ptsService";
 import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
-import { formatDate, sanitize } from "../core/format";
+import { formatDate, formatDateTime, sanitize } from "../core/format";
 import {
   drawDocumentIdentityRail,
+  drawEvidenceGallery,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
+  drawSemanticTable,
 } from "../components";
 import { drawChecklistTable, drawParticipantTable } from "../tables";
 import {
@@ -20,6 +22,7 @@ type ChecklistItem = {
   pergunta?: string;
   resposta?: string;
   justificativa?: string;
+  section?: string;
 };
 
 type PtChecklistGroup = {
@@ -28,7 +31,27 @@ type PtChecklistGroup = {
   items?: ChecklistItem[];
 };
 
+type RapidRiskChecklistItem = {
+  pergunta?: string;
+  secao?: "basica" | "adicional";
+  resposta?: string;
+};
+
 type PtExecutorLike = { nome?: string; funcao?: string | null };
+
+const PT_EVIDENCE_FASE_LABELS: Record<string, string> = {
+  antes: "Antes da atividade",
+  durante: "Durante a atividade",
+  depois: "Depois da atividade",
+};
+
+export type PtBlueprintOptions = {
+  /**
+   * Resolve a foto de evidência no índice dado para um data URL inline.
+   * Ausente (ex.: rascunho offline), a galeria degrada para placeholders.
+   */
+  resolveEvidencePhotoDataUrl?: (photoIndex: number) => Promise<string | null>;
+};
 
 function hasMeaningfulChecklistContent(items?: ChecklistItem[]) {
   return (
@@ -36,6 +59,20 @@ function hasMeaningfulChecklistContent(items?: ChecklistItem[]) {
       (item) => Boolean(item.resposta) || Boolean(item.justificativa?.trim()),
     ) ?? false
   );
+}
+
+function buildCriticality(pt: Pt): string {
+  const hazardCount = [
+    pt.trabalho_altura,
+    pt.espaco_confinado,
+    pt.trabalho_quente,
+    pt.eletricidade,
+    pt.escavacao,
+  ].filter(Boolean).length;
+
+  if (hazardCount >= 2) return "Crítica (atividades simultâneas)";
+  if (hazardCount === 1) return "Alta";
+  return "Padrão";
 }
 
 function resolveVisibleChecklistGroups(groups: PtChecklistGroup[]) {
@@ -61,6 +98,7 @@ export async function drawPtBlueprint(
   signatures: Signature[],
   code: string,
   validationUrl: string,
+  options?: PtBlueprintOptions,
 ) {
   const status = (pt.status || "").toLowerCase();
   const tone = status.includes("cancel")
@@ -106,7 +144,7 @@ export async function drawPtBlueprint(
 
   drawDocumentIdentityRail(ctx, {
     documentType: "PT",
-    criticality: tone,
+    criticality: buildCriticality(pt),
     validity: `${formatDate(pt.data_hora_inicio)} a ${formatDate(pt.data_hora_fim)}`,
     documentClass: "Permissão de Trabalho",
   });
@@ -166,10 +204,92 @@ export async function drawPtBlueprint(
     ],
   });
 
+  const vigiaLabel = pt.vigia?.nome || pt.vigia_nome;
+  const hasEmergencyInfo = Boolean(
+    pt.contato_emergencia ||
+      pt.ponto_encontro ||
+      vigiaLabel ||
+      pt.epis_obrigatorios?.length ||
+      pt.plano_resgate,
+  );
+  if (hasEmergencyInfo) {
+    drawMetadataGrid(ctx, {
+      title: "Emergência, resgate e EPIs",
+      columns: 2,
+      fields: [
+        { label: "Contato de emergência", value: pt.contato_emergencia },
+        { label: "Ponto de encontro", value: pt.ponto_encontro },
+        { label: "Vigia designado", value: vigiaLabel },
+        {
+          label: "EPIs obrigatórios",
+          value: pt.epis_obrigatorios?.length
+            ? pt.epis_obrigatorios.join(" • ")
+            : undefined,
+        },
+      ],
+    });
+    if (pt.plano_resgate) {
+      drawNarrativeSection(ctx, {
+        title: "Plano de resgate",
+        content: pt.plano_resgate,
+      });
+    }
+  }
+
   drawNarrativeSection(ctx, {
     title: "Escopo da atividade autorizada",
     content: pt.descricao,
   });
+
+  const rapidRiskItems = (pt.analise_risco_rapida_checklist ??
+    []) as RapidRiskChecklistItem[];
+  const rapidRiskSections: Array<{
+    title: string;
+    secao: "basica" | "adicional";
+  }> = [
+    { title: "Análise de risco rápida — Verificações", secao: "basica" },
+    {
+      title: "Análise de risco rápida — Verificações adicionais",
+      secao: "adicional",
+    },
+  ];
+  for (const section of rapidRiskSections) {
+    const items = rapidRiskItems.filter(
+      (item) => item.secao === section.secao,
+    );
+    if (!items.length) continue;
+    drawChecklistTable(
+      ctx,
+      autoTable,
+      section.title,
+      items.map((item) => ({
+        question: item.pergunta,
+        answer: item.resposta,
+      })),
+      { semanticRules: { profile: "pt", columns: [1] } },
+    );
+  }
+  if (pt.analise_risco_rapida_observacoes) {
+    drawNarrativeSection(ctx, {
+      title: "Análise de risco rápida — Observações",
+      content: pt.analise_risco_rapida_observacoes,
+    });
+  }
+
+  const recomendacoesItems = pt.recomendacoes_gerais_checklist ?? [];
+  if (recomendacoesItems.length) {
+    drawChecklistTable(
+      ctx,
+      autoTable,
+      "Recomendações gerais",
+      recomendacoesItems.map((item) => ({
+        question: item.pergunta,
+        answer: item.resposta,
+        justification: item.justificativa,
+      })),
+      { semanticRules: { profile: "pt", columns: [1] } },
+    );
+  }
 
   drawParticipantTable(
     ctx,
@@ -183,6 +303,42 @@ export async function drawPtBlueprint(
 
   for (const group of visibleChecklistGroups) {
     const items = group.items ?? [];
+    const sections = Array.from(
+      new Set(items.map((item) => item.section).filter(Boolean)),
+    ) as string[];
+
+    if (sections.length) {
+      for (const section of sections) {
+        const sectionItems = items.filter((item) => item.section === section);
+        drawChecklistTable(
+          ctx,
+          autoTable,
+          `${group.title} — ${section}`,
+          sectionItems.map((item) => ({
+            question: item.pergunta,
+            answer: item.resposta,
+            justification: item.justificativa,
+          })),
+          { semanticRules: { profile: "pt", columns: [1] } },
+        );
+      }
+      const unsectioned = items.filter((item) => !item.section);
+      if (unsectioned.length) {
+        drawChecklistTable(
+          ctx,
+          autoTable,
+          group.title,
+          unsectioned.map((item) => ({
+            question: item.pergunta,
+            answer: item.resposta,
+            justification: item.justificativa,
+          })),
+          { semanticRules: { profile: "pt", columns: [1] } },
+        );
+      }
+      continue;
+    }
+
     drawChecklistTable(
       ctx,
       autoTable,
@@ -194,6 +350,82 @@ export async function drawPtBlueprint(
       })),
       { semanticRules: { profile: "pt", columns: [1] } },
     );
+  }
+
+  if (pt.espaco_confinado && pt.medicoes_atmosfericas?.length) {
+    drawSemanticTable(ctx, {
+      title: "Medições atmosféricas (NR-33)",
+      tone: "risk",
+      autoTable,
+      head: [
+        [
+          "#",
+          "Hora",
+          "O2 (%)",
+          "LEL (%)",
+          "CO (ppm)",
+          "H2S (ppm)",
+          "Instrumento",
+          "Responsável",
+        ],
+      ],
+      body: pt.medicoes_atmosfericas.map((reading, index) => [
+        index + 1,
+        sanitize(reading.hora),
+        reading.oxigenio,
+        reading.inflamaveis_lel,
+        reading.co,
+        reading.h2s,
+        sanitize(reading.instrumento),
+        sanitize(reading.responsavel),
+      ]),
+      semanticRules: false,
+      overrides: {
+        styles: { fontSize: 7.4, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 8 } },
+      },
+    });
+  }
+
+  const evidencePhotos = pt.fotos_evidencia ?? [];
+  if (evidencePhotos.length) {
+    await drawEvidenceGallery(ctx, {
+      title: "Evidências fotográficas da área",
+      items: evidencePhotos.map((photo) => ({
+        title: PT_EVIDENCE_FASE_LABELS[photo.fase] ?? photo.fase,
+        description: photo.legenda,
+        meta: photo.uploaded_at ? formatDateTime(photo.uploaded_at) : undefined,
+      })),
+      resolveImageDataUrl: options?.resolveEvidencePhotoDataUrl
+        ? (_item, index) => options.resolveEvidencePhotoDataUrl!(index)
+        : undefined,
+    });
+  }
+
+  if (pt.status === "Encerrada") {
+    drawMetadataGrid(ctx, {
+      title: "Encerramento e devolução da área",
+      columns: 2,
+      fields: [
+        { label: "Encerrado por", value: pt.encerrado_por?.nome },
+        {
+          label: "Término real",
+          value: pt.data_hora_real_fim
+            ? formatDateTime(pt.data_hora_real_fim)
+            : undefined,
+        },
+        {
+          label: "Condição da área",
+          value: pt.condicao_area_encerramento,
+        },
+      ],
+    });
+    if (pt.observacoes_encerramento) {
+      drawNarrativeSection(ctx, {
+        title: "Observações de encerramento",
+        content: pt.observacoes_encerramento,
+      });
+    }
   }
 
   await drawGovernanceClosingBlock(ctx, {

@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Delete,
   UseGuards,
@@ -27,8 +28,10 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
-import { CreatePtDto } from './dto/create-pt.dto';
+import { CreatePtDto, PtAtmosphericReadingDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
+import { FinalizePtDto } from './dto/finalize-pt.dto';
+import { AttachPtEvidencePhotoDto } from './dto/attach-pt-photo.dto';
 import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import { ApprovePtDto } from './dto/approve-pt.dto';
@@ -41,8 +44,14 @@ import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createTemporaryUploadOptions,
+  inspectUploadedFileBuffer,
+  readUploadedFileBuffer,
+  validateFileMagicBytes,
 } from '../../shared/interceptors/file-upload.interceptor';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { UserThrottle } from '../../shared/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../../shared/decorators/tenant-throttle.decorator';
 
 @Controller('pts')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -270,13 +279,179 @@ export class PtsController {
   @Authorize('can_approve_pt')
   finalize(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: FinalizePtDto,
     @Req() req: { user?: { userId?: string } },
   ): Promise<PtResponseDto> {
     const userId = req.user?.userId;
     if (!userId) {
       throw new BadRequestException('Usuário autenticado inválido');
     }
-    return this.ptsService.finalize(id, userId).then(toPtResponseDto);
+    return this.ptsService.finalize(id, userId, body).then(toPtResponseDto);
+  }
+
+  /** Evidência fotográfica governada da área (antes/durante/depois). */
+  @Post(':id/photos')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_pt')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  async attachEvidencePhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: AttachPtEvidencePhotoDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Foto de evidência não enviada.');
+    }
+
+    const buffer = await readUploadedFileBuffer(file);
+
+    try {
+      validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
+
+      return await this.ptsService.attachEvidencePhoto(
+        id,
+        buffer,
+        file.originalname,
+        file.mimetype,
+        { fase: body.fase, legenda: body.legenda },
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
+  }
+
+  @Get(':id/photos/:photoIndex/access')
+  @Authorize('can_view_pt')
+  getEvidencePhotoAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+  ) {
+    return this.ptsService.getEvidencePhotoAccess(id, photoIndex);
+  }
+
+  @Delete(':id/photos/:photoIndex')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_pt')
+  removeEvidencePhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+    @Req() req: { user?: { userId?: string } },
+  ) {
+    return this.ptsService.removeEvidencePhoto(
+      id,
+      photoIndex,
+      req.user?.userId,
+    );
+  }
+
+  /** Anexo governado de item de checklist (imagem ou PDF). */
+  @Post(':id/checklists/:checklistField/items/:itemIndex/attachment')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_pt')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  async attachChecklistItemAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('checklistField') checklistField: string,
+    @Param('itemIndex', ParseIntPipe) itemIndex: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Anexo do item não enviado.');
+    }
+
+    const buffer = await readUploadedFileBuffer(file);
+
+    try {
+      validateFileMagicBytes(buffer, [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'application/pdf',
+      ]);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
+
+      return await this.ptsService.attachChecklistItemAttachment(
+        id,
+        checklistField,
+        itemIndex,
+        buffer,
+        file.originalname,
+        file.mimetype,
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
+  }
+
+  @Get(':id/checklists/:checklistField/items/:itemIndex/attachment/access')
+  @Authorize('can_view_pt')
+  getChecklistItemAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('checklistField') checklistField: string,
+    @Param('itemIndex', ParseIntPipe) itemIndex: number,
+  ) {
+    return this.ptsService.getChecklistItemAttachmentAccess(
+      id,
+      checklistField,
+      itemIndex,
+    );
+  }
+
+  /** Registro append-only de medição atmosférica NR-33 (espaço confinado). */
+  @Post(':id/atmospheric-readings')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_pt')
+  appendAtmosphericReading(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: PtAtmosphericReadingDto,
+    @Req() req: { user?: { userId?: string } },
+  ): Promise<PtResponseDto> {
+    return this.ptsService
+      .appendAtmosphericReading(id, body, req.user?.userId)
+      .then(toPtResponseDto);
   }
 
   /** Anexa PDF a uma PT existente */

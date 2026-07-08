@@ -318,6 +318,7 @@ export const initialChecklists = {
   trabalho_espaco_confinado_checklist: confinadoQuestions.map((item) => ({
     id: item.id,
     pergunta: item.pergunta,
+    section: item.section,
     resposta: undefined as HeightChecklistAnswer | undefined,
     justificativa: '',
     anexo_nome: '',
@@ -325,6 +326,7 @@ export const initialChecklists = {
   trabalho_escavacao_checklist: escavacaoQuestions.map((item) => ({
     id: item.id,
     pergunta: item.pergunta,
+    section: item.section,
     resposta: undefined as HeightChecklistAnswer | undefined,
     justificativa: '',
     anexo_nome: '',
@@ -375,6 +377,7 @@ export const ptSchema = z.object({
       resposta: z.enum(['Sim', 'Não', 'Não aplicável']).optional(),
       justificativa: z.string().optional(),
       anexo_nome: z.string().optional(),
+      anexo_ref: z.string().optional(),
     }),
   ),
   trabalho_eletrico_checklist: z.array(
@@ -384,6 +387,7 @@ export const ptSchema = z.object({
       resposta: z.enum(['Sim', 'Não', 'Não aplicável']).optional(),
       justificativa: z.string().optional(),
       anexo_nome: z.string().optional(),
+      anexo_ref: z.string().optional(),
     }),
   ),
   trabalho_quente_checklist: z.array(
@@ -393,24 +397,29 @@ export const ptSchema = z.object({
       resposta: z.enum(['Sim', 'Não', 'Não aplicável']).optional(),
       justificativa: z.string().optional(),
       anexo_nome: z.string().optional(),
+      anexo_ref: z.string().optional(),
     }),
   ),
   trabalho_espaco_confinado_checklist: z.array(
     z.object({
       id: z.string(),
       pergunta: z.string(),
+      section: z.string().optional(),
       resposta: z.enum(['Sim', 'Não', 'Não aplicável']).optional(),
       justificativa: z.string().optional(),
       anexo_nome: z.string().optional(),
+      anexo_ref: z.string().optional(),
     }),
   ),
   trabalho_escavacao_checklist: z.array(
     z.object({
       id: z.string(),
       pergunta: z.string(),
+      section: z.string().optional(),
       resposta: z.enum(['Sim', 'Não', 'Não aplicável']).optional(),
       justificativa: z.string().optional(),
       anexo_nome: z.string().optional(),
+      anexo_ref: z.string().optional(),
     }),
   ),
   executantes: z.array(z.string()).min(1, 'Selecione pelo menos um executante'),
@@ -418,7 +427,71 @@ export const ptSchema = z.object({
   data_auditoria: z.string().optional(),
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
+  contato_emergencia: z.string().max(200).optional(),
+  plano_resgate: z.string().max(2000).optional(),
+  ponto_encontro: z.string().max(300).optional(),
+  vigia_user_id: z.string().optional(),
+  vigia_nome: z.string().max(200).optional(),
+  epis_obrigatorios: z
+    .array(z.string().min(1).max(120))
+    .max(50)
+    .optional(),
+  medicoes_atmosfericas: z
+    .array(
+      z.object({
+        id: z.string(),
+        hora: z
+          .string()
+          .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inválida (HH:mm)'),
+        oxigenio: z
+          .number({ message: 'Informe o valor de O2' })
+          .min(0, 'O2 mínimo 0%')
+          .max(25, 'O2 máximo 25%'),
+        inflamaveis_lel: z
+          .number({ message: 'Informe o LEL' })
+          .min(0, 'LEL mínimo 0%')
+          .max(100, 'LEL máximo 100%'),
+        co: z
+          .number({ message: 'Informe o CO' })
+          .min(0, 'CO mínimo 0 ppm')
+          .max(1000, 'CO máximo 1000 ppm'),
+        h2s: z
+          .number({ message: 'Informe o H2S' })
+          .min(0, 'H2S mínimo 0 ppm')
+          .max(500, 'H2S máximo 500 ppm'),
+        instrumento: z.string().min(1, 'Informe o instrumento').max(120),
+        responsavel: z.string().min(1, 'Informe o responsável').max(200),
+      }),
+    )
+    .max(50)
+    .optional(),
 }).superRefine((data, ctx) => {
+  if (data.espaco_confinado) {
+    if (!data.contato_emergencia?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Informe o contato de emergência (obrigatório para espaço confinado).',
+        path: ['contato_emergencia'],
+      });
+    }
+    if (!data.plano_resgate?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Descreva o plano de resgate (obrigatório para espaço confinado).',
+        path: ['plano_resgate'],
+      });
+    }
+    if (!data.vigia_user_id?.trim() && !data.vigia_nome?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Designe o vigia (obrigatório para espaço confinado).',
+        path: ['vigia_nome'],
+      });
+    }
+  }
+
   const requireJustificationWhenNeeded = (
     resposta: string | undefined,
     justificativa: string | undefined,

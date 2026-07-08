@@ -1,4 +1,4 @@
-import type { Pt } from "@/services/ptsService";
+import { ptsService, type Pt } from "@/services/ptsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
@@ -56,7 +56,24 @@ export async function generatePtPdf(
     site: sanitize(pt.site?.nome),
     logoUrl,
   });
-  await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code));
+  // Resolve fotos de evidência via URL assinada → data URL inline no PDF.
+  // Falhas individuais degradam para placeholder (modo não-strict da galeria).
+  const resolveEvidencePhotoDataUrl = async (
+    photoIndex: number,
+  ): Promise<string | null> => {
+    if (!pt.id) return null;
+    try {
+      const access = await ptsService.getEvidencePhotoAccess(pt.id, photoIndex);
+      if (!access.url) return null;
+      return await fetchImageAsDataUrl(access.url);
+    } catch {
+      return null;
+    }
+  };
+
+  await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code), {
+    resolveEvidencePhotoDataUrl,
+  });
 
   applyFooterGovernance(ctx, {
     code,

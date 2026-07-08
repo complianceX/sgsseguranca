@@ -96,3 +96,61 @@ describe('Migration 1709000000313 — pts índice único (company_id, numero)', 
     expect(occurrences).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('Migration 1709000000343 — pts campos operacionais/normativos', () => {
+  let content: string;
+
+  beforeAll(() => {
+    const file = path.join(
+      MIGRATIONS_DIR,
+      '1709000000343-add-pt-field-operations.ts',
+    );
+    content = fs.readFileSync(file, 'utf8');
+  });
+
+  it('adiciona colunas jsonb de fotos, medições e EPIs', () => {
+    expect(content).toContain('"fotos_evidencia" jsonb');
+    expect(content).toContain('"medicoes_atmosfericas" jsonb');
+    expect(content).toContain('"epis_obrigatorios" jsonb');
+  });
+
+  it('adiciona campos de emergência e vigia', () => {
+    expect(content).toContain('"contato_emergencia" text');
+    expect(content).toContain('"plano_resgate" text');
+    expect(content).toContain('"ponto_encontro" text');
+    expect(content).toContain('"vigia_user_id" uuid');
+    expect(content).toContain('"vigia_nome" text');
+  });
+
+  it('adiciona campos estruturados de encerramento', () => {
+    expect(content).toContain('"encerrado_por_id" uuid');
+    expect(content).toContain('"data_hora_real_fim" timestamp');
+    expect(content).toContain('"condicao_area_encerramento" varchar');
+    expect(content).toContain('"observacoes_encerramento" text');
+  });
+
+  it('cria FKs para users com ON DELETE SET NULL de forma idempotente', () => {
+    expect(content).toContain('FK_pts_vigia_user_id');
+    expect(content).toContain('FK_pts_encerrado_por_id');
+    expect(content).toContain('ON DELETE SET NULL');
+    expect(content).toContain("conname = 'FK_pts_vigia_user_id'");
+    expect(content).toContain("conname = 'FK_pts_encerrado_por_id'");
+  });
+
+  it('todas as colunas usam ADD COLUMN IF NOT EXISTS (idempotente)', () => {
+    const occurrences = (content.match(/ADD COLUMN IF NOT EXISTS/g) ?? [])
+      .length;
+    expect(occurrences).toBe(12);
+  });
+
+  it('down() remove FKs e todas as colunas', () => {
+    expect(content).toContain(
+      'DROP CONSTRAINT IF EXISTS "FK_pts_vigia_user_id"',
+    );
+    expect(content).toContain(
+      'DROP CONSTRAINT IF EXISTS "FK_pts_encerrado_por_id"',
+    );
+    const drops = (content.match(/DROP COLUMN IF EXISTS/g) ?? []).length;
+    expect(drops).toBe(12);
+  });
+});

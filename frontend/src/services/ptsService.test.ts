@@ -219,12 +219,18 @@ describe("ptsService", () => {
     expect(result).toEqual(rejected);
   });
 
-  it("finaliza uma PT com POST na rota de finalização", async () => {
+  it("finaliza uma PT com POST na rota de finalização e dados de encerramento", async () => {
     (api.post as jest.Mock).mockResolvedValue({ data: { id: "pt-1", status: "Encerrada" } });
 
-    const result = await ptsService.finalize("pt-1");
+    const result = await ptsService.finalize("pt-1", {
+      condicao_area: "Limpa e liberada",
+      observacoes: "Área devolvida sem pendências",
+    });
 
-    expect(api.post).toHaveBeenCalledWith("/pts/pt-1/finalize");
+    expect(api.post).toHaveBeenCalledWith("/pts/pt-1/finalize", {
+      condicao_area: "Limpa e liberada",
+      observacoes: "Área devolvida sem pendências",
+    });
     expect(result.status).toBe("Encerrada");
   });
 

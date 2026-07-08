@@ -25,6 +25,36 @@ export const PT_ALLOWED_TRANSITIONS: Record<PtStatus, PtStatus[]> = {
   [PtStatus.ENCERRADA]: [],
   [PtStatus.EXPIRADA]: [PtStatus.ENCERRADA],
 };
+
+export type PtEvidencePhotoFase = 'antes' | 'durante' | 'depois';
+
+export const PT_CONDICOES_AREA_ENCERRAMENTO = [
+  'Limpa e liberada',
+  'Isolada com pendências',
+  'Outro',
+] as const;
+
+export type PtCondicaoAreaEncerramento =
+  (typeof PT_CONDICOES_AREA_ENCERRAMENTO)[number];
+
+export type PtEvidencePhoto = {
+  ref: string;
+  legenda?: string;
+  fase: PtEvidencePhotoFase;
+  uploaded_by_id?: string;
+  uploaded_at: string;
+};
+
+export type PtAtmosphericReading = {
+  id: string;
+  hora: string;
+  oxigenio: number;
+  inflamaveis_lel: number;
+  co: number;
+  h2s: number;
+  instrumento: string;
+  responsavel: string;
+};
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -139,6 +169,7 @@ export class Pt extends BaseAuditEntity {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -148,6 +179,7 @@ export class Pt extends BaseAuditEntity {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -157,24 +189,29 @@ export class Pt extends BaseAuditEntity {
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
 
   @Column({ type: 'jsonb', nullable: true })
   trabalho_espaco_confinado_checklist?: Array<{
     id: string;
     pergunta: string;
+    section?: string;
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
 
   @Column({ type: 'jsonb', nullable: true })
   trabalho_escavacao_checklist?: Array<{
     id: string;
     pergunta: string;
+    section?: string;
     resposta?: 'Sim' | 'Não' | 'Não aplicável';
     justificativa?: string;
     anexo_nome?: string;
+    anexo_ref?: string;
   }>;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -195,6 +232,54 @@ export class Pt extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   analise_risco_rapida_observacoes?: string;
+
+  /** Evidências fotográficas governadas da área (referências gst:pt-photo:). */
+  @Column({ type: 'jsonb', nullable: true })
+  fotos_evidencia?: PtEvidencePhoto[];
+
+  /** Medições atmosféricas NR-33 (espaço confinado). */
+  @Column({ type: 'jsonb', nullable: true })
+  medicoes_atmosfericas?: PtAtmosphericReading[];
+
+  /** Lista de EPIs obrigatórios para a atividade. */
+  @Column({ type: 'jsonb', nullable: true })
+  epis_obrigatorios?: string[];
+
+  @Column({ type: 'text', nullable: true })
+  contato_emergencia?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  plano_resgate?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ponto_encontro?: string | null;
+
+  /** Vigia designado para espaço confinado (usuário do sistema OU nome livre). */
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'vigia_user_id' })
+  vigia?: User;
+
+  @Column({ type: 'uuid', nullable: true })
+  vigia_user_id?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  vigia_nome?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'encerrado_por_id' })
+  encerrado_por?: User;
+
+  @Column({ type: 'uuid', nullable: true })
+  encerrado_por_id?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_hora_real_fim?: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  condicao_area_encerramento?: PtCondicaoAreaEncerramento | null;
+
+  @Column({ type: 'text', nullable: true })
+  observacoes_encerramento?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'auditado_por_id' })

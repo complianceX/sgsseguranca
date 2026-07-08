@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { type Path, useFieldArray, useFormContext, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { PtFormData } from './pt-schema-and-data';
 import { StatusPill } from '@/components/ui/status-pill';
+import {
+  ptsService,
+  type PtChecklistAttachmentField,
+} from '@/services/ptsService';
 
 type ChecklistResponse = 'Sim' | 'Não' | 'Não aplicável' | 'Ciente';
 type ChecklistFieldName =
@@ -20,8 +25,10 @@ interface ChecklistItem {
   resposta?: 'Sim' | 'Não' | 'Não aplicável' | 'Ciente';
   justificativa?: string;
   anexo_nome?: string;
+  anexo_ref?: string;
   allowNA?: boolean;
   optional?: boolean;
+  section?: string;
 }
 
 interface ChecklistSectionProps {
@@ -31,6 +38,8 @@ interface ChecklistSectionProps {
   questions: ChecklistItem[];
   baseResponses: ChecklistResponse[];
   showJustificationOn: ('Não' | 'Não aplicável')[];
+  /** PT persistida — habilita o upload real de anexos governados. */
+  ptId?: string;
 }
 
 const ChecklistSection: React.FC<ChecklistSectionProps> = ({
@@ -40,8 +49,10 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
   questions,
   baseResponses,
   showJustificationOn,
+  ptId,
 }) => {
   const { control, formState: { errors }, setValue } = useFormContext<PtFormData>();
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const { fields } = useFieldArray({ control, name });
   const watchedItems = useWatch({ control, name }) as Array<{ resposta?: string }> | undefined;
   const answeredCount = (watchedItems ?? []).filter((item) => item?.resposta).length;
@@ -65,17 +76,82 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
     fieldName.startsWith('trabalho_')
   );
 
-  return (
-    <div className="ds-form-section">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">{title}</h2>
-        <StatusPill tone={answeredCount === totalCount ? 'success' : 'warning'}>
-          {answeredCount}/{totalCount}
-        </StatusPill>
-      </div>
-      <p className="mb-6 text-sm text-[var(--ds-color-text-primary)]">{description}</p>
-      <div className="space-y-4">
-        {fields.map((item, index) => {
+  const handleAttachmentUpload = async (index: number, file: File) => {
+    if (!ptId || !hasAttachmentField(name)) return;
+    const MAX_SIZE_MB = 10;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      toast.error(`O arquivo deve ter no máximo ${MAX_SIZE_MB}MB.`);
+      return;
+    }
+    setUploadingIndex(index);
+    try {
+      const result = await ptsService.attachChecklistItemFile(
+        ptId,
+        name as PtChecklistAttachmentField,
+        index,
+        file,
+      );
+      setValue(
+        `${name}.${index}.anexo_nome` as Path<PtFormData>,
+        result.anexoNome,
+        { shouldValidate: true },
+      );
+      setValue(
+        `${name}.${index}.anexo_ref` as Path<PtFormData>,
+        result.anexoReference,
+        { shouldValidate: true },
+      );
+      toast.success('Anexo enviado.');
+    } catch (error) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || 'Erro ao enviar o anexo.';
+      toast.error(message);
+    } finally {
+      setUploadingIndex(null);
+    }
+  };
+
+  const handleOpenAttachment = async (index: number) => {
+    if (!ptId || !hasAttachmentField(name)) return;
+    try {
+      const access = await ptsService.getChecklistItemAttachmentAccess(
+        ptId,
+        name as PtChecklistAttachmentField,
+        index,
+      );
+      if (access.url) {
+        window.open(access.url, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('Anexo registrado, mas indisponível no momento.');
+      }
+    } catch {
+      toast.error('Não foi possível abrir o anexo.');
+    }
+  };
+
+  const sectionOf = (index: number): string | undefined => {
+    const item = fields[index] as unknown as ChecklistItem | undefined;
+    if (!item) return undefined;
+    const questionInfo = questions.find((q) => q.id === item.id);
+    return questionInfo?.section ?? item.section;
+  };
+
+  const hasSections = fields.some((_, index) => Boolean(sectionOf(index)));
+  const sectionOrder: string[] = [];
+  const indicesBySection = new Map<string, number[]>();
+  fields.forEach((_, index) => {
+    const section = sectionOf(index) ?? '';
+    if (!indicesBySection.has(section)) {
+      indicesBySection.set(section, []);
+      sectionOrder.push(section);
+    }
+    indicesBySection.get(section)!.push(index);
+  });
+
+  const renderItem = (index: number) => {
+          const item = fields[index];
+          if (!item) return null;
           const questionInfo = questions.find(q => q.id === item.id);
           const field = item as ChecklistItem;
           const responseError = getError(index, 'resposta');
@@ -142,7 +218,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                 </div>
               )}
 
-              {/* Anexo (se aplicável) */}
+              {/* Anexo governado (se aplicável) */}
               {hasAttachmentField(name) && (
                  <div className="mt-3">
                     <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
@@ -150,33 +226,72 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                     </label>
                     <input
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      disabled={!ptId || uploadingIndex === index}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
+                        e.target.value = '';
                         if (!file) return;
-                        const MAX_SIZE_MB = 5;
-                        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-                          e.target.value = '';
-                          alert(`O arquivo deve ter no máximo ${MAX_SIZE_MB}MB.`);
-                          return;
-                        }
-                        setValue(
-                          `${name}.${index}.anexo_nome` as Path<PtFormData>,
-                          file.name,
-                          { shouldValidate: true },
-                        );
+                        void handleAttachmentUpload(index, file);
                       }}
-                      className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)]"
+                      className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                     <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                      {field.anexo_nome ? `Arquivo selecionado: ${field.anexo_nome}` : 'Nenhum ficheiro selecionado — PDF, JPG ou PNG até 5 MB'}
+                      {!ptId
+                        ? 'Anexos disponíveis após salvar a PT.'
+                        : uploadingIndex === index
+                          ? 'Enviando anexo...'
+                          : field.anexo_nome
+                            ? `Arquivo: ${field.anexo_nome}`
+                            : 'Nenhum arquivo — PDF, JPG, PNG ou WebP até 10 MB'}
+                      {ptId && field.anexo_ref && uploadingIndex !== index && (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenAttachment(index)}
+                            className="font-semibold text-[var(--ds-color-info)] hover:underline"
+                          >
+                            Ver anexo
+                          </button>
+                        </>
+                      )}
                     </p>
                   </div>
               )}
             </div>
           );
-        })}
+  };
+
+  return (
+    <div className="ds-form-section">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">{title}</h2>
+        <StatusPill tone={answeredCount === totalCount ? 'success' : 'warning'}>
+          {answeredCount}/{totalCount}
+        </StatusPill>
       </div>
+      <p className="mb-6 text-sm text-[var(--ds-color-text-primary)]">{description}</p>
+      {hasSections ? (
+        <div className="space-y-6">
+          {sectionOrder.map((section) => (
+            <div key={section || '__sem_secao__'} className="space-y-3">
+              {section && (
+                <h3 className="text-sm font-bold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
+                  {section}
+                </h3>
+              )}
+              <div className="space-y-4">
+                {indicesBySection.get(section)!.map((index) => renderItem(index))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {fields.map((_, index) => renderItem(index))}
+        </div>
+      )}
     </div>
   );
 };
