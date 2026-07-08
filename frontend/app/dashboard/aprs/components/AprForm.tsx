@@ -2880,7 +2880,23 @@ export function AprForm({ id }: AprFormProps) {
                 type="file"
                 accept="image/*"
                 aria-label="Selecionar foto da evidência da APR"
-                onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file) {
+                    if (!file.type.startsWith("image/")) {
+                      toast.error("Apenas imagens são aceitas como evidência.");
+                      e.target.value = "";
+                      return;
+                    }
+                    const MAX_EVIDENCE_BYTES = 15 * 1024 * 1024;
+                    if (file.size > MAX_EVIDENCE_BYTES) {
+                      toast.error("A imagem não pode ultrapassar 15 MB.");
+                      e.target.value = "";
+                      return;
+                    }
+                  }
+                  setEvidenceFile(file);
+                }}
                 disabled={isReadOnly}
                 className={aprFileFieldClass}
               />
@@ -5064,21 +5080,23 @@ export function AprForm({ id }: AprFormProps) {
                   <AprExecutiveSummary control={control} variant="breakdown" />
                 </div>
 
-                <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
-                  <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                    Auditoria avançada (opcional)
-                  </summary>
-                  <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                    Utilize este bloco apenas quando o processo exigir registro
-                    formal de auditoria interna.
-                  </p>
-                  <div className="mt-4">
-                    <AuditSection
-                      register={register}
-                      auditors={filteredUsers}
-                    />
-                  </div>
-                </details>
+                {canApprove && (
+                  <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      Auditoria avançada (opcional)
+                    </summary>
+                    <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                      Utilize este bloco apenas quando o processo exigir registro
+                      formal de auditoria interna.
+                    </p>
+                    <div className="mt-4">
+                      <AuditSection
+                        register={register}
+                        auditors={filteredUsers}
+                      />
+                    </div>
+                  </details>
+                )}
               </>
             )}
           </fieldset>

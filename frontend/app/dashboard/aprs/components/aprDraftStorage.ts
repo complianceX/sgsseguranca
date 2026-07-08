@@ -84,6 +84,7 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "epis",
   "tools",
   "machines",
+  "participants",
   "itens_risco",
 ];
 

@@ -41,7 +41,7 @@ describe('AprsEvidenceService', () => {
     manager: { getRepository: jest.Mock };
   };
   let aprLogsRepository: { create: jest.Mock; save: jest.Mock };
-  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
   let documentStorageService: Pick<
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
@@ -85,6 +85,9 @@ describe('AprsEvidenceService', () => {
         companyId: 'company-1',
         isSuperAdmin: false,
       })),
+      run: jest.fn((_ctx: unknown, fn: () => unknown) =>
+        fn(),
+      ) as TenantService['run'],
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -100,7 +103,7 @@ describe('AprsEvidenceService', () => {
     service = new AprsEvidenceService(
       aprRepository as unknown as Repository<Apr>,
       aprLogsRepository as unknown as Repository<AprLog>,
-      tenantService as TenantService,
+      tenantService as unknown as TenantService,
       documentStorageService as DocumentStorageService,
     );
   });

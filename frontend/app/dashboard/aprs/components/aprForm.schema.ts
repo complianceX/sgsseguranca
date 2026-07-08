@@ -8,16 +8,16 @@ export const aprSchema = z.object({
   // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
   // Usado somente para validação/UX do wizard; não deve ser enviado para a API.
   pdf_signed: z.boolean().optional(),
-  numero: z.string().min(1, "O número é obrigatório"),
-  titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
-  descricao: z.string().optional(),
-  tipo_atividade: z.string().optional(),
-  frente_trabalho: z.string().optional(),
-  area_risco: z.string().optional(),
-  turno: z.string().optional(),
-  local_execucao_detalhado: z.string().optional(),
-  responsavel_tecnico_nome: z.string().optional(),
-  responsavel_tecnico_registro: z.string().optional(),
+  numero: z.string().min(1, "O número é obrigatório").max(80, "Máximo 80 caracteres"),
+  titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres").max(200, "Máximo 200 caracteres"),
+  descricao: z.string().max(5000, "Máximo 5000 caracteres").optional(),
+  tipo_atividade: z.string().max(60, "Máximo 60 caracteres").optional(),
+  frente_trabalho: z.string().max(120, "Máximo 120 caracteres").optional(),
+  area_risco: z.string().max(120, "Máximo 120 caracteres").optional(),
+  turno: z.string().max(40, "Máximo 40 caracteres").optional(),
+  local_execucao_detalhado: z.string().max(200, "Máximo 200 caracteres").optional(),
+  responsavel_tecnico_nome: z.string().max(160, "Máximo 160 caracteres").optional(),
+  responsavel_tecnico_registro: z.string().max(80, "Máximo 80 caracteres").optional(),
   data_inicio: z.string().min(1, "A data de início é obrigatória"),
   data_fim: z.string().min(1, "A data de término é obrigatória"),
   status: z.enum(["Pendente", "Aprovada", "Cancelada", "Encerrada"]),
@@ -41,8 +41,18 @@ export const aprSchema = z.object({
         condicao_perigosa: z.string().optional(),
         fontes_circunstancias: z.string().optional(),
         possiveis_lesoes: z.string().optional(),
-        probabilidade: z.string().optional(),
-        severidade: z.string().optional(),
+        probabilidade: z
+          .string()
+          .optional()
+          .refine((v) => !v || ["1", "2", "3", "4", "5"].includes(v), {
+            message: "Probabilidade deve ser 1, 2, 3, 4 ou 5",
+          }),
+        severidade: z
+          .string()
+          .optional()
+          .refine((v) => !v || ["1", "2", "3", "4", "5"].includes(v), {
+            message: "Severidade deve ser 1, 2, 3, 4 ou 5",
+          }),
         categoria_risco: z.string().optional(),
         medidas_prevencao: z.string().optional(),
         epc: z.string().optional(),
@@ -58,8 +68,8 @@ export const aprSchema = z.object({
     .optional(),
   auditado_por_id: z.string().optional(),
   data_auditoria: z.string().optional(),
-  resultado_auditoria: z.string().optional(),
-  notas_auditoria: z.string().optional(),
+  resultado_auditoria: z.string().max(2000, "Máximo 2000 caracteres").optional(),
+  notas_auditoria: z.string().max(2000, "Máximo 2000 caracteres").optional(),
 }).superRefine((data, ctx) => {
   if (!data.data_inicio || !data.data_fim) return;
 

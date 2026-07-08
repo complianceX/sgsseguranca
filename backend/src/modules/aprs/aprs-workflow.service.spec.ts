@@ -985,12 +985,14 @@ describe('AprWorkflowService', () => {
       expect(service.ensureAprStatus('Encerrada')).toBe(AprStatus.ENCERRADA);
     });
 
-    it('retorna PENDENTE como fallback para status desconhecido', () => {
-      expect(service.ensureAprStatus('StatusInvalido')).toBe(
-        AprStatus.PENDENTE,
+    it('lança BadRequestException para status desconhecido', () => {
+      expect(() => service.ensureAprStatus('StatusInvalido')).toThrow(
+        BadRequestException,
       );
-      expect(service.ensureAprStatus(null)).toBe(AprStatus.PENDENTE);
-      expect(service.ensureAprStatus(undefined)).toBe(AprStatus.PENDENTE);
+      expect(() => service.ensureAprStatus(null)).toThrow(BadRequestException);
+      expect(() => service.ensureAprStatus(undefined)).toThrow(
+        BadRequestException,
+      );
     });
   });
 
