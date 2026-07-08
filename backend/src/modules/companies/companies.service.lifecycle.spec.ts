@@ -11,6 +11,7 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 import { InternalServerErrorException } from '@nestjs/common';
 
 const COMPANY_ID = 'company-uuid-1';
@@ -101,6 +102,12 @@ describe('CompaniesService — lifecycle e validação', () => {
         {
           provide: GDPRDeletionService,
           useValue: gdprService,
+        },
+        {
+          provide: TenantService,
+          useValue: {
+            run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
+          },
         },
       ],
     }).compile();

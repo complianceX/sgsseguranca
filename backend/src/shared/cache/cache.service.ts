@@ -159,6 +159,25 @@ export class CacheService {
   }
 
   /**
+   * Constrói uma chave de cache com escopo de tenant (defesa em profundidade).
+   *
+   * Caches de dados específicos de tenant DEVEM usar este helper para evitar
+   * vazamento cross-tenant por colisão de chave entre empresas. O prefixo `t:`
+   * + companyId garante namespacing por tenant e permite invalidação em massa
+   * via `invalidatePattern('t:<companyId>:*')`.
+   *
+   * Ex.: cache.tenantKey('comp-1', 'dashboard', 'kpis') → 't:comp-1:dashboard:kpis'
+   */
+  tenantKey(companyId: string, ...parts: Array<string | number>): string {
+    if (!companyId) {
+      throw new Error(
+        'CacheService.tenantKey: companyId é obrigatório para chave com escopo de tenant.',
+      );
+    }
+    return ['t', companyId, ...parts].join(':');
+  }
+
+  /**
    * Cache user profile
    */
   async cacheUserProfile<T>(userId: string, profile: T): Promise<void> {

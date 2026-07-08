@@ -10,6 +10,7 @@ import { UserSession } from '../auth/entities/user-session.entity';
 import { Company } from '../companies/entities/company.entity';
 import { DashboardDocumentAvailabilitySnapshotService } from './dashboard-document-availability-snapshot.service';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
+import { TenantService } from '../../shared/tenant/tenant.service';
 
 const DEFAULT_WARMUP_DELAY_MS = 15_000;
 const DEFAULT_WARMUP_COMPANY_LIMIT = 25;
@@ -33,7 +34,35 @@ export class DashboardDocumentAvailabilityWarmupService
     private readonly companiesRepository: Repository<Company>,
     private readonly snapshotService: DashboardDocumentAvailabilitySnapshotService,
     private readonly documentPendenciesService: DashboardDocumentPendenciesService,
+    private readonly tenantService: TenantService,
   ) {}
+
+  /**
+   * Enumeração cross-tenant (sessions/companies) precisa de super-admin: este
+   * warmup roda fora de request, sem contexto de tenant; com a RLS dessas
+   * tabelas, sem o wrap a varredura retornaria 0 e o warmup ficaria vazio.
+   */
+  private runAsGlobalSuperAdmin<T>(callback: () => Promise<T>): Promise<T> {
+    return Promise.resolve(
+      this.tenantService.run(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        callback,
+      ),
+    );
+  }
+
+  /** Trabalho por empresa roda no contexto do tenant (RLS dos snapshots). */
+  private runInCompanyScope<T>(
+    companyId: string,
+    callback: () => Promise<T>,
+  ): Promise<T> {
+    return Promise.resolve(
+      this.tenantService.run(
+        { companyId, isSuperAdmin: false, siteScope: 'all' },
+        callback,
+      ),
+    );
+  }
 
   onApplicationBootstrap(): void {
     if (
@@ -107,12 +136,14 @@ export class DashboardDocumentAvailabilityWarmupService
       uniqueCompanyIds,
       concurrency,
       async (companyId) => {
-        await this.snapshotService.ensureSnapshotsAvailable({
-          companyId,
-          shouldCollect: true,
-        });
-        await this.documentPendenciesService.warmPreparedBaseCache({
-          companyId,
+        await this.runInCompanyScope(companyId, async () => {
+          await this.snapshotService.ensureSnapshotsAvailable({
+            companyId,
+            shouldCollect: true,
+          });
+          await this.documentPendenciesService.warmPreparedBaseCache({
+            companyId,
+          });
         });
       },
     );
@@ -140,12 +171,14 @@ export class DashboardDocumentAvailabilityWarmupService
       concurrency,
       async (companyId) => {
         try {
-          await this.snapshotService.ensureSnapshotsAvailable({
-            companyId,
-            shouldCollect: true,
-          });
-          await this.documentPendenciesService.warmPreparedBaseCache({
-            companyId,
+          await this.runInCompanyScope(companyId, async () => {
+            await this.snapshotService.ensureSnapshotsAvailable({
+              companyId,
+              shouldCollect: true,
+            });
+            await this.documentPendenciesService.warmPreparedBaseCache({
+              companyId,
+            });
           });
         } catch (error) {
           this.logger.warn({
@@ -167,19 +200,21 @@ export class DashboardDocumentAvailabilityWarmupService
   private async resolveWarmupCompanyIds(
     companyLimit: number,
   ): Promise<string[]> {
-    const activeSessionRows = await this.userSessionRepository.find({
-      where: {
-        is_active: true,
-        revoked_at: IsNull(),
-        expires_at: MoreThan(new Date()),
-      },
-      select: {
-        company_id: true,
-        last_active: true,
-      },
-      order: { last_active: 'DESC' },
-      take: companyLimit,
-    });
+    const activeSessionRows = await this.runAsGlobalSuperAdmin(() =>
+      this.userSessionRepository.find({
+        where: {
+          is_active: true,
+          revoked_at: IsNull(),
+          expires_at: MoreThan(new Date()),
+        },
+        select: {
+          company_id: true,
+          last_active: true,
+        },
+        order: { last_active: 'DESC' },
+        take: companyLimit,
+      }),
+    );
 
     const activeCompanyIds = [
       ...new Set(activeSessionRows.map((row) => row.company_id)),
@@ -188,12 +223,14 @@ export class DashboardDocumentAvailabilityWarmupService
       return activeCompanyIds.slice(0, companyLimit);
     }
 
-    const recentCompanies = await this.companiesRepository.find({
-      where: { status: true },
-      select: ['id'],
-      order: { created_at: 'DESC' },
-      take: companyLimit,
-    });
+    const recentCompanies = await this.runAsGlobalSuperAdmin(() =>
+      this.companiesRepository.find({
+        where: { status: true },
+        select: ['id'],
+        order: { created_at: 'DESC' },
+        take: companyLimit,
+      }),
+    );
 
     return [
       ...new Set([...activeCompanyIds, ...recentCompanies.map((c) => c.id)]),

@@ -1182,36 +1182,6 @@ export class AuthService {
     };
   }
 
-  async validateToken(token: string): Promise<{
-    id: string;
-    cpf?: string;
-    company_id: string;
-    site_id?: string | null;
-    profile: unknown;
-    isAdminGeral: boolean;
-  }> {
-    try {
-      const issuer =
-        this.configService.get<string>('JWT_ISSUER')?.trim() || undefined;
-      const audience =
-        this.configService.get<string>('JWT_AUDIENCE')?.trim() || undefined;
-      const payload = (await this.jwtService.verifyAsync(token, {
-        ...(issuer && { issuer }),
-        ...(audience && { audience }),
-      })) as unknown as JwtPayload;
-      return {
-        id: payload.sub,
-        cpf: payload.cpf,
-        company_id: payload.company_id,
-        site_id: payload.site_id ?? null,
-        profile: payload.profile,
-        isAdminGeral: payload.isAdminGeral === true,
-      };
-    } catch {
-      throw new UnauthorizedException('Token inválido');
-    }
-  }
-
   async refresh(
     refreshToken: string,
     ctx?: { userAgent?: string; ip?: string },
