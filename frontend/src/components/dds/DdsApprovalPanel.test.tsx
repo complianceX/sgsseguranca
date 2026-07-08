@@ -275,7 +275,7 @@ describe("DdsApprovalPanel", () => {
     });
 
     const pinInput = screen.getByPlaceholderText(
-      "PIN de assinatura do aprovador (4 a 6 dígitos)",
+      "4 a 6 dígitos",
     ) as HTMLInputElement;
     const approveButton = screen.getByText("Aprovar etapa");
 
@@ -312,7 +312,7 @@ describe("DdsApprovalPanel", () => {
     });
 
     const pinInput = screen.getByPlaceholderText(
-      "PIN de assinatura do aprovador (4 a 6 dígitos)",
+      "4 a 6 dígitos",
     ) as HTMLInputElement;
     const approveButton = screen.getByText("Aprovar etapa");
 
