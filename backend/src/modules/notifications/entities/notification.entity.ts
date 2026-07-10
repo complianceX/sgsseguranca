@@ -55,6 +55,6 @@ export class Notification {
   @Column({ nullable: true })
   readAt: Date;
 
-  @DeleteDateColumn({ nullable: true })
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date | null;
 }

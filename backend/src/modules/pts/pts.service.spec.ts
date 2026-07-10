@@ -1,5 +1,5 @@
 ﻿import { BadRequestException } from '@nestjs/common';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { PtsService } from './pts.service';
 import { Pt, PtStatus } from './entities/pt.entity';
 import { Company } from '../companies/entities/company.entity';
@@ -351,6 +351,67 @@ describe('PtsService', () => {
       [string, { pdf_generated_at?: unknown }]
     >;
     expect(updateCalls[0]?.[1]?.pdf_generated_at).toBeInstanceOf(Date);
+  });
+
+  it('degrada para os metadados mínimos quando a base ainda não possui hash/timestamp final da PT', async () => {
+    const pt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'PT Trabalho em altura',
+      numero: 'PT-001',
+      status: PtStatus.APROVADA,
+      data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as unknown as Pt;
+    const update = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new QueryFailedError('UPDATE "pts"', [], {
+          code: '42703',
+          column: 'final_pdf_hash_sha256',
+          message: 'column "final_pdf_hash_sha256" does not exist',
+        }),
+      )
+      .mockResolvedValueOnce({ affected: 1 });
+    const manager = {
+      getRepository: jest.fn(() => ({ update })),
+    } as unknown as EntityManager;
+    ptsRepository.findOne.mockResolvedValue(pt);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+      await input.persistEntityMetadata?.(manager, 'hash-pt');
+      return { hash: 'hash-pt', registryEntry: { id: 'registry-pt' } };
+    });
+
+    const file = {
+      originalname: 'pt-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-pt'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('pt-1', file, 'user-1')).resolves.toEqual({
+      fileKey: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+      folderPath: 'documents/company-1/pts/sites/site-1/pt-1',
+      originalName: 'pt-final.pdf',
+    });
+
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+        pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
+        pdf_original_name: 'pt-final.pdf',
+        final_pdf_hash_sha256: 'hash-pt',
+      }),
+    );
+    expect(update.mock.calls[1]?.[1]).toEqual({
+      pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+      pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
+      pdf_original_name: 'pt-final.pdf',
+    });
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('remove o arquivo do storage quando a governanca falha depois do upload da PT', async () => {

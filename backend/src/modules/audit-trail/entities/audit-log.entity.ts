@@ -21,6 +21,9 @@ export class AuditLog {
   @Column({ type: 'uuid' })
   userId: string;
 
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
+  user_id?: string | null;
+
   @Column()
   action: string; // 'CREATE' | 'UPDATE' | 'DELETE' | 'READ'
 
@@ -29,6 +32,9 @@ export class AuditLog {
 
   @Column()
   entityId: string;
+
+  @Column({ name: 'entity_id', nullable: true })
+  entity_id?: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
   changes?: AuditJsonValue; // { before: {}, after: {} }
@@ -45,7 +51,7 @@ export class AuditLog {
   @Column({ nullable: true })
   userAgent: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ name: 'company_id', type: 'uuid' })
   companyId: string;
 
   @CreateDateColumn()

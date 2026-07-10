@@ -14,6 +14,7 @@ import {
   In,
   IsNull,
   LessThan,
+  QueryFailedError,
   Repository,
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
@@ -341,6 +342,87 @@ export class PtsService {
       .toUpperCase();
 
     return `PT-${year}-${reference || String(Date.now()).slice(-6)}`;
+  }
+
+  private isMissingFinalPdfMetadataColumnsError(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as QueryFailedError & { driverError?: unknown }
+      ).driverError as
+        | {
+            code?: string;
+            column?: string;
+            message?: string;
+            detail?: string;
+          }
+        | undefined;
+      const normalized = [
+        driverError?.column,
+        driverError?.message,
+        driverError?.detail,
+        error.message,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (driverError?.code === '42703') {
+        return (
+          normalized.includes('final_pdf_hash_sha256') ||
+          normalized.includes('pdf_generated_at')
+        );
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : typeof error === 'string'
+          ? error.toLowerCase()
+          : '';
+
+    return (
+      message.includes('does not exist') &&
+      (message.includes('final_pdf_hash_sha256') ||
+        message.includes('pdf_generated_at'))
+    );
+  }
+
+  private async persistFinalPdfMetadata(
+    manager: EntityManager,
+    pt: Pick<Pt, 'id' | 'company_id'>,
+    file: { key: string; folderPath: string; originalName: string },
+    hash: string,
+  ): Promise<void> {
+    const repository = manager.getRepository(Pt);
+    const fallbackUpdate = {
+      pdf_file_key: file.key,
+      pdf_folder_path: file.folderPath,
+      pdf_original_name: file.originalName,
+    };
+
+    try {
+      await repository.update(pt.id, {
+        ...fallbackUpdate,
+        // Mantém o hash de integridade e o timestamp quando a base já está
+        // migrada. Em produção antiga, degradamos para os metadados mínimos.
+        final_pdf_hash_sha256: hash,
+        pdf_generated_at: new Date(),
+      });
+    } catch (error) {
+      if (!this.isMissingFinalPdfMetadataColumnsError(error)) {
+        throw error;
+      }
+
+      this.logger.warn({
+        event: 'pt_final_pdf_metadata_columns_missing',
+        ptId: pt.id,
+        companyId: pt.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+
+      await repository.update(pt.id, fallbackUpdate);
+    }
   }
 
   private resolveStatusForGenericCreate(
@@ -1030,16 +1112,16 @@ export class PtsService {
         createdBy: userId || RequestContext.getUserId() || undefined,
         fileBuffer: file.buffer,
         persistEntityMetadata: async (manager, hash) => {
-          await manager.getRepository(Pt).update(id, {
-            pdf_file_key: key,
-            pdf_folder_path: folder,
-            pdf_original_name: file.originalname,
-            // Persiste o hash de integridade computado server-side para que o
-            // PDF possa exibi-lo e o /validar confirme autenticidade (paridade
-            // com o DDS).
-            final_pdf_hash_sha256: hash,
-            pdf_generated_at: new Date(),
-          });
+          await this.persistFinalPdfMetadata(
+            manager,
+            pt,
+            {
+              key,
+              folderPath: folder,
+              originalName: file.originalname,
+            },
+            hash,
+          );
         },
       });
     } catch (error) {

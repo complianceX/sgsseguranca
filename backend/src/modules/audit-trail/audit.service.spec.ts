@@ -4,7 +4,7 @@ import { AuditAction } from './enums/audit-action.enum';
 import type { AuditLog } from './entities/audit-log.entity';
 
 describe('AuditService', () => {
-  it('persiste apenas o contrato canônico de audit_logs', async () => {
+  it('persiste o contrato híbrido compatível com audit_logs legado e canônico', async () => {
     const create = jest.fn((payload: Partial<AuditLog>) => payload);
     const save = jest.fn((payload: Partial<AuditLog>) =>
       Promise.resolve(payload),
@@ -29,15 +29,15 @@ describe('AuditService', () => {
     const payload = create.mock.calls[0]?.[0] as Record<string, unknown>;
 
     expect(payload.userId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(payload.user_id).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(payload.entity).toBe('PT');
     expect(payload.entityId).toBe('pt-1');
+    expect(payload.entity_id).toBe('pt-1');
     expect(payload.companyId).toBe('550e8400-e29b-41d4-a716-446655440001');
     expect(payload.timestamp).toBeInstanceOf(Date);
     expect(payload.before).toEqual({ status: 'draft' });
     expect(payload.after).toEqual({ status: 'approved' });
-    expect(payload).not.toHaveProperty('user_id');
     expect(payload).not.toHaveProperty('entity_type');
-    expect(payload).not.toHaveProperty('entity_id');
     expect(payload).not.toHaveProperty('created_at');
     expect(save).toHaveBeenCalledWith(payload);
   });
