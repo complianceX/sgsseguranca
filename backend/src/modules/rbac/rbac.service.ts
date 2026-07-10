@@ -42,6 +42,14 @@ const TECNICO_FALLBACK_PERMISSIONS = [
   'can_update_apr',
   'can_delete_apr',
   'can_generate_apr_pdf',
+  // Permissões críticas de APR (fluxo de emissão): aprovar/reprovar/encerrar.
+  // A migration 1709000000332 (split-apr-critical-permissions) concede estas ao
+  // role TST no banco; o allowlist de escopo aqui precisa espelhar isso, senão
+  // normalizeAccessBundle filtra a permissão concedida e o TST não consegue
+  // aprovar APRs (embora aprove PTs). Mantém paridade com can_approve_pt.
+  'can_approve_apr',
+  'can_reject_apr',
+  'can_finalize_apr',
   'can_view_pt',
   'can_manage_pt',
   'can_approve_pt',
@@ -80,9 +88,7 @@ const TECNICO_FALLBACK_PERMISSIONS = [
 
 const SUPERVISOR_FALLBACK_PERMISSIONS = [
   ...TECNICO_FALLBACK_PERMISSIONS,
-  'can_approve_apr',
-  'can_reject_apr',
-  'can_finalize_apr',
+  // can_approve_apr/reject/finalize já herdados de TECNICO (paridade com PT).
   'can_manage_audits',
 ] as const;
 

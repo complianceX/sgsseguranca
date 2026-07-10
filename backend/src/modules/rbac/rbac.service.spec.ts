@@ -425,6 +425,21 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     expect(tstPermissions.has('can_view_system_health')).toBe(false);
   });
 
+  it('permite ao TST aprovar/reprovar/encerrar APR (paridade com PT e com a migration 332)', () => {
+    const tstPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Técnico de Segurança do Trabalho (TST)'] ||
+        [],
+    );
+
+    // O banco (migration split-apr-critical-permissions) concede estas ao TST;
+    // o allowlist de escopo precisa refletir para não filtrá-las em runtime.
+    expect(tstPermissions.has('can_approve_apr')).toBe(true);
+    expect(tstPermissions.has('can_reject_apr')).toBe(true);
+    expect(tstPermissions.has('can_finalize_apr')).toBe(true);
+    // Paridade com o fluxo de PT (que já funcionava).
+    expect(tstPermissions.has('can_approve_pt')).toBe(true);
+  });
+
   it('mantém aliases legados de TST com acesso operacional de cadastro', () => {
     const tecnicoPermissions = new Set(
       PROFILE_PERMISSION_FALLBACK['Técnico'] || [],
