@@ -18,7 +18,7 @@ jest.mock("@/lib/route-config", () => ({
   isHiddenRoute: jest.fn(() => false),
 }));
 
-import { proxy } from "./proxy";
+import { buildCsp, proxy } from "./proxy";
 
 type ProxyResult = ReturnType<typeof proxy> & {
   kind?: "redirect" | "next";
@@ -59,5 +59,13 @@ describe("proxy auth routing", () => {
     ) as ProxyResult;
 
     expect(response.kind).toBe("next");
+  });
+
+  it("mantem unsafe-inline em style-src-elem no CSP de producao", () => {
+    const csp = buildCsp("abc123", { isProduction: true });
+
+    expect(csp).toContain(
+      "style-src-elem 'self' 'nonce-abc123' 'unsafe-inline'",
+    );
   });
 });

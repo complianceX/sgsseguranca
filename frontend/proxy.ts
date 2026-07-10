@@ -33,7 +33,11 @@ function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-function buildCsp(nonce: string): string {
+export function buildCsp(
+  nonce: string,
+  options?: { isProduction?: boolean },
+): string {
+  const production = options?.isProduction ?? isProduction;
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
   const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) => {
     const isHttps = match === "https://";
@@ -44,9 +48,9 @@ function buildCsp(nonce: string): string {
     "'self'",
     apiOrigin,
     apiWsOrigin,
-    !isProduction ? "http://localhost:3011" : null,
-    !isProduction ? `${"ws"}://${"localhost"}:3000` : null,
-    !isProduction ? `${"ws"}://${"localhost"}:3011` : null,
+    !production ? "http://localhost:3011" : null,
+    !production ? `${"ws"}://${"localhost"}:3000` : null,
+    !production ? `${"ws"}://${"localhost"}:3011` : null,
     "https://*.sentry.io",
     "https://challenges.cloudflare.com",
     "https://*.r2.cloudflarestorage.com",
@@ -59,7 +63,7 @@ function buildCsp(nonce: string): string {
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
-    !isProduction ? "'unsafe-eval'" : null,
+    !production ? "'unsafe-eval'" : null,
     "https://challenges.cloudflare.com",
   ].filter(Boolean);
 
@@ -71,9 +75,9 @@ function buildCsp(nonce: string): string {
     `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.backblazeb2.com`,
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
-    // style-src-elem: nonce em prod para <style> tags injetadas pelo Next.js/Tailwind;
-    // unsafe-inline mantido só em dev (Next.js HMR injeta tags sem nonce).
-    `style-src-elem 'self' 'nonce-${nonce}'${!isProduction ? " 'unsafe-inline'" : ""}`,
+    // Bibliotecas como sonner injetam <style> dinamicamente em runtime.
+    // Em produção, manter unsafe-inline aqui evita bloqueio visual sem relaxar script-src.
+    `style-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline'`,
     // style-src-attr: React usa style={} => atributo style HTML; mantido como unsafe-inline
     // pois nonce não é suportado em atributos style pela spec CSP3.
     `style-src-attr 'unsafe-inline'`,
