@@ -1,5 +1,8 @@
 import { AxiosError, type InternalAxiosRequestConfig } from "axios";
-import { getRetryAfterMsFromError } from "@/services/notificationsService";
+import {
+  getRetryAfterMsFromError,
+  normalizeUnreadCountResponse,
+} from "@/services/notificationsService";
 
 describe("notificationsService", () => {
   it("extrai retry-after de erro 429", () => {
@@ -41,5 +44,19 @@ describe("notificationsService", () => {
     };
 
     expect(getRetryAfterMsFromError(error)).toBeNull();
+  });
+
+  it("normaliza payload numerico legado de unread-count", () => {
+    expect(normalizeUnreadCountResponse(7)).toEqual({ count: 7 });
+  });
+
+  it("normaliza payload objeto de unread-count", () => {
+    expect(normalizeUnreadCountResponse({ count: "9" })).toEqual({ count: 9 });
+  });
+
+  it("faz fail-safe para payload malformado de unread-count", () => {
+    expect(
+      normalizeUnreadCountResponse({ count: "nao-e-numero" }),
+    ).toEqual({ count: 0 });
   });
 });

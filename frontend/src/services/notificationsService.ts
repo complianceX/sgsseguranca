@@ -19,6 +19,8 @@ interface FindAllResponse {
   limit: number;
 }
 
+type UnreadCountResponse = number | { count?: number | string | null };
+
 function readRetryAfterHeader(
   error: AxiosError,
 ): string | number | string[] | undefined {
@@ -66,6 +68,19 @@ export function getRetryAfterMsFromError(
   return fallbackMs;
 }
 
+export function normalizeUnreadCountResponse(
+  payload: UnreadCountResponse,
+): { count: number } {
+  const countValue = typeof payload === "number" ? payload : payload?.count;
+  const rawCount =
+    typeof countValue === "number" ? countValue : Number(countValue ?? 0);
+
+  return {
+    count:
+      Number.isFinite(rawCount) && rawCount >= 0 ? Math.floor(rawCount) : 0,
+  };
+}
+
 export const notificationsService = {
   async findAll(page = 1, limit = 20): Promise<FindAllResponse> {
     const res = await api.get<FindAllResponse>("/notifications", {
@@ -75,8 +90,10 @@ export const notificationsService = {
   },
 
   async getUnreadCount(): Promise<{ count: number }> {
-    const res = await api.get<{ count: number }>("/notifications/unread-count");
-    return res.data;
+    const res = await api.get<UnreadCountResponse>(
+      "/notifications/unread-count",
+    );
+    return normalizeUnreadCountResponse(res.data);
   },
 
   async markAsRead(id: string): Promise<void> {
