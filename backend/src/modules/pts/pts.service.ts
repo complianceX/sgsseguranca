@@ -58,6 +58,7 @@ import { WeeklyBundleFilters } from '../../shared/services/document-bundle.servi
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
 import { SignaturesService } from '../signatures/signatures.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { MetricsService } from '../../shared/observability/metrics.service';
@@ -144,6 +145,11 @@ export class PtsService {
     blockWorkerWithoutValidMedicalExam: false,
     blockWorkerWithExpiredBlockingTraining: true,
     requireAtLeastOneExecutante: false,
+    // Conformidade NR-33 — opt-in, default false para não quebrar fluxos atuais.
+    blockConfinedSpaceWithoutAtmosphericReadings: false,
+    blockConfinedSpaceWithoutWatch: false,
+    blockConfinedSpaceWithoutRescuePlan: false,
+    blockWithoutBeforeEvidence: false,
   };
 
   // Throttle map: companyId → timestamp do último refresh bem-sucedido
@@ -164,6 +170,7 @@ export class PtsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly signaturesService: SignaturesService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     private readonly forensicTrailService: ForensicTrailService,
     @Optional() private readonly metricsService?: MetricsService,
     @Optional()
@@ -298,12 +305,28 @@ export class PtsService {
     }
   }
 
+  /**
+   * Gera o código de documento canônico da PT.
+   *
+   * IMPORTANTE: precisa produzir EXATAMENTE o mesmo código que o frontend
+   * imprime no QR/PDF (`frontend/src/lib/pdf/ptGenerator.ts` + `buildDocumentCode`
+   * em `frontend/src/lib/pdf-system/core/format.ts`). Caso contrário, o código do
+   * QR não bate com o `document_code` do registry e o `/validar` retorna
+   * "inválido" para uma PT legítima. Regra espelhada:
+   *   - Se `pt.numero` está presente → usa o número cru (trimado) como código.
+   *   - Senão → `PT-{ano}-{últimos 8 alfanuméricos de id||titulo, uppercase}`.
+   */
   private buildPtDocumentCode(
     pt: Pick<
       Pt,
       'id' | 'numero' | 'titulo' | 'data_hora_inicio' | 'created_at'
     >,
   ): string {
+    const numero = String(pt.numero ?? '').trim();
+    if (numero) {
+      return numero;
+    }
+
     const candidateDate = pt.data_hora_inicio
       ? new Date(pt.data_hora_inicio)
       : pt.created_at
@@ -312,7 +335,7 @@ export class PtsService {
     const year = Number.isNaN(candidateDate.getTime())
       ? new Date().getFullYear()
       : candidateDate.getFullYear();
-    const reference = String(pt.id || pt.numero || pt.titulo || 'PT')
+    const reference = String(pt.id || pt.titulo || 'PT')
       .replace(/[^a-zA-Z0-9]/g, '')
       .slice(-8)
       .toUpperCase();
@@ -1006,11 +1029,16 @@ export class PtsService {
         mimeType: file.mimetype,
         createdBy: userId || RequestContext.getUserId() || undefined,
         fileBuffer: file.buffer,
-        persistEntityMetadata: async (manager) => {
+        persistEntityMetadata: async (manager, hash) => {
           await manager.getRepository(Pt).update(id, {
             pdf_file_key: key,
             pdf_folder_path: folder,
             pdf_original_name: file.originalname,
+            // Persiste o hash de integridade computado server-side para que o
+            // PDF possa exibi-lo e o /validar confirme autenticidade (paridade
+            // com o DDS).
+            final_pdf_hash_sha256: hash,
+            pdf_generated_at: new Date(),
           });
         },
       });
@@ -1084,6 +1112,45 @@ export class PtsService {
       folderPath: pt.pdf_folder_path,
       originalName: pt.pdf_original_name,
       url,
+    };
+  }
+
+  /**
+   * Contexto de validação pública da PT (espelha DdsService.getValidationContext):
+   * retorna o código documental canônico, o hash de integridade do PDF final (se
+   * já emitido) e um token de grant assinado on-demand para o portal público.
+   * O frontend consome isto ao gerar o PDF para embutir o hash e o QR com token,
+   * tornando a validação em `/validar` séria (autenticidade + tamper-evidence).
+   */
+  async getValidationContext(id: string): Promise<{
+    documentCode: string;
+    finalPdfHash: string | null;
+    token: string | null;
+  }> {
+    const pt = await this.findOne(id);
+    const documentCode = this.buildPtDocumentCode(pt);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: pt.company_id,
+        portal: 'pt_public_validation',
+        documentId: pt.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'pt_validation_token_unavailable',
+        ptId: pt.id,
+        companyId: pt.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return {
+      documentCode,
+      finalPdfHash: pt.final_pdf_hash_sha256 ?? null,
+      token,
     };
   }
 
@@ -1983,6 +2050,48 @@ export class PtsService {
       }
     });
 
+    // Conformidade NR-33 (espaço confinado) — regras opt-in por empresa.
+    if (pt.espaco_confinado) {
+      const atmosphericReadings = Array.isArray(pt.medicoes_atmosfericas)
+        ? pt.medicoes_atmosfericas
+        : [];
+      const hasWatch = Boolean(
+        pt.vigia_user_id || String(pt.vigia_nome ?? '').trim() || pt.vigia?.id,
+      );
+      const hasRescuePlan = Boolean(
+        String(pt.plano_resgate ?? '').trim() &&
+        String(pt.contato_emergencia ?? '').trim(),
+      );
+
+      if (
+        rules.blockConfinedSpaceWithoutAtmosphericReadings &&
+        atmosphericReadings.length === 0
+      ) {
+        reasons.push(
+          'espaço confinado sem leitura atmosférica registrada (NR-33)',
+        );
+      }
+      if (rules.blockConfinedSpaceWithoutWatch && !hasWatch) {
+        reasons.push('espaço confinado sem vigia designado (NR-33)');
+      }
+      if (rules.blockConfinedSpaceWithoutRescuePlan && !hasRescuePlan) {
+        reasons.push(
+          'espaço confinado sem plano de resgate e contato de emergência (NR-33)',
+        );
+      }
+    }
+
+    if (rules.blockWithoutBeforeEvidence) {
+      const beforeEvidenceCount = Array.isArray(pt.fotos_evidencia)
+        ? pt.fotos_evidencia.filter((photo) => photo?.fase === 'antes').length
+        : 0;
+      if (beforeEvidenceCount === 0) {
+        reasons.push(
+          'sem evidência fotográfica da condição inicial (fase "antes")',
+        );
+      }
+    }
+
     if (reasons.length > 0) {
       throw new BadRequestException({
         code: 'PT_APPROVAL_BLOCKED',
@@ -2008,6 +2117,18 @@ export class PtsService {
       requireAtLeastOneExecutante:
         rules?.requireAtLeastOneExecutante ??
         this.defaultApprovalRules.requireAtLeastOneExecutante,
+      blockConfinedSpaceWithoutAtmosphericReadings:
+        rules?.blockConfinedSpaceWithoutAtmosphericReadings ??
+        this.defaultApprovalRules.blockConfinedSpaceWithoutAtmosphericReadings,
+      blockConfinedSpaceWithoutWatch:
+        rules?.blockConfinedSpaceWithoutWatch ??
+        this.defaultApprovalRules.blockConfinedSpaceWithoutWatch,
+      blockConfinedSpaceWithoutRescuePlan:
+        rules?.blockConfinedSpaceWithoutRescuePlan ??
+        this.defaultApprovalRules.blockConfinedSpaceWithoutRescuePlan,
+      blockWithoutBeforeEvidence:
+        rules?.blockWithoutBeforeEvidence ??
+        this.defaultApprovalRules.blockWithoutBeforeEvidence,
     };
   }
 

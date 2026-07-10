@@ -13,6 +13,7 @@ const DOCUMENT_REGISTRY_VALIDATION_PORTALS = [
   'cat_public_validation',
   'checklist_public_validation',
   'dossier_public_validation',
+  'pt_public_validation',
 ];
 
 @Controller('public/documents')

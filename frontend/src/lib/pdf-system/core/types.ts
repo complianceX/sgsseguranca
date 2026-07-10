@@ -22,4 +22,5 @@ export type PdfContext = {
   theme: PdfTheme;
   pageTop?: number;
   decoratePage?: (ctx: PdfContext) => number | void;
+  isDraft?: boolean;
 };

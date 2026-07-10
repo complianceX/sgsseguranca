@@ -84,6 +84,13 @@ export class Company {
     blockWorkerWithoutValidMedicalExam: boolean;
     blockWorkerWithExpiredBlockingTraining: boolean;
     requireAtLeastOneExecutante: boolean;
+    // Regras de conformidade NR-33 (espaço confinado) — opt-in por empresa,
+    // default false para não alterar o comportamento de quem já opera. jsonb:
+    // campos ausentes em registros antigos caem no default via normalizeApprovalRules.
+    blockConfinedSpaceWithoutAtmosphericReadings?: boolean;
+    blockConfinedSpaceWithoutWatch?: boolean;
+    blockConfinedSpaceWithoutRescuePlan?: boolean;
+    blockWithoutBeforeEvidence?: boolean;
   } | null;
 
   @Column({

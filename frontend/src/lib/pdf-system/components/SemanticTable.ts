@@ -38,6 +38,7 @@ type SemanticTableOptions = {
   autoTable: AutoTableFn;
   tone?: SemanticTableTone;
   semanticRules?: boolean | SemanticRulesConfig;
+  repeatTitleOnPageBreak?: boolean;
   overrides?: Record<string, unknown>;
 };
 
@@ -379,6 +380,29 @@ function semanticCellStyle(
 export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions): number {
   const { doc, margin, contentWidth, theme } = ctx;
   const tone = paletteForTone(ctx, options.tone || "default");
+  const drawTitleBar = (title: string, y: number) => {
+    doc.setFillColor(...theme.tone.surface);
+    doc.setDrawColor(...theme.tone.border);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, contentWidth, 10, theme.spacing.radius, theme.spacing.radius, "FD");
+    doc.setFillColor(...theme.tone.surfaceMuted);
+    doc.roundedRect(
+      margin + 1.2,
+      y + 1.2,
+      contentWidth - 2.4,
+      7.6,
+      theme.spacing.radius / 1.5,
+      theme.spacing.radius / 1.5,
+      "F",
+    );
+    doc.setFillColor(...tone.accent);
+    doc.rect(margin, y, 2.5, 10, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(theme.typography.headingSm);
+    doc.setTextColor(...theme.tone.textPrimary);
+    doc.text(title, margin + 5, y + 6.5);
+  };
   const normalizedHead = options.head.map((row) =>
     row.map((cell) => softWrapLongTokens(String(cell))),
   );
@@ -390,34 +414,14 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
   // Keep the section title together with the table header and at least one body row.
   ensureSpace(ctx, 34);
 
-  doc.setFillColor(...theme.tone.surface);
-  doc.setDrawColor(...theme.tone.border);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(margin, ctx.y, contentWidth, 10, theme.spacing.radius, theme.spacing.radius, "FD");
-  doc.setFillColor(...theme.tone.surfaceMuted);
-  doc.roundedRect(
-    margin + 1.2,
-    ctx.y + 1.2,
-    contentWidth - 2.4,
-    7.6,
-    theme.spacing.radius / 1.5,
-    theme.spacing.radius / 1.5,
-    "F",
-  );
-  doc.setFillColor(...tone.accent);
-  doc.rect(margin, ctx.y, 2.5, 10, "F");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(theme.typography.headingSm);
-  doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(options.title, margin + 5, ctx.y + 6.5);
+  drawTitleBar(options.title, ctx.y);
 
   options.autoTable(doc, {
     startY: ctx.y + 11.5,
     margin: {
       left: margin,
       right: margin,
-      top: ctx.pageTop ?? margin,
+      top: (ctx.pageTop ?? margin) + 11.5,
     },
     head: normalizedHead,
     body: normalizedBody,
@@ -445,6 +449,9 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
     willDrawPage: (data: { pageNumber?: number }) => {
       if ((data.pageNumber || 1) <= 1) return;
       decorateCurrentPage(ctx);
+      if (options.repeatTitleOnPageBreak !== false) {
+        drawTitleBar(`${options.title} (continuação)`, ctx.pageTop ?? margin);
+      }
     },
     didParseCell: (data: CellHookData) => {
       if (data.section !== "body") return;

@@ -13,6 +13,7 @@ type GovernanceClosingBlockOptions = {
   signatures?: AuthoritySignature[];
   accentColor?: [number, number, number];
   accentSoftColor?: [number, number, number];
+  draft?: boolean;
 };
 
 function wrapLongToken(value: string, chunk = 34): string {
@@ -182,6 +183,7 @@ function drawValidationPanel(
   code: string,
   hash: string | undefined,
   qrDataUrl: string,
+  draft: boolean,
 ) {
   const { doc, theme } = ctx;
   const accent = optionsAccent(ctx);
@@ -238,13 +240,15 @@ function drawValidationPanel(
     doc.text(hashLines, textX, hashY);
   }
 
-  // Badge VÁLIDO com fundo verde sólido e texto branco (identidade visual de segurança)
-  doc.setFillColor(27, 94, 62);
-  doc.setDrawColor(27, 94, 62);
+  const badgeLabel = draft ? "RASCUNHO" : "VALIDO";
+  const badgeColor = draft ? ([180, 83, 9] as [number, number, number]) : ([27, 94, 62] as [number, number, number]);
+
+  doc.setFillColor(...badgeColor);
+  doc.setDrawColor(...badgeColor);
   doc.roundedRect(
-    validationX + validationW - 17,
+    validationX + validationW - (draft ? 21 : 17),
     innerY + bodyHeight - 10.4,
-    12,
+    draft ? 16 : 12,
     6.4,
     1.2,
     1.2,
@@ -253,7 +257,7 @@ function drawValidationPanel(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.caption);
   doc.setTextColor(255, 255, 255);
-  doc.text("VÁLIDO", validationX + validationW - 11, innerY + bodyHeight - 5.9, {
+  doc.text(badgeLabel, validationX + validationW - (draft ? 13 : 11), innerY + bodyHeight - 5.9, {
     align: "center",
   });
 }
@@ -363,6 +367,7 @@ export async function drawGovernanceClosingBlock(
     options.code,
     options.hash,
     qrDataUrl,
+    options.draft ?? Boolean(ctx.isDraft),
   );
 
   moveY(ctx, totalHeight + theme.spacing.sectionGap);
