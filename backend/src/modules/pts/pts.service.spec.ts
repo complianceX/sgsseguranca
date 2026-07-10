@@ -397,8 +397,11 @@ describe('PtsService', () => {
       originalName: 'pt-final.pdf',
     });
 
+    const updateCalls = update.mock.calls as Array<
+      [string, Record<string, unknown>]
+    >;
     expect(update).toHaveBeenCalledTimes(2);
-    expect(update.mock.calls[0]?.[1]).toEqual(
+    expect(updateCalls[0]?.[1]).toEqual(
       expect.objectContaining({
         pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
         pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
@@ -406,7 +409,7 @@ describe('PtsService', () => {
         final_pdf_hash_sha256: 'hash-pt',
       }),
     );
-    expect(update.mock.calls[1]?.[1]).toEqual({
+    expect(updateCalls[1]?.[1]).toEqual({
       pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
       pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
       pdf_original_name: 'pt-final.pdf',
