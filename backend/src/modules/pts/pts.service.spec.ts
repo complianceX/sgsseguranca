@@ -367,11 +367,17 @@ describe('PtsService', () => {
     const update = jest
       .fn()
       .mockRejectedValueOnce(
-        new QueryFailedError('UPDATE "pts"', [], {
-          code: '42703',
-          column: 'final_pdf_hash_sha256',
-          message: 'column "final_pdf_hash_sha256" does not exist',
-        }),
+        new QueryFailedError(
+          'UPDATE "pts"',
+          [],
+          Object.assign(
+            new Error('column "final_pdf_hash_sha256" does not exist'),
+            {
+              code: '42703',
+              column: 'final_pdf_hash_sha256',
+            },
+          ),
+        ),
       )
       .mockResolvedValueOnce({ affected: 1 });
     const manager = {
