@@ -881,7 +881,16 @@ async function run() {
     }
 
     let approved = null;
-    if (currentStatus !== 'Aprovada' && currentStatus !== 'Encerrada') {
+    // Estados em que a PT já passou da aprovação e o anexo do PDF final é
+    // permitido (PT_FINAL_PDF_ALLOWED_STATUSES no backend). Uma PT retomada
+    // que já expirou (Expirada) não pode ser reaprovada (Expirada → Aprovada é
+    // transição inválida); deve seguir direto para o anexo do PDF.
+    const PT_PAST_APPROVAL_STATUSES = new Set([
+      'Aprovada',
+      'Encerrada',
+      'Expirada',
+    ]);
+    if (!PT_PAST_APPROVAL_STATUSES.has(currentStatus)) {
       approved = await requestJson(
         `/pts/${ptId}/approve`,
         session.accessToken,
