@@ -1,5 +1,5 @@
 ﻿import { BadRequestException } from '@nestjs/common';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { PtsService } from './pts.service';
 import { Pt, PtStatus } from './entities/pt.entity';
 import { Company } from '../companies/entities/company.entity';
@@ -13,6 +13,7 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import type { DocumentBundleService } from '../../shared/services/document-bundle.service';
 import { AuditAction } from '../audit-trail/enums/audit-action.enum';
 import { SignaturesService } from '../signatures/signatures.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { Site } from '../sites/entities/site.entity';
 import { Apr } from '../aprs/entities/apr.entity';
 import { User } from '../users/entities/user.entity';
@@ -41,6 +42,9 @@ describe('PtsService', () => {
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
   let signaturesService: Partial<SignaturesService>;
+  let publicValidationGrantService: {
+    issueToken: jest.Mock;
+  };
   let forensicTrailService: Partial<ForensicTrailService>;
   let getRepositoryMock: jest.Mock;
   let defaultScopedRepository: {
@@ -98,6 +102,9 @@ describe('PtsService', () => {
     };
     signaturesService = {
       findByDocument: jest.fn().mockResolvedValue([]),
+    };
+    publicValidationGrantService = {
+      issueToken: jest.fn().mockResolvedValue('pt-validation-token'),
     };
     forensicTrailService = {
       append: jest.fn().mockResolvedValue(undefined),
@@ -161,6 +168,7 @@ describe('PtsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       documentBundleService as unknown as DocumentBundleService,
       signaturesService as SignaturesService,
+      publicValidationGrantService as unknown as PublicValidationGrantService,
       forensicTrailService as ForensicTrailService,
     );
   });
@@ -322,16 +330,97 @@ describe('PtsService', () => {
         companyId: 'company-1',
         module: 'pt',
         entityId: 'pt-1',
-        documentCode: 'PT-2026-PT1',
+        // Deve ser o número cru da PT (paridade com o código impresso no QR do
+        // PDF pelo frontend), não um código derivado do id/titulo. Sem isso,
+        // o /validar retornaria "inválido" para uma PT legítima.
+        documentCode: 'PT-001',
         fileBuffer: file.buffer,
         createdBy: 'user-1',
       }),
     );
-    expect(update).toHaveBeenCalledWith('pt-1', {
+    expect(update).toHaveBeenCalledWith(
+      'pt-1',
+      expect.objectContaining({
+        pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+        pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
+        pdf_original_name: 'pt-final.pdf',
+        final_pdf_hash_sha256: 'hash-pt',
+      }),
+    );
+    const updateCalls = update.mock.calls as Array<
+      [string, { pdf_generated_at?: unknown }]
+    >;
+    expect(updateCalls[0]?.[1]?.pdf_generated_at).toBeInstanceOf(Date);
+  });
+
+  it('degrada para os metadados mínimos quando a base ainda não possui hash/timestamp final da PT', async () => {
+    const pt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'PT Trabalho em altura',
+      numero: 'PT-001',
+      status: PtStatus.APROVADA,
+      data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as unknown as Pt;
+    const update = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new QueryFailedError(
+          'UPDATE "pts"',
+          [],
+          Object.assign(
+            new Error('column "final_pdf_hash_sha256" does not exist'),
+            {
+              code: '42703',
+              column: 'final_pdf_hash_sha256',
+            },
+          ),
+        ),
+      )
+      .mockResolvedValueOnce({ affected: 1 });
+    const manager = {
+      getRepository: jest.fn(() => ({ update })),
+    } as unknown as EntityManager;
+    ptsRepository.findOne.mockResolvedValue(pt);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+      await input.persistEntityMetadata?.(manager, 'hash-pt');
+      return { hash: 'hash-pt', registryEntry: { id: 'registry-pt' } };
+    });
+
+    const file = {
+      originalname: 'pt-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-pt'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('pt-1', file, 'user-1')).resolves.toEqual({
+      fileKey: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+      folderPath: 'documents/company-1/pts/sites/site-1/pt-1',
+      originalName: 'pt-final.pdf',
+    });
+
+    const updateCalls = update.mock.calls as Array<
+      [string, Record<string, unknown>]
+    >;
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(updateCalls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+        pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
+        pdf_original_name: 'pt-final.pdf',
+        final_pdf_hash_sha256: 'hash-pt',
+      }),
+    );
+    expect(updateCalls[1]?.[1]).toEqual({
       pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
       pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
       pdf_original_name: 'pt-final.pdf',
     });
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('remove o arquivo do storage quando a governanca falha depois do upload da PT', async () => {
@@ -924,6 +1013,136 @@ describe('PtsService', () => {
     );
   });
 
+  describe('conformidade NR-33 (regras opt-in de espaço confinado)', () => {
+    const baseConfinedPt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+      residual_risk: 'LOW',
+      control_evidence: true,
+      responsavel_id: 'resp-1',
+      executantes: [],
+      espaco_confinado: true,
+    };
+
+    const setupCompanyRules = (rules: Record<string, boolean>): void => {
+      (companiesRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'company-1',
+        pt_approval_rules: {
+          blockCriticalRiskWithoutEvidence: false,
+          blockWorkerWithoutValidMedicalExam: false,
+          blockWorkerWithExpiredBlockingTraining: false,
+          requireAtLeastOneExecutante: false,
+          ...rules,
+        },
+      });
+      (
+        workerOperationalStatusService.getByUserIds as jest.Mock
+      ).mockResolvedValue([]);
+    };
+
+    const expectApprovalBlockedReason = async (
+      match: string,
+    ): Promise<void> => {
+      let error: unknown;
+      try {
+        await service.approve('pt-1', 'approver-1');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(BadRequestException);
+      if (!(error instanceof BadRequestException)) return;
+      const response = error.getResponse() as {
+        code?: string;
+        reasons?: string[];
+      };
+      expect(response.code).toBe('PT_APPROVAL_BLOCKED');
+      expect(response.reasons).toEqual(
+        expect.arrayContaining([expect.stringContaining(match)]),
+      );
+    };
+
+    it('bloqueia espaço confinado sem leitura atmosférica quando a regra está ligada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...baseConfinedPt,
+        medicoes_atmosfericas: [],
+      } as unknown as Pt);
+      setupCompanyRules({
+        blockConfinedSpaceWithoutAtmosphericReadings: true,
+      });
+      await expectApprovalBlockedReason('leitura atmosférica');
+    });
+
+    it('bloqueia espaço confinado sem vigia quando a regra está ligada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...baseConfinedPt,
+        medicoes_atmosfericas: [{ hora: '08:00' }],
+        vigia_nome: null,
+        vigia_user_id: null,
+      } as unknown as Pt);
+      setupCompanyRules({ blockConfinedSpaceWithoutWatch: true });
+      await expectApprovalBlockedReason('vigia');
+    });
+
+    it('bloqueia espaço confinado sem plano de resgate quando a regra está ligada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...baseConfinedPt,
+        plano_resgate: '',
+        contato_emergencia: '',
+      } as unknown as Pt);
+      setupCompanyRules({ blockConfinedSpaceWithoutRescuePlan: true });
+      await expectApprovalBlockedReason('plano de resgate');
+    });
+
+    it('bloqueia sem evidência fotográfica inicial quando a regra está ligada', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...baseConfinedPt,
+        espaco_confinado: false,
+        fotos_evidencia: [{ fase: 'durante' }],
+      } as unknown as Pt);
+      setupCompanyRules({ blockWithoutBeforeEvidence: true });
+      await expectApprovalBlockedReason('evidência fotográfica');
+    });
+
+    it('NÃO bloqueia quando as regras NR-33 estão desligadas (default)', async () => {
+      ptsRepository.findOne.mockResolvedValue({
+        ...baseConfinedPt,
+        medicoes_atmosfericas: [],
+        vigia_nome: null,
+        plano_resgate: '',
+        contato_emergencia: '',
+        fotos_evidencia: [],
+      } as unknown as Pt);
+      // Todas as regras NR-33 ausentes → caem no default false.
+      setupCompanyRules({});
+      // Mocka a transição atômica de status para permitir a aprovação seguir.
+      (ptsRepository.manager as unknown as { transaction: jest.Mock }) = {
+        transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) =>
+          cb({
+            query: jest.fn().mockResolvedValue([{ ...baseConfinedPt }]),
+            getRepository: jest.fn(() => ({ update: jest.fn() })),
+          }),
+        ),
+      } as never;
+      // Não deve lançar PT_APPROVAL_BLOCKED por regras NR-33; qualquer erro
+      // posterior de infraestrutura da transição não é o alvo deste teste.
+      let blockedByNr33 = false;
+      try {
+        await service.approve('pt-1', 'approver-1');
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          const response = error.getResponse() as { reasons?: string[] };
+          const reasons = response.reasons || [];
+          blockedByNr33 = reasons.some(
+            (r) => r.includes('NR-33') || r.includes('evidência fotográfica'),
+          );
+        }
+      }
+      expect(blockedByNr33).toBe(false);
+    });
+  });
+
   it('bloqueia aprovacao quando ainda existem executantes sem assinatura unica valida', async () => {
     ptsRepository.findOne.mockResolvedValue({
       id: 'pt-1',
@@ -1221,6 +1440,128 @@ describe('PtsService', () => {
         ),
       ).rejects.toThrow('db down');
       expect(documentStorageService.deleteFile).toHaveBeenCalled();
+    });
+  });
+
+  describe('paridade do document_code com o QR do PDF (validação round-trip)', () => {
+    const runAttachAndCaptureCode = async (
+      ptOverrides: Partial<Pt>,
+    ): Promise<string> => {
+      const pt = {
+        id: 'pt-code-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        titulo: 'PT Entrada em espaco confinado',
+        status: PtStatus.APROVADA,
+        data_hora_inicio: new Date('2026-07-10T08:00:00.000Z'),
+        created_at: new Date('2026-07-10T07:00:00.000Z'),
+        ...ptOverrides,
+      } as unknown as Pt;
+      const update = jest.fn();
+      const manager = {
+        getRepository: jest.fn(() => ({ update })),
+      } as unknown as EntityManager;
+      ptsRepository.findOne.mockResolvedValue(pt);
+      (
+        documentGovernanceService.registerFinalDocument as jest.Mock
+      ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+        await input.persistEntityMetadata?.(manager, 'hash-pt');
+        return { hash: 'hash-pt', registryEntry: { id: 'registry-pt' } };
+      });
+
+      const file = {
+        originalname: 'pt-final.pdf',
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('%PDF-pt'),
+      } as Express.Multer.File;
+
+      await service.attachPdf(pt.id, file, 'user-1');
+
+      const calls = (
+        documentGovernanceService.registerFinalDocument as jest.Mock
+      ).mock.calls as RegisterFinalDocumentInput[][];
+      const call = calls[calls.length - 1]?.[0];
+      return call?.documentCode ?? '';
+    };
+
+    it('usa o número cru da PT como document_code quando há número', async () => {
+      const code = await runAttachAndCaptureCode({
+        numero: 'PT-2026-07-10-ECQ-001',
+      } as Partial<Pt>);
+      // Deve ser exatamente igual ao que o frontend imprime no QR
+      // (frontend prioriza pt.numero cru — ver ptGenerator.ts).
+      expect(code).toBe('PT-2026-07-10-ECQ-001');
+    });
+
+    it('trima o número antes de usar como document_code', async () => {
+      const code = await runAttachAndCaptureCode({
+        numero: '   PT-77   ',
+      } as Partial<Pt>);
+      expect(code).toBe('PT-77');
+    });
+
+    it('cai no formato PT-{ano}-{ref} quando não há número', async () => {
+      const code = await runAttachAndCaptureCode({
+        numero: undefined,
+        id: 'abcdef12-3456-7890-abcd-ef1234567890',
+      } as Partial<Pt>);
+      // Espelha buildDocumentCode do frontend: PT-{ano}-{últimos 8 alfanum de id, upper}.
+      expect(code).toBe('PT-2026-34567890');
+    });
+
+    it('getValidationContext emite token para o portal PT com o mesmo código', async () => {
+      const pt = {
+        id: 'pt-ctx-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        numero: 'PT-2026-07-10-ECQ-001',
+        titulo: 'PT',
+        status: PtStatus.APROVADA,
+        final_pdf_hash_sha256: 'abc123hash',
+        data_hora_inicio: new Date('2026-07-10T08:00:00.000Z'),
+      } as unknown as Pt;
+      ptsRepository.findOne.mockResolvedValue(pt);
+
+      const context = await service.getValidationContext('pt-ctx-1');
+
+      expect(context).toEqual({
+        documentCode: 'PT-2026-07-10-ECQ-001',
+        finalPdfHash: 'abc123hash',
+        token: 'pt-validation-token',
+      });
+      expect(publicValidationGrantService.issueToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PT-2026-07-10-ECQ-001',
+          companyId: 'company-1',
+          portal: 'pt_public_validation',
+          documentId: 'pt-ctx-1',
+        }),
+      );
+    });
+
+    it('getValidationContext degrada graciosamente quando o token falha', async () => {
+      const pt = {
+        id: 'pt-ctx-2',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        numero: 'PT-999',
+        titulo: 'PT',
+        status: PtStatus.APROVADA,
+        final_pdf_hash_sha256: null,
+        data_hora_inicio: new Date('2026-07-10T08:00:00.000Z'),
+      } as unknown as Pt;
+      ptsRepository.findOne.mockResolvedValue(pt);
+      publicValidationGrantService.issueToken.mockRejectedValueOnce(
+        new Error('kill switch'),
+      );
+
+      const context = await service.getValidationContext('pt-ctx-2');
+
+      expect(context).toEqual({
+        documentCode: 'PT-999',
+        finalPdfHash: null,
+        token: null,
+      });
     });
   });
 

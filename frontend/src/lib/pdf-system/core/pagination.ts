@@ -102,8 +102,10 @@ export function applyDocumentFooter(
     );
   }
 
-  // Aplica marca d'água e aviso de prévia apenas para PDFs em modo rascunho.
-  if (options.draft !== false) {
+  // Aplica marca d'água e aviso de prévia apenas para PDFs explicitamente em
+  // modo rascunho. Usar `=== true` (e não `!== false`) evita que um futuro
+  // chamador que omita o flag marque um documento oficial como rascunho.
+  if (options.draft === true) {
     applyDraftWatermark(ctx);
   }
 }

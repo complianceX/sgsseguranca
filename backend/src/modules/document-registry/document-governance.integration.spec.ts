@@ -388,6 +388,7 @@ describe('Document governance integration', () => {
       governanceService,
       bundleService,
       buildSignaturesService(),
+      buildPublicValidationGrantService(),
       buildForensicTrailService(),
     );
 

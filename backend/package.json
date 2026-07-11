@@ -89,6 +89,7 @@
     "migration:pending:check": "node scripts/check-pending-migrations-runtime.js",
     "smoke:db:readonly": "node scripts/smoke-db-readonly.js",
     "smoke:db:readonly:json": "node scripts/smoke-db-readonly.js --json",
+    "smoke:prod:gandra:pt": "node scripts/prod-gandra-pt-smoke.js",
     "inspect:dashboard-cache": "node scripts/inspect-dashboard-cache.js",
     "homolog:rls:tmp": "node scripts/homolog-rls-temp-schema.js",
     "homolog:rls:tmp:json": "node scripts/homolog-rls-temp-schema.js --json",

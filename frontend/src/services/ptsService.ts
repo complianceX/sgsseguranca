@@ -253,6 +253,8 @@ export interface Pt {
   pdf_file_key?: string;
   pdf_folder_path?: string;
   pdf_original_name?: string;
+  final_pdf_hash_sha256?: string | null;
+  pdf_generated_at?: string | null;
   created_at: string;
   updated_at: string;
   site?: { nome: string };
@@ -275,6 +277,12 @@ export interface PtApprovalRules {
 }
 
 export type PtPdfAccessResponse = GovernedPdfAccessResponse;
+
+export interface PtValidationContext {
+  documentCode: string;
+  finalPdfHash: string | null;
+  token: string | null;
+}
 
 export interface PtAnalyticsOverview {
   totalPts: number;
@@ -642,6 +650,13 @@ export const ptsService = {
 
   getPdfAccess: async (id: string) => {
     const response = await api.get<PtPdfAccessResponse>(`/pts/${id}/pdf`);
+    return response.data;
+  },
+
+  getValidationContext: async (id: string) => {
+    const response = await api.get<PtValidationContext>(
+      `/pts/${id}/validation-context`,
+    );
     return response.data;
   },
 

@@ -228,7 +228,10 @@ describe("drawPtBlueprint", () => {
       expect.anything(),
       expect.objectContaining({ title: "Emergência, resgate e EPIs" }),
     );
-    expect(drawSemanticTable).not.toHaveBeenCalled();
+    expect(drawSemanticTable).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ title: "Medições atmosféricas (NR-33)" }),
+    );
     expect(drawEvidenceGallery).not.toHaveBeenCalled();
   });
 
@@ -301,6 +304,40 @@ describe("drawPtBlueprint", () => {
     expect(drawMetadataGrid).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ title: "Encerramento e devolução da área" }),
+    );
+  });
+
+  it("exposes readiness blockers and coerces governance copy in draft mode", async () => {
+    await drawPtBlueprint(
+      { isDraft: true } as never,
+      jest.fn() as never,
+      {
+        ...basePt,
+        numero: "PT-READY-1",
+        status: "Pendente",
+        executantes: [],
+        contato_emergencia: "",
+        plano_resgate: "",
+        vigia_nome: "",
+        medicoes_atmosfericas: [],
+        fotos_evidencia: [],
+      } as never,
+      [],
+      "PT-READY-1",
+      "https://example.com/verify/PT-READY-1",
+    );
+
+    expect(drawSemanticTable).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ title: "Bloqueios antes da liberação" }),
+    );
+    expect(drawGovernanceClosingBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        draft: true,
+        subtitle:
+          "Prévia local para revisão interna. A emissão oficial exige fluxo governado no SGS.",
+      }),
     );
   });
 });

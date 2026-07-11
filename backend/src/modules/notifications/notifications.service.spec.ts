@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, getMetadataArgsStorage } from 'typeorm';
 import { NotificationsService } from './notifications.service';
 import { Notification } from './entities/notification.entity';
 import { User } from '../users/entities/user.entity';
@@ -80,5 +80,14 @@ describe('NotificationsService', () => {
         where: { userId: 'user-1', company_id: 'company-1' },
       }),
     );
+  });
+
+  it('mapeia soft delete da entidade para a coluna deleted_at do banco', () => {
+    const column = getMetadataArgsStorage().columns.find(
+      (entry) =>
+        entry.target === Notification && entry.propertyName === 'deletedAt',
+    );
+
+    expect(column?.options?.name).toBe('deleted_at');
   });
 });

@@ -12,6 +12,7 @@ import { DocumentStorageService } from '../../shared/services/document-storage.s
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentBundleService } from '../../shared/services/document-bundle.service';
 import { SignaturesService } from '../signatures/signatures.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { MetricsService } from '../../shared/observability/metrics.service';
 
@@ -94,6 +95,7 @@ describe('PtsService — findAll() pagination', () => {
         { provide: DocumentGovernanceService, useValue: noop },
         { provide: DocumentBundleService, useValue: noop },
         { provide: SignaturesService, useValue: noop },
+        { provide: PublicValidationGrantService, useValue: noop },
         { provide: ForensicTrailService, useValue: noop },
         { provide: MetricsService, useValue: noop },
       ],
@@ -199,6 +201,7 @@ describe('PtsService — findAllForExport()', () => {
         { provide: DocumentGovernanceService, useValue: noop },
         { provide: DocumentBundleService, useValue: noop },
         { provide: SignaturesService, useValue: noop },
+        { provide: PublicValidationGrantService, useValue: noop },
         { provide: ForensicTrailService, useValue: noop },
         { provide: MetricsService, useValue: noop },
       ],

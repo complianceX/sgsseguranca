@@ -92,4 +92,33 @@ describe("drawSemanticTable", () => {
 
     expect(firstCell).toContain(" ");
   });
+
+  it("repete o titulo com sufixo de continuacao em pagina adicional da tabela", () => {
+    const { ctx, doc } = createMockContext();
+    const autoTable = jest.fn(
+      (
+        targetDoc: typeof doc,
+        options: {
+          willDrawPage?: (data: { pageNumber?: number }) => void;
+          startY?: number;
+        },
+      ) => {
+        options.willDrawPage?.({ pageNumber: 2 });
+        targetDoc.lastAutoTable = { finalY: (options.startY || 0) + 18 };
+      },
+    );
+
+    drawSemanticTable(ctx, {
+      title: "Tabela de risco",
+      head: [["Controle"]],
+      body: [["Texto"]],
+      autoTable: autoTable as unknown as AutoTableFn,
+    });
+
+    expect(doc.text).toHaveBeenCalledWith(
+      "Tabela de risco (continuação)",
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
 });
