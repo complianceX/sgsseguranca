@@ -6,6 +6,7 @@ function createMockContext(): {
   ctx: PdfContext;
   doc: {
     splitTextToSize: jest.Mock;
+    getCurrentPageInfo: jest.Mock;
     setFillColor: jest.Mock;
     setDrawColor: jest.Mock;
     setLineWidth: jest.Mock;
@@ -19,6 +20,7 @@ function createMockContext(): {
 } {
   const doc = {
     splitTextToSize: jest.fn((value: string) => [String(value)]),
+    getCurrentPageInfo: jest.fn(() => ({ pageNumber: 1 })),
     setFillColor: jest.fn(),
     setDrawColor: jest.fn(),
     setLineWidth: jest.fn(),
@@ -66,5 +68,25 @@ describe("drawDocumentHeader", () => {
 
     expect(ctx.y).toBeGreaterThan(43);
     expect(ctx.y).toBeLessThan(50);
+  });
+
+  it("usa cabecalho compacto nas paginas seguintes quando compactOnRepeat=true", () => {
+    const { ctx, doc } = createMockContext();
+    doc.getCurrentPageInfo.mockReturnValue({ pageNumber: 2 });
+
+    drawDocumentHeader(ctx, {
+      title: "PERMISSAO DE TRABALHO",
+      subtitle: "Documento oficial de liberacao operacional em SST",
+      code: "PT-2026-001",
+      codeLabel: "Numero da PT",
+      date: "10/07/2026 08:00",
+      status: "Pendente",
+      company: "Empresa Demo",
+      site: "Obra Norte",
+      compactOnRepeat: true,
+    });
+
+    expect(ctx.y).toBeGreaterThan(26);
+    expect(ctx.y).toBeLessThan(34);
   });
 });

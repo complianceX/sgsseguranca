@@ -306,6 +306,14 @@ export class Pt extends BaseAuditEntity {
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
 
+  // SHA-256 (hex) do PDF final governado, computado server-side no attachPdf.
+  // Espelha dds.final_pdf_hash_sha256 — base da validação séria/tamper-evidence.
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date | null;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'aprovado_por_id' })
   aprovado_por?: User;

@@ -274,6 +274,12 @@ export class PtsController {
     return this.ptsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_pt')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ptsService.getValidationContext(id);
+  }
+
   @Post(':id/finalize')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_approve_pt')

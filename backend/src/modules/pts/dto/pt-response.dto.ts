@@ -220,6 +220,12 @@ export class PtResponseDto {
   pdf_original_name?: string | null;
 
   @Expose()
+  final_pdf_hash_sha256?: string | null;
+
+  @Expose()
+  pdf_generated_at?: Date | string | null;
+
+  @Expose()
   aprovado_por_id?: string | null;
 
   @Expose()

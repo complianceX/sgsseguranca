@@ -107,6 +107,32 @@ describe("drawGovernanceClosingBlock", () => {
     expect(ctx.y).toBeGreaterThan(24);
   });
 
+  it("renders draft badge when preview mode is enabled", async () => {
+    const { ctx, doc } = createMockContext();
+    ctx.isDraft = true;
+
+    await drawGovernanceClosingBlock(ctx, {
+      code: "PT-2026-001",
+      url: "https://gst.example/validar/PT-2026-001",
+      draft: true,
+      signatures: [
+        {
+          label: "TST",
+          name: "Maria Silva",
+          role: "Tecnica de Seguranca",
+          date: "2026-03-14T10:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(doc.text).toHaveBeenCalledWith(
+      "RASCUNHO",
+      expect.any(Number),
+      expect.any(Number),
+      { align: "center" },
+    );
+  });
+
   it("paginates signatures when the block exceeds a single page", async () => {
     const { ctx, doc } = createMockContext();
     ctx.y = 180;

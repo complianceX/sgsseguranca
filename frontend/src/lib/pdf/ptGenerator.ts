@@ -31,12 +31,31 @@ export async function generatePtPdf(
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "compliance");
+  ctx.isDraft = options?.draftWatermark ?? false;
 
-  const code = buildDocumentCode(
-    "PT",
-    pt.id || pt.numero || pt.titulo,
-    pt.data_hora_inicio,
-  );
+  const code =
+    String(pt.numero || "").trim() ||
+    buildDocumentCode("PT", pt.id || pt.titulo, pt.data_hora_inicio);
+
+  // Contexto de validação governado (best-effort): hash de integridade do PDF
+  // final + token público para o QR. Falha degrada graciosamente — o PDF ainda
+  // é gerado, apenas sem token/hash. Não buscamos para rascunhos (draftWatermark):
+  // uma prévia local não deve carregar QR/token de validação oficial.
+  let validationToken: string | null = null;
+  let finalPdfHash: string | null = pt.final_pdf_hash_sha256 ?? null;
+  if (pt.id && !ctx.isDraft) {
+    try {
+      const context = await ptsService.getValidationContext(pt.id);
+      validationToken = context.token ?? null;
+      finalPdfHash = context.finalPdfHash ?? finalPdfHash;
+    } catch {
+      // silencioso: mantém geração resiliente
+    }
+  }
+  const validationUrl = buildValidationUrl(code, validationToken, {
+    module: "pt",
+    mode: "code",
+  });
 
   // Fetch company logo if available
   const company = (pt as Pt & { company?: { logo_url?: string } }).company;
@@ -46,6 +65,7 @@ export async function generatePtPdf(
     title: "PERMISSÃO DE TRABALHO",
     subtitle: "Documento oficial de liberação operacional em SST",
     code,
+    codeLabel: "Número da PT",
     date: formatDate(pt.data_hora_inicio),
     status: sanitize(pt.status),
     version: "1",
@@ -55,6 +75,7 @@ export async function generatePtPdf(
     ),
     site: sanitize(pt.site?.nome),
     logoUrl,
+    compactOnRepeat: true,
   });
   // Resolve fotos de evidência via URL assinada → data URL inline no PDF.
   // Falhas individuais degradam para placeholder (modo não-strict da galeria).
@@ -71,8 +92,9 @@ export async function generatePtPdf(
     }
   };
 
-  await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code), {
+  await drawPtBlueprint(ctx, autoTable, pt, signatures, code, validationUrl, {
     resolveEvidencePhotoDataUrl,
+    finalPdfHash,
   });
 
   applyFooterGovernance(ctx, {
