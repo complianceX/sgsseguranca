@@ -14,7 +14,7 @@ import {
   drawSemanticTable,
 } from "@/lib/pdf-system";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 
 export interface DailyReportPdfSource {
   companyName?: string | null;
@@ -99,9 +99,9 @@ export async function generateDailyReportPdf(
   const company = source.companyName?.trim() || "Empresa não informada";
   const site = source.siteName?.trim() || "Todas as obras";
 
-  const logoUrl = source.companyLogoUrl
-    ? await fetchImageAsDataUrl(source.companyLogoUrl)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl({
+    logo_url: source.companyLogoUrl,
+  });
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO DIARIO DE OPERACAO",

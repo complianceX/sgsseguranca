@@ -25,6 +25,10 @@ jest.mock('./pdfFile', () => ({
   fetchImageAsDataUrl: jest.fn(async () => null),
 }));
 
+jest.mock('./companyLogo', () => ({
+  resolveCompanyLogoDataUrl: jest.fn(async () => null),
+}));
+
 jest.mock('@/lib/pdf-system', () => ({
   applyFooterGovernance: jest.fn(),
   applyInstitutionalDocumentHeader: jest.fn(() => 20),

@@ -132,6 +132,21 @@ export class CompaniesController {
     });
   }
 
+  /**
+   * Logo da empresa do usuário autenticado, como data URL.
+   * Sem permissão especial: a logo já é impressa nos documentos que qualquer
+   * usuário do tenant emite (PT, DDS, checklists), então não é dado sensível.
+   * Usa sempre o tenant do contexto — não aceita id arbitrário (anti-BOLA).
+   */
+  @Get('current/logo')
+  getCurrentCompanyLogo(@Req() req: AuthReq) {
+    const tenantId = req.user?.company_id || this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Empresa não encontrada.');
+    }
+    return this.companiesService.getLogoDataUrl(tenantId);
+  }
+
   @Get(':id')
   @Authorize('can_view_companies')
   findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthReq) {

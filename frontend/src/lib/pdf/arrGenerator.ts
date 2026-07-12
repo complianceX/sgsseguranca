@@ -1,6 +1,6 @@
 import type { Arr } from '@/services/arrsService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
-import { fetchImageAsDataUrl } from './pdfFile';
+import { resolveCompanyLogoDataUrl } from './companyLogo';
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -31,7 +31,7 @@ export async function generateArrPdf(
   const code =
     arr.document_code || buildDocumentCode('ARR', arr.id || arr.titulo, arr.data);
 
-  const logoUrl = arr.company?.logo_url ? await fetchImageAsDataUrl(arr.company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(arr.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: 'ANÁLISE DE RISCO RÁPIDA',

@@ -1,7 +1,8 @@
 import type { Apr } from "@/services/aprsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl, blobToDataUrl } from "./pdfFile";
+import { blobToDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -50,9 +51,7 @@ export async function generateAprPdf(
   );
 
   // Fetch company logo if available
-  const logoUrl = apr.company?.logo_url
-    ? await fetchImageAsDataUrl(apr.company.logo_url)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(apr.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "ANÁLISE PRELIMINAR DE RISCO",

@@ -202,4 +202,67 @@ describe('CompaniesService', () => {
       await expect(service.findOne('1')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('getLogoDataUrl', () => {
+    it('retorna a logo do storage como data URL e grava em cache', async () => {
+      const storage = (
+        service as unknown as {
+          storageService: { downloadFileBuffer?: jest.Mock };
+        }
+      ).storageService;
+      storage.downloadFileBuffer = jest
+        .fn()
+        .mockResolvedValue(Buffer.from('png-bytes'));
+      (cacheManager.get as jest.Mock).mockResolvedValue(undefined);
+      (repo.findOne as jest.Mock).mockResolvedValue({
+        id: 'company-1',
+        logo_url: null,
+        logo_storage_key: 'companies/company-1/logo-abc.png',
+        logo_content_type: 'image/png',
+      });
+
+      const result = await service.getLogoDataUrl('company-1');
+
+      expect(result.logo_data_url).toBe(
+        `data:image/png;base64,${Buffer.from('png-bytes').toString('base64')}`,
+      );
+      expect(cacheManager.set).toHaveBeenCalledWith(
+        'company:logo:company-1',
+        result.logo_data_url,
+        expect.any(Number),
+      );
+    });
+
+    it('retorna null quando a empresa não tem logo', async () => {
+      (cacheManager.get as jest.Mock).mockResolvedValue(undefined);
+      (repo.findOne as jest.Mock).mockResolvedValue({
+        id: 'company-1',
+        logo_url: null,
+        logo_storage_key: null,
+        logo_content_type: null,
+      });
+
+      const result = await service.getLogoDataUrl('company-1');
+      expect(result.logo_data_url).toBeNull();
+    });
+
+    it('usa o cache quando presente sem tocar o storage', async () => {
+      (cacheManager.get as jest.Mock).mockResolvedValue(
+        'data:image/png;base64,QUJD',
+      );
+
+      const result = await service.getLogoDataUrl('company-1');
+      expect(result.logo_data_url).toBe('data:image/png;base64,QUJD');
+      expect((repo.findOne as jest.Mock).mock.calls).toHaveLength(0);
+    });
+
+    it('lança NotFoundException para empresa inexistente', async () => {
+      (cacheManager.get as jest.Mock).mockResolvedValue(undefined);
+      (repo.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.getLogoDataUrl('ghost')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });

@@ -2,7 +2,7 @@ import type { Dds } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import type { GovernedDocumentVideoAttachment } from "@/lib/videos/documentVideos";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -40,7 +40,7 @@ export async function generateDdsPdf(
   });
 
   // Fetch company logo if available
-  const logoUrl = dds.company?.logo_url ? await fetchImageAsDataUrl(dds.company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(dds.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "DIÁLOGO DIÁRIO DE SEGURANÇA",
