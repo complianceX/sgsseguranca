@@ -14,7 +14,10 @@ describe('PrivacyRequestsService', () => {
   let repository: jest.Mocked<Repository<PrivacyRequest>>;
   let eventsRepository: jest.Mocked<Repository<PrivacyRequestEvent>>;
   let usersRepository: jest.Mocked<Repository<User>>;
-  let mailService: Pick<MailService, 'sendMailSimple'>;
+  let mailService: Pick<
+    MailService,
+    'sendMailSimple' | 'buildGraphiteEmailHtml'
+  >;
 
   beforeEach(() => {
     repository = {
@@ -40,6 +43,7 @@ describe('PrivacyRequestsService', () => {
         info: {},
         usingTestAccount: false,
       }),
+      buildGraphiteEmailHtml: jest.fn().mockReturnValue('<div>html</div>'),
     };
 
     service = new PrivacyRequestsService(
@@ -140,7 +144,7 @@ describe('PrivacyRequestsService', () => {
     );
     expect(mailService.sendMailSimple).toHaveBeenCalledWith(
       'titular@example.com',
-      'SGS - Atualização da sua requisição LGPD',
+      'Atualização da sua requisição de privacidade — SGS',
       expect.stringContaining('Status atual: Em análise'),
       expect.objectContaining({
         companyId: 'company-1',
@@ -148,6 +152,7 @@ describe('PrivacyRequestsService', () => {
       }),
       undefined,
       expect.objectContaining({
+        html: expect.any(String),
         filename: 'privacy-request-req-1',
       }),
     );

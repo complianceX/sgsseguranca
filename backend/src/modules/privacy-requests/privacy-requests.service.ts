@@ -113,23 +113,45 @@ export class PrivacyRequestsService {
       return;
     }
 
-    const subject = `SGS - Atualização da sua requisição LGPD`;
+    const previousLabel = PRIVACY_REQUEST_STATUS_LABELS[input.previousStatus];
+    const currentLabel = PRIVACY_REQUEST_STATUS_LABELS[input.request.status];
+    const subject = `Atualização da sua requisição de privacidade — SGS`;
     const lines = [
       `Olá, ${requester.nome || 'usuário'}.`,
       '',
-      'Sua requisição de privacidade/LGPD foi atualizada.',
+      'Sua requisição de privacidade (LGPD) mudou de status.',
       '',
       `Protocolo: ${input.request.id}`,
-      `Status anterior: ${PRIVACY_REQUEST_STATUS_LABELS[input.previousStatus]}`,
-      `Status atual: ${PRIVACY_REQUEST_STATUS_LABELS[input.request.status]}`,
+      `Status anterior: ${previousLabel}`,
+      `Status atual: ${currentLabel}`,
       input.request.response_summary
-        ? `Resposta registrada: ${input.request.response_summary}`
+        ? `Resposta da equipe: ${input.request.response_summary}`
         : null,
       '',
-      'Acompanhe o protocolo em Configurações > Privacidade e direitos do titular.',
+      'Você pode acompanhar o andamento do protocolo no SGS, em Configurações > Privacidade e direitos do titular.',
+      'Esta comunicação atende ao seu direito de acompanhamento previsto na Lei Geral de Proteção de Dados (Lei nº 13.709/2018).',
     ].filter((line): line is string => typeof line === 'string');
 
     try {
+      const html = this.mailService.buildGraphiteEmailHtml({
+        eyebrow: 'Privacidade · LGPD',
+        title: 'Atualização da sua requisição de privacidade',
+        paragraphs: [
+          `Olá, <strong>${this.escapeHtml(requester.nome || 'usuário')}</strong>.`,
+          'Sua requisição de privacidade (LGPD) mudou de status:',
+          `Protocolo: <strong>${this.escapeHtml(input.request.id)}</strong><br/>Status anterior: ${this.escapeHtml(previousLabel)}<br/>Status atual: <strong>${this.escapeHtml(currentLabel)}</strong>`,
+          ...(input.request.response_summary
+            ? [
+                `Resposta da equipe: ${this.escapeHtml(
+                  input.request.response_summary,
+                )}`,
+              ]
+            : []),
+          'Você pode acompanhar o andamento em <strong>Configurações &gt; Privacidade e direitos do titular</strong> dentro do SGS.',
+        ],
+        note: 'Esta comunicação atende ao seu direito de acompanhamento previsto na Lei Geral de Proteção de Dados (Lei nº 13.709/2018).',
+      });
+
       await this.mailService.sendMailSimple(
         requester.email,
         subject,
@@ -140,6 +162,7 @@ export class PrivacyRequestsService {
         },
         undefined,
         {
+          html,
           filename: `privacy-request-${input.request.id}`,
         },
       );
@@ -306,5 +329,14 @@ export class PrivacyRequestsService {
     }
 
     return saved;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
