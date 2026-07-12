@@ -342,7 +342,7 @@ describe('MailService', () => {
 
       expect(sendPayload.to).toBe('user@example.com');
       expect(sendPayload.subject).toBe('Assunto Teste');
-      expect(createdLog.status).toBe('success');
+      expect(createdLog.status).toBe('sent');
       expect(createdLog.message_id).toBe('msg-123');
       expect(mailLogRepository.save).toHaveBeenCalled();
 
@@ -411,7 +411,7 @@ describe('MailService', () => {
         expect.objectContaining({
           company_id: 'company-1',
           user_id: 'user-1',
-          status: 'success',
+          status: 'sent',
         }),
       );
       expect(mailLogRepository.save).toHaveBeenCalled();
@@ -452,7 +452,7 @@ describe('MailService', () => {
         throw new Error('Log de erro do Resend não foi criado.');
       }
 
-      expect(createdLog.status).toBe('error');
+      expect(createdLog.status).toBe('failed');
       expect(createdLog.error_message).toEqual(
         expect.stringContaining(errorMsg),
       );
@@ -471,7 +471,7 @@ describe('MailService', () => {
         throw new Error('Log de exceção de envio não foi criado.');
       }
 
-      expect(createdLog.status).toBe('error');
+      expect(createdLog.status).toBe('failed');
       expect(createdLog.error_message).toBe('Erro de rede');
     });
 

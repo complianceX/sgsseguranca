@@ -820,7 +820,7 @@ export class MailService {
           subject,
           filename: metadata?.filename || 'alerta',
           using_test_account: false,
-          status: 'error',
+          status: 'failed',
           error_message: failure.message,
         },
         {
@@ -870,7 +870,7 @@ export class MailService {
         rejected: delivery.rejected,
         provider_response: delivery.providerResponse,
         using_test_account: usingTestAccount,
-        status: 'success',
+        status: 'sent',
       },
       {
         event: 'mail_log_persist_failed_after_success',
