@@ -1224,6 +1224,58 @@ describe('MailService', () => {
       ).rejects.toThrow('Tipo de documento não suportado');
     });
 
+    it('deve enviar uma APR com PDF final governado', async () => {
+      const mockApr = {
+        id: 'apr-1',
+        titulo: 'APR Trabalho em Altura',
+        pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      };
+      const findAprSpy = jest
+        .spyOn(service['aprsService'] as AprsService, 'findOne')
+        .mockResolvedValue(mockApr as never);
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('apr-pdf'));
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-apr-1' },
+        error: null,
+      });
+
+      const result = await service.sendStoredDocument(
+        'apr-1',
+        'APR',
+        'destinatario@example.com',
+      );
+
+      expect(findAprSpy).toHaveBeenCalledWith('apr-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith(
+        'documents/company-1/aprs/apr-1/apr-final.pdf',
+      );
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: 'apr-1',
+        documentType: 'APR',
+      });
+      const sendPayload = getFirstMockArgument(mockResendSend);
+      if (!isRecord(sendPayload)) {
+        throw new Error('Payload do Resend para APR não registrado.');
+      }
+      expect(String(sendPayload.subject)).toContain('APR: APR Trabalho em Altura');
+    });
+
+    it('deve lançar NotFoundException quando APR não tem pdf_file_key', async () => {
+      jest
+        .spyOn(service['aprsService'] as AprsService, 'findOne')
+        .mockResolvedValue({ id: 'apr-2', titulo: 'APR Sem PDF', pdf_file_key: null } as never);
+
+      await expect(
+        service.sendStoredDocument('apr-2', 'APR', 'email@test.com'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('continua processando o lote mesmo quando uma empresa falha', async () => {
       process.env.API_CRONS_DISABLED = 'false';
       mockDomainService.findAllActive.mockResolvedValue([
@@ -1256,6 +1308,131 @@ describe('MailService', () => {
       ).resolves.toBeUndefined();
 
       expect(dispatchAlertsSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('assertDispatchAvailable', () => {
+    it('lança ServiceUnavailableException quando nenhum provider está configurado e mail está habilitado', async () => {
+      const noProviderConfigService = {
+        get: jest.fn((key: string) => {
+          // MAIL_ENABLED não definido (default habilitado), mas sem provider
+          if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+          return null;
+        }),
+      };
+
+      const noProviderModule = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: noProviderConfigService },
+          { provide: getRepositoryToken(MailLog), useValue: mockMailLogRepository },
+          { provide: getRepositoryToken(Cat), useValue: mockCatsRepository },
+          { provide: DocumentStorageService, useValue: mockDocumentStorageService },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
+          { provide: getRepositoryToken(Checklist), useValue: mockChecklistRepository },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          { provide: IntegrationResilienceService, useValue: mockIntegrationResilienceService },
+          { provide: DistributedLockService, useValue: mockDistributedLockService },
+        ],
+      }).compile();
+
+      try {
+        const noProviderService = noProviderModule.get<MailService>(MailService);
+
+        expect(noProviderService.isDeliveryEnabled()).toBe(true);
+        expect(noProviderService.hasConfiguredProvider()).toBe(false);
+        expect(noProviderService.getConfiguredProvider()).toBeNull();
+
+        let error: unknown;
+        try {
+          noProviderService.assertDispatchAvailable();
+        } catch (caughtError) {
+          error = caughtError;
+        }
+
+        if (!(error instanceof ServiceUnavailableException)) {
+          throw new Error('assertDispatchAvailable deveria lançar quando sem provider.');
+        }
+        expect(error.message).toContain('provedor de e-mail');
+      } finally {
+        await noProviderModule.close();
+      }
+    });
+
+    it('lança ServiceUnavailableException quando MAIL_ENABLED=false independente do provider', async () => {
+      const disabledConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'MAIL_ENABLED') return 'false';
+          if (key === 'RESEND_API_KEY') return 're_valid_key';
+          if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+          return null;
+        }),
+      };
+
+      const disabledModule = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: disabledConfigService },
+          { provide: getRepositoryToken(MailLog), useValue: mockMailLogRepository },
+          { provide: getRepositoryToken(Cat), useValue: mockCatsRepository },
+          { provide: DocumentStorageService, useValue: mockDocumentStorageService },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
+          { provide: getRepositoryToken(Checklist), useValue: mockChecklistRepository },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          { provide: IntegrationResilienceService, useValue: mockIntegrationResilienceService },
+          { provide: DistributedLockService, useValue: mockDistributedLockService },
+        ],
+      }).compile();
+
+      try {
+        const disabledService = disabledModule.get<MailService>(MailService);
+
+        expect(disabledService.isDeliveryEnabled()).toBe(false);
+
+        let error: unknown;
+        try {
+          disabledService.assertDispatchAvailable();
+        } catch (caughtError) {
+          error = caughtError;
+        }
+
+        if (!(error instanceof ServiceUnavailableException)) {
+          throw new Error('assertDispatchAvailable deveria lançar quando MAIL_ENABLED=false.');
+        }
+        expect(error.message).toContain('MAIL_ENABLED=false');
+      } finally {
+        await disabledModule.close();
+      }
+    });
+
+    it('não lança quando provider está configurado e MAIL_ENABLED não é false', () => {
+      // O service padrão do beforeEach usa RESEND_API_KEY — deve passar
+      expect(() => service.assertDispatchAvailable()).not.toThrow();
+      expect(service.isDeliveryEnabled()).toBe(true);
+      expect(service.hasConfiguredProvider()).toBe(true);
+      expect(service.getConfiguredProvider()).toBe('resend');
     });
   });
 });
