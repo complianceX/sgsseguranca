@@ -141,6 +141,14 @@ export class CompaniesController {
    */
   @Get('current/logo')
   @AuthzOptional()
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+    Role.TRABALHADOR,
+  )
   getCurrentCompanyLogo(@Req() req: AuthReq) {
     const tenantId = req.user?.company_id || this.tenantService.getTenantId();
     if (!tenantId) {
