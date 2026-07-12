@@ -7,11 +7,9 @@ import {
   Command,
   Info,
   Menu,
-  Moon,
   RefreshCw,
   Search,
   Sparkles,
-  Sun,
   User,
   WifiOff,
   X,
@@ -24,7 +22,6 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
-import { useTheme } from "@/hooks/useTheme";
 
 export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const { user } = useAuth();
@@ -37,7 +34,6 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
   const { notifications, unreadCount, markAllRead, markRead, refresh } =
     useRealtimeNotifications();
-  const { isDark, toggle: toggleTheme } = useTheme();
 
   const handleOpen = useCallback(() => {
     setShowNotifications((prev) => {
@@ -402,15 +398,6 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
               ) : null}
             </div>
 
-            <button
-              type="button"
-              onClick={toggleTheme}
-              title={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-              aria-label={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-              className={iconButtonClass}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
           </div>
 
           <div className="hidden xl:flex ds-topbar-user-pill">

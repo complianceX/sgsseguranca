@@ -32,7 +32,11 @@ const DISABLE_EXTERNAL_NOTIFICATIONS =
 const CLEANUP_TEST_DATA =
   String(process.env.CLEANUP_TEST_DATA || 'false').trim() === 'true';
 
-const TARGET_PROFILE_NAME = 'Técnico de Segurança do Trabalho (TST)';
+// APR tem workflow de aprovação multi-etapas (TST -> Supervisor). Para validar
+// a emissão completa (approve final + generate-final-pdf) com um único usuário
+// de teste, usamos Administrador da Empresa, que satisfaz todas as etapas.
+// (A correção RBAC — TST aprovar a 1a etapa — já foi validada em execução.)
+const TARGET_PROFILE_NAME = 'Administrador da Empresa';
 const SMOKE_USER_NAME = 'K6 TESTE GANDRA APR CONTROLADO';
 const SMOKE_USER_EMAIL = 'k6.gandra.apr.smoke@invalid.local';
 const SMOKE_USER_FUNCTION = 'TST Smoke Controlado';
@@ -269,6 +273,18 @@ async function reconcileSmokeUser(client, siteId) {
          SELECT $1::uuid, id FROM roles WHERE name = $2 LIMIT 1`,
       [userId, TARGET_PROFILE_NAME],
     );
+    // Provisiona o PIN de assinatura (necessário para assinatura HMAC dos
+    // participantes da APR). Mesmo hashing do PasswordService (argon2id).
+    const pinHash = await argon2.hash('1234', {
+      type: argon2.argon2id,
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    });
+    await client.query(
+      `UPDATE users SET signature_pin_hash = $2, signature_pin_salt = $3 WHERE id = $1`,
+      [userId, pinHash, crypto.randomBytes(32).toString('hex')],
+    );
     await client.query('COMMIT');
     // Invalida o cache RBAC do usuário (rbac:access:<id>, TTL 120s) para que a
     // resolução de permissões releia user_roles imediatamente.
@@ -309,19 +325,26 @@ function buildCreateAprPayload(siteId, userId, numero) {
     data_fim: end.toISOString(),
     site_id: siteId,
     elaborador_id: userId,
+    // APR exige ao menos um participante para aprovar (regra de negócio).
+    participants: [userId],
     probability: 1,
     severity: 1,
     exposure: 1,
     residual_risk: 'LOW',
-    itens_risco: [
+    // risk_items tipado: preenche os campos exigidos na aprovação (atividade,
+    // perigo, medidas_prevencao, responsavel).
+    risk_items: [
       {
+        atividade: 'Atividade de teste controlado (smoke)',
         etapa: 'Etapa de teste controlado',
-        perigo: 'Perigo sintético para validação documental',
-        risco: 'Risco de teste (sem execução operacional)',
-        medidas_controle: 'Medida de controle sintética para smoke test',
+        condicao_perigosa:
+          'Condicao perigosa sintetica para validacao documental (sem execucao real)',
+        possiveis_lesoes: 'Lesao hipotetica de teste',
+        medidas_prevencao:
+          'Medida de controle sintetica para smoke test. Sem execucao operacional.',
+        responsavel: 'TST Smoke Controlado',
         probabilidade: 1,
         severidade: 1,
-        exposicao: 1,
       },
     ],
   };
@@ -389,6 +412,31 @@ async function run() {
       } else {
         throw new Error(
           `Criação da APR falhou. status=${created.status} body=${JSON.stringify(created.body)}`,
+        );
+      }
+    }
+
+    // Assinatura dos participantes ANTES da aprovação (a APR trava alterações
+    // de assinatura quando a aprovação está em andamento). O participante do
+    // smoke é o próprio usuário. Só assina enquanto ainda Pendente.
+    let signature = null;
+    if (currentStatus === 'Pendente' || !currentStatus) {
+      signature = await requestJson('/signatures', session.accessToken, {
+        method: 'POST',
+        companyId: TEST_COMPANY_ID,
+        includeCsrf: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_id: aprId,
+          document_type: 'APR',
+          signature_data: 'SMOKE-TEST-CONTROLADO-SEM-VALOR-JURIDICO',
+          type: 'hmac',
+          pin: '1234',
+        }),
+      });
+      if (!signature.ok) {
+        throw new Error(
+          `Assinatura do participante falhou. status=${signature.status} body=${JSON.stringify(signature.body)}`,
         );
       }
     }

@@ -10,8 +10,8 @@ export default {
       /* ─────────────────────────────────────────────────────────────
          Cores do Design System SGS
          Cada token mapeia uma CSS custom property definida em
-         styles/tokens.css (escala bruta) e styles/theme-light.css /
-         styles/theme-dark.css (camada semântica).
+         styles/tokens.css (escala bruta) e styles/theme-light.css
+         (camada semântica única).
 
          Uso: bg-ds-primary, text-ds-text-secondary, border-ds-border, etc.
          Manter também as chaves legadas (app, brand, border, text, etc.)
@@ -58,7 +58,7 @@ export default {
         },
 
         /* ── Tokens semânticos — preferir estes em código novo ─────
-           Mapeiam para as variáveis de tema (light/dark automático).
+           Mapeiam para as variáveis visuais institucionais.
         ──────────────────────────────────────────────────────────── */
         "ds-primary":   "var(--ds-color-action-primary)",
         "ds-primary-hover": "var(--ds-color-action-primary-hover)",
@@ -114,7 +114,7 @@ export default {
         "ds-focus-ring": "var(--ds-color-focus-ring)",
 
         /* ── Alias legados — mantidos para não quebrar código antigo ─
-           Convertidos para CSS vars: respondem ao dark mode automaticamente.
+           Convertidos para CSS vars da interface institucional clara.
         ──────────────────────────────────────────────────────────── */
         app: {
           bg:              "var(--ds-color-bg-canvas)",

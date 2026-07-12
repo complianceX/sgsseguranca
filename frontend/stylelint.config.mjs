@@ -23,7 +23,6 @@ const config = {
       files: [
         'styles/tokens.css',
         'styles/theme-light.css',
-        'styles/theme-dark.css',
         'app/globals.css',
         'app/legal-pages.module.css',
       ],

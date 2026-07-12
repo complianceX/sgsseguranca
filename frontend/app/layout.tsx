@@ -5,25 +5,6 @@ import "./globals.css";
 import { DevCacheReset } from "@/components/DevCacheReset";
 
 /**
- * Inline script para inicialização do tema antes do hydration do React.
- * SECURITY: Script hardcoded sem interpolação - seguro contra XSS.
- * Necessário usar dangerouslySetInnerHTML para executar antes do hydration.
- */
-const THEME_INIT_INLINE_SCRIPT = `
-(() => {
-  try {
-    const stored = localStorage.getItem('sgs.theme');
-    const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    const theme = stored === 'light' || stored === 'dark' ? stored : preferred;
-    const html = document.documentElement;
-    html.setAttribute('data-theme', theme);
-    html.classList.remove('theme-light', 'theme-dark');
-    html.classList.add('theme-' + theme);
-  } catch (_) {}
-})();
-`;
-
-/**
  * Inline script para reset de cache em desenvolvimento.
  * SECURITY: Script hardcoded sem interpolação - seguro contra XSS.
  * Apenas em desenvolvimento, com verificação de hostname.
@@ -105,10 +86,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1D5B8D" },
-    { media: "(prefers-color-scheme: dark)", color: "#091319" },
-  ],
+  themeColor: "#1D5B8D",
   width: "device-width",
   initialScale: 1,
 };
@@ -122,24 +100,12 @@ export default async function RootLayout({
   const nonce = headersList.get("x-nonce") ?? "";
 
   return (
-    <html
-      lang="pt-BR"
-      data-theme="light"
-      className="theme-light"
-      suppressHydrationWarning
-    >
+    <html lang="pt-BR">
       <body
         className="antialiased"
-        suppressHydrationWarning
         {...(nonce ? { "data-nonce": nonce } : {})}
       >
         <script
-          suppressHydrationWarning
-          nonce={nonce || undefined}
-          dangerouslySetInnerHTML={{ __html: THEME_INIT_INLINE_SCRIPT }}
-        />
-        <script
-          suppressHydrationWarning
           nonce={nonce || undefined}
           dangerouslySetInnerHTML={{ __html: DEV_CACHE_RESET_INLINE_SCRIPT }}
         />
@@ -155,4 +121,3 @@ export default async function RootLayout({
     </html>
   );
 }
-

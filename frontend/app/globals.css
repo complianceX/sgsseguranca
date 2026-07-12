@@ -1,11 +1,11 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
 @import "../styles/theme-light.css";
-@import "../styles/theme-dark.css";
 
 :root {
   --font-dm-sans: var(--font-sans);
   --font-syne: var(--font-sans);
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
@@ -48,14 +48,6 @@ body {
   font-size: var(--ds-text-md);
   line-height: var(--ds-line-base);
   background-attachment: scroll;
-}
-
-html[data-theme="dark"] {
-  color-scheme: dark;
-}
-
-html[data-theme="light"] {
-  color-scheme: light;
 }
 
 @keyframes fade-up {
@@ -201,6 +193,7 @@ html[data-theme="light"] {
   }
 
   select {
+    color-scheme: light;
     background-image:
       linear-gradient(45deg, transparent 50%, var(--ds-color-text-muted) 50%),
       linear-gradient(135deg, var(--ds-color-text-muted) 50%, transparent 50%);
@@ -215,7 +208,7 @@ html[data-theme="light"] {
     padding-right: 2.5rem !important;
   }
 
-  /* Native dropdown list (Windows/Chrome/Edge): mantém contraste com o tema */
+  /* Native dropdown list (Windows/Chrome/Edge): mantém contraste claro */
   select option,
   select optgroup {
     background-color: var(--ds-color-surface-base) !important;
@@ -236,15 +229,6 @@ html[data-theme="light"] {
     color: var(--ds-color-text-primary) !important;
   }
 
-  :root[data-theme="dark"] select,
-  .theme-dark select {
-    color-scheme: dark;
-  }
-
-  :root[data-theme="light"] select,
-  .theme-light select {
-    color-scheme: light;
-  }
 }
 
 @layer components {
@@ -2802,153 +2786,29 @@ html[data-theme="light"] {
 }
 
 /* ============================================================
-   Dark Theme — Global Tailwind Class Overrides
-   Regras fora de @layer têm precedência sobre @layer utilities,
-   convertendo automaticamente componentes claro → escuro
-   sem modificar cada arquivo individualmente.
+   Global Tailwind Text Overrides
+   Força texto escuro e legível em toda a interface clara.
    ============================================================ */
 
-:root[data-theme="dark"] .bg-white,
-.theme-dark .bg-white {
-  background-color: var(--ds-color-surface-base);
-}
-
-:root[data-theme="dark"] .border-gray-100,
-:root[data-theme="dark"] .border-gray-200,
-:root[data-theme="dark"] .border-gray-300,
-.theme-dark .border-gray-100,
-.theme-dark .border-gray-200,
-.theme-dark .border-gray-300 {
-  border-color: var(--ds-color-border-default);
-}
-
-:root[data-theme="dark"] .text-gray-900,
-:root[data-theme="dark"] .text-gray-800,
-.theme-dark .text-gray-900,
-.theme-dark .text-gray-800 {
-  color: var(--ds-color-text-primary);
-}
-
-:root[data-theme="dark"] .text-gray-700,
-:root[data-theme="dark"] .text-gray-600,
-.theme-dark .text-gray-700,
-.theme-dark .text-gray-600 {
-  color: var(--ds-color-text-secondary);
-}
-
-:root[data-theme="dark"] .text-gray-500,
-:root[data-theme="dark"] .text-gray-400,
-.theme-dark .text-gray-500,
-.theme-dark .text-gray-400 {
+.text-gray-400,
+.text-gray-500,
+.text-slate-400,
+.text-slate-500 {
   color: var(--ds-color-text-muted);
 }
 
-:root[data-theme="dark"] .bg-gray-50,
-.theme-dark .bg-gray-50 {
-  background-color: var(--ds-color-bg-canvas);
-}
-
-:root[data-theme="dark"] .bg-gray-100,
-.theme-dark .bg-gray-100 {
-  background-color: var(--ds-color-bg-subtle);
-}
-
-:root[data-theme="dark"] .hover\:bg-gray-50:hover,
-.theme-dark .hover\:bg-gray-50:hover {
-  background-color: var(--ds-color-surface-muted-hover);
-}
-
-:root[data-theme="dark"] .hover\:bg-gray-100:hover,
-.theme-dark .hover\:bg-gray-100:hover {
-  background-color: var(--ds-color-surface-muted-hover);
-}
-
-:root[data-theme="dark"] .shadow-sm,
-.theme-dark .shadow-sm {
-  box-shadow: var(--ds-shadow-xs);
-}
-
-:root[data-theme="dark"] .hover\:shadow-md:hover,
-.theme-dark .hover\:shadow-md:hover {
-  box-shadow: var(--ds-shadow-sm);
-}
-
-/* Card pattern: rounded-xl + border = dark card */
-:root[data-theme="dark"] .rounded-xl.border,
-.theme-dark .rounded-xl.border {
-  background-color: var(--ds-color-surface-base);
-}
-
-/* Dividers */
-:root[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
-.theme-dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--ds-color-border-default);
-}
-
-/* ============================================================
-   Light Theme — Global Tailwind Text Overrides
-   Força texto escuro em todo o sistema no tema claro
-   ============================================================ */
-
-:root[data-theme="light"] .text-gray-400,
-:root[data-theme="light"] .text-gray-500,
-:root[data-theme="light"] .text-slate-400,
-:root[data-theme="light"] .text-slate-500,
-.theme-light .text-gray-400,
-.theme-light .text-gray-500,
-.theme-light .text-slate-400,
-.theme-light .text-slate-500 {
-  color: var(--ds-color-text-muted);
-}
-
-:root[data-theme="light"] .text-gray-600,
-:root[data-theme="light"] .text-gray-700,
-:root[data-theme="light"] .text-slate-600,
-:root[data-theme="light"] .text-slate-700,
-.theme-light .text-gray-600,
-.theme-light .text-gray-700,
-.theme-light .text-slate-600,
-.theme-light .text-slate-700 {
+.text-gray-600,
+.text-gray-700,
+.text-slate-600,
+.text-slate-700 {
   color: var(--ds-color-text-secondary);
 }
 
-:root[data-theme="light"] .text-gray-800,
-:root[data-theme="light"] .text-gray-900,
-:root[data-theme="light"] .text-slate-800,
-:root[data-theme="light"] .text-slate-900,
-.theme-light .text-gray-800,
-.theme-light .text-gray-900,
-.theme-light .text-slate-800,
-.theme-light .text-slate-900 {
+.text-gray-800,
+.text-gray-900,
+.text-slate-800,
+.text-slate-900 {
   color: var(--ds-color-text-primary);
-}
-
-/* ============================================================
-   Dark Theme — Canvas-level text overrides
-   Elementos fora de cards (headers, eyebrows, descriptions)
-   precisam de texto claro sobre o fundo escuro do canvas.
-   ============================================================ */
-
-:root[data-theme="dark"] .ds-page-header__title,
-.theme-dark .ds-page-header__title {
-  color: var(--ds-color-text-on-canvas);
-}
-
-:root[data-theme="dark"] .ds-page-header__description,
-.theme-dark .ds-page-header__description {
-  color: var(--ds-color-text-on-canvas-secondary);
-}
-
-:root[data-theme="dark"] .ds-page-header__eyebrow,
-.theme-dark .ds-page-header__eyebrow {
-  color: var(--component-page-header-kicker-text);
-}
-
-:root[data-theme="dark"] .ds-page-header__icon,
-.theme-dark .ds-page-header__icon {
-  background: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
-  border-color: color-mix(in srgb, var(--ds-color-action-primary) 35%, transparent);
-  color: color-mix(in srgb, var(--ds-color-action-primary) 58%, white 42%);
 }
 
 @media (prefers-reduced-motion: reduce) {
