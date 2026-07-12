@@ -3,8 +3,7 @@
      SGS ENTERPRISE PALETTE — "Blue Core"
      ───────────────────────────────────────────────────────────────
      Direção visual:
-       · Light mode centrado em branco limpo e azul institucional
-       · Dark mode frio com contraste branco e acentos verdes
+       · Interface centrada em branco limpo e azul institucional
        · Azul permanece como identidade primária do produto
        · Semântica preservada sem poluição visual
        · Interface objetiva, clara e focada em operação
@@ -12,7 +11,7 @@
      BACKGROUND #FCFEFF  Cloud White   — canvas principal
      SIDEBAR    #0D3457  Deep Blue     — navegação e estrutura
      PRIMARY    #1D5B8D  SGS Blue      — CTA e destaque funcional
-     SECONDARY  #22C55E  Safety Green  — apoio e contraste do modo escuro
+     SECONDARY  #5E99DC  Soft Blue     — variação visual da marca
      ─── Status — semântica funcional, não decorativa ────────────
      SUCCESS    #1D6B43
      WARNING    #9A5A00
@@ -96,7 +95,7 @@
   --brand-primary-active: #0d3457;
   --brand-primary-soft: #eaf4fb;
   --brand-focus-ring: #93c5fd;
-  --brand-secondary: #22c55e;
+  --brand-secondary: #5e99dc;
   --brand-title: #0f172a;
   --brand-text-primary: #0f172a;
   --brand-text-secondary: #1c3349;
@@ -143,11 +142,7 @@
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-:root,
-:root[data-theme="light"],
-:root[data-theme="dark"],
-.theme-light,
-.theme-dark {
+:root {
   --background: var(--ds-color-bg-canvas);
   --foreground: var(--ds-color-text-primary);
   --card: var(--ds-color-surface-base);
@@ -179,7 +174,6 @@
   --warning-hover: var(--ds-color-warning-hover);
   --warning-foreground: var(--ds-color-text-inverse);
   --danger-hover: var(--ds-color-danger-hover);
-  --primary-dark: var(--ds-color-action-primary-active);
   --primary-hover: var(--ds-color-action-primary-hover);
 
   --color-background: var(--ds-color-bg-canvas);

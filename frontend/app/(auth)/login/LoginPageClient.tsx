@@ -21,7 +21,6 @@ import styles from './login.module.css';
 import { authService } from '@/services/authService';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
-import { useTheme } from '@/hooks/useTheme';
 
 declare global {
   interface Window {
@@ -82,13 +81,12 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
   const [mfaOtpAuthUrl, setMfaOtpAuthUrl] = useState('');
 
   const { login, finalizeLogin } = useAuth();
-  const { theme } = useTheme();
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileError, setTurnstileError] = useState(false);
   const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
   const turnstileEnabled = turnstileSiteKey.length > 0;
   const shouldRenderTurnstile = turnstileEnabled && mfaStage === 'none';
-  const currentTurnstileTheme = theme === 'dark' ? 'dark' : 'light';
+  const currentTurnstileTheme = 'light';
   const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = React.useRef<string | null>(null);
 
@@ -594,5 +592,4 @@ export default function LoginPageClient(props: LoginPageClientProps) {
     </Suspense>
   );
 }
-
 

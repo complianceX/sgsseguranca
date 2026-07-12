@@ -29,12 +29,6 @@ jest.mock('@/context/AuthContext', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({
-    theme: 'light',
-  }),
-}));
-
 jest.mock('@/services/authService', () => ({
   authService: {
     activateBootstrapMfa: (...args: unknown[]) => mockActivateBootstrapMfa(...args),
