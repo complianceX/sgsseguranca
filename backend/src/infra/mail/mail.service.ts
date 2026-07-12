@@ -100,6 +100,11 @@ type MailIdentity = {
   email: string;
 };
 
+type AlertSummarySection = {
+  title: string;
+  items: Array<{ label: string; value: number; critical: boolean }>;
+};
+
 type CompanyAlertSettings = {
   enabled: boolean;
   recipients: string[];
@@ -546,12 +551,13 @@ export class MailService {
 
     const html = this.buildGraphiteEmailHtml({
       eyebrow: 'Documento oficial',
-      title: docName,
+      title: this.escapeHtml(docName),
       paragraphs: [
         'Olá,',
-        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
-        'O PDF está anexado neste e-mail para visualização e download.',
+        `Você recebeu o documento <strong>${this.escapeHtml(docName)}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        'O PDF oficial segue anexado neste e-mail para visualização, download e arquivamento.',
       ],
+      note: 'Documentos emitidos pelo SGS possuem código de validação impresso. A autenticidade pode ser conferida a qualquer momento pela página indicada no rodapé do PDF.',
     });
 
     await this.sendMailSimple(
@@ -620,12 +626,13 @@ export class MailService {
 
     const html = this.buildGraphiteEmailHtml({
       eyebrow: 'Documento oficial',
-      title: docName,
+      title: this.escapeHtml(docName),
       paragraphs: [
         'Olá,',
-        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
-        'O PDF está anexado neste e-mail para visualização e download.',
+        `Você recebeu o documento <strong>${this.escapeHtml(docName)}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        'O PDF oficial segue anexado neste e-mail para visualização, download e arquivamento.',
       ],
+      note: 'Documentos emitidos pelo SGS possuem código de validação impresso. A autenticidade pode ser conferida a qualquer momento pela página indicada no rodapé do PDF.',
     });
 
     await this.sendMailSimple(
@@ -690,11 +697,11 @@ export class MailService {
 
     const html = this.buildGraphiteEmailHtml({
       eyebrow: 'Envio local / degradado',
-      title: docName,
+      title: this.escapeHtml(docName),
       tone: 'warning',
       paragraphs: [
         'Olá,',
-        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        `Você recebeu o documento <strong>${this.escapeHtml(docName)}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
         'O PDF está anexado neste e-mail para visualização e download.',
       ],
       note: 'Este envio utilizou um PDF local/degradado e não substitui o documento final governado.',
@@ -923,16 +930,27 @@ export class MailService {
     return { name: replyToName, email: replyToEmail };
   }
 
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   private buildOfficialFooter(channelLabel = 'Comunicação oficial'): string {
     const { fromName } = this.resolveFromAddress();
     const replyTo = this.resolveReplyToAddress();
     return `${fromName} · ${channelLabel} · Respostas para ${replyTo.email}`;
   }
 
-  private buildGraphiteEmailHtml(options: {
+  buildGraphiteEmailHtml(options: {
     eyebrow: string;
     title: string;
     paragraphs: string[];
+    bodyHtml?: string;
+    cta?: { label: string; href: string };
     note?: string;
     footer?: string;
     tone?: 'neutral' | 'warning';
@@ -948,6 +966,8 @@ export class MailService {
     const bodyStyle = 'margin:0 0 12px;color:#5c5650;line-height:1.6;';
     const noteStyle = 'font-size:13px;color:#5c5650;line-height:1.6;';
     const footerStyle = 'font-size:11px;color:#77706a;';
+    const ctaStyle =
+      'display:inline-block;margin:8px 0 16px;padding:12px 20px;border-radius:10px;background-color:#3e3935;color:#f6f5f3;font-size:14px;font-weight:700;text-decoration:none;';
 
     return `
       <div style="${shellStyle}">
@@ -959,6 +979,12 @@ export class MailService {
         ${options.paragraphs
           .map((paragraph) => `<p style="${bodyStyle}">${paragraph}</p>`)
           .join('')}
+        ${options.bodyHtml || ''}
+        ${
+          options.cta
+            ? `<a href="${options.cta.href}" style="${ctaStyle}">${options.cta.label}</a>`
+            : ''
+        }
         ${
           options.note
             ? `<p style="${noteStyle}"><strong>Observação:</strong> ${options.note}</p>`
@@ -1541,16 +1567,51 @@ export class MailService {
     }
 
     const baseSubject = `Alertas de conformidade${
-      company?.razao_social ? ` - ${company.razao_social}` : ''
+      company?.razao_social ? ` — ${company.razao_social}` : ''
+    }${
+      summary.pendingItemsCount > 0
+        ? ` (${summary.pendingItemsCount} ${
+            summary.pendingItemsCount === 1 ? 'pendência' : 'pendências'
+          })`
+        : ''
     }`;
     const prefix = settings.subjectPrefix?.trim();
     const subject = prefix ? `${prefix} ${baseSubject}` : baseSubject;
+
+    const frontendUrl = this.configService
+      .get<string>('FRONTEND_URL')
+      ?.trim()
+      ?.replace(/\/$/, '');
+    const alertHtml = this.buildGraphiteEmailHtml({
+      eyebrow: 'Resumo de segurança',
+      title: `Resumo de segurança do trabalho — ${new Date().toLocaleDateString('pt-BR')}`,
+      tone: summary.pendingItemsCount > 0 ? 'warning' : 'neutral',
+      paragraphs: [
+        company?.razao_social
+          ? `Panorama diário de SST da <strong>${this.escapeHtml(company.razao_social)}</strong>.`
+          : 'Panorama diário de saúde e segurança do trabalho da sua empresa.',
+        summary.pendingItemsCount > 0
+          ? `Há <strong>${summary.pendingItemsCount} ${
+              summary.pendingItemsCount === 1
+                ? 'pendência que requer'
+                : 'pendências que requerem'
+            }</strong> a atenção da sua equipe. Itens em destaque exigem ação imediata.`
+          : 'Nenhuma pendência identificada no período. Sua operação está em dia.',
+      ],
+      bodyHtml: this.buildAlertSummaryBodyHtml(summary.sections),
+      cta: frontendUrl
+        ? { label: 'Abrir painel do SGS', href: `${frontendUrl}/dashboard` }
+        : undefined,
+      note: 'Este resumo é gerado automaticamente com base nos dados registrados no SGS. Frequência e conteúdo podem ser ajustados em Configurações > Alertas.',
+    });
 
     const mailResult = await this.sendMailSimple(
       recipientsToUse.join(','),
       subject,
       summary.message,
       { companyId: resolvedCompanyId, userId: options.userId },
+      undefined,
+      { html: alertHtml, filename: 'alertas-conformidade' },
     );
 
     const whatsappEnabled =
@@ -1859,6 +1920,7 @@ export class MailService {
     },
   ): Promise<{
     message: string;
+    sections: AlertSummarySection[];
     pendingItemsCount: number;
     compliancePendingCount: number;
     operationsPendingCount: number;
@@ -1915,38 +1977,81 @@ export class MailService {
 
     const actionItems = auditActionItems + nonconformityActionItems;
 
-    const reminders = [
-      `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,
-    ];
+    const sections: AlertSummarySection[] = [];
 
     if (includeCompliance) {
-      reminders.push(`- EPIs vencidos: ${episExpired}`);
-      reminders.push(`- EPIs vencendo em ${days} dias: ${episExpiring}`);
-      reminders.push(`- Treinamentos vencidos: ${trainingsExpired}`);
-      reminders.push(
-        `- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`,
-      );
+      sections.push({
+        title: 'Conformidade',
+        items: [
+          { label: 'EPIs vencidos', value: episExpired, critical: true },
+          {
+            label: `EPIs a vencer nos próximos ${days} dias`,
+            value: episExpiring,
+            critical: false,
+          },
+          {
+            label: 'Treinamentos vencidos',
+            value: trainingsExpired,
+            critical: true,
+          },
+          {
+            label: `Treinamentos a vencer nos próximos ${days} dias`,
+            value: trainingsExpiring,
+            critical: false,
+          },
+        ],
+      });
     }
 
     if (includeOperations) {
-      reminders.push(`- PTs pendentes: ${pendingPts}`);
-      reminders.push(`- PTs iniciadas e pendentes: ${urgentPts}`);
-      reminders.push(`- APRs pendentes: ${pendingAprs}`);
-      reminders.push(`- Checklists pendentes: ${pendingChecklists}`);
-      reminders.push(`- DDS registrados: ${ddsCount}`);
+      sections.push({
+        title: 'Operações',
+        items: [
+          {
+            label: 'Permissões de Trabalho aguardando aprovação',
+            value: pendingPts,
+            critical: false,
+          },
+          {
+            label: 'PTs com início ultrapassado e ainda pendentes',
+            value: urgentPts,
+            critical: true,
+          },
+          {
+            label: 'APRs aguardando aprovação',
+            value: pendingAprs,
+            critical: false,
+          },
+          {
+            label: 'Checklists de inspeção pendentes',
+            value: pendingChecklists,
+            critical: false,
+          },
+          {
+            label: 'DDS registrados no total',
+            value: ddsCount,
+            critical: false,
+          },
+        ],
+      });
     }
 
     if (includeOccurrences) {
-      reminders.push(`- NCs em aberto: ${openNonconformities}`);
-      reminders.push(
-        `- Ações pendentes (inspeções/auditorias/NCs): ${actionItems}`,
-      );
-    }
-
-    if (reminders.length === 1) {
-      reminders.push(
-        '- Nenhuma seção do resumo está habilitada nas configurações da empresa.',
-      );
+      sections.push({
+        title: 'Ocorrências',
+        items: [
+          {
+            label: 'Não conformidades em aberto',
+            value: openNonconformities,
+            critical: true,
+          },
+          {
+            label: 'Ações corretivas pendentes (inspeções, auditorias e NCs)',
+            value: actionItems,
+            critical: false,
+          },
+        ],
+      });
     }
 
     const compliancePendingCount = includeCompliance
@@ -1961,13 +2066,79 @@ export class MailService {
     const pendingItemsCount =
       compliancePendingCount + operationsPendingCount + occurrencesPendingCount;
 
+    const lines: string[] = [
+      `Resumo de segurança do trabalho — ${now.toLocaleDateString('pt-BR')}`,
+      '',
+    ];
+
+    if (!sections.length) {
+      lines.push(
+        'Nenhuma seção do resumo está habilitada nas configurações da empresa.',
+        'Ative pelo menos uma seção em Configurações > Alertas para receber o panorama diário.',
+      );
+    } else {
+      for (const section of sections) {
+        lines.push(`${section.title}:`);
+        for (const item of section.items) {
+          const flag =
+            item.critical && item.value > 0 ? ' — requer ação imediata' : '';
+          lines.push(`- ${item.label}: ${item.value}${flag}`);
+        }
+        lines.push('');
+      }
+
+      if (pendingItemsCount > 0) {
+        lines.push(`Total de pendências no período: ${pendingItemsCount}`);
+        lines.push(
+          'Acesse o painel do SGS para tratar as pendências e manter a conformidade da sua operação em dia.',
+        );
+      } else {
+        lines.push(
+          'Nenhuma pendência identificada no período. Continue acompanhando pelo painel do SGS.',
+        );
+      }
+    }
+
     return {
-      message: reminders.join('\n'),
+      message: lines
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trimEnd(),
+      sections,
       pendingItemsCount,
       compliancePendingCount,
       operationsPendingCount,
       occurrencesPendingCount,
     };
+  }
+
+  private buildAlertSummaryBodyHtml(sections: AlertSummarySection[]): string {
+    const sectionTitleStyle =
+      'margin:20px 0 8px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#3e3935;';
+    const rowLabelStyle =
+      'padding:7px 0;font-size:14px;color:#5c5650;border-bottom:1px solid #e4dfd9;';
+    const rowValueStyle =
+      'padding:7px 0;font-size:14px;font-weight:700;text-align:right;border-bottom:1px solid #e4dfd9;color:#25221f;';
+    const rowValueCriticalStyle =
+      'padding:7px 0;font-size:14px;font-weight:700;text-align:right;border-bottom:1px solid #e4dfd9;color:#9a3324;';
+
+    return sections
+      .map((section) => {
+        const rows = section.items
+          .map((item) => {
+            const valueStyle =
+              item.critical && item.value > 0
+                ? rowValueCriticalStyle
+                : rowValueStyle;
+            return `<tr><td style="${rowLabelStyle}">${item.label}</td><td style="${valueStyle}">${item.value}</td></tr>`;
+          })
+          .join('');
+        return `
+          <h3 style="${sectionTitleStyle}">${section.title}</h3>
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">${rows}</table>
+        `;
+      })
+      .join('');
   }
 
   private async sendWhatsappWebhook(payload: {
