@@ -114,7 +114,7 @@ export default {
         "ds-focus-ring": "var(--ds-color-focus-ring)",
 
         /* ── Alias legados — mantidos para não quebrar código antigo ─
-           Convertidos para CSS vars: respondem ao dark mode automaticamente.
+           Convertidos para CSS vars da interface institucional clara.
         ──────────────────────────────────────────────────────────── */
         app: {
           bg:              "var(--ds-color-bg-canvas)",
