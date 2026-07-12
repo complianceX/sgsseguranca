@@ -1,6 +1,6 @@
 import type { NonConformity } from "@/services/nonConformitiesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -33,7 +33,7 @@ export async function generateNonConformityPdf(
 
   // Fetch company logo if available
   const company = (nc as NonConformity & { company?: { logo_url?: string } }).company;
-  const logoUrl = company?.logo_url ? await fetchImageAsDataUrl(company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO DE NAO CONFORMIDADE",

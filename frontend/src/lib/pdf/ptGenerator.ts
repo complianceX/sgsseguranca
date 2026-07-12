@@ -2,6 +2,7 @@ import { ptsService, type Pt } from "@/services/ptsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -59,7 +60,7 @@ export async function generatePtPdf(
 
   // Fetch company logo if available
   const company = (pt as Pt & { company?: { logo_url?: string } }).company;
-  const logoUrl = company?.logo_url ? await fetchImageAsDataUrl(company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "PERMISSÃO DE TRABALHO",

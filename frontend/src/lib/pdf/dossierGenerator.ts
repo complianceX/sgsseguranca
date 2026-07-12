@@ -1,6 +1,6 @@
 import type { DossierContext } from "@/services/dossiersService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -64,9 +64,9 @@ export async function generateDossierPdf(
 
   const code = buildDossierDocumentCode(context);
 
-  const logoUrl = context.companyLogoUrl
-    ? await fetchImageAsDataUrl(context.companyLogoUrl)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl({
+    logo_url: context.companyLogoUrl,
+  });
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: buildDossierTitle(context),

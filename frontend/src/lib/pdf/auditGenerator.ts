@@ -1,6 +1,6 @@
 import type { Audit } from "@/services/auditsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -31,9 +31,7 @@ export async function generateAuditPdf(
 
   const code = buildDocumentCode("AUD", audit.id || audit.titulo);
 
-  const logoUrl = audit.company?.logo_url
-    ? await fetchImageAsDataUrl(audit.company.logo_url)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(audit.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO DE AUDITORIA",

@@ -1,6 +1,7 @@
 import type { Rdo } from "@/services/rdosService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import { RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX, rdosService } from "@/services/rdosService";
 import {
   applyFooterGovernance,
@@ -185,7 +186,7 @@ export async function generateRdoPdf(
   const code = buildRdoDocumentCode(rdo.id || rdo.numero, rdo.data);
 
   // Fetch company logo if available
-  const logoUrl = rdo.company?.logo_url ? await fetchImageAsDataUrl(rdo.company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(rdo.company);
 
   const validationUrl = buildValidationUrl(code);
   const responsavelSignature = parseSignature(

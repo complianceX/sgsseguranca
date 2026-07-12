@@ -10,6 +10,10 @@ jest.mock("@/lib/pdf/pdfFile", () => ({
   pdfDocToBase64: jest.requireActual("@/lib/pdf/pdfBase64").pdfDocToBase64,
 }));
 
+jest.mock("@/lib/pdf/companyLogo", () => ({
+  resolveCompanyLogoDataUrl: jest.fn(async () => null),
+}));
+
 import { buildRdoDocumentCode, generateRdoPdf, maskCpfForPdf } from './rdoGenerator';
 import type { Rdo } from '@/services/rdosService';
 import { fetchImageAsDataUrl } from "@/lib/pdf/pdfFile";

@@ -1,7 +1,7 @@
 import type { Training } from '@/services/trainingsService';
 import type { Signature } from '@/services/signaturesService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -49,9 +49,7 @@ export async function generateTrainingPdf(
   const code = buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
 
   // Fetch company logo if available
-  const logoUrl = training.company?.logo_url
-    ? await fetchImageAsDataUrl(training.company.logo_url)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(training.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMPROVANTE DE TREINAMENTO",
