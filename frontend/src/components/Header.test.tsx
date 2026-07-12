@@ -9,7 +9,6 @@ const refreshMock = jest.fn();
 const flushOfflineQueue = jest.fn();
 const getOfflineQueueCount = jest.fn(async () => 0);
 const toastError = jest.fn();
-const toggleThemeMock = jest.fn();
 
 type RealtimeState = {
   notifications: AppNotification[];
@@ -42,15 +41,6 @@ jest.mock("@/hooks/useRealtimeNotifications", () => ({
   useRealtimeNotifications: () => useRealtimeNotificationsMock(),
 }));
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    theme: "light",
-    isDark: false,
-    toggle: toggleThemeMock,
-    setTheme: jest.fn(),
-  }),
-}));
-
 jest.mock("@/lib/featureFlags", () => ({
   isAiEnabled: jest.fn(() => false),
 }));
@@ -79,7 +69,6 @@ describe("Header", () => {
     flushOfflineQueue.mockReset();
     getOfflineQueueCount.mockReset().mockResolvedValue(0);
     toastError.mockReset();
-    toggleThemeMock.mockReset();
     useRealtimeNotificationsMock.mockClear();
   });
 

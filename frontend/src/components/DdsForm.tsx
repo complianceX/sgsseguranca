@@ -1265,7 +1265,7 @@ export function DdsForm({ id }: DdsFormProps) {
             </p>
           </div>
         ) : null}
-        <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.2))] px-5 py-4 backdrop-blur-sm dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))]">
+        <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.2))] px-5 py-4 backdrop-blur-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
@@ -1885,6 +1885,5 @@ export function DdsForm({ id }: DdsFormProps) {
     </div>
   );
 }
-
 
 

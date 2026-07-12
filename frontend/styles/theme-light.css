@@ -1,5 +1,4 @@
-:root[data-theme='light'],
-.theme-light {
+:root {
   /* Superfícies — base branca com ar mais institucional e técnico */
   --ds-color-bg-canvas: var(--brand-background);
   --ds-color-bg-subtle: #f6fbff;
@@ -92,10 +91,10 @@
   --component-button-secondary-border: #7f9fbc;
   --component-button-outline-border: #7f9fbc;
 
-  --ds-color-accent: #15803d;
-  --ds-color-accent-hover: #166534;
-  --ds-color-accent-subtle: #edf9f0;
-  --ds-color-accent-border: #bbf7d0;
+  --ds-color-accent: var(--brand-primary);
+  --ds-color-accent-hover: var(--brand-primary-hover);
+  --ds-color-accent-subtle: var(--brand-primary-soft);
+  --ds-color-accent-border: #b6cde4;
 
   --ds-color-success: #15803d;
   --ds-color-success-hover: color-mix(in srgb, var(--ds-color-success) 88%, black 12%);
@@ -186,9 +185,9 @@
   --auth-hero-chip-bg: rgba(255, 255, 255, 0.08);
   --auth-hero-chip-border: rgba(255, 255, 255, 0.16);
   --auth-hero-chip-text: #bfdbfe;
-  --auth-hero-highlight: #86efac;
+  --auth-hero-highlight: #bfdbfe;
   --auth-hero-glow-primary: rgba(109, 168, 216, 0.2);
-  --auth-hero-glow-accent: rgba(255, 210, 122, 0.12);
+  --auth-hero-glow-accent: rgba(147, 197, 253, 0.18);
   --auth-hero-grid-line: rgba(255, 255, 255, 0.06);
   --auth-card-bg: rgba(255, 255, 255, 0.86);
   --auth-card-border: rgba(198, 215, 232, 0.86);
