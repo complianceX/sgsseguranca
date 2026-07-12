@@ -1231,7 +1231,7 @@ describe('MailService', () => {
         pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
       };
       const findAprSpy = jest
-        .spyOn(service['aprsService'] as AprsService, 'findOne')
+        .spyOn(service['aprsService'], 'findOne')
         .mockResolvedValue(mockApr as never);
       const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
@@ -1263,13 +1263,17 @@ describe('MailService', () => {
       if (!isRecord(sendPayload)) {
         throw new Error('Payload do Resend para APR não registrado.');
       }
-      expect(String(sendPayload.subject)).toContain('APR: APR Trabalho em Altura');
+      expect(String(sendPayload.subject)).toContain(
+        'APR: APR Trabalho em Altura',
+      );
     });
 
     it('deve lançar NotFoundException quando APR não tem pdf_file_key', async () => {
-      jest
-        .spyOn(service['aprsService'] as AprsService, 'findOne')
-        .mockResolvedValue({ id: 'apr-2', titulo: 'APR Sem PDF', pdf_file_key: null } as never);
+      jest.spyOn(service['aprsService'], 'findOne').mockResolvedValue({
+        id: 'apr-2',
+        titulo: 'APR Sem PDF',
+        pdf_file_key: null,
+      } as never);
 
       await expect(
         service.sendStoredDocument('apr-2', 'APR', 'email@test.com'),
@@ -1325,15 +1329,24 @@ describe('MailService', () => {
         providers: [
           MailService,
           { provide: ConfigService, useValue: noProviderConfigService },
-          { provide: getRepositoryToken(MailLog), useValue: mockMailLogRepository },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
           { provide: getRepositoryToken(Cat), useValue: mockCatsRepository },
-          { provide: DocumentStorageService, useValue: mockDocumentStorageService },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
           { provide: EpisService, useValue: mockDomainService },
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
           { provide: ArrsService, useValue: mockDomainService },
-          { provide: getRepositoryToken(Checklist), useValue: mockChecklistRepository },
+          {
+            provide: getRepositoryToken(Checklist),
+            useValue: mockChecklistRepository,
+          },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: DidsService, useValue: mockDomainService },
@@ -1342,13 +1355,20 @@ describe('MailService', () => {
           { provide: CompaniesService, useValue: mockDomainService },
           { provide: TenantService, useValue: mockTenantService },
           { provide: ReportsService, useValue: mockDomainService },
-          { provide: IntegrationResilienceService, useValue: mockIntegrationResilienceService },
-          { provide: DistributedLockService, useValue: mockDistributedLockService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: mockIntegrationResilienceService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
         ],
       }).compile();
 
       try {
-        const noProviderService = noProviderModule.get<MailService>(MailService);
+        const noProviderService =
+          noProviderModule.get<MailService>(MailService);
 
         expect(noProviderService.isDeliveryEnabled()).toBe(true);
         expect(noProviderService.hasConfiguredProvider()).toBe(false);
@@ -1362,7 +1382,9 @@ describe('MailService', () => {
         }
 
         if (!(error instanceof ServiceUnavailableException)) {
-          throw new Error('assertDispatchAvailable deveria lançar quando sem provider.');
+          throw new Error(
+            'assertDispatchAvailable deveria lançar quando sem provider.',
+          );
         }
         expect(error.message).toContain('provedor de e-mail');
       } finally {
@@ -1384,15 +1406,24 @@ describe('MailService', () => {
         providers: [
           MailService,
           { provide: ConfigService, useValue: disabledConfigService },
-          { provide: getRepositoryToken(MailLog), useValue: mockMailLogRepository },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
           { provide: getRepositoryToken(Cat), useValue: mockCatsRepository },
-          { provide: DocumentStorageService, useValue: mockDocumentStorageService },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
           { provide: EpisService, useValue: mockDomainService },
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
           { provide: ArrsService, useValue: mockDomainService },
-          { provide: getRepositoryToken(Checklist), useValue: mockChecklistRepository },
+          {
+            provide: getRepositoryToken(Checklist),
+            useValue: mockChecklistRepository,
+          },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: DidsService, useValue: mockDomainService },
@@ -1401,8 +1432,14 @@ describe('MailService', () => {
           { provide: CompaniesService, useValue: mockDomainService },
           { provide: TenantService, useValue: mockTenantService },
           { provide: ReportsService, useValue: mockDomainService },
-          { provide: IntegrationResilienceService, useValue: mockIntegrationResilienceService },
-          { provide: DistributedLockService, useValue: mockDistributedLockService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: mockIntegrationResilienceService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
         ],
       }).compile();
 
@@ -1419,7 +1456,9 @@ describe('MailService', () => {
         }
 
         if (!(error instanceof ServiceUnavailableException)) {
-          throw new Error('assertDispatchAvailable deveria lançar quando MAIL_ENABLED=false.');
+          throw new Error(
+            'assertDispatchAvailable deveria lançar quando MAIL_ENABLED=false.',
+          );
         }
         expect(error.message).toContain('MAIL_ENABLED=false');
       } finally {

@@ -147,9 +147,9 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// ─── main ─────────────────────────────────────────────────────────────────────
+// ─── smoke steps ──────────────────────────────────────────────────────────────
 
-async function main() {
+function assertSmokeConfiguration() {
   if (!TEST_COMPANY_ID) throw new Error('TEST_COMPANY_ID ausente. Defina na env.');
   if (TEST_COMPANY_NAME !== 'Gandra Tecnologia')
     throw new Error(`TEST_COMPANY_NAME inesperado: ${TEST_COMPANY_NAME}`);
@@ -159,19 +159,26 @@ async function main() {
   if (!cpf || !password)
     throw new Error('PROD_SMOKE_CPF e PROD_SMOKE_PASSWORD são obrigatórios.');
 
+  return { cpf, password };
+}
+
+function printSmokeHeader() {
   console.log(`\n${'═'.repeat(60)}`);
   console.log('SGS — Smoke de E-mail (produção)');
   console.log(`API: ${API_BASE_URL}`);
   console.log(`Empresa: ${TEST_COMPANY_NAME} (${TEST_COMPANY_ID})`);
   console.log(`Destinatário de teste: ${maskEmail(SMOKE_MAIL_RECIPIENT) || '(não definido)'}`);
   console.log(`${'═'.repeat(60)}\n`);
+}
 
-  // ─── STEP 1: Login ───────────────────────────────────────────────────────────
+async function loginSmokeAdmin(cpf, password) {
   step(1, 'Login como admin');
   const { accessToken, user } = await login(cpf, password);
   log('OK', `Logado como ${user?.email || cpf} (role: ${user?.role || '?'})`);
+  return accessToken;
+}
 
-  // ─── STEP 2: Configurações de provider ──────────────────────────────────────
+async function verifyMailProvider(accessToken) {
   step(2, 'Verificar provider de e-mail configurado');
   const settingsRes = await api('/mail/alerts/settings', accessToken);
   if (!settingsRes.ok) {
@@ -193,8 +200,9 @@ async function main() {
       process.exitCode = 1;
     }
   }
+}
 
-  // ─── STEP 3: Preview de alertas ──────────────────────────────────────────────
+async function previewComplianceAlerts(accessToken) {
   step(3, 'Preview de alertas de conformidade (sem enviar)');
   const previewRes = await api('/mail/alerts/preview', accessToken);
   if (!previewRes.ok) {
@@ -209,8 +217,9 @@ async function main() {
       generatedAt: p?.generatedAt,
     });
   }
+}
 
-  // ─── STEP 4: Logs recentes ────────────────────────────────────────────────────
+async function inspectRecentMailLogs(accessToken) {
   step(4, 'Verificar logs de e-mail recentes');
   const logsRes = await api('/mail/logs?pageSize=10&page=1', accessToken);
   if (!logsRes.ok) {
@@ -232,14 +241,9 @@ async function main() {
       log('WARN', 'Nenhum log de e-mail encontrado. Nunca enviou ou logs foram limpos.');
     }
   }
+}
 
-  // ─── STEP 5: Disparar alerta de conformidade ─────────────────────────────────
-  if (!SMOKE_MAIL_RECIPIENT) {
-    log('SKIP', 'SMOKE_MAIL_RECIPIENT não definido — pulando disparo de alerta e envio de documento.');
-    console.log('\n✓ Smoke de e-mail concluído (steps 1-4 apenas — sem envio real).');
-    return;
-  }
-
+async function dispatchComplianceAlert(accessToken) {
   step(5, `Disparar alerta de conformidade para ${maskEmail(SMOKE_MAIL_RECIPIENT)}`);
   const alertRes = await api('/mail/alerts/dispatch', accessToken, {
     method: 'POST',
@@ -252,8 +256,9 @@ async function main() {
   } else {
     log('OK', 'Alerta disparado', alertRes.body);
   }
+}
 
-  // ─── STEP 6: Aguardar e verificar entrega nos logs ───────────────────────────
+async function verifyAlertDelivery(accessToken) {
   step(6, 'Aguardar 5s e verificar entrega nos logs');
   await sleep(5000);
   const logsAfterRes = await api('/mail/logs?pageSize=5&page=1', accessToken);
@@ -280,57 +285,54 @@ async function main() {
       }
     }
   }
+}
 
-  // ─── STEP 7: Enviar documento (APR) por e-mail (se APR_ID definido) ──────────
-  const aprId = process.env.APR_ID_FOR_MAIL_TEST;
-  if (aprId) {
-    step(7, `Enviar APR (${aprId}) por e-mail para ${maskEmail(SMOKE_MAIL_RECIPIENT)}`);
-    const docMailRes = await api('/mail/send-stored-document', accessToken, {
-      method: 'POST',
-      includeCsrf: true,
-      json: { documentId: aprId, documentType: 'APR', email: SMOKE_MAIL_RECIPIENT },
+async function sendAprDocument(accessToken, aprId) {
+  step(7, `Enviar APR (${aprId}) por e-mail para ${maskEmail(SMOKE_MAIL_RECIPIENT)}`);
+  const docMailRes = await api('/mail/send-stored-document', accessToken, {
+    method: 'POST',
+    includeCsrf: true,
+    json: { documentId: aprId, documentType: 'APR', email: SMOKE_MAIL_RECIPIENT },
+  });
+  if (!docMailRes.ok) {
+    log('ERROR', `Falha ao enfileirar envio de APR. status=${docMailRes.status}`, docMailRes.body);
+    process.exitCode = 1;
+  } else {
+    log('OK', 'Envio de APR enfileirado', {
+      deliveryMode: docMailRes.body?.deliveryMode,
+      artifactType: docMailRes.body?.artifactType,
+      isOfficial: docMailRes.body?.isOfficial,
+      message: docMailRes.body?.message,
     });
-    if (!docMailRes.ok) {
-      log('ERROR', `Falha ao enfileirar envio de APR. status=${docMailRes.status}`, docMailRes.body);
-      process.exitCode = 1;
-    } else {
-      log('OK', 'Envio de APR enfileirado', {
-        deliveryMode: docMailRes.body?.deliveryMode,
-        artifactType: docMailRes.body?.artifactType,
-        isOfficial: docMailRes.body?.isOfficial,
-        message: docMailRes.body?.message,
-      });
 
-      // Aguardar processamento do worker
-      log('INFO', 'Aguardando 8s para o worker processar...');
-      await sleep(8000);
+    // Aguardar processamento do worker
+    log('INFO', 'Aguardando 8s para o worker processar...');
+    await sleep(8000);
 
-      const logsDocRes = await api('/mail/logs?pageSize=3&page=1', accessToken);
-      if (logsDocRes.ok) {
-        const { items = [] } = logsDocRes.body || {};
-        const latest = items[0];
-        if (latest) {
-          log('INFO', 'Log mais recente (envio doc)', {
-            status: latest.status,
-            subject: latest.subject,
-            message_id: latest.message_id,
-            provider_response: latest.provider_response,
-            error_message: latest.error_message || null,
-          });
-          if (latest.status === 'success') {
-            log('OK', `APR entregue por e-mail! message_id=${latest.message_id}`);
-          } else {
-            log('ERROR', `Entrega de APR falhou: ${latest.error_message}`);
-            process.exitCode = 1;
-          }
+    const logsDocRes = await api('/mail/logs?pageSize=3&page=1', accessToken);
+    if (logsDocRes.ok) {
+      const { items = [] } = logsDocRes.body || {};
+      const latest = items[0];
+      if (latest) {
+        log('INFO', 'Log mais recente (envio doc)', {
+          status: latest.status,
+          subject: latest.subject,
+          message_id: latest.message_id,
+          provider_response: latest.provider_response,
+          error_message: latest.error_message || null,
+        });
+        if (latest.status === 'success') {
+          log('OK', `APR entregue por e-mail! message_id=${latest.message_id}`);
+        } else {
+          log('ERROR', `Entrega de APR falhou: ${latest.error_message}`);
+          process.exitCode = 1;
         }
       }
     }
-  } else {
-    log('SKIP', 'APR_ID_FOR_MAIL_TEST não definido — pulando envio de documento por e-mail.');
   }
+}
 
-  // ─── Resultado final ──────────────────────────────────────────────────────────
+function printFinalResult() {
   const exitCode = process.exitCode || 0;
   console.log(`\n${'═'.repeat(60)}`);
   if (exitCode === 0) {
@@ -339,6 +341,40 @@ async function main() {
     console.log('✗ SMOKE DE E-MAIL FALHOU — veja os logs acima');
   }
   console.log(`${'═'.repeat(60)}\n`);
+}
+
+async function runEmailDeliverySmoke(accessToken) {
+  if (!SMOKE_MAIL_RECIPIENT) {
+    log('SKIP', 'SMOKE_MAIL_RECIPIENT não definido — pulando disparo de alerta e envio de documento.');
+    console.log('\n✓ Smoke de e-mail concluído (steps 1-4 apenas — sem envio real).');
+    return;
+  }
+
+  await dispatchComplianceAlert(accessToken);
+  await verifyAlertDelivery(accessToken);
+
+  const aprId = process.env.APR_ID_FOR_MAIL_TEST;
+  if (aprId) {
+    await sendAprDocument(accessToken, aprId);
+  } else {
+    log('SKIP', 'APR_ID_FOR_MAIL_TEST não definido — pulando envio de documento por e-mail.');
+  }
+
+  printFinalResult();
+}
+
+// ─── main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const { cpf, password } = assertSmokeConfiguration();
+  printSmokeHeader();
+
+  const accessToken = await loginSmokeAdmin(cpf, password);
+
+  await verifyMailProvider(accessToken);
+  await previewComplianceAlerts(accessToken);
+  await inspectRecentMailLogs(accessToken);
+  await runEmailDeliverySmoke(accessToken);
 }
 
 main().catch((err) => {

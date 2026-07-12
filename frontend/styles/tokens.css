@@ -142,7 +142,7 @@
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-:root {
+html {
   --background: var(--ds-color-bg-canvas);
   --foreground: var(--ds-color-text-primary);
   --card: var(--ds-color-surface-base);
