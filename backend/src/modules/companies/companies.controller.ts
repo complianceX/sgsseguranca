@@ -25,6 +25,7 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { TenantOptional } from '../../shared/decorators/tenant-optional.decorator';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuthzOptional } from '../auth/authz-optional.decorator';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponses } from '../../shared/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audit-action.decorator';
@@ -139,6 +140,7 @@ export class CompaniesController {
    * Usa sempre o tenant do contexto — não aceita id arbitrário (anti-BOLA).
    */
   @Get('current/logo')
+  @AuthzOptional()
   getCurrentCompanyLogo(@Req() req: AuthReq) {
     const tenantId = req.user?.company_id || this.tenantService.getTenantId();
     if (!tenantId) {
