@@ -1,6 +1,6 @@
 import type { CatRecord } from "@/services/catsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -41,9 +41,7 @@ export async function generateCatPdf(
 
   const code = buildCatDocumentCode(cat);
 
-  const logoUrl = cat.company?.logo_url
-    ? await fetchImageAsDataUrl(cat.company.logo_url)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(cat.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMUNICACAO DE ACIDENTE DE TRABALHO",

@@ -1,7 +1,7 @@
 import type { Checklist } from "@/services/checklistsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -37,9 +37,7 @@ export async function generateChecklistPdf(
     checklist.data,
   );
 
-  const logoUrl = checklist.company?.logo_url
-    ? await fetchImageAsDataUrl(checklist.company.logo_url)
-    : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(checklist.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "CHECKLIST DE INSPECAO",

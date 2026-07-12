@@ -1,6 +1,6 @@
 import type { Did } from '@/services/didsService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
-import { fetchImageAsDataUrl } from "./pdfFile";
+import { resolveCompanyLogoDataUrl } from "./companyLogo";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -31,7 +31,7 @@ export async function generateDidPdf(
   const code = buildDocumentCode('DID', did.id || did.titulo, did.data);
 
   // Fetch company logo if available
-  const logoUrl = did.company?.logo_url ? await fetchImageAsDataUrl(did.company.logo_url) : null;
+  const logoUrl = await resolveCompanyLogoDataUrl(did.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: 'DIÁLOGO DO INÍCIO DO DIA',

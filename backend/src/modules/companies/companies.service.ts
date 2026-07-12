@@ -601,6 +601,7 @@ export class CompaniesService {
     await this.cacheManager.del('companies:all');
     await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
+    await this.cacheManager.del(`company:logo:${id}`);
 
     return this.toResponseDto(saved);
   }
@@ -635,6 +636,56 @@ export class CompaniesService {
     await this.cacheManager.del('companies:all');
     await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
+    await this.cacheManager.del(`company:logo:${id}`);
+  }
+
+  /**
+   * Retorna a logo da empresa como data URL (base64) servida pela própria API.
+   *
+   * Os PDFs gerados no frontend não conseguem baixar a logo direto do bucket
+   * (a presigned URL do B2 não expõe CORS para fetch no navegador), então a
+   * logo é entregue inline por este endpoint autenticado do próprio tenant.
+   */
+  async getLogoDataUrl(
+    companyId: string,
+  ): Promise<{ logo_data_url: string | null }> {
+    const cacheKey = `company:logo:${companyId}`;
+    const cached = await this.cacheManager.get<string>(cacheKey);
+    if (typeof cached === 'string') {
+      return { logo_data_url: cached === '' ? null : cached };
+    }
+
+    const company = await this.companiesRepository.findOne({
+      where: { id: companyId },
+      select: ['id', 'logo_url', 'logo_storage_key', 'logo_content_type'],
+    });
+    if (!company) {
+      throw new NotFoundException(`Empresa com ID ${companyId} não encontrada`);
+    }
+
+    let logoDataUrl: string | null = null;
+    if (company.logo_storage_key) {
+      try {
+        const buffer = await this.storageService.downloadFileBuffer(
+          company.logo_storage_key,
+        );
+        const contentType = company.logo_content_type || 'image/png';
+        logoDataUrl = `data:${contentType};base64,${buffer.toString('base64')}`;
+      } catch (error) {
+        this.logger.warn({
+          event: 'company_logo_download_failed',
+          companyId,
+          key: company.logo_storage_key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else if (isInlineDataUrl(company.logo_url)) {
+      // Compatibilidade com registros legados que guardavam a logo inline.
+      logoDataUrl = company.logo_url.trim();
+    }
+
+    await this.cacheManager.set(cacheKey, logoDataUrl ?? '', 15 * 60 * 1000);
+    return { logo_data_url: logoDataUrl };
   }
 
   private async toResponseDto(company: Company): Promise<CompanyResponseDto> {
