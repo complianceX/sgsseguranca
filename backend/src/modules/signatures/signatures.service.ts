@@ -46,12 +46,15 @@ import { Arr } from '../arrs/entities/arr.entity';
 import { Did } from '../dids/entities/did.entity';
 import { Training } from '../trainings/entities/training.entity';
 import {
+  LEGACY_SIGNATURE_TYPES,
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,
+  SIGNATURE_TYPE_VALUES,
   SIGNATURE_VERIFICATION_MODES,
   canonicalizeSignaturePayload,
   hashCanonicalSignaturePayload,
   hashSignatureEvidence,
+  isAcceptedSignatureType,
 } from './signature-proof.util';
 
 type SignatureWriteInput = Omit<CreateSignatureDto, 'company_id'> & {
@@ -345,6 +348,7 @@ export class SignaturesService {
   ): Promise<Signature> {
     const tenantId = this.tenantService.getTenantId();
     let payload = { ...createSignatureDto };
+    this.assertSignatureTypeAllowed(payload.type);
     const effectiveCompanyId =
       tenantId || payload.company_id || documentScope?.companyId || null;
     const effectiveSiteId = documentScope?.siteId ?? null;
@@ -1731,6 +1735,29 @@ export class SignaturesService {
     if (!ACTIVE_SIGNATURE_DOCUMENT_TYPES.has(normalized)) {
       throw new BadRequestException(
         'document_type inválido para criação de assinatura.',
+      );
+    }
+  }
+
+  /**
+   * O `type` determina o rótulo de prova impresso no PDF governado. Sem
+   * allowlist, o cliente escolhia esse rótulo: era possível gravar
+   * `type: 'digital'` — apresentado como "Assinatura Digital" — sem nenhuma
+   * verificação criptográfica. Apenas `hmac` é verificado no servidor.
+   */
+  private assertSignatureTypeAllowed(type: string): void {
+    const normalized = String(type || '').trim();
+
+    if (!isAcceptedSignatureType(normalized)) {
+      if (LEGACY_SIGNATURE_TYPES.has(normalized.toLowerCase())) {
+        throw new BadRequestException(
+          `Tipo de assinatura "${normalized}" foi descontinuado por não representar prova verificada. ` +
+            `Use: ${SIGNATURE_TYPE_VALUES.join(', ')}.`,
+        );
+      }
+
+      throw new BadRequestException(
+        `Tipo de assinatura inválido. Use: ${SIGNATURE_TYPE_VALUES.join(', ')}.`,
       );
     }
   }

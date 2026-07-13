@@ -17,6 +17,67 @@ export const SIGNATURE_LEGAL_ASSURANCE = {
   NOT_LEGAL_STRONG: 'not_legal_strong',
 } as const;
 
+/**
+ * Tipos de assinatura aceitos pela API.
+ *
+ * O `type` define o RÓTULO DE PROVA impresso no PDF governado. Sem allowlist,
+ * o cliente escolhia o rótulo livremente — era possível registrar
+ * `type: 'digital'` (impresso como "Assinatura Digital") sem que nenhuma
+ * verificação criptográfica tivesse ocorrido. Só `hmac` é verificado
+ * server-side (PIN via PBKDF2/HMAC-SHA256); os demais são captura de
+ * evidência (imagem/aceite) e devem ser rotulados como tal.
+ *
+ * - `hmac`: PIN do signatário validado no servidor. Única prova verificada.
+ * - `drawn`: imagem da assinatura desenhada no dispositivo.
+ * - `upload`: imagem de assinatura enviada por arquivo.
+ * - `acknowledgement`: aceite operacional registrado (sem imagem).
+ *
+ * Tipos legados aceitos apenas para compatibilidade com dados já gravados
+ * (`digital`, `facial`, `simple`, `cpf_pin`) — mapeados para o rótulo honesto
+ * correspondente e NÃO aceitos em novas assinaturas.
+ */
+export const SIGNATURE_TYPES = {
+  HMAC: 'hmac',
+  DRAWN: 'drawn',
+  UPLOAD: 'upload',
+  ACKNOWLEDGEMENT: 'acknowledgement',
+} as const;
+
+export const SIGNATURE_TYPE_VALUES = Object.values(SIGNATURE_TYPES);
+
+/** Prefixo dos tipos de foto de equipe do DDS (team_photo_1, _2, ...). */
+export const TEAM_PHOTO_SIGNATURE_TYPE_PREFIX = 'team_photo_';
+
+/** Tipo especial do DDS para justificar reuso de foto de equipe. */
+export const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE =
+  'team_photo_reuse_justification';
+
+/**
+ * Tipos gravados antes da allowlist. Aceitos em leitura/validação de
+ * documentos existentes, recusados em novas assinaturas.
+ */
+export const LEGACY_SIGNATURE_TYPES = new Set([
+  'digital',
+  'facial',
+  'simple',
+  'cpf_pin',
+]);
+
+export function isTeamPhotoSignatureType(type: string): boolean {
+  return (
+    type.startsWith(TEAM_PHOTO_SIGNATURE_TYPE_PREFIX) ||
+    type === TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE
+  );
+}
+
+/** Tipo aceito para NOVAS assinaturas (allowlist estrita). */
+export function isAcceptedSignatureType(type: string): boolean {
+  return (
+    (SIGNATURE_TYPE_VALUES as readonly string[]).includes(type) ||
+    isTeamPhotoSignatureType(type)
+  );
+}
+
 type CanonicalJsonValue =
   | null
   | boolean
