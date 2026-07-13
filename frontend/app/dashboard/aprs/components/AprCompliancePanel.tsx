@@ -60,14 +60,42 @@ export function AprCompliancePanel({
   onValidationChange,
 }: AprCompliancePanelProps) {
   const [result, setResult] = useState<AprValidationResult | null>(null);
+  const [rulesEngineEnabled, setRulesEngineEnabled] = useState<boolean | null>(
+    null,
+  );
+  const [capabilitiesAprId, setCapabilitiesAprId] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [warningsOpen, setWarningsOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onValidationChangeRef = useRef(onValidationChange);
   onValidationChangeRef.current = onValidationChange;
 
-  const load = useCallback(async () => {
+  const loadCapabilities = useCallback(async () => {
     if (!aprId) return;
+
+    setResult(null);
+    setRulesEngineEnabled(null);
+    setCapabilitiesAprId(null);
+    onValidationChangeRef.current?.(null);
+
+    try {
+      const capabilities = await aprsService.getCapabilities();
+      setRulesEngineEnabled(capabilities.rulesEngine);
+      setCapabilitiesAprId(aprId);
+    } catch {
+      // Recurso opcional: se a capacidade não puder ser consultada, não chama
+      // o endpoint protegido e não transforma a tela da APR em um erro 403.
+      setRulesEngineEnabled(false);
+      setCapabilitiesAprId(aprId);
+    }
+  }, [aprId]);
+
+  const load = useCallback(async () => {
+    if (!aprId || capabilitiesAprId !== aprId || !rulesEngineEnabled) {
+      return;
+    }
     setLoading(true);
     try {
       const data = await aprsService.validateCompliance(aprId);
@@ -79,9 +107,18 @@ export function AprCompliancePanel({
     } finally {
       setLoading(false);
     }
-  }, [aprId]);
+  }, [aprId, capabilitiesAprId, rulesEngineEnabled]);
 
   useEffect(() => {
+    void loadCapabilities();
+  }, [loadCapabilities]);
+
+  useEffect(() => {
+    if (capabilitiesAprId !== aprId || !rulesEngineEnabled) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void load();
@@ -89,9 +126,11 @@ export function AprCompliancePanel({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [load, formVersion]);
+  }, [aprId, capabilitiesAprId, formVersion, load, rulesEngineEnabled]);
 
-  if (!aprId) return null;
+  if (!aprId || capabilitiesAprId !== aprId || !rulesEngineEnabled) {
+    return null;
+  }
 
   const scoreColor =
     result === null
@@ -127,12 +166,15 @@ export function AprCompliancePanel({
               {result?.score ?? "—"}
             </span>
             <span className="ml-1 text-sm text-[var(--ds-color-text-secondary)]">/100</span>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
-              <div
-                className={cn("h-full rounded-full motion-safe:transition-all motion-safe:duration-500", barColor)}
-                style={{ width: `${result?.score ?? 0}%` }}
-              />
-            </div>
+            <progress
+              value={Math.min(Math.max(result?.score ?? 0, 0), 100)}
+              max={100}
+              aria-label="Pontuação de conformidade"
+              className={cn(
+                "h-2 w-full overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]",
+                barColor,
+              )}
+            />
             {loading && result && (
               <p className="text-xs text-[var(--ds-color-text-tertiary)]">Atualizando...</p>
             )}
