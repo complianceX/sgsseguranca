@@ -86,6 +86,10 @@ export class ConsentsService {
     return this.userConsentsRepo.findOne({
       where: { user_id: userId, type },
       order: { created_at: 'DESC' },
+      // A relação não é eager: sem o join, `latest.version` vinha undefined e
+      // o titular nunca conseguia ver QUAL versão aceitou (getStatus retornava
+      // acceptedVersionLabel: null sempre) — informação exigida pela LGPD.
+      relations: { version: true },
     });
   }
 
@@ -131,6 +135,15 @@ export class ConsentsService {
     const version = versionLabel
       ? await this.getVersionByLabel(type, versionLabel)
       : await this.getActiveVersion(type);
+
+    // O `versionLabel` vem do cliente. Sem esta trava, era possível registrar
+    // aceite de uma versão JÁ RETIRADA — gravando prova material (IP, UA,
+    // timestamp) de consentimento a um texto legal que não está mais em vigor.
+    if (version.retired_at) {
+      throw new ConflictException(
+        `A versão '${version.version_label}' do consentimento '${type}' foi retirada e não pode mais ser aceita. Aceite a versão vigente.`,
+      );
+    }
 
     // Idempotência: se o último aceite do usuário é desta mesma versão e
     // está ativo, apenas retorna. Evita duplicar linhas por double-click.
