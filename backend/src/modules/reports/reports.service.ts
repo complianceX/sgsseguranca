@@ -12,6 +12,7 @@ import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/sit
 import { Company } from '../companies/entities/company.entity';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { Dds } from '../dds/entities/dds.entity';
 import { Epi } from '../epis/entities/epi.entity';
 import { Pt } from '../pts/entities/pt.entity';
@@ -105,10 +106,42 @@ export class ReportsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
     private readonly tenantService: TenantService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
   ) {
     this.loadTemplates();
+  }
+
+  /**
+   * Código documental + token de validação pública (grant) do relatório
+   * mensal. O código é determinístico (o mesmo do PDF final governado),
+   * então o token vale antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const report = await this.findOne(id);
+    const documentCode = this.buildMonthlyReportDocumentCode(report);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: report.company_id,
+        portal: 'report_public_validation',
+        documentId: report.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'report_validation_token_unavailable',
+        reportId: report.id,
+        companyId: report.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
   }
 
   private getTenantContextOrThrow(): {

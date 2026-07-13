@@ -149,6 +149,13 @@ export class ReportsController {
     return this.reportsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reportsService.getValidationContext(id);
+  }
+
   private async enqueueMonthlyReport(
     companyId: string,
     userId: string,

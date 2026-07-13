@@ -2,6 +2,7 @@ import type { Rdo } from "@/services/rdosService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import { RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX, rdosService } from "@/services/rdosService";
 import {
   applyFooterGovernance,
@@ -183,12 +184,15 @@ export async function generateRdoPdf(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "operational");
 
-  const code = buildRdoDocumentCode(rdo.id || rdo.numero, rdo.data);
+  const validationContext = await resolveValidationContext('rdos', rdo.id);
+  const code =
+    validationContext.documentCode ||
+    buildRdoDocumentCode(rdo.id || rdo.numero, rdo.data);
 
   // Fetch company logo if available
   const logoUrl = await resolveCompanyLogoDataUrl(rdo.company);
 
-  const validationUrl = buildValidationUrl(code);
+  const validationUrl = buildValidationUrl(code, validationContext.token);
   const responsavelSignature = parseSignature(
     rdo.assinatura_responsavel ?? undefined,
   );

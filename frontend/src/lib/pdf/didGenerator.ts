@@ -1,6 +1,7 @@
 import type { Did } from '@/services/didsService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -28,7 +29,10 @@ export async function generateDidPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
-  const code = buildDocumentCode('DID', did.id || did.titulo, did.data);
+  const validationContext = await resolveValidationContext('dids', did.id);
+  const code =
+    validationContext.documentCode ||
+    buildDocumentCode('DID', did.id || did.titulo, did.data);
 
   // Fetch company logo if available
   const logoUrl = await resolveCompanyLogoDataUrl(did.company);
@@ -50,7 +54,7 @@ export async function generateDidPdf(
     autoTable,
     did,
     code,
-    buildValidationUrl(code, null, {
+    buildValidationUrl(code, validationContext.token, {
       module: 'did',
     }),
   );

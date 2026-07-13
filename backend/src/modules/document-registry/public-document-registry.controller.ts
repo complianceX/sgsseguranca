@@ -14,6 +14,13 @@ const DOCUMENT_REGISTRY_VALIDATION_PORTALS = [
   'checklist_public_validation',
   'dossier_public_validation',
   'pt_public_validation',
+  'did_public_validation',
+  'arr_public_validation',
+  'rdo_public_validation',
+  'nonconformity_public_validation',
+  'audit_public_validation',
+  'training_public_validation',
+  'report_public_validation',
 ];
 
 @Controller('public/documents')

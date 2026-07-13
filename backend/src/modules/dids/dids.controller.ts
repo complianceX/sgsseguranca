@@ -159,6 +159,12 @@ export class DidsController {
     return this.didsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_dids')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.didsService.getValidationContext(id);
+  }
+
   @Post(':id/file')
   @Roles(
     Role.ADMIN_GERAL,

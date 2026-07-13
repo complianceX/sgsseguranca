@@ -168,6 +168,12 @@ export class TrainingsController {
     return this.trainingsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_trainings')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.trainingsService.getValidationContext(id);
+  }
+
   @Get(':id')
   @Authorize('can_view_trainings')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {

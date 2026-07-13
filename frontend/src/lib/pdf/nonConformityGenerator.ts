@@ -1,6 +1,7 @@
 import type { NonConformity } from "@/services/nonConformitiesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -29,7 +30,13 @@ export async function generateNonConformityPdf(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "compliance");
 
-  const code = buildDocumentCode("NC", nc.id || nc.codigo_nc);
+  const validationContext = await resolveValidationContext(
+    "nonconformities",
+    nc.id,
+  );
+  const code =
+    validationContext.documentCode ||
+    buildDocumentCode("NC", nc.id || nc.codigo_nc);
 
   // Fetch company logo if available
   const company = (nc as NonConformity & { company?: { logo_url?: string } }).company;
@@ -50,7 +57,13 @@ export async function generateNonConformityPdf(
     site: sanitize(nc.site?.nome || nc.local_setor_area),
     logoUrl,
   });
-  await drawNcBlueprint(ctx, autoTable, nc, code, buildValidationUrl(code));
+  await drawNcBlueprint(
+    ctx,
+    autoTable,
+    nc,
+    code,
+    buildValidationUrl(code, validationContext.token),
+  );
 
   applyFooterGovernance(ctx, {
     code,

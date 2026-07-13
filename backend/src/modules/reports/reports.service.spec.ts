@@ -18,7 +18,10 @@ describe('ReportsService monthly report rendering', () => {
       {} as ReportsServiceArgs[9],
       {} as ReportsServiceArgs[10],
       { getTenantId: jest.fn() } as unknown as ReportsServiceArgs[11],
-      { findOne: jest.fn() } as unknown as ReportsServiceArgs[12],
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as ReportsServiceArgs[12],
+      { findOne: jest.fn() } as unknown as ReportsServiceArgs[13],
     );
   });
 

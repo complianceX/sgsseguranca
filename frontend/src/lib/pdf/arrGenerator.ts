@@ -1,6 +1,7 @@
 import type { Arr } from '@/services/arrsService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
 import { resolveCompanyLogoDataUrl } from './companyLogo';
+import { resolveValidationContext } from './validationContext';
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -28,8 +29,11 @@ export async function generateArrPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
+  const validationContext = await resolveValidationContext('arrs', arr.id);
   const code =
-    arr.document_code || buildDocumentCode('ARR', arr.id || arr.titulo, arr.data);
+    validationContext.documentCode ||
+    arr.document_code ||
+    buildDocumentCode('ARR', arr.id || arr.titulo, arr.data);
 
   const logoUrl = await resolveCompanyLogoDataUrl(arr.company);
 
@@ -51,7 +55,7 @@ export async function generateArrPdf(
     autoTable,
     arr,
     code,
-    buildValidationUrl(code, null, {
+    buildValidationUrl(code, validationContext.token, {
       module: 'arr',
     }),
   );

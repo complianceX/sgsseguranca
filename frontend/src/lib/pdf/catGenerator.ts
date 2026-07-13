@@ -1,6 +1,7 @@
 import type { CatRecord } from "@/services/catsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -39,7 +40,8 @@ export async function generateCatPdf(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "compliance");
 
-  const code = buildCatDocumentCode(cat);
+  const validationContext = await resolveValidationContext("cats", cat.id);
+  const code = validationContext.documentCode || buildCatDocumentCode(cat);
 
   const logoUrl = await resolveCompanyLogoDataUrl(cat.company);
 
@@ -56,7 +58,13 @@ export async function generateCatPdf(
     logoUrl,
   });
 
-  await drawCatBlueprint(ctx, autoTable, cat, code, buildValidationUrl(code));
+  await drawCatBlueprint(
+    ctx,
+    autoTable,
+    cat,
+    code,
+    buildValidationUrl(code, validationContext.token),
+  );
 
   applyFooterGovernance(ctx, {
     code,

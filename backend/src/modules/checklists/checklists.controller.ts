@@ -196,6 +196,12 @@ export class ChecklistsController {
     return this.checklistsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_checklists')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.checklistsService.getValidationContext(id);
+  }
+
   @Get(':id/equipment-photo/access')
   @Authorize('can_view_checklists')
   getEquipmentPhotoAccess(@Param('id', new ParseUUIDPipe()) id: string) {

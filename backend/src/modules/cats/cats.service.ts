@@ -40,6 +40,7 @@ import {
   CatStatus,
 } from './entities/cat.entity';
 import { MetricsService } from '../../shared/observability/metrics.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 type CatPdfAvailability =
   | 'ready'
@@ -63,8 +64,40 @@ export class CatsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
     private readonly auditService: AuditService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant). O código é
+   * determinístico (o mesmo do anexo do PDF final), então o token vale
+   * antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const cat = await this.findOne(id);
+    const documentCode = this.buildDocumentCode(cat);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: cat.company_id,
+        portal: 'cat_public_validation',
+        documentId: cat.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'cat_validation_token_unavailable',
+        catId: cat.id,
+        companyId: cat.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private getSiteAccessScopeOrThrow(options?: {
     allowMissingSiteScope?: boolean;

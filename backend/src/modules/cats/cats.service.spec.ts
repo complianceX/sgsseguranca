@@ -155,6 +155,9 @@ describe('CatsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
       auditService as AuditService,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
   });
 

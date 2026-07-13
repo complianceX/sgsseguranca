@@ -29,6 +29,7 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import { Arr, ArrStatus, ARR_ALLOWED_TRANSITIONS } from './entities/arr.entity';
 import { CreateArrDto } from './dto/create-arr.dto';
 import { UpdateArrDto } from './dto/update-arr.dto';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 export type ArrPdfAccessAvailability = GovernedPdfAccessAvailability;
 
@@ -51,7 +52,39 @@ export class ArrsService {
     private readonly tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant) da ARR.
+   * O código é determinístico (mesmo do anexo do PDF final), então o token
+   * vale antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const arr = await this.findOne(id);
+    const documentCode = arr.document_code || this.buildArrDocumentCode(arr);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: arr.company_id,
+        portal: 'arr_public_validation',
+        documentId: arr.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'arr_validation_token_unavailable',
+        arrId: arr.id,
+        companyId: arr.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private getSiteAccessScopeOrThrow(options?: {
     allowMissingSiteScope?: boolean;
