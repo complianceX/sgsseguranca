@@ -40,6 +40,11 @@ import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
 } from '../../shared/dto/governed-pdf-access-response.dto';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
+import {
+  coerceDocumentDate,
+  getIsoWeekNumber,
+} from '../../shared/utils/document-calendar.util';
 
 type AuditPdfAccessAvailability = GovernedPdfAccessAvailability;
 type AuditPdfAccessResponse = GovernedPdfAccessResponseDto;
@@ -71,9 +76,48 @@ export class AuditsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     @Optional() private readonly tenantService?: TenantService,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
+  }
+
+  /**
+   * Código documental + token de validação pública (grant) da auditoria.
+   * O código replica o default do documento governado (module-ANO-SEMANA-ID8),
+   * o mesmo gerado pelo registry no anexo do PDF final.
+   */
+  async getValidationContext(
+    id: string,
+    companyId: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const audit = await this.findOne(id, companyId);
+    const documentDate =
+      coerceDocumentDate(audit.data_auditoria) ||
+      coerceDocumentDate(audit.created_at) ||
+      new Date();
+    const year = documentDate.getFullYear();
+    const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
+    const documentCode = `AUDIT-${year}-${week}-${audit.id.slice(0, 8).toUpperCase()}`;
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: audit.company_id,
+        portal: 'audit_public_validation',
+        documentId: audit.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'audit_validation_token_unavailable',
+        auditId: audit.id,
+        companyId: audit.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
   }
 
   private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {

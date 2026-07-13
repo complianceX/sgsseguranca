@@ -86,6 +86,9 @@ describe('AuditsService', () => {
       documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
+      {
         getTenantId: jest.fn(() => 'company-1'),
         getContext: jest.fn(() => ({
           companyId: 'company-1',

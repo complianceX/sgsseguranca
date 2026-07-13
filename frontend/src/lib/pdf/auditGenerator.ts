@@ -1,6 +1,7 @@
 import type { Audit } from "@/services/auditsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -29,7 +30,10 @@ export async function generateAuditPdf(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "compliance");
 
-  const code = buildDocumentCode("AUD", audit.id || audit.titulo);
+  const validationContext = await resolveValidationContext("audits", audit.id);
+  const code =
+    validationContext.documentCode ||
+    buildDocumentCode("AUD", audit.id || audit.titulo);
 
   const logoUrl = await resolveCompanyLogoDataUrl(audit.company);
 
@@ -46,7 +50,13 @@ export async function generateAuditPdf(
     site: sanitize(audit.site?.nome),
     logoUrl,
   });
-  await drawAuditBlueprint(ctx, autoTable, audit, code, buildValidationUrl(code));
+  await drawAuditBlueprint(
+    ctx,
+    autoTable,
+    audit,
+    code,
+    buildValidationUrl(code, validationContext.token),
+  );
 
   applyFooterGovernance(ctx, {
     code,

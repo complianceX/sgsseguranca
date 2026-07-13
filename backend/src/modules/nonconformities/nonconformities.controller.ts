@@ -140,6 +140,12 @@ export class NonConformitiesController {
     return this.nonConformitiesService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_nc')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.nonConformitiesService.getValidationContext(id);
+  }
+
   @Get(':id/attachments/:index/access')
   @Authorize('can_view_nc')
   getAttachmentAccess(

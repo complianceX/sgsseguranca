@@ -117,6 +117,15 @@ export class AuditsController {
     return this.auditsService.getPdfAccess(id, this.getTenantIdOrThrow());
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_audits')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.auditsService.getValidationContext(
+      id,
+      this.getTenantIdOrThrow(),
+    );
+  }
+
   @Post(':id/file')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_audits')

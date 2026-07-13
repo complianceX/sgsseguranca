@@ -29,6 +29,7 @@ import { CreateDidDto } from './dto/create-did.dto';
 import { UpdateDidDto } from './dto/update-did.dto';
 import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 export type DidPdfAccessAvailability = GovernedPdfAccessAvailability;
 
@@ -62,7 +63,39 @@ export class DidsService {
     private readonly tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant) do DID.
+   * Mesmo padrão do DDS: o código é determinístico (igual ao usado no anexo
+   * do PDF final), então o token vale antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const did = await this.findOne(id);
+    const documentCode = this.buildDidDocumentCode(did);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: did.company_id,
+        portal: 'did_public_validation',
+        documentId: did.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'did_validation_token_unavailable',
+        didId: did.id,
+        companyId: did.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private getSiteAccessScopeOrThrow(options?: {
     allowMissingSiteScope?: boolean;

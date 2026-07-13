@@ -182,6 +182,12 @@ export class RdosController {
     return this.rdosService.findOne(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_rdos')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.rdosService.getValidationContext(id);
+  }
+
   @Get(':id/pdf')
   @Authorize('can_view_rdos')
   async getPdfAccess(

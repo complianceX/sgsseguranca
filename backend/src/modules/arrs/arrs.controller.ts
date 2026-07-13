@@ -147,6 +147,12 @@ export class ArrsController {
     return this.arrsService.getPdfAccess(id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_arrs')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.arrsService.getValidationContext(id);
+  }
+
   @Post(':id/file')
   @Roles(
     Role.ADMIN_GERAL,

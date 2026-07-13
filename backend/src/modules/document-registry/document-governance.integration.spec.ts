@@ -374,6 +374,7 @@ describe('Document governance integration', () => {
       documentStorageService as unknown as DocumentStorageService,
       bundleService,
       governanceService,
+      buildPublicValidationGrantService(),
       buildTenantService(companyId),
     );
     ptsService = new PtsService(

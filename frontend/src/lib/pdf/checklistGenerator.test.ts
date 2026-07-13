@@ -6,6 +6,10 @@ jest.mock("./companyLogo", () => ({
   resolveCompanyLogoDataUrl: jest.fn(async () => null),
 }));
 
+jest.mock("./validationContext", () => ({
+  resolveValidationContext: jest.fn(async () => ({ documentCode: null, token: null })),
+}));
+
 jest.mock("@/lib/pdf-system", () => ({
   applyFooterGovernance: jest.fn(),
   applyInstitutionalDocumentHeader: jest.fn(() => 24),

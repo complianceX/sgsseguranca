@@ -73,6 +73,7 @@ const makeService = (opts: { companyWideAccess?: boolean } = {}) => {
     documentStorageService as never,
     documentGovernanceService as never,
     documentRegistryService as never,
+    { issueToken: jest.fn().mockResolvedValue('token-mock') } as never,
   );
 
   return {

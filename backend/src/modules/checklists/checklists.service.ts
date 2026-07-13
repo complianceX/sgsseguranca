@@ -82,6 +82,7 @@ import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
 } from '../../shared/dto/governed-pdf-access-response.dto';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 type ChecklistPdfAccessAvailability = GovernedPdfAccessAvailability;
 type ChecklistPdfAccessResponse = GovernedPdfAccessResponseDto;
@@ -390,7 +391,39 @@ export class ChecklistsService {
     private readonly integrationResilienceService: IntegrationResilienceService,
     private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
     private readonly documentBundleService: DocumentBundleService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant). O código é
+   * determinístico (o mesmo do anexo do PDF final), então o token vale
+   * antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const checklist = await this.findOne(id);
+    const documentCode = this.buildChecklistDocumentCode(checklist);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: checklist.company_id,
+        portal: 'checklist_public_validation',
+        documentId: checklist.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'checklist_validation_token_unavailable',
+        checklistId: checklist.id,
+        companyId: checklist.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
     id: true,
