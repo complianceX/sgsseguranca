@@ -24,6 +24,9 @@ import {
 import { Permission, PermissionPrefix, type AppPermission } from '@/lib/permissions';
 
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+export const DEFAULT_IDLE_LOGOUT_MINUTES = 7 * 24 * 60;
+export const MIN_IDLE_LOGOUT_MINUTES = 5;
+export const MAX_IDLE_LOGOUT_MINUTES = 30 * 24 * 60;
 const VIEWER_ROLE_ALIASES = [
   'visualizador',
   'trabalhador',
@@ -42,16 +45,21 @@ function readCookie(name: string): string | null {
   return decodeURIComponent(match.slice(encoded.length + 1));
 }
 
-function resolveIdleLogoutMs(): number | null {
+export function resolveIdleLogoutMs(): number | null {
   const raw = (process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES || '').trim();
-  if (!raw) return 8 * 60 * 60 * 1000;
+  if (!raw) return DEFAULT_IDLE_LOGOUT_MINUTES * 60 * 1000;
   const normalized = raw.toLowerCase();
   if (normalized === 'off' || normalized === 'false' || normalized === '0') {
     return null;
   }
   const minutes = Number(raw);
-  if (!Number.isFinite(minutes) || minutes <= 0) return 8 * 60 * 60 * 1000;
-  const clampedMinutes = Math.min(Math.max(Math.floor(minutes), 5), 24 * 60);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return DEFAULT_IDLE_LOGOUT_MINUTES * 60 * 1000;
+  }
+  const clampedMinutes = Math.min(
+    Math.max(Math.floor(minutes), MIN_IDLE_LOGOUT_MINUTES),
+    MAX_IDLE_LOGOUT_MINUTES,
+  );
   return clampedMinutes * 60 * 1000;
 }
 

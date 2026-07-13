@@ -62,6 +62,10 @@ export interface AprActivityTemplate {
   risk_items: AprRiskItemInput[];
 }
 
+export interface AprCapabilities {
+  rulesEngine: boolean;
+}
+
 export interface AprExcelImportPreview {
   fileName: string;
   sheetName: string;
@@ -841,6 +845,11 @@ export const aprsService = {
 
   validateCompliance: async (id: string) => {
     const response = await api.get<AprValidationResult>(`/aprs/${id}/validate`);
+    return response.data;
+  },
+
+  getCapabilities: async () => {
+    const response = await api.get<AprCapabilities>('/aprs/capabilities');
     return response.data;
   },
 

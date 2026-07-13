@@ -46,6 +46,7 @@ describe('AprsController (http)', () => {
     findPaginated: jest.fn(),
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
+    getCapabilities: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
     generateFinalPdf: jest.fn(),
@@ -108,6 +109,7 @@ describe('AprsController (http)', () => {
     aprsService.findPaginated.mockReset();
     aprsService.listStoredFiles.mockReset();
     aprsService.getWeeklyBundle.mockReset();
+    aprsService.getCapabilities.mockReset();
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
     aprsService.generateFinalPdf.mockReset();
@@ -206,6 +208,18 @@ describe('AprsController (http)', () => {
       'O anexo manual de PDF final da APR foi descontinuado',
     );
     expect(aprsService.attachPdf).not.toHaveBeenCalled();
+  });
+
+  it('informa se o motor de regras está disponível para o tenant atual', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.getCapabilities.mockResolvedValue({ rulesEngine: false });
+
+    await request(httpServer)
+      .get('/aprs/capabilities')
+      .expect(200)
+      .expect({ rulesEngine: false });
+
+    expect(aprsService.getCapabilities).toHaveBeenCalledTimes(1);
   });
 
   it('separa permissões críticas da APR sem reutilizar can_create_apr', () => {

@@ -469,14 +469,39 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
   },
 ];
 
+const APR_ACTIVITY_TEMPLATE_LEGACY_ALIASES: Record<string, string> = {
+  manutencao_eletrica: 'eletrica',
+  'instalacoes eletricas prediais e infraestrutura': 'eletrica',
+};
+
+function normalizeActivityTemplateAlias(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Converte valores legados persistidos antes do catálogo canônico para a
+ * chave atual, sem alterar o registro existente durante uma simples leitura.
+ */
+export function resolveAprActivityTemplateType(tipoAtividade: string): string {
+  const normalized = normalizeActivityTemplateAlias(tipoAtividade);
+  return APR_ACTIVITY_TEMPLATE_LEGACY_ALIASES[normalized] ?? tipoAtividade;
+}
+
 /**
  * Retorna o template para o tipo de atividade informado.
- * Retorna o template "outros" se o tipo não for encontrado.
  */
 export function findAprActivityTemplate(
   tipoAtividade: string,
 ): AprActivityTemplate | undefined {
-  return APR_ACTIVITY_TEMPLATES.find((t) => t.tipo_atividade === tipoAtividade);
+  const canonicalType = resolveAprActivityTemplateType(tipoAtividade);
+  return APR_ACTIVITY_TEMPLATES.find(
+    (template) => template.tipo_atividade === canonicalType,
+  );
 }
 
 /** Retorna todos os tipos de atividade disponíveis no catálogo. */
