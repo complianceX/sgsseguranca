@@ -152,7 +152,7 @@ describe('PrivacyRequestsService', () => {
       }),
       undefined,
       expect.objectContaining({
-        html: expect.any(String),
+        html: expect.any(String) as string,
         filename: 'privacy-request-req-1',
       }),
     );
