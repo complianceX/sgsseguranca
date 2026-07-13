@@ -27,10 +27,17 @@ import {
   SophieTask,
 } from '../sophie.types';
 import { MetricsService } from '../../../shared/observability/metrics.service';
+import {
+  type AiLlmRuntimeConfig,
+  DEFAULT_NVIDIA_MODEL,
+  DEFAULT_OPENAI_MODEL,
+  isConfiguredAiLlmRuntime,
+  resolveAiLlmRuntimeConfig,
+  supportsReasoningEffort as modelSupportsReasoningEffort,
+} from '../ai-llm.config';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-2024-11-20';
-const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
-const OPENAI_MODEL_RECOVERY_CANDIDATES = ['gpt-4o-2024-11-20'] as const;
+const OPENAI_MODEL_RECOVERY_CANDIDATES = [DEFAULT_OPENAI_MODEL] as const;
+const NVIDIA_MODEL_RECOVERY_CANDIDATES = [DEFAULT_NVIDIA_MODEL] as const;
 const MAX_JSON_TOKENS = 1600;
 
 type AnalyzePtInput = {
@@ -45,7 +52,7 @@ type AnalyzePtInput = {
 @Injectable()
 export class AiAnalysisService {
   private readonly logger = new Logger(AiAnalysisService.name);
-  private readonly openaiApiKey: string | null;
+  private readonly llm: AiLlmRuntimeConfig;
   private readonly openaiModel: string;
   private readonly openaiFallbackModel: string | null;
   private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
@@ -59,20 +66,10 @@ export class AiAnalysisService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly metricsService: MetricsService,
   ) {
-    this.openaiApiKey =
-      this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
-    this.openaiModel =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
-      DEFAULT_OPENAI_MODEL;
-    const configuredFallbackModel =
-      this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
-    this.openaiFallbackModel = configuredFallbackModel || null;
-    this.openaiReasoningEffort =
-      (this.configService
-        .get<string>('OPENAI_REASONING_EFFORT')
-        ?.trim()
-        .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
-      DEFAULT_OPENAI_REASONING_EFFORT;
+    this.llm = resolveAiLlmRuntimeConfig(this.configService);
+    this.openaiModel = this.llm.model;
+    this.openaiFallbackModel = this.llm.fallbackModel;
+    this.openaiReasoningEffort = this.llm.reasoningEffort;
   }
 
   async analyzeApr(aprId: string, tenantId: string): Promise<AiAnalysisResult> {
@@ -119,6 +116,7 @@ export class AiAnalysisService {
     context: string | undefined,
     tenantId: string,
   ): Promise<AiAnalysisResult> {
+    const visionModel = this.requireVisionModel();
     let imageBuffer = buffer;
     if (!imageBuffer || imageBuffer.length === 0) {
       const keyFromContext = this.extractStorageKeyFromContext(context);
@@ -154,7 +152,7 @@ export class AiAnalysisService {
       const { payload, model } =
         await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
           context: 'analysis:image',
-          primaryModel: this.openaiModel,
+          primaryModel: visionModel,
           buildBody: (modelName) => ({
             model: modelName,
             temperature: 0.2,
@@ -239,6 +237,7 @@ export class AiAnalysisService {
     context: string | undefined,
     tenantId: string,
   ): Promise<SophiePhotographicReportImageJsonResponse> {
+    const visionModel = this.requireVisionModel();
     let imageBuffer = buffer;
     if (!imageBuffer || imageBuffer.length === 0) {
       const keyFromContext = this.extractStorageKeyFromContext(context);
@@ -275,7 +274,7 @@ export class AiAnalysisService {
       const { payload, model } =
         await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
           context: 'analysis:photographic-report-image',
-          primaryModel: this.openaiModel,
+          primaryModel: visionModel,
           buildBody: (modelName) => ({
             model: modelName,
             temperature: 0.2,
@@ -757,25 +756,17 @@ export class AiAnalysisService {
   }
 
   private supportsReasoningEffort(model: string): boolean {
-    const normalized = String(model || '')
-      .trim()
-      .toLowerCase();
-    return (
-      normalized.startsWith('gpt-5') ||
-      normalized.startsWith('o1') ||
-      normalized.startsWith('o3') ||
-      normalized.startsWith('o4')
-    );
+    return modelSupportsReasoningEffort(model);
   }
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
+    const recovery =
+      this.llm.officialProvider === 'nvidia'
+        ? NVIDIA_MODEL_RECOVERY_CANDIDATES
+        : OPENAI_MODEL_RECOVERY_CANDIDATES;
     return Array.from(
       new Set(
-        [
-          primaryModel,
-          this.openaiFallbackModel,
-          ...OPENAI_MODEL_RECOVERY_CANDIDATES,
-        ]
+        [primaryModel, this.openaiFallbackModel, ...recovery]
           .map((value) => String(value || '').trim())
           .filter(Boolean),
       ),
@@ -859,7 +850,17 @@ export class AiAnalysisService {
       .filter(Boolean)
       .join(' ');
 
-    return `OpenAI API error ${params.status} (${meta}): ${params.message}`;
+    return `LLM API error ${params.status} (${meta}): ${params.message}`;
+  }
+
+  private requireVisionModel(): string {
+    if (!this.llm.imageAnalysisEnabled || !this.llm.visionModel) {
+      throw new ServiceUnavailableException(
+        'Análise de imagem indisponível para o provedor de IA configurado.',
+      );
+    }
+
+    return this.llm.visionModel;
   }
 
   private toSafeString(value: unknown): string {
@@ -879,7 +880,8 @@ export class AiAnalysisService {
     primaryModel: string;
     buildBody: (model: string) => Record<string, unknown>;
   }): Promise<{ payload: T; model: string }> {
-    if (!this.openaiApiKey) {
+    const runtime = this.llm;
+    if (!isConfiguredAiLlmRuntime(runtime)) {
       throw new ServiceUnavailableException(
         'Serviço de IA temporariamente indisponível.',
       );
@@ -896,7 +898,7 @@ export class AiAnalysisService {
       }
 
       const response = await requestOpenAiChatCompletionResponse({
-        apiKey: this.openaiApiKey,
+        runtime,
         body,
         configService: this.configService,
         integration: this.integration,

@@ -16,6 +16,7 @@ describe('DocumentClassifierService', () => {
   it('classifica PT por palavras-chave quando a IA falha', async () => {
     const result = await service.classifyDocument(
       'Permissao de Trabalho para trabalho em altura com liberacao da atividade e uso de EPI.',
+      { useExternalAi: true },
     );
 
     expect(result.tipoDocumento).toBe('PT');
@@ -29,6 +30,14 @@ describe('DocumentClassifierService', () => {
 
     expect(result.tipoDocumento).toBe('DDS');
     expect(result.score).toBeGreaterThan(0.3);
+  });
+
+  it('não chama IA externa sem autorização explícita do worker', async () => {
+    await service.classifyDocument(
+      'Permissao de Trabalho para trabalho em altura com liberacao da atividade e uso de EPI.',
+    );
+
+    expect(aiService.generateJson).not.toHaveBeenCalled();
   });
 
   it('expõe a descrição correta para relatório fotográfico', () => {

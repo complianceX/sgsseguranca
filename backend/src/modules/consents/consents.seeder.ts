@@ -4,11 +4,15 @@ import { ConsentsService } from './consents.service';
 const POLICY_VERSION =
   process.env.LEGAL_POLICY_VERSION ||
   process.env.NEXT_PUBLIC_LEGAL_POLICY_VERSION ||
-  '2026-04-24';
+  '2026-07-13';
 const TERMS_VERSION =
   process.env.LEGAL_TERMS_VERSION ||
   process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ||
   '2026-04-24';
+const AI_CONSENT_VERSION =
+  process.env.LEGAL_AI_CONSENT_VERSION ||
+  process.env.NEXT_PUBLIC_LEGAL_AI_CONSENT_VERSION ||
+  '2026-07-13';
 
 /**
  * Seed de textos base. O body_md aqui é um resumo operacional — a versão
@@ -26,7 +30,7 @@ Este aceite representa ciência integral da Política de Privacidade publicada e
 - Identificação do controlador, encarregado (DPO) e canais oficiais.
 - Categorias de dados tratados, inclusive dados sensíveis de saúde ocupacional.
 - Finalidades e bases legais (LGPD Art. 7º e 11).
-- Lista nominal de operadores (OpenAI, Neon, Cloudflare, Sentry, New Relic, provedor de e-mail, storage, Redis) e transferência internacional.
+- Lista nominal de operadores (NVIDIA NIM, OpenAI quando habilitada, Neon, Cloudflare, Sentry, New Relic, provedor de e-mail, storage, Redis) e transferência internacional.
 - Retenção por tipo de dado e exclusão em backups.
 - Direitos do titular (Art. 18) e canal de atendimento.
 - Cookies estritamente necessários.
@@ -45,12 +49,14 @@ Este aceite representa ciência integral dos Termos de Uso publicados em /termos
 - Suspensão, encerramento, exportação ao término (janela de 30 dias).
 - Comunicação de incidentes (48h).
 - Limitação de responsabilidade e foro.`,
-  ai_processing: `# Consentimento para processamento por IA — versão ${POLICY_VERSION}
+  ai_processing: `# Consentimento para processamento por IA — versão ${AI_CONSENT_VERSION}
 
 Autorizo o processamento dos meus dados operacionais por funcionalidades de IA (SOPHIE), ciente de que:
 
 - Dados pessoais diretos (CPF, e-mail, telefone, nomes) devem ser minimizados e filtrados antes do envio ao provedor.
-- O provedor atualmente utilizado, quando habilitado contratualmente, é OpenAI, LLC (EUA), com possibilidade de transferência internacional conforme a Política de Privacidade vigente.
+- O provedor atualmente utilizado é NVIDIA Corporation, por meio da NVIDIA NIM API, para o modelo textual openai/gpt-oss-120b, com possibilidade de transferência internacional conforme a Política de Privacidade vigente.
+- Fotos e outros conteúdos visuais não são enviados a esse modelo textual; a análise visual permanece desabilitada enquanto não houver modelo visual aprovado e informado em nova versão deste consentimento.
+- A ativação depende da base contratual e das salvaguardas de transferência internacional aplicáveis ao Cliente.
 - A saída da IA é auxiliar e não substitui decisão humana.
 - Posso revogar este consentimento a qualquer tempo em Configurações → Privacidade, sem prejuízo dos demais serviços.
 - Nenhuma decisão estritamente automatizada com efeito jurídico é tomada pela plataforma.`,
@@ -97,8 +103,9 @@ export class ConsentsSeederService implements OnModuleInit {
       },
       {
         type: 'ai_processing',
-        versionLabel: POLICY_VERSION,
-        summary: 'Consentimento para uso da IA SOPHIE (OpenAI).',
+        versionLabel: AI_CONSENT_VERSION,
+        summary:
+          'Consentimento para uso da IA SOPHIE (NVIDIA NIM / GPT-OSS 120B).',
       },
       {
         type: 'cookies',

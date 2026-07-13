@@ -80,6 +80,12 @@ const subprocessors = [
     safeguard: 'Dados criptografados em trânsito (TLS); sem processamento além do armazenamento; DPA e retenção devem ser confirmados no contrato',
   },
   {
+    name: 'NVIDIA NIM',
+    purpose: 'Geração de linguagem natural nas funcionalidades de IA Sophie com o modelo textual openai/gpt-oss-120b (quando habilitadas)',
+    country: 'Global / conforme a região de processamento do serviço',
+    safeguard: 'Minimização/pseudonimização pré-envio; fotos não são enviadas ao modelo textual; ativação condicionada à base contratual e às salvaguardas de transferência internacional aplicáveis',
+  },
+  {
     name: 'OpenAI',
     purpose: 'Geração de linguagem natural nas funcionalidades de IA Sophie (quando habilitadas)',
     country: 'EUA',

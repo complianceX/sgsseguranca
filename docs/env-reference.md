@@ -126,11 +126,18 @@
 | Variável | Default | Descrição |
 |----------|---------|-----------|
 | `FEATURE_AI_ENABLED` | `true` | Master switch |
-| `AI_PROVIDER` | `openai` | `openai` / `stub` / `local` |
-| `OPENAI_API_KEY` | — | Obrigatório para modo openai |
-| `OPENAI_MODEL` | `gpt-4o-2024-11-20` | Modelo principal |
-| `OPENAI_VISION_MODEL` | `gpt-4o-2024-11-20` | Modelo para imagens |
+| `AI_PROVIDER` | `openai` | `nvidia` / `openai` / `stub` / `local` |
+| `NVIDIA_API_KEY` | — | Obrigatório quando `AI_PROVIDER=nvidia`; nunca reutilizar `OPENAI_API_KEY` |
+| `NVIDIA_API_BASE_URL` | `https://integrate.api.nvidia.com/v1` | Endpoint oficial NVIDIA NIM; host arbitrário é bloqueado |
+| `NVIDIA_MODEL` | `openai/gpt-oss-120b` | Modelo textual principal NVIDIA |
+| `NVIDIA_FALLBACK_MODEL` | — | Fallback NVIDIA opcional |
+| `NVIDIA_REASONING_EFFORT` | `medium` | `low` / `medium` / `high` |
+| `OPENAI_API_KEY` | — | Obrigatório apenas para `AI_PROVIDER=openai` |
+| `OPENAI_MODEL` | `gpt-4o-2024-11-20` | Modelo principal OpenAI |
+| `OPENAI_VISION_MODEL` | `gpt-4o-2024-11-20` | Modelo para imagens OpenAI |
 | `OPENAI_CHAT_COMPLETION_TIMEOUT_MS` | `30000` | Timeout |
+
+`openai/gpt-oss-120b` é somente texto. Com `AI_PROVIDER=nvidia`, o SGS bloqueia análise de imagens até a aprovação de um modelo visual NVIDIA separado.
 
 ---
 

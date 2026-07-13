@@ -3,8 +3,43 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { IntegrationResilienceService } from '../../shared/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
 import { OpenAiCircuitBreakerService } from '../../shared/resilience/openai-circuit-breaker.service';
+import { type ConfiguredAiLlmRuntimeConfig } from './ai-llm.config';
 
 describe('openai-request.util', () => {
+  const openAiRuntime: ConfiguredAiLlmRuntimeConfig = {
+    provider: 'openai',
+    configuredProvider: 'openai',
+    configured: true,
+    apiKey: 'key-1',
+    baseUrl: 'https://api.openai.com/v1',
+    chatCompletionsUrl: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-5-mini',
+    visionModel: 'gpt-5-mini',
+    fallbackModel: null,
+    reasoningEffort: 'medium',
+    systemRole: 'developer',
+    imageAnalysisEnabled: true,
+    officialProvider: 'openai',
+    runtimeMode: 'online',
+  };
+
+  const nvidiaRuntime: ConfiguredAiLlmRuntimeConfig = {
+    provider: 'nvidia',
+    configuredProvider: 'nvidia',
+    configured: true,
+    apiKey: 'nvapi-key-1',
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    chatCompletionsUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'openai/gpt-oss-120b',
+    visionModel: null,
+    fallbackModel: null,
+    reasoningEffort: 'medium',
+    systemRole: 'system',
+    imageAnalysisEnabled: false,
+    officialProvider: 'nvidia',
+    runtimeMode: 'online',
+  };
+
   const configService = {
     get: jest.fn((key: string) => {
       if (key === 'OPENAI_CHAT_COMPLETION_TIMEOUT_MS') return '250';
@@ -61,7 +96,7 @@ describe('openai-request.util', () => {
     const circuitBreaker = createCircuitBreakerMock();
 
     const result = await requestOpenAiChatCompletionResponse({
-      apiKey: 'key-1',
+      runtime: openAiRuntime,
       body: { model: 'gpt-5-mini' },
       configService,
       integration: integration as unknown as IntegrationResilienceService,
@@ -98,6 +133,56 @@ describe('openai-request.util', () => {
     });
   });
 
+  it('usa credencial, URL e normalização próprias do runtime NVIDIA', async () => {
+    const response = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const fetchImpl: typeof fetch = jest.fn().mockResolvedValue(response);
+    const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
+
+    await requestOpenAiChatCompletionResponse({
+      runtime: nvidiaRuntime,
+      body: {
+        model: 'openai/gpt-oss-120b',
+        max_completion_tokens: 600,
+        messages: [
+          { role: 'developer', content: 'Instruções do sistema.' },
+          { role: 'user', content: 'Liste riscos de SST.' },
+        ],
+      },
+      configService,
+      integration: integration as unknown as IntegrationResilienceService,
+      circuitBreaker: circuitBreaker as unknown as OpenAiCircuitBreakerService,
+      fetchImpl,
+    });
+
+    const [fetchUrl, fetchOptions] = (fetchImpl as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    expect(fetchUrl).toBe(
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+    );
+    expect(fetchOptions.headers).toMatchObject({
+      Authorization: 'Bearer nvapi-key-1',
+    });
+
+    if (typeof fetchOptions.body !== 'string') {
+      throw new Error('O payload NVIDIA deveria ser serializado em JSON.');
+    }
+
+    const body = JSON.parse(fetchOptions.body) as {
+      max_tokens?: number;
+      max_completion_tokens?: number;
+      messages?: Array<{ role: string }>;
+    };
+    expect(body.max_tokens).toBe(600);
+    expect(body.max_completion_tokens).toBeUndefined();
+    expect(body.messages?.[0]?.role).toBe('system');
+  });
+
   it('sanitiza PII e contexto sensível antes de enviar para a OpenAI', async () => {
     const response = new Response(JSON.stringify({ ok: true }), {
       status: 200,
@@ -108,7 +193,7 @@ describe('openai-request.util', () => {
     const circuitBreaker = createCircuitBreakerMock();
 
     await requestOpenAiChatCompletionResponse({
-      apiKey: 'key-1',
+      runtime: openAiRuntime,
       body: {
         model: 'gpt-5-mini',
         metadata: {
@@ -184,7 +269,7 @@ describe('openai-request.util', () => {
     circuitBreaker.isCountableFailureError.mockReturnValue(true);
 
     const handled = requestOpenAiChatCompletionResponse({
-      apiKey: 'key-1',
+      runtime: openAiRuntime,
       body: { model: 'gpt-5-mini' },
       configService,
       integration: integration as unknown as IntegrationResilienceService,
@@ -197,7 +282,7 @@ describe('openai-request.util', () => {
     const error = await handled;
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain(
-      'OpenAI request timeout after 250ms',
+      'LLM request timeout after 250ms',
     );
     expect(circuitBreaker.recordFailure).toHaveBeenCalledTimes(1);
 
@@ -216,7 +301,7 @@ describe('openai-request.util', () => {
 
     await expect(
       requestOpenAiChatCompletionResponse({
-        apiKey: 'key-1',
+        runtime: openAiRuntime,
         body: { model: 'gpt-5-mini' },
         configService,
         integration: integration as unknown as IntegrationResilienceService,
@@ -240,7 +325,7 @@ describe('openai-request.util', () => {
     const circuitBreaker = createCircuitBreakerMock();
 
     const result = await requestOpenAiChatCompletionResponse({
-      apiKey: 'key-1',
+      runtime: openAiRuntime,
       body: { model: 'gpt-5-mini' },
       configService,
       integration: integration as unknown as IntegrationResilienceService,

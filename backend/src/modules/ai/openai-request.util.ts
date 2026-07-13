@@ -5,10 +5,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { IntegrationResilienceService } from '../../shared/resilience/integration-resilience.service';
 import { OpenAiCircuitBreakerService } from '../../shared/resilience/openai-circuit-breaker.service';
+import {
+  type ConfiguredAiLlmRuntimeConfig,
+  normalizeChatCompletionBodyForProvider,
+} from './ai-llm.config';
 import { sanitizeOpenAiRequestBody } from './openai-payload-boundary.util';
 
 type OpenAiChatRequestInput = {
-  apiKey: string;
+  /** Runtime inteiro e já validado; URL e credencial vêm do mesmo provedor. */
+  runtime: ConfiguredAiLlmRuntimeConfig;
   body: Record<string, unknown>;
   configService: ConfigService;
   integration: IntegrationResilienceService;
@@ -39,23 +44,32 @@ export async function requestOpenAiChatCompletionResponse(
 ): Promise<Response> {
   const timeoutMs = resolveOpenAiTimeoutMs(input.configService);
   const fetchImpl = input.fetchImpl ?? fetch;
-  const sanitizedBody = sanitizeOpenAiRequestBody(input.body);
+  const model =
+    typeof input.body.model === 'string'
+      ? input.body.model
+      : input.runtime.model;
+  const normalizedBody = normalizeChatCompletionBodyForProvider(
+    input.body,
+    input.runtime,
+    model,
+  );
+  const sanitizedBody = sanitizeOpenAiRequestBody(normalizedBody);
 
   await input.circuitBreaker.assertRequestAllowed();
 
   try {
     const response = await input.integration.execute(
-      'openai_chat_completion',
+      'llm_chat_completion',
       async () => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
-          return await fetchImpl('https://api.openai.com/v1/chat/completions', {
+          return await fetchImpl(input.runtime.chatCompletionsUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${input.apiKey}`,
+              Authorization: `Bearer ${input.runtime.apiKey}`,
             },
             body: JSON.stringify(sanitizedBody),
             signal: controller.signal,
@@ -63,7 +77,7 @@ export async function requestOpenAiChatCompletionResponse(
         } catch (error) {
           if (controller.signal.aborted) {
             throw new GatewayTimeoutException(
-              `OpenAI request timeout after ${timeoutMs}ms`,
+              `LLM request timeout after ${timeoutMs}ms`,
             );
           }
           throw error;

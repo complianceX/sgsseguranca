@@ -3,6 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from '../../shared/common.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { AiModule } from '../ai/ai.module';
+import { ConsentsModule } from '../consents/consents.module';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { PhotographicReportsController } from './photographic-reports.controller';
 import { PhotographicReportsService } from './photographic-reports.service';
 import { PhotographicReport } from './entities/photographic-report.entity';
@@ -15,6 +18,7 @@ import { PhotographicReportExport } from './entities/photographic-report-export.
     CommonModule,
     DocumentRegistryModule,
     AiModule,
+    ConsentsModule,
     TypeOrmModule.forFeature([
       PhotographicReport,
       PhotographicReportDay,
@@ -23,7 +27,7 @@ import { PhotographicReportExport } from './entities/photographic-report-export.
     ]),
   ],
   controllers: [PhotographicReportsController],
-  providers: [PhotographicReportsService],
+  providers: [PhotographicReportsService, FeatureAiGuard, AiConsentGuard],
   exports: [PhotographicReportsService],
 })
 export class PhotographicReportsModule {}

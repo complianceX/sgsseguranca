@@ -13,6 +13,9 @@ import { FileParserModule } from './file-parser.module';
 import { createRedisDisabledQueueProvider } from '../../infra/queue/redis-disabled-queue';
 import { shouldUseRedisQueueInfra } from '../../infra/queue/redis-queue-infra.util';
 import { FileInspectionModule } from '../../shared/security/file-inspection.module';
+import { ConsentsModule } from '../consents/consents.module';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 
 @Module({
   imports: [
@@ -29,6 +32,7 @@ import { FileInspectionModule } from '../../shared/security/file-inspection.modu
     AiModule,
     FileParserModule,
     FileInspectionModule,
+    ConsentsModule,
   ],
   controllers: [DocumentImportController],
   providers: [
@@ -36,6 +40,8 @@ import { FileInspectionModule } from '../../shared/security/file-inspection.modu
     DocumentClassifierService,
     DocumentInterpreterService,
     DocumentValidationService,
+    FeatureAiGuard,
+    AiConsentGuard,
     ...(!shouldUseRedisQueueInfra()
       ? [
           createRedisDisabledQueueProvider('document-import'),

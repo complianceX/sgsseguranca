@@ -20,7 +20,7 @@ HTTP Request
 **2 módulos NestJS:**
 | Módulo | Path | Propósito |
 |--------|------|-----------|
-| `AiModule` | `backend/src/modules/ai/` | OpenAI integration, SST agent, facade, analysis (3479 linhas no service) |
+| `AiModule` | `backend/src/modules/ai/` | Integração LLM (NVIDIA NIM/OpenAI), agente SST, facade e análises |
 | `SophieModule` | `backend/src/modules/sophie/` | Local knowledge-based engine (rule matching) |
 
 ---
@@ -29,14 +29,20 @@ HTTP Request
 
 | Variável | Default | Descrição |
 |----------|---------|-----------|
-| `AI_PROVIDER` | `openai` | `openai` / `stub` / `local` |
-| `OPENAI_API_KEY` | — | Obrigatório para modo real |
-| `OPENAI_MODEL` | `gpt-4o-2024-11-20` | Modelo principal |
-| `OPENAI_VISION_MODEL` | `gpt-4o-2024-11-20` | Modelo para imagem |
-| `OPENAI_FALLBACK_MODEL` | — | Fallback se primary falhar |
+| `AI_PROVIDER` | `openai` | `nvidia` / `openai` / `stub` / `local` |
+| `NVIDIA_API_KEY` | — | Obrigatório para `AI_PROVIDER=nvidia`; nunca usar chave OpenAI como fallback |
+| `NVIDIA_MODEL` | `openai/gpt-oss-120b` | Modelo principal NVIDIA NIM |
+| `NVIDIA_FALLBACK_MODEL` | — | Fallback NVIDIA opcional |
+| `NVIDIA_REASONING_EFFORT` | `medium` | `low` / `medium` / `high` para GPT-OSS |
+| `OPENAI_API_KEY` | — | Obrigatório apenas para `AI_PROVIDER=openai` |
+| `OPENAI_MODEL` | `gpt-4o-2024-11-20` | Modelo principal OpenAI |
+| `OPENAI_VISION_MODEL` | `gpt-4o-2024-11-20` | Modelo para imagem OpenAI |
+| `OPENAI_FALLBACK_MODEL` | — | Fallback OpenAI opcional |
 | `OPENAI_CHAT_COMPLETION_TIMEOUT_MS` | `30000` | Timeout |
 
-**Stub mode:** Quando `OPENAI_API_KEY` não está configurada, Sophie retorna mensagens de "não configurada" e o endpoint `/ai/status` reporta `configured: false`.
+**NVIDIA GPT-OSS 120B:** usa `https://integrate.api.nvidia.com/v1/chat/completions`, aceita ferramentas e reasoning effort, mas é somente texto. O SGS bloqueia análise de imagens nesse runtime para não transferir fotos a um modelo sem visão.
+
+**Stub mode:** Quando a chave do provedor configurado não está disponível, Sophie retorna mensagens de "não configurada" e o endpoint `/ai/status` reporta `configured: false`.
 
 ---
 
@@ -49,7 +55,7 @@ HTTP Request
    - Call requestOpenAiChatCompletionResponse()
      → Check circuit breaker (assertRequestAllowed)
      → Execute via IntegrationResilienceService (timeout + retry + CB)
-     → POST https://api.openai.com/v1/chat/completions
+     → POST para a URL do runtime já resolvido (OpenAI ou NVIDIA NIM)
      → Record success/failure
    - If 200 OK: return + log if fallback
    - If fails: try next model

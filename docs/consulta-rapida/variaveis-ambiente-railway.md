@@ -119,11 +119,16 @@ Essas variaveis sustentam o storage governado oficial. PDFs finais oficiais, vid
 
 - `FEATURE_AI_ENABLED`
 - `AI_PROVIDER`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `OPENAI_FALLBACK_MODEL`
-- `OPENAI_VISION_MODEL`
-- `OPENAI_REASONING_EFFORT`
+- `NVIDIA_API_KEY`
+- `NVIDIA_API_BASE_URL`
+- `NVIDIA_MODEL`
+- `NVIDIA_FALLBACK_MODEL`
+- `NVIDIA_REASONING_EFFORT`
+- `OPENAI_API_KEY` (somente compatibilidade quando `AI_PROVIDER=openai`)
+- `OPENAI_MODEL` (somente compatibilidade quando `AI_PROVIDER=openai`)
+- `OPENAI_FALLBACK_MODEL` (somente compatibilidade quando `AI_PROVIDER=openai`)
+- `OPENAI_VISION_MODEL` (somente compatibilidade quando `AI_PROVIDER=openai`)
+- `OPENAI_REASONING_EFFORT` (somente compatibilidade quando `AI_PROVIDER=openai`)
 - `ANTHROPIC_API_KEY`
   Necessarias para fluxos assistidos/IA.
 
@@ -282,6 +287,12 @@ Vale fazer uma nova auditoria quando:
 - `MAIL_FROM_EMAIL`
 - `BREVO_API_KEY`
 - `FEATURE_AI_ENABLED`
+- `AI_PROVIDER`
+- `NVIDIA_API_KEY`
+- `NVIDIA_API_BASE_URL`
+- `NVIDIA_MODEL`
+- `NVIDIA_FALLBACK_MODEL`
+- `NVIDIA_REASONING_EFFORT`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `OPENAI_FALLBACK_MODEL`

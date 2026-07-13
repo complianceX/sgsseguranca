@@ -62,6 +62,10 @@ import { RequestContext } from '../../shared/middleware/request-context.middlewa
 import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../../shared/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
+import {
+  isConfiguredAiLlmRuntime,
+  resolveAiLlmRuntimeConfig,
+} from '../ai/ai-llm.config';
 import { OpenAiCircuitBreakerService } from '../../shared/resilience/openai-circuit-breaker.service';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
 import { sanitizePlainText } from '../../shared/utils/plain-text-sanitizer.util';
@@ -3368,10 +3372,10 @@ export class ChecklistsService {
       );
     }
 
-    // 2. Enviar para GPT e estruturar como checklist
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const model =
-      this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-2024-11-20';
+    // 2. Enviar para o runtime LLM configurado e estruturar como checklist.
+    // A mesma resolução fornece chave, URL e modelo, impedindo mistura entre
+    // credencial OpenAI e endpoint NVIDIA.
+    const llm = resolveAiLlmRuntimeConfig(this.configService);
 
     let structured: {
       titulo: string;
@@ -3386,9 +3390,9 @@ export class ChecklistsService {
       }>;
     };
 
-    if (!apiKey) {
+    if (!isConfiguredAiLlmRuntime(llm)) {
       this.logger.warn(
-        'OPENAI_API_KEY não configurada � usando stub de importação',
+        `Runtime de IA ${llm.configuredProvider} não configurado; usando stub de importação.`,
       );
       structured = {
         titulo:
@@ -3438,15 +3442,16 @@ Regras:
       const userPrompt = `Texto extraído do documento "${originalname}":\n\n${rawText.slice(0, 6000)}`;
 
       const response = await requestOpenAiChatCompletionResponse({
-        apiKey,
+        runtime: llm,
         body: {
-          model,
+          model: llm.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
           temperature: 0.2,
           max_tokens: 4000,
+          reasoning_effort: llm.reasoningEffort,
         },
         configService: this.configService,
         integration: this.integrationResilienceService,

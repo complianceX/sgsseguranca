@@ -82,7 +82,19 @@ Variáveis obrigatórias:
 - `AWS_S3_ENDPOINT`
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
-- `OPENAI_API_KEY`
+
+Para habilitar a SOPHIE com NVIDIA NIM / GPT-OSS 120B, configure no backend web:
+
+- `FEATURE_AI_ENABLED=true`
+- `AI_PROVIDER=nvidia`
+- `NVIDIA_API_KEY`
+- `NVIDIA_API_BASE_URL=https://integrate.api.nvidia.com/v1`
+- `NVIDIA_MODEL=openai/gpt-oss-120b`
+- `NVIDIA_REASONING_EFFORT=medium`
+- `LEGAL_POLICY_VERSION=2026-07-13`
+- `LEGAL_AI_CONSENT_VERSION=2026-07-13`
+
+`NVIDIA_API_KEY` não deve ser substituída por `OPENAI_API_KEY`. O GPT-OSS 120B é textual; análise de imagens permanece bloqueada.
 
 Variáveis já fixadas no repo e que devem permanecer:
 
@@ -124,7 +136,8 @@ Variáveis obrigatórias:
 - `AWS_S3_ENDPOINT`
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
-- `OPENAI_API_KEY`
+
+Se o worker executar fluxos de IA, replique as mesmas variáveis NVIDIA do backend web. Caso não processe tarefas de IA, mantenha `FEATURE_AI_ENABLED=false` nele.
 
 Variáveis já fixadas no repo e que devem permanecer:
 

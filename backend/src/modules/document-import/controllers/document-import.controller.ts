@@ -47,6 +47,8 @@ import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
 import { TenantInterceptor } from '../../../shared/tenant/tenant.interceptor';
 import { TenantGuard } from '../../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../../shared/guards/ai-consent.guard';
 import { TenantService } from '../../../shared/tenant/tenant.service';
 import { Authorize } from '../../auth/authorize.decorator';
 import type { RequestWithUser } from '../../auth/interfaces/request-with-user.interface';
@@ -80,6 +82,7 @@ export class DocumentImportController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_import_documents')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   @UserThrottle({ requestsPerMinute: 10 })
   @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 200 })
   @ApiOperation({ summary: 'Importar e analisar documento' })

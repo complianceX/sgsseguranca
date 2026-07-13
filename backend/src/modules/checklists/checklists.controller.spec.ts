@@ -12,6 +12,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { ChecklistsController } from './checklists.controller';
@@ -62,6 +64,10 @@ describe('ChecklistsController (http)', () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(FeatureAiGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(AiConsentGuard)
       .useValue({ canActivate: () => true })
       .overrideInterceptor(TenantInterceptor)
       .useValue({

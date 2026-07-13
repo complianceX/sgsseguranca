@@ -14,6 +14,8 @@ const createDdsDraftFromImport = jest.fn();
 const listAllPeople = jest.fn();
 const findAllSites = jest.fn();
 const useAuth = jest.fn();
+const useAiConsent = jest.fn();
+const requestConsent = jest.fn();
 const searchParamsGet = jest.fn<string | null, [string]>(() => null);
 const routerPush = jest.fn();
 
@@ -28,6 +30,10 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/context/AuthContext", () => ({
   useAuth: () => useAuth(),
+}));
+
+jest.mock("@/hooks/useAiConsent", () => ({
+  useAiConsent: () => useAiConsent(),
 }));
 
 jest.mock("@/services/documentImportService", () => ({
@@ -138,6 +144,11 @@ describe("DocumentImportPage", () => {
       user: { company_id: "company-1" },
       hasPermission: jest.fn(() => true),
     });
+    useAiConsent.mockReturnValue({
+      consentGiven: true,
+      requestConsent,
+      ConsentGate: () => null,
+    });
     searchParamsGet.mockReturnValue(null);
     listAllPeople.mockResolvedValue([]);
     findAllSites.mockResolvedValue([]);
@@ -179,6 +190,26 @@ describe("DocumentImportPage", () => {
 
   it("bloqueia extensão não permitida", () => {
     expect(isAllowedImportFile(makeFile("payload.exe", ""))).toBe(false);
+  });
+
+  it("solicita consentimento antes de enviar o documento para IA", async () => {
+    useAiConsent.mockReturnValue({
+      consentGiven: false,
+      requestConsent,
+      ConsentGate: () => null,
+    });
+
+    render(<DocumentImportPage />);
+    const input = screen.getByLabelText("Upload de documento SST");
+    fireEvent.change(input, {
+      target: { files: [makeFile("apr.pdf", "application/pdf")] },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /enviar para fila/i }),
+    );
+
+    expect(requestConsent).toHaveBeenCalledTimes(1);
+    expect(importDocument).not.toHaveBeenCalled();
   });
 
   it("envia DOCX selecionado e passa AbortSignal para o polling", async () => {

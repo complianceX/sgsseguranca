@@ -2,7 +2,7 @@
  * SstAgentService - Servico principal do Agente SST.
  *
  * SOPHIE runtime:
- * - OpenAI como provedora oficial e unica do assistente
+ * - Runtime OpenAI-compatible explícito por provedor (OpenAI ou NVIDIA NIM)
  * - Rate limit por tenant (Redis, fail-open)
  * - Auditoria completa: model, provider, latency_ms, tokens, custo estimado
  * - Deteccao hibrida de needsHumanReview
@@ -42,6 +42,14 @@ import {
   sanitizeForAi,
 } from './sst-agent.tools';
 import { requestOpenAiChatCompletionResponse } from '../openai-request.util';
+import {
+  type AiLlmRuntimeConfig,
+  DEFAULT_NVIDIA_MODEL,
+  DEFAULT_OPENAI_MODEL,
+  isConfiguredAiLlmRuntime,
+  resolveAiLlmRuntimeConfig,
+  supportsReasoningEffort as modelSupportsReasoningEffort,
+} from '../ai-llm.config';
 import { SstRateLimitService } from './sst-rate-limit.service';
 import {
   OpenAiCircuitBreakerService,
@@ -71,10 +79,9 @@ import {
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const OPENAI_PROVIDER = 'openai';
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-2024-11-20';
-const DEFAULT_OPENAI_VISION_MODEL = 'gpt-4o-2024-11-20';
-const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
-const OPENAI_MODEL_RECOVERY_CANDIDATES = ['gpt-4o-2024-11-20'] as const;
+const NVIDIA_PROVIDER = 'nvidia';
+const OPENAI_MODEL_RECOVERY_CANDIDATES = [DEFAULT_OPENAI_MODEL] as const;
+const NVIDIA_MODEL_RECOVERY_CANDIDATES = [DEFAULT_NVIDIA_MODEL] as const;
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
 const DEFAULT_AI_HISTORY_DAYS = 30;
@@ -94,6 +101,7 @@ const UUID_PATTERN =
 
 type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
+  | typeof NVIDIA_PROVIDER
   | typeof ANTHROPIC_PROVIDER
   | 'local'
   | 'stub';
@@ -113,7 +121,7 @@ const SST_IMAGE_ANALYSIS_PROMPT = SOPHIE_IMAGE_ANALYSIS_PROMPT;
 export class SstAgentService {
   private readonly logger = new Logger(SstAgentService.name);
   private readonly anthropic: Anthropic | null;
-  private readonly openaiApiKey: string | null;
+  private readonly llm: AiLlmRuntimeConfig;
   private readonly openaiModel: string;
   private readonly openaiVisionModel: string;
   private readonly openaiFallbackModel: string | null;
@@ -140,33 +148,20 @@ export class SstAgentService {
     private readonly aiRecoveryQueue?: Queue,
     @Optional() private readonly metricsService?: MetricsService,
   ) {
-    const openaiApiKey =
-      this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     const anthropicModel =
       this.configService.get<string>('ANTHROPIC_MODEL')?.trim() ||
       DEFAULT_ANTHROPIC_MODEL;
-    const openaiModel =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
-      DEFAULT_OPENAI_MODEL;
-    const openaiVisionModel =
-      this.configService.get<string>('OPENAI_VISION_MODEL')?.trim() ||
-      openaiModel ||
-      DEFAULT_OPENAI_VISION_MODEL;
-    const configuredFallbackModel =
-      this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
-    const openaiReasoningEffort =
-      (this.configService
-        .get<string>('OPENAI_REASONING_EFFORT')
-        ?.trim()
-        .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
-      DEFAULT_OPENAI_REASONING_EFFORT;
-    this.openaiApiKey = openaiApiKey;
-    this.openaiModel = openaiModel;
-    this.openaiVisionModel = openaiVisionModel;
-    this.openaiFallbackModel = configuredFallbackModel || null;
-    this.openaiReasoningEffort = openaiReasoningEffort;
-    this.provider = 'stub';
-    this.model = 'stub';
+    this.llm = resolveAiLlmRuntimeConfig(this.configService);
+    this.openaiModel = this.llm.model;
+    this.openaiVisionModel = this.llm.visionModel ?? this.llm.model;
+    this.openaiFallbackModel = this.llm.fallbackModel;
+    this.openaiReasoningEffort = this.llm.reasoningEffort;
+    this.provider = isConfiguredAiLlmRuntime(this.llm)
+      ? this.llm.provider
+      : 'stub';
+    this.model = isConfiguredAiLlmRuntime(this.llm)
+      ? this.llm.model
+      : `${this.llm.configuredProvider}-unconfigured`;
     this.anthropicModel = anthropicModel;
     this.historyDefaultDays = this.getPositiveIntConfig(
       'AI_HISTORY_DEFAULT_DAYS',
@@ -182,67 +177,40 @@ export class SstAgentService {
     );
     this.anthropic = null;
 
-    const configuredProvider = this.configService
-      .get<string>('AI_PROVIDER')
-      ?.trim()
-      .toLowerCase();
-
-    if (
-      configuredProvider &&
-      configuredProvider !== OPENAI_PROVIDER &&
-      configuredProvider !== 'stub'
-    ) {
-      this.logger.warn(
-        `AI_PROVIDER=${configuredProvider} ignorado. A SOPHIE usa OpenAI como provedora oficial unica.`,
-      );
-    }
-
-    if (openaiApiKey) {
-      this.provider = OPENAI_PROVIDER;
-      this.model = openaiModel;
+    if (isConfiguredAiLlmRuntime(this.llm)) {
       this.logger.log(
-        `SOPHIE iniciada com OpenAI (${this.model}) como motor oficial (fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort}).`,
+        `SOPHIE iniciada com ${this.llm.officialProvider} (${this.model}) como motor oficial (fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort}).`,
       );
       return;
     }
 
-    this.provider = 'stub';
-    this.model = 'openai-unconfigured';
     this.logger.warn(
-      'OPENAI_API_KEY nao configurada. A SOPHIE permanece visivel, mas operando em modo indisponivel ate a OpenAI ser configurada.',
+      `Runtime de IA ${this.llm.configuredProvider} não configurado. A SOPHIE permanece visível, mas operando em modo indisponível.`,
     );
   }
 
   getRuntimeStatus() {
     return {
       provider: this.provider,
-      officialProvider: OPENAI_PROVIDER,
-      configured: this.provider === OPENAI_PROVIDER,
-      runtimeMode: this.provider === OPENAI_PROVIDER ? 'online' : 'degraded',
+      officialProvider: this.llm.officialProvider,
+      configured: isConfiguredAiLlmRuntime(this.llm),
+      runtimeMode: this.llm.runtimeMode,
       model: this.model,
-      openaiModel: this.openaiModel,
-      openaiVisionModel: this.openaiVisionModel,
-      openaiFallbackModel: this.openaiFallbackModel,
-      openaiReasoningEffort: this.openaiReasoningEffort,
+      llmModel: this.openaiModel,
+      visionModel: this.llm.visionModel,
+      fallbackModel: this.openaiFallbackModel,
+      reasoningEffort: this.openaiReasoningEffort,
       historyDefaultDays: this.historyDefaultDays,
       historyMaxDays: this.historyMaxDays,
       historyMaxLimit: this.historyMaxLimit,
-      imageAnalysisEnabled: this.provider === OPENAI_PROVIDER,
-      externalProviderEnabled: this.provider === OPENAI_PROVIDER,
+      imageAnalysisEnabled: this.llm.imageAnalysisEnabled,
+      externalProviderEnabled: isConfiguredAiLlmRuntime(this.llm),
       localFallbackEnabled: false,
     };
   }
 
   private supportsReasoningEffort(model: string): boolean {
-    const normalized = String(model || '')
-      .trim()
-      .toLowerCase();
-    return (
-      normalized.startsWith('gpt-5') ||
-      normalized.startsWith('o1') ||
-      normalized.startsWith('o3') ||
-      normalized.startsWith('o4')
-    );
+    return modelSupportsReasoningEffort(model);
   }
 
   private requireAuthenticatedUserId(
@@ -259,13 +227,13 @@ export class SstAgentService {
   }
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
+    const recovery =
+      this.llm.officialProvider === NVIDIA_PROVIDER
+        ? NVIDIA_MODEL_RECOVERY_CANDIDATES
+        : OPENAI_MODEL_RECOVERY_CANDIDATES;
     return Array.from(
       new Set(
-        [
-          primaryModel,
-          this.openaiFallbackModel,
-          ...OPENAI_MODEL_RECOVERY_CANDIDATES,
-        ]
+        [primaryModel, this.openaiFallbackModel, ...recovery]
           .map((value) => String(value || '').trim())
           .filter(Boolean),
       ),
@@ -285,13 +253,13 @@ export class SstAgentService {
         message:
           parsed?.error?.message?.trim() ||
           body.trim() ||
-          'Erro desconhecido da OpenAI.',
+          'Erro desconhecido do provedor de IA.',
         type: parsed?.error?.type,
         code: parsed?.error?.code,
       };
     } catch {
       return {
-        message: body.trim() || 'Erro desconhecido da OpenAI.',
+        message: body.trim() || 'Erro desconhecido do provedor de IA.',
       };
     }
   }
@@ -348,7 +316,7 @@ export class SstAgentService {
       .filter(Boolean)
       .join(' ');
 
-    return `OpenAI API error ${params.status} (${meta}): ${params.message}`;
+    return `LLM API error ${params.status} (${meta}): ${params.message}`;
   }
 
   private async requestOpenAiChatCompletion<T>(params: {
@@ -356,7 +324,8 @@ export class SstAgentService {
     primaryModel: string;
     buildBody: (model: string) => Record<string, unknown>;
   }): Promise<{ payload: T; model: string }> {
-    if (!this.openaiApiKey) {
+    const runtime = this.llm;
+    if (!isConfiguredAiLlmRuntime(runtime)) {
       // ServiceUnavailableException: chave de API ausente é falha de configuração
       // operacional; o cliente não precisa saber o motivo interno.
       throw new ServiceUnavailableException(
@@ -375,7 +344,7 @@ export class SstAgentService {
       }
 
       const response = await requestOpenAiChatCompletionResponse({
-        apiKey: this.openaiApiKey,
+        runtime,
         body,
         configService: this.configService,
         integration: this.integration,
@@ -385,7 +354,7 @@ export class SstAgentService {
       if (response.ok) {
         if (index > 0) {
           this.logger.warn(
-            `[SstAgent] OpenAI fallback aplicado com sucesso | context=${params.context} | model=${model}`,
+            `[SstAgent] LLM fallback aplicado com sucesso | provider=${this.provider} | context=${params.context} | model=${model}`,
           );
         }
         return {
@@ -418,7 +387,7 @@ export class SstAgentService {
       ) {
         const nextModel = candidates[index + 1];
         this.logger.warn(
-          `[SstAgent] Tentando fallback OpenAI | context=${params.context} | from=${model} | to=${nextModel}`,
+          `[SstAgent] Tentando fallback LLM | provider=${this.provider} | context=${params.context} | from=${model} | to=${nextModel}`,
         );
         continue;
       }
@@ -706,6 +675,12 @@ export class SstAgentService {
       );
     }
 
+    if (!this.llm.imageAnalysisEnabled || !this.llm.visionModel) {
+      throw new ServiceUnavailableException(
+        'Análise de imagem indisponível para o provedor de IA configurado.',
+      );
+    }
+
     const rlCheck = await this.rateLimitService.checkAndConsume(tenantId);
     if (!rlCheck.allowed) {
       throw new HttpException(
@@ -833,7 +808,7 @@ export class SstAgentService {
     outputTokens: number;
     toolsUsed: string[];
   }> {
-    if (!this.openaiApiKey) {
+    if (!isConfiguredAiLlmRuntime(this.llm)) {
       // ServiceUnavailableException: chave de API ausente é falha de configuração
       // operacional; o cliente não precisa saber o motivo interno.
       throw new ServiceUnavailableException(
@@ -936,7 +911,7 @@ export class SstAgentService {
 
         const toolResult = await this.toolsExecutor.execute(toolName, args);
 
-        // Sanitização de PII como rede de segurança antes de enviar para a OpenAI (LGPD)
+        // Sanitização de PII como rede de segurança antes de enviar ao provedor de IA (LGPD)
         const sanitizedData = toolResult.success
           ? sanitizeForAi(toolResult.data ?? null)
           : null;
@@ -963,7 +938,7 @@ export class SstAgentService {
     }
 
     this.logger.warn(
-      `[SstAgent] OpenAI atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`,
+      `[SstAgent] LLM atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`,
     );
     const fallbackAnswer =
       'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
@@ -1133,7 +1108,7 @@ export class SstAgentService {
     inputTokens: number;
     outputTokens: number;
   }> {
-    if (!this.openaiApiKey) {
+    if (!isConfiguredAiLlmRuntime(this.llm) || !this.llm.visionModel) {
       // ServiceUnavailableException: chave de API ausente é falha de configuração
       // operacional; o cliente não precisa saber o motivo interno.
       throw new ServiceUnavailableException(
@@ -1595,10 +1570,25 @@ export class SstAgentService {
     );
   }
 
+  private getOfficialProviderLabel(): string {
+    return this.llm.officialProvider === NVIDIA_PROVIDER
+      ? 'NVIDIA NIM'
+      : this.llm.officialProvider === OPENAI_PROVIDER
+        ? 'OpenAI'
+        : 'provedor de IA';
+  }
+
+  private getRequiredApiKeyName(): string {
+    return this.llm.officialProvider === NVIDIA_PROVIDER
+      ? 'NVIDIA_API_KEY'
+      : 'OPENAI_API_KEY';
+  }
+
   private buildStubResponse(question: string): SstAgentResponse {
+    const provider = this.getOfficialProviderLabel();
     return {
       answer:
-        `A SOPHIE usa OpenAI como motor oficial, mas a integração não está configurada neste ambiente. ` +
+        `A SOPHIE usa ${provider} como motor configurado, mas a integração não está configurada neste ambiente. ` +
         `Pergunta registrada: "${question.slice(0, 100)}${question.length > 100 ? '...' : ''}".`,
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
@@ -1607,19 +1597,20 @@ export class SstAgentService {
         { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
       ],
       warnings: [
-        'Configure OPENAI_API_KEY para habilitar a SOPHIE com OpenAI.',
+        `Configure ${this.getRequiredApiKeyName()} para habilitar a SOPHIE.`,
       ],
       toolsUsed: [],
     };
   }
 
   private buildProviderFallbackResponse(question: string): SstAgentResponse {
+    const provider = this.getOfficialProviderLabel();
     const truncatedQuestion =
       question.length > 120 ? `${question.slice(0, 120)}...` : question;
 
     return {
       answer:
-        `Estou com instabilidade momentanea na integração da OpenAI, mas registrei sua solicitacao: ` +
+        `Estou com instabilidade momentanea na integração ${provider}, mas registrei sua solicitacao: ` +
         `"${truncatedQuestion}". Tente novamente em instantes.`,
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
@@ -1628,7 +1619,7 @@ export class SstAgentService {
         { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
       ],
       warnings: [
-        'A SOPHIE entrou em modo degradado porque a OpenAI nao respondeu corretamente.',
+        `A SOPHIE entrou em modo degradado porque ${provider} não respondeu corretamente.`,
       ],
       toolsUsed: [],
     };
@@ -1645,7 +1636,7 @@ export class SstAgentService {
         { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
       ],
       warnings: [
-        'OpenAI em instabilidade temporária. O circuito de proteção da integração está ativo.',
+        `${this.getOfficialProviderLabel()} em instabilidade temporária. O circuito de proteção da integração está ativo.`,
       ],
       toolsUsed: [],
     };
@@ -1654,15 +1645,14 @@ export class SstAgentService {
   private buildStubImageAnalysis(): ImageRiskAnalysis {
     return {
       summary:
-        'Analise de imagem indisponivel porque a integração OpenAI não está configurada.',
+        'Análise de imagem indisponível para o provedor de IA configurado.',
       riskLevel: 'Médio',
       imminentRisks: [],
       immediateActions: [
-        'Configure OPENAI_API_KEY para habilitar a analise de imagem da SOPHIE.',
+        `Configure ${this.getRequiredApiKeyName()} e um modelo visual compatível para habilitar a análise de imagem da SOPHIE.`,
       ],
       ppeRecommendations: [],
-      notes:
-        'A SOPHIE usa OpenAI como motor oficial para análise de fotos neste ambiente.',
+      notes: 'O modelo configurado não possui análise visual habilitada.',
     };
   }
 
@@ -1676,8 +1666,7 @@ export class SstAgentService {
         'Revisar a imagem manualmente e repetir a analise em instantes.',
       ],
       ppeRecommendations: [],
-      notes:
-        'A OpenAI apresentou instabilidade temporaria. Nenhum risco automatico foi validado.',
+      notes: `${this.getOfficialProviderLabel()} apresentou instabilidade temporária. Nenhum risco automático foi validado.`,
     };
   }
 

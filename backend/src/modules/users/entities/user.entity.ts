@@ -76,7 +76,7 @@ export class User {
   @Column({ default: true })
   status: boolean;
 
-  /** Consentimento explícito do usuário para processamento por IA (LGPD / OpenAI). */
+  /** Consentimento explícito do usuário para processamento por IA (LGPD). */
   @Column({ default: false })
   ai_processing_consent: boolean;
 
