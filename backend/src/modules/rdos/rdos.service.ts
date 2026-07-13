@@ -1262,7 +1262,7 @@ export class RdosService {
       );
     }
     if (newStatus === 'aprovado') {
-      this.assertRdoReadyForFinalDocument(rdo);
+      this.assertRdoSignaturesComplete(rdo);
     }
     const previousStatus = rdo.status;
     rdo.status = newStatus;
@@ -2308,6 +2308,16 @@ export class RdosService {
     );
   }
 
+  private assertRdoSignaturesComplete(
+    rdo: Pick<Rdo, 'assinatura_responsavel' | 'assinatura_engenheiro'>,
+  ) {
+    if (!rdo.assinatura_responsavel || !rdo.assinatura_engenheiro) {
+      throw new BadRequestException(
+        'Assinaturas do responsável e do engenheiro são obrigatórias antes da emissão final do RDO.',
+      );
+    }
+  }
+
   private assertRdoReadyForFinalDocument(
     rdo: Pick<
       Rdo,
@@ -2320,11 +2330,7 @@ export class RdosService {
       );
     }
 
-    if (!rdo.assinatura_responsavel || !rdo.assinatura_engenheiro) {
-      throw new BadRequestException(
-        'Assinaturas do responsável e do engenheiro são obrigatórias antes da emissão final do RDO.',
-      );
-    }
+    this.assertRdoSignaturesComplete(rdo);
   }
 
   private async assertRdoDocumentMutable(
