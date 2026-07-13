@@ -13,6 +13,9 @@ import { UsersModule } from '../users/users.module';
 import { SitesModule } from '../sites/sites.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { FileParserModule } from '../document-import/file-parser.module';
+import { ConsentsModule } from '../consents/consents.module';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 
 @Module({
   imports: [
@@ -26,9 +29,10 @@ import { FileParserModule } from '../document-import/file-parser.module';
     SitesModule,
     DocumentRegistryModule,
     FileParserModule,
+    ConsentsModule,
   ],
   controllers: [ChecklistsController, PublicChecklistsController],
-  providers: [ChecklistsService],
+  providers: [ChecklistsService, FeatureAiGuard, AiConsentGuard],
   exports: [ChecklistsService],
 })
 export class ChecklistsModule {}

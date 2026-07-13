@@ -74,9 +74,18 @@ const mockOpenAiCircuitBreakerService = () => ({
   isCountableFailureError: jest.fn().mockReturnValue(true),
 });
 
-const mockConfigService = (apiKey?: string) => ({
+const mockConfigService = (options?: {
+  apiKey?: string;
+  provider?: 'openai' | 'nvidia';
+}) => ({
   get: jest.fn((key: string) => {
-    if (key === 'ANTHROPIC_API_KEY') return apiKey;
+    if (key === 'AI_PROVIDER') return options?.provider;
+    if (key === 'OPENAI_API_KEY' && options?.provider !== 'nvidia') {
+      return options?.apiKey;
+    }
+    if (key === 'NVIDIA_API_KEY' && options?.provider === 'nvidia') {
+      return options.apiKey;
+    }
     if (key === 'ANTHROPIC_MODEL') return 'claude-test-model';
     if (key === 'AI_HISTORY_DEFAULT_DAYS') return 30;
     if (key === 'AI_HISTORY_MAX_DAYS') return 90;
@@ -101,6 +110,7 @@ const getFirstMockArgument = (mockFn: jest.Mock): unknown => {
 
 const makeService = async (options?: {
   apiKey?: string;
+  provider?: 'openai' | 'nvidia';
   tenantId?: string | null;
   rateLimitAllowed?: boolean;
 }): Promise<{
@@ -140,7 +150,7 @@ const makeService = async (options?: {
     providers: [
       SstAgentService,
       { provide: getRepositoryToken(AiInteraction), useValue: repoMock },
-      { provide: ConfigService, useValue: mockConfigService(options?.apiKey) },
+      { provide: ConfigService, useValue: mockConfigService(options) },
       { provide: TenantService, useValue: tenantMock },
       { provide: SstToolsExecutor, useValue: toolsMock },
       { provide: SstRateLimitService, useValue: rlMock },
@@ -349,6 +359,30 @@ describe('SstAgentService', () => {
           'contexto',
         ),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('expõe NVIDIA NIM e bloqueia imagem quando o runtime é GPT-OSS textual', async () => {
+      const { service } = await makeService({
+        provider: 'nvidia',
+        apiKey: 'nvapi-test-key',
+      });
+
+      expect(service.getRuntimeStatus()).toMatchObject({
+        provider: 'nvidia',
+        officialProvider: 'nvidia',
+        configured: true,
+        model: 'openai/gpt-oss-120b',
+        imageAnalysisEnabled: false,
+      });
+
+      await expect(
+        service.analyzeImageRisk(
+          Buffer.from('fake'),
+          'image/png',
+          USER_ID,
+          'contexto',
+        ),
+      ).rejects.toThrow('Análise de imagem indisponível');
     });
   });
 

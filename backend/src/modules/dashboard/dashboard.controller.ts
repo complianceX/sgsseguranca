@@ -18,6 +18,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
 import { TenantThrottle } from '../../shared/decorators/tenant-throttle.decorator';
@@ -276,6 +278,7 @@ export class DashboardController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Roles(...DASHBOARD_IMPORT_RETRY_ROLES)
   @Authorize('can_import_documents')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   retryDocumentPendencyImport(
     @Req()
     req: {

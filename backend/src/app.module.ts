@@ -744,15 +744,24 @@ export const validationSchema = Joi.object({
     .default(100),
 
   AI_PROVIDER: Joi.string()
-    .valid('openai', 'anthropic', 'gemini', 'stub', 'local')
+    .valid('openai', 'nvidia', 'anthropic', 'gemini', 'stub', 'local')
     .default('openai'),
   FEATURE_AI_ENABLED: Joi.string().valid('true', 'false').optional(),
   OPENAI_API_KEY: Joi.string().optional().allow(''),
+  OPENAI_BASE_URL: Joi.string().uri().optional().allow(''),
   OPENAI_MODEL: Joi.string().optional().allow(''),
   OPENAI_VISION_MODEL: Joi.string().optional().allow(''),
   OPENAI_FALLBACK_MODEL: Joi.string().optional().allow(''),
   OPENAI_REASONING_EFFORT: Joi.string()
     .valid('minimal', 'low', 'medium', 'high')
+    .optional()
+    .allow(''),
+  NVIDIA_API_KEY: Joi.string().optional().allow(''),
+  NVIDIA_API_BASE_URL: Joi.string().uri().optional().allow(''),
+  NVIDIA_MODEL: Joi.string().optional().allow(''),
+  NVIDIA_FALLBACK_MODEL: Joi.string().optional().allow(''),
+  NVIDIA_REASONING_EFFORT: Joi.string()
+    .valid('low', 'medium', 'high')
     .optional()
     .allow(''),
   AUTH_COOKIE_SAMESITE: Joi.string()

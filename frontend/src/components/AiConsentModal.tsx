@@ -55,8 +55,9 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
 
             <InfoItem icon={<Globe className="h-4 w-4" />} title="Para onde são enviados">
               Quando o recurso estiver habilitado contratualmente, os dados necessários
-              são processados pela <strong>OpenAI, LLC</strong>, com possibilidade de
-              transferência internacional conforme a Política de Privacidade vigente.
+              são processados pela <strong>NVIDIA Corporation, por meio da NVIDIA NIM API</strong>,
+              com possibilidade de transferência internacional conforme a Política de
+              Privacidade vigente. O modelo atual é textual; fotos não são enviadas a ele.
             </InfoItem>
 
             <InfoItem icon={<RotateCcw className="h-4 w-4" />} title="Você pode revogar a qualquer momento">

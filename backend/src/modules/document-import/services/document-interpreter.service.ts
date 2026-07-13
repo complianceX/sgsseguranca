@@ -11,15 +11,15 @@ export class DocumentInterpreterService {
   async interpretDocument(
     text: string,
     tipoDocumento: string,
+    options: { useExternalAi?: boolean } = {},
   ): Promise<DocumentAnalysisDto> {
     this.logger.log(`Interpretando documento do tipo: ${tipoDocumento}`);
 
     const normalizedText = this.normalizeText(text);
 
-    const aiExtraction = await this.extractWithAI(
-      normalizedText,
-      tipoDocumento,
-    );
+    const aiExtraction = options.useExternalAi
+      ? await this.extractWithAI(normalizedText, tipoDocumento)
+      : null;
     const campos: Record<string, unknown> = aiExtraction || {};
 
     const analysis: DocumentAnalysisDto = {

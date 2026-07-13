@@ -29,7 +29,7 @@ export class SophieFacadeService {
       knowledgeBase,
       automation,
       capabilities: {
-        openAiProvider: true,
+        llmProvider: agent.externalProviderEnabled,
         insights: true,
         analyzeApr: true,
         analyzePt: true,

@@ -25,6 +25,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { SendChecklistEmailDto } from './dto/send-checklist-email.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
@@ -103,6 +105,7 @@ export class ChecklistsController {
   @Post('import-word')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   @UserThrottle({ requestsPerMinute: 5 })
   @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @UseInterceptors(FileInterceptor('file', wordUploadOptions))

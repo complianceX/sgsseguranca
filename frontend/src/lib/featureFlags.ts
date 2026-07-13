@@ -1,6 +1,7 @@
 export function isAiEnabled(): boolean {
-  // BLOQUEADO: default OFF até DPA OpenAI assinado (LGPD Art. 7 — base legal para
-  // transferência internacional de dados pessoais). Ativar explicitamente via env:
+  // BLOQUEADO: default OFF até haver instrumento contratual e salvaguardas válidas
+  // para o provedor externo de IA (LGPD Art. 7 e transferência internacional).
+  // Ativar explicitamente via env:
   // NEXT_PUBLIC_FEATURE_AI_ENABLED=true
   const raw = (process.env.NEXT_PUBLIC_FEATURE_AI_ENABLED || 'false')
     .trim()

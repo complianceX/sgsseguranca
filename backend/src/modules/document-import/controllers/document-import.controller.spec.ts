@@ -13,6 +13,8 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/permissions.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { TenantGuard } from '../../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../../shared/guards/ai-consent.guard';
 import { TenantInterceptor } from '../../../shared/tenant/tenant.interceptor';
 import { TenantService } from '../../../shared/tenant/tenant.service';
 import { DocumentImportController } from './document-import.controller';
@@ -101,6 +103,10 @@ describe('DocumentImportController (http)', () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(FeatureAiGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(AiConsentGuard)
       .useValue({ canActivate: () => true })
       .overrideInterceptor(TenantInterceptor)
       .useValue({

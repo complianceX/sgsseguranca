@@ -598,9 +598,20 @@ describe('DocumentImportService', () => {
         }),
       );
 
-    const result = await service.processQueuedDocument(DOCUMENT_ID);
+    const result = await service.processQueuedDocument(DOCUMENT_ID, {
+      allowExternalAi: true,
+    });
 
     expect(ddsService.create).not.toHaveBeenCalled();
+    expect(documentClassifierService.classifyDocument).toHaveBeenCalledWith(
+      'conteudo extraido',
+      { useExternalAi: true },
+    );
+    expect(documentInterpreterService.interpretDocument).toHaveBeenCalledWith(
+      'conteudo extraido',
+      'DDS',
+      { useExternalAi: true },
+    );
     expect(repository.save).toHaveBeenCalled();
     const [savedRecord] = repository.save.mock.calls.at(-1) as [DocumentImport];
     expect(savedRecord.status).toBe(DocumentImportStatus.COMPLETED);

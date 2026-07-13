@@ -53,6 +53,11 @@ type DocumentImportQueueJobData = {
   requestedByUserId?: string;
 };
 
+type ProcessQueuedDocumentOptions = {
+  /** Permite chamada externa apenas após revalidação de consentimento no worker. */
+  allowExternalAi?: boolean;
+};
+
 type QueueSnapshot = {
   jobId?: string | null;
   queueState?: string | null;
@@ -323,6 +328,7 @@ export class DocumentImportService {
 
   async processQueuedDocument(
     documentId: string,
+    options: ProcessQueuedDocumentOptions = {},
   ): Promise<DocumentImportStatusResponseDto> {
     const record = await this.getDocumentForProcessing(documentId);
 
@@ -364,7 +370,9 @@ export class DocumentImportService {
       );
 
       const classification =
-        await this.documentClassifierService.classifyDocument(textoExtraido);
+        await this.documentClassifierService.classifyDocument(textoExtraido, {
+          useExternalAi: options.allowExternalAi === true,
+        });
 
       const tipoDocumentoFinal =
         record.tipoDocumento && record.tipoDocumento !== 'DESCONHECIDO'
@@ -388,6 +396,7 @@ export class DocumentImportService {
       const analysis = await this.documentInterpreterService.interpretDocument(
         textoExtraido,
         tipoDocumentoFinal,
+        { useExternalAi: options.allowExternalAi === true },
       );
 
       await this.transitionStatus(record, DocumentImportStatus.VALIDATING, {

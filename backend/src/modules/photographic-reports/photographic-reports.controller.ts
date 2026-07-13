@@ -16,6 +16,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
@@ -244,6 +246,7 @@ export class PhotographicReportsController {
     Role.COLABORADOR,
   )
   @Authorize('can_generate_photographic_report_ai')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   analyzeAllImages(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.photographicReportsService.analyzeAllImages(id);
   }
@@ -257,6 +260,7 @@ export class PhotographicReportsController {
     Role.COLABORADOR,
   )
   @Authorize('can_generate_photographic_report_ai')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   analyzeImage(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('imageId', new ParseUUIDPipe()) imageId: string,
@@ -273,6 +277,7 @@ export class PhotographicReportsController {
     Role.COLABORADOR,
   )
   @Authorize('can_generate_photographic_report_ai')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   generateSummary(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.photographicReportsService.generateReportSummary(id);
   }
@@ -286,6 +291,7 @@ export class PhotographicReportsController {
     Role.COLABORADOR,
   )
   @Authorize('can_finalize_photographic_report')
+  @UseGuards(FeatureAiGuard, AiConsentGuard)
   finalize(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.photographicReportsService.finalize(id);
   }

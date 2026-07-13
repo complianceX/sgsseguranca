@@ -152,14 +152,20 @@ export class DocumentClassifierService {
 
   constructor(private readonly aiService: AiService) {}
 
-  async classifyDocument(text: string): Promise<ClassificationResult> {
+  async classifyDocument(
+    text: string,
+    options: { useExternalAi?: boolean } = {},
+  ): Promise<ClassificationResult> {
     this.logger.log('Iniciando classificação do documento...');
 
     const normalizedText = this.normalizeText(text);
     const results: ClassificationResult[] = [];
 
-    // Tenta IA primeiro (JSON estrito)
-    const aiResult = await this.classifyWithAI(normalizedText);
+    // Falha fechado: a IA externa só é chamada quando o worker revalidou
+    // feature flag, identidade do solicitante e consentimento vigente.
+    const aiResult = options.useExternalAi
+      ? await this.classifyWithAI(normalizedText)
+      : null;
     if (aiResult) {
       return aiResult;
     }

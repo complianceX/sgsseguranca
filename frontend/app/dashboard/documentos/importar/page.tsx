@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useAiConsent } from "@/hooks/useAiConsent";
 import { Permission } from '@/lib/permissions';
 import { PageHeader } from "@/components/layout";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -202,6 +203,7 @@ function extractErrorMessage(error: unknown) {
 
 export default function DocumentImportPage() {
   const { user, hasPermission } = useAuth();
+  const { consentGiven, requestConsent, ConsentGate } = useAiConsent();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
@@ -563,6 +565,12 @@ export default function DocumentImportPage() {
       return;
     }
 
+    if (!consentGiven) {
+      toast.info("Confirme o consentimento para processamento por IA antes de importar.");
+      requestConsent();
+      return;
+    }
+
     if (!file) {
       return;
     }
@@ -656,6 +664,7 @@ export default function DocumentImportPage() {
 
   return (
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
+      <ConsentGate />
       <PageHeader
         eyebrow="Importação assistida"
         title="Importação Inteligente de Documentos"

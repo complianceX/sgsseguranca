@@ -51,6 +51,9 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import { createRedisDisabledQueueProvider } from '../../infra/queue/redis-disabled-queue';
 import { shouldUseRedisQueueInfra } from '../../infra/queue/redis-queue-infra.util';
 import { MetricsRegistryService } from '../../shared/observability/metrics-registry.service';
+import { ConsentsModule } from '../consents/consents.module';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 
 @Module({
   imports: [
@@ -60,6 +63,7 @@ import { MetricsRegistryService } from '../../shared/observability/metrics-regis
     ChecklistsModule,
     DdsModule,
     DocumentImportModule,
+    ConsentsModule,
     NonConformitiesModule,
     NotificationsModule,
     PtsModule,
@@ -105,6 +109,8 @@ import { MetricsRegistryService } from '../../shared/observability/metrics-regis
     DashboardDocumentPendencyOperationsService,
     DashboardDocumentPendenciesService,
     DashboardOperationalNotifierService,
+    FeatureAiGuard,
+    AiConsentGuard,
     {
       provide: DASHBOARD_DOMAIN_METRICS,
       inject: [MetricsRegistryService],

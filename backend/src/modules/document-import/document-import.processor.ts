@@ -7,6 +7,8 @@ import { getDocumentImportQueueConcurrency } from './document-import-runtime-con
 import { DocumentImportService } from './services/document-import.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { withJobTimeout } from '../../infra/queue/job-timeout.util';
+import { ConsentsService } from '../consents/consents.service';
+import { requestContextStorage } from '../../shared/middleware/request-context.middleware';
 
 type DocumentImportQueueJobData = {
   documentId: string;
@@ -67,6 +69,7 @@ export class DocumentImportProcessor extends WorkerHost {
     private readonly documentImportService: DocumentImportService,
     private readonly metricsService: MetricsService,
     private readonly tenantService: TenantService,
+    private readonly consentsService: ConsentsService,
     @InjectQueue('document-import-dlq')
     private readonly documentImportDlq: Queue,
   ) {
@@ -100,10 +103,28 @@ export class DocumentImportProcessor extends WorkerHost {
               isSuperAdmin: false,
               siteScope: 'all',
             },
-            async () =>
-              this.documentImportService.processQueuedDocument(
-                jobData.documentId,
-              ),
+            async () => {
+              const requestContext = new Map<string, unknown>([
+                [
+                  'requestId',
+                  `queue:document-import:${job.id ?? jobData.documentId}`,
+                ],
+                ['companyId', jobData.companyId],
+              ]);
+              if (jobData.requestedByUserId) {
+                requestContext.set('userId', jobData.requestedByUserId);
+              }
+
+              return requestContextStorage.run(requestContext, async () => {
+                const allowExternalAi = await this.resolveExternalAiEligibility(
+                  jobData.requestedByUserId,
+                );
+                return this.documentImportService.processQueuedDocument(
+                  jobData.documentId,
+                  { allowExternalAi },
+                );
+              });
+            },
           ),
         DOCUMENT_IMPORT_TIMEOUT_MS,
         { jobName: job.name, jobId: job.id, logger: this.logger },
@@ -140,6 +161,53 @@ export class DocumentImportProcessor extends WorkerHost {
       );
       await this.handleFailure(job, jobData, error);
       throw error;
+    }
+  }
+
+  private isAiFeatureEnabled(): boolean {
+    const raw = (process.env.FEATURE_AI_ENABLED || '').trim().toLowerCase();
+    return raw === '' || raw === 'true';
+  }
+
+  /**
+   * Jobs podem aguardar na fila depois do aceite original. Revalidamos o
+   * consentimento imediatamente antes de qualquer chamada externa e caímos
+   * no parser local se a identidade não existir ou o aceite tiver mudado.
+   */
+  private async resolveExternalAiEligibility(
+    requestedByUserId?: string,
+  ): Promise<boolean> {
+    if (!this.isAiFeatureEnabled()) {
+      return false;
+    }
+
+    if (!requestedByUserId) {
+      this.logger.warn({
+        event: 'document_import_ai_skipped',
+        reason: 'requester_missing',
+      });
+      return false;
+    }
+
+    try {
+      const hasActiveConsent = await this.consentsService.hasActiveConsent(
+        requestedByUserId,
+        'ai_processing',
+      );
+      if (!hasActiveConsent) {
+        this.logger.warn({
+          event: 'document_import_ai_skipped',
+          reason: 'consent_missing_or_stale',
+        });
+      }
+      return hasActiveConsent;
+    } catch (error) {
+      this.logger.warn({
+        event: 'document_import_ai_skipped',
+        reason: 'consent_verification_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
     }
   }
 

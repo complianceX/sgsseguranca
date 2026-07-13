@@ -13,6 +13,8 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../../shared/guards/tenant.guard';
+import { FeatureAiGuard } from '../../shared/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
@@ -64,6 +66,10 @@ describe('DashboardController (http)', () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(FeatureAiGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(AiConsentGuard)
       .useValue({ canActivate: () => true })
       .overrideInterceptor(TenantInterceptor)
       .useValue({

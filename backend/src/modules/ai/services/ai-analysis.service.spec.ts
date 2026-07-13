@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { ServiceUnavailableException } from '@nestjs/common';
 import * as openAiRequestUtil from '../openai-request.util';
 import { AiAnalysisService } from './ai-analysis.service';
 import { AprsService } from '../../aprs/aprs.service';
@@ -194,5 +195,38 @@ describe('AiAnalysisService', () => {
       'tenant-c',
       'image-analysis',
     );
+  });
+
+  it('bloqueia imagem antes de enviar ao GPT-OSS textual da NVIDIA', async () => {
+    const nvidiaConfig = {
+      get: jest.fn((key: string) => {
+        if (key === 'AI_PROVIDER') return 'nvidia';
+        if (key === 'NVIDIA_API_KEY') return 'nvapi-test-key';
+        return undefined;
+      }),
+    } as unknown as ConfigService;
+    const nvidiaService = new AiAnalysisService(
+      nvidiaConfig,
+      integration,
+      circuitBreaker,
+      aprsService as unknown as AprsService,
+      ptsService as unknown as PtsService,
+      documentStorageService as unknown as DocumentStorageService,
+      metricsService as unknown as MetricsService,
+    );
+    const requestSpy = jest.spyOn(
+      openAiRequestUtil,
+      'requestOpenAiChatCompletionResponse',
+    );
+
+    await expect(
+      nvidiaService.analyzeImage(
+        Buffer.from('fake-image-buffer'),
+        'atividade em andaime',
+        'tenant-c',
+      ),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    expect(requestSpy).not.toHaveBeenCalled();
   });
 });

@@ -79,10 +79,17 @@ import { OpenAiCircuitBreakerService } from '../../shared/resilience/openai-circ
 import { getPdfQueueJobTimeoutMs } from '../../shared/services/pdf-runtime-config';
 import { SOPHIE_JSON_RUNTIME_INSTRUCTION } from './sophie-task-prompts';
 import { AiAnalysisService } from './services/ai-analysis.service';
+import {
+  type AiLlmRuntimeConfig,
+  DEFAULT_NVIDIA_MODEL,
+  DEFAULT_OPENAI_MODEL,
+  isConfiguredAiLlmRuntime,
+  resolveAiLlmRuntimeConfig,
+  supportsReasoningEffort as modelSupportsReasoningEffort,
+} from './ai-llm.config';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-2024-11-20';
-const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
-const OPENAI_MODEL_RECOVERY_CANDIDATES = ['gpt-4o-2024-11-20'] as const;
+const OPENAI_MODEL_RECOVERY_CANDIDATES = [DEFAULT_OPENAI_MODEL] as const;
+const NVIDIA_MODEL_RECOVERY_CANDIDATES = [DEFAULT_NVIDIA_MODEL] as const;
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
 const MAX_IMPORTED_EVIDENCE_ATTACHMENTS = 6;
@@ -262,10 +269,11 @@ const SOPHIE_ACTIVITY_PROFILES: readonly SophieActivityProfile[] = [
 @Injectable({ scope: Scope.REQUEST })
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly openaiApiKey: string | null;
+  private readonly llm: AiLlmRuntimeConfig;
   private readonly openaiModel: string;
   private readonly openaiFallbackModel: string | null;
   private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
+  private readonly llmProvider: string;
 
   constructor(
     @InjectRepository(AiInteraction)
@@ -290,23 +298,16 @@ export class AiService {
     @InjectQueue('pdf-generation')
     private readonly pdfQueue: Queue,
   ) {
-    this.openaiApiKey =
-      this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
-    this.openaiModel =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
-      DEFAULT_OPENAI_MODEL;
-    const configuredFallbackModel =
-      this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
-    this.openaiFallbackModel = configuredFallbackModel || null;
-    this.openaiReasoningEffort =
-      (this.configService
-        .get<string>('OPENAI_REASONING_EFFORT')
-        ?.trim()
-        .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
-      DEFAULT_OPENAI_REASONING_EFFORT;
+    this.llm = resolveAiLlmRuntimeConfig(this.configService);
+    this.openaiModel = this.llm.model;
+    this.openaiFallbackModel = this.llm.fallbackModel;
+    this.openaiReasoningEffort = this.llm.reasoningEffort;
+    this.llmProvider = this.llm.configured
+      ? this.llm.officialProvider
+      : this.llm.provider;
 
     this.logger.log(
-      `✅ SOPHIE AiService initialized (provider=openai model=${this.openaiModel} fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort})`,
+      `✅ SOPHIE AiService initialized (provider=${this.llmProvider} model=${this.openaiModel} fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort})`,
     );
   }
 
@@ -394,25 +395,17 @@ export class AiService {
   }
 
   private supportsReasoningEffort(model: string): boolean {
-    const normalized = String(model || '')
-      .trim()
-      .toLowerCase();
-    return (
-      normalized.startsWith('gpt-5') ||
-      normalized.startsWith('o1') ||
-      normalized.startsWith('o3') ||
-      normalized.startsWith('o4')
-    );
+    return modelSupportsReasoningEffort(model);
   }
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
+    const recovery =
+      this.llm.officialProvider === 'nvidia'
+        ? NVIDIA_MODEL_RECOVERY_CANDIDATES
+        : OPENAI_MODEL_RECOVERY_CANDIDATES;
     return Array.from(
       new Set(
-        [
-          primaryModel,
-          this.openaiFallbackModel,
-          ...OPENAI_MODEL_RECOVERY_CANDIDATES,
-        ]
+        [primaryModel, this.openaiFallbackModel, ...recovery]
           .map((value) => String(value || '').trim())
           .filter(Boolean),
       ),
@@ -496,7 +489,7 @@ export class AiService {
       .filter(Boolean)
       .join(' ');
 
-    return `OpenAI API error ${params.status} (${meta}): ${params.message}`;
+    return `LLM API error ${params.status} (${meta}): ${params.message}`;
   }
 
   private async requestOpenAiChatCompletion<T>(params: {
@@ -504,8 +497,9 @@ export class AiService {
     primaryModel: string;
     buildBody: (model: string) => Record<string, unknown>;
   }): Promise<{ payload: T; model: string }> {
-    if (!this.openaiApiKey) {
-      // ServiceUnavailableException: dependência externa (OpenAI) não configurada;
+    const runtime = this.llm;
+    if (!isConfiguredAiLlmRuntime(runtime)) {
+      // ServiceUnavailableException: dependência externa de IA não configurada;
       // detalhe operacional não deve ser exposto ao cliente.
       throw new ServiceUnavailableException(
         'Serviço de IA temporariamente indisponível.',
@@ -523,7 +517,7 @@ export class AiService {
       }
 
       const response = await requestOpenAiChatCompletionResponse({
-        apiKey: this.openaiApiKey,
+        runtime,
         body,
         configService: this.configService,
         integration: this.integration,
@@ -533,7 +527,7 @@ export class AiService {
       if (response.ok) {
         if (index > 0) {
           this.logger.warn(
-            `[SOPHIE] OpenAI fallback aplicado com sucesso | context=${params.context} | model=${model}`,
+            `[SOPHIE] LLM fallback aplicado com sucesso | provider=${this.llmProvider} | context=${params.context} | model=${model}`,
           );
         }
         return {
@@ -591,7 +585,7 @@ export class AiService {
     user: string;
     maxTokens?: number;
   }): Promise<{ data: T; inputTokens: number; outputTokens: number }> {
-    if (!this.openaiApiKey) {
+    if (!isConfiguredAiLlmRuntime(this.llm)) {
       // ServiceUnavailableException: chave de API ausente é falha de configuração
       // operacional; o cliente não precisa saber o motivo interno.
       throw new ServiceUnavailableException(
@@ -1174,7 +1168,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('getInsights'),
       question: 'INSIGHTS',
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -1248,7 +1242,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('analyzeApr'),
       question: `ANALYZE_APR: ${description.slice(0, 220)}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -1322,7 +1316,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('analyzePt'),
       question: `ANALYZE_PT: ${data.titulo}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -1399,7 +1393,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('analyzeChecklist'),
       question: `ANALYZE_CHECKLIST: ${id}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -1514,7 +1508,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('generateDds'),
       question: `GENERATE_DDS: ${temaBase || contexto || 'tema livre'}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -1604,7 +1598,7 @@ export class AiService {
       user_id: this.getCurrentUserIdOrThrow('generateChecklist'),
       question: `GENERATE_CHECKLIST: ${subject}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 
@@ -3413,7 +3407,7 @@ export class AiService {
       user_id: userId,
       question: `GENERATE_JSON(${params.task}): ${String(params.prompt || '').slice(0, 220)}`,
       model: this.openaiModel,
-      provider: 'openai',
+      provider: this.llmProvider,
       status: AiInteractionStatus.SUCCESS,
     });
 

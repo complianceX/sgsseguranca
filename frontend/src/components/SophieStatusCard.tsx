@@ -40,8 +40,10 @@ function formatProvider(provider: string) {
   switch (provider) {
     case 'openai':
       return 'OpenAI';
+    case 'nvidia':
+      return 'NVIDIA NIM';
     case 'stub':
-      return 'OpenAI indisponivel';
+      return 'Provedor de IA indisponível';
     default:
       return provider;
   }
@@ -62,7 +64,7 @@ function formatCapabilityLabel(key: string) {
     chat: 'Chat operacional',
     history: 'Historico',
     imageAnalysis: 'Analise de imagens',
-    openAiProvider: 'OpenAI oficial',
+    llmProvider: 'Motor de IA externo',
     sstKnowledgeBase: 'Base tecnica SST',
   };
   return labels[key] || key;
@@ -153,8 +155,8 @@ export function SophieStatusCard() {
               </p>
               <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                 {status.agent.configured
-                  ? 'OpenAI conectada como motor oficial da SOPHIE neste ambiente.'
-                  : 'OpenAI definida como motor oficial, mas ainda indisponivel neste ambiente.'}
+                  ? `${formatProvider(status.agent.officialProvider || status.agent.provider)} conectado como motor da SOPHIE neste ambiente.`
+                  : `${formatProvider(status.agent.officialProvider || status.agent.provider)} definido, mas ainda indisponível neste ambiente.`}
               </p>
             </div>
 
@@ -169,7 +171,9 @@ export function SophieStatusCard() {
                 {status.agent.imageAnalysisEnabled ? 'Habilitada' : 'Indisponivel'}
               </p>
               <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
-                Leitura visual pronta para apoiar inspeções, evidências e análises técnicas.
+                {status.agent.imageAnalysisEnabled
+                  ? 'Leitura visual pronta para apoiar inspeções, evidências e análises técnicas.'
+                  : 'Indisponível para o modelo atual; fotos não são enviadas sem capacidade visual aprovada.'}
               </p>
             </div>
 
