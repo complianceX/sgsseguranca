@@ -2944,6 +2944,28 @@ export class AprsService {
     return listAprActivityTemplateTypes();
   }
 
+  async getCapabilities(): Promise<{ rulesEngine: boolean }> {
+    const { companyId } = this.getTenantContextOrThrow();
+
+    if (!this.aprFeatureFlagService) {
+      return { rulesEngine: false };
+    }
+
+    try {
+      return {
+        rulesEngine: await this.aprFeatureFlagService.isEnabled(
+          'APR_RULES_ENGINE',
+          companyId,
+        ),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível consultar a capacidade APR_RULES_ENGINE para o tenant atual: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { rulesEngine: false };
+    }
+  }
+
   getActivityTemplate(tipoAtividade: string): AprActivityTemplate {
     const template = findAprActivityTemplate(tipoAtividade);
     if (!template) {

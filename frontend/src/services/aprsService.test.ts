@@ -32,6 +32,18 @@ describe("aprsService", () => {
     );
   });
 
+  it("consulta as capacidades da APR antes de usar recursos opcionais", async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: { rulesEngine: true },
+    });
+
+    await expect(aprsService.getCapabilities()).resolves.toEqual({
+      rulesEngine: true,
+    });
+
+    expect(api.get).toHaveBeenCalledWith('/aprs/capabilities');
+  });
+
   it("envia a planilha APR em multipart para obter preview da importacao", async () => {
     (api.post as jest.Mock).mockResolvedValue({
       data: {

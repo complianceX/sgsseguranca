@@ -1,5 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { AuthProvider, useAuthState } from "@/context/AuthContext";
+import {
+  AuthProvider,
+  DEFAULT_IDLE_LOGOUT_MINUTES,
+  MAX_IDLE_LOGOUT_MINUTES,
+  resolveIdleLogoutMs,
+  useAuthState,
+} from "@/context/AuthContext";
 import { authService } from "@/services/authService";
 import { authRefreshHint } from "@/lib/authRefreshHint";
 import { sessionStore } from "@/lib/sessionStore";
@@ -116,5 +122,34 @@ describe("AuthProvider bootstrap", () => {
     expect(authService.refreshAccessToken).not.toHaveBeenCalled();
     expect(authService.getCurrentSession).not.toHaveBeenCalled();
     expect(screen.getByTestId("user")).toHaveTextContent("none");
+  });
+});
+
+describe("resolveIdleLogoutMs", () => {
+  const originalValue = process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES;
+
+  afterEach(() => {
+    if (originalValue === undefined) {
+      delete process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES;
+      return;
+    }
+
+    process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES = originalValue;
+  });
+
+  it("mantém a sessão aberta por sete dias quando não há configuração explícita", () => {
+    delete process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES;
+
+    expect(resolveIdleLogoutMs()).toBe(
+      DEFAULT_IDLE_LOGOUT_MINUTES * 60 * 1000,
+    );
+  });
+
+  it("limita uma configuração de inatividade longa a trinta dias", () => {
+    process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES = "999999";
+
+    expect(resolveIdleLogoutMs()).toBe(
+      MAX_IDLE_LOGOUT_MINUTES * 60 * 1000,
+    );
   });
 });
