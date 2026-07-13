@@ -5,6 +5,7 @@ import { Training } from './entities/training.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
 import { MetricsService } from '../../shared/observability/metrics.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
@@ -50,6 +51,10 @@ describe('TrainingsService — findAll() pagination', () => {
           useValue: mockDocumentRegistryService,
         },
         { provide: MetricsService, useValue: mockMetricsService },
+        {
+          provide: PublicValidationGrantService,
+          useValue: { issueToken: jest.fn().mockResolvedValue('token-mock') },
+        },
       ],
     }).compile();
 
@@ -154,6 +159,10 @@ describe('TrainingsService — findAllForExport()', () => {
           useValue: mockDocumentRegistryService,
         },
         { provide: MetricsService, useValue: mockMetricsService },
+        {
+          provide: PublicValidationGrantService,
+          useValue: { issueToken: jest.fn().mockResolvedValue('token-mock') },
+        },
       ],
     }).compile();
 

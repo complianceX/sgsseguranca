@@ -2,6 +2,7 @@ import type { Checklist } from "@/services/checklistsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -31,11 +32,13 @@ export async function generateChecklistPdf(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "operational");
 
-  const code = buildDocumentCode(
-    "CHK",
-    checklist.id || checklist.titulo,
-    checklist.data,
+  const validationContext = await resolveValidationContext(
+    "checklists",
+    checklist.id,
   );
+  const code =
+    validationContext.documentCode ||
+    buildDocumentCode("CHK", checklist.id || checklist.titulo, checklist.data);
 
   const logoUrl = await resolveCompanyLogoDataUrl(checklist.company);
 
@@ -51,7 +54,14 @@ export async function generateChecklistPdf(
     site: sanitize(checklist.site?.nome),
     logoUrl,
   });
-  await drawChecklistBlueprint(ctx, autoTable, checklist, signatures, code, buildValidationUrl(code));
+  await drawChecklistBlueprint(
+    ctx,
+    autoTable,
+    checklist,
+    signatures,
+    code,
+    buildValidationUrl(code, validationContext.token),
+  );
 
   applyFooterGovernance(ctx, {
     code,

@@ -66,6 +66,9 @@ describe('ArrsService', () => {
       tenantService as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
   });
 

@@ -53,6 +53,7 @@ import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
 } from '../../shared/dto/governed-pdf-access-response.dto';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 export enum NcStatus {
   ABERTA = 'ABERTA',
@@ -143,7 +144,55 @@ export class NonConformitiesService {
     private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly auditService: AuditService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant). O código é
+   * determinístico (o mesmo do anexo do PDF final), então o token vale
+   * antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const nc = await this.findOneEntity(id);
+    const documentCode = this.buildNcDocumentCode(nc);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: nc.company_id,
+        portal: 'nonconformity_public_validation',
+        documentId: nc.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'nonconformity_validation_token_unavailable',
+        ncId: nc.id,
+        companyId: nc.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
+
+  /**
+   * Replica o código default do documento governado (module-ANO-SEMANA-ID8),
+   * o mesmo gerado pelo registry quando o anexo não informa código próprio.
+   */
+  private buildNcDocumentCode(
+    nc: Pick<NonConformity, 'id' | 'data_identificacao' | 'created_at'>,
+  ): string {
+    const documentDate =
+      coerceDocumentDate(nc.data_identificacao) ||
+      coerceDocumentDate(nc.created_at) ||
+      new Date();
+    const year = documentDate.getFullYear();
+    const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
+    return `NONCONFORMITY-${year}-${week}-${nc.id.slice(0, 8).toUpperCase()}`;
+  }
 
   private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();

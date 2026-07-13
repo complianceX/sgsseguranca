@@ -2,6 +2,7 @@ import type { Training } from '@/services/trainingsService';
 import type { Signature } from '@/services/signaturesService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
 import { resolveCompanyLogoDataUrl } from "./companyLogo";
+import { resolveValidationContext } from "./validationContext";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -46,7 +47,13 @@ export async function generateTrainingPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'training');
-  const code = buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
+  const validationContext = await resolveValidationContext(
+    'trainings',
+    training.id,
+  );
+  const code =
+    validationContext.documentCode ||
+    buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
 
   // Fetch company logo if available
   const logoUrl = await resolveCompanyLogoDataUrl(training.company);
@@ -62,7 +69,14 @@ export async function generateTrainingPdf(
     site: "-",
     logoUrl,
   });
-  await drawTrainingBlueprint(ctx, autoTable, training, signatures, code, buildValidationUrl(code));
+  await drawTrainingBlueprint(
+    ctx,
+    autoTable,
+    training,
+    signatures,
+    code,
+    buildValidationUrl(code, validationContext.token),
+  );
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),

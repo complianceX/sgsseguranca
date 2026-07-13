@@ -214,6 +214,9 @@ describe('ChecklistsService', () => {
       {
         buildWeeklyPdfBundle: jest.fn(),
       } as never,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
   });
 
@@ -1817,6 +1820,9 @@ describe('ChecklistsService', () => {
       {
         buildWeeklyPdfBundle: jest.fn(),
       } as never,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
 
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({

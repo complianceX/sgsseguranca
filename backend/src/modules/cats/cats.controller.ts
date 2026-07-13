@@ -109,6 +109,12 @@ export class CatsController {
     return this.catsService.getPdfAccess(id, req.user?.id);
   }
 
+  @Get(':id/validation-context')
+  @Authorize('can_view_cats')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.catsService.getValidationContext(id);
+  }
+
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_cats')

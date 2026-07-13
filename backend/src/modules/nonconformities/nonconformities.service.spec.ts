@@ -116,6 +116,9 @@ describe('NonConformitiesService', () => {
       documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       { log: jest.fn() } as unknown as AuditService,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
   });
 

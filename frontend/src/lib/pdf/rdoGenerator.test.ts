@@ -14,6 +14,10 @@ jest.mock("@/lib/pdf/companyLogo", () => ({
   resolveCompanyLogoDataUrl: jest.fn(async () => null),
 }));
 
+jest.mock("@/lib/pdf/validationContext", () => ({
+  resolveValidationContext: jest.fn(async () => ({ documentCode: null, token: null })),
+}));
+
 import { buildRdoDocumentCode, generateRdoPdf, maskCpfForPdf } from './rdoGenerator';
 import type { Rdo } from '@/services/rdosService';
 import { fetchImageAsDataUrl } from "@/lib/pdf/pdfFile";

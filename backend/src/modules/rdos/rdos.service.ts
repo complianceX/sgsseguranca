@@ -80,6 +80,7 @@ const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
 const RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY = 10;
 
 import { GovernedPdfAccessAvailability } from '../../shared/dto/governed-pdf-access-response.dto';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 type RdoPdfAccessAvailability = GovernedPdfAccessAvailability;
 
@@ -170,7 +171,39 @@ export class RdosService {
     private readonly forensicTrailService: ForensicTrailService,
     private readonly signatureTimestampService: SignatureTimestampService,
     private readonly documentVideosService: DocumentVideosService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant). O código é
+   * determinístico (o mesmo do anexo do PDF final), então o token vale
+   * antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const rdo = await this.findOne(id);
+    const documentCode = this.buildValidationCode(rdo);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: rdo.company_id,
+        portal: 'rdo_public_validation',
+        documentId: rdo.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'rdo_validation_token_unavailable',
+        rdoId: rdo.id,
+        companyId: rdo.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private async assertCompanyScopedEntityId<
     T extends { id: string; company_id: string },

@@ -300,6 +300,9 @@ describe('RdosService', () => {
       forensicTrailService as ForensicTrailService,
       signatureTimestampService as SignatureTimestampService,
       documentVideosService as DocumentVideosService,
+      {
+        issueToken: jest.fn().mockResolvedValue('token-mock'),
+      } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
     );
   });
 

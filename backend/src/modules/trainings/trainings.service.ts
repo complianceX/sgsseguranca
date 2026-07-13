@@ -40,6 +40,7 @@ import {
   toCursorPaginatedResponse,
 } from '../../shared/utils/cursor-pagination.util';
 import { MetricsService } from '../../shared/observability/metrics.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 export interface BlockingTrainingUser {
   user: Training['user'];
@@ -96,8 +97,40 @@ export class TrainingsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
+
+  /**
+   * Código documental + token de validação pública (grant). O código é
+   * determinístico (o mesmo do anexo do PDF final), então o token vale
+   * antes e depois da emissão.
+   */
+  async getValidationContext(
+    id: string,
+  ): Promise<{ documentCode: string; token: string | null }> {
+    const training = await this.findOne(id);
+    const documentCode = this.buildPdfDocumentCode(training);
+    let token: string | null = null;
+
+    try {
+      token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: training.company_id,
+        portal: 'training_public_validation',
+        documentId: training.id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'training_validation_token_unavailable',
+        trainingId: training.id,
+        companyId: training.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return { documentCode, token };
+  }
 
   private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();
