@@ -630,8 +630,10 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
           }),
       ),
     );
-    // Nao esperamos necessariamente 429 no teste (throttler pode ser desativado), mas fluxo nao quebra
-    calls.forEach((r) => expect([201, 400, 429, 500]).toContain(r.status));
+    // Nao esperamos necessariamente 429 no teste (throttler pode ser desativado), mas fluxo nao quebra.
+    // 403 é resposta válida do AiConsentGuard quando o usuário de teste não tem
+    // consentimento ai_processing ativo (import-word usa IA).
+    calls.forEach((r) => expect([201, 400, 403, 429, 500]).toContain(r.status));
   });
 });
 
