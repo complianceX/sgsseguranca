@@ -1,16 +1,16 @@
 /**
- * Smoke test controlado de emissão de RDO em produção (empresa Gandra).
+ * Smoke test controlado de emissão de Checklist em produção (empresa Gandra).
  *
  * Fluxo validado:
- *   1. Cria ARR (POST /rdos)
- *   2. Analisa a ARR (PATCH /rdos/:id/status → analisada)
- *   3. Anexa PDF final governado (POST /rdos/:id/file) — status vira "executado"
- *   4. Confere acesso ao PDF (GET /rdos/:id/pdf) e estado do banco
- *      (arrs + document_registry com hash)
+ *   1. Cria checklist operacional (POST /checklists)
+ *   2. Assina o inspetor (POST /signatures, tipo CHECKLIST)
+ *   3. Anexa PDF final governado (POST /checklists/:id/file)
+ *   4. Confere acesso ao PDF (GET /checklists/:id/pdf) e estado do banco
+ *      (checklists + document_registry com hash)
  *
- * Observação: o módulo ARR não possui portal de validação pública com grant
- * (não está em DOCUMENT_REGISTRY_VALIDATION_PORTALS) — a verificação pública
- * não se aplica e é reportada como "not_applicable".
+ * Observação: o portal checklist_public_validation existe no registry, mas a
+ * API não expõe validation-context para checklists — sem token, a validação
+ * pública não pode ser exercitada pelo smoke (reportada como "partial").
  *
  * Salvaguardas idênticas aos smokes de PT/APR/DDS.
  */
@@ -50,11 +50,11 @@ const CLEANUP_TEST_DATA =
   String(process.env.CLEANUP_TEST_DATA || 'false').trim() === 'true';
 
 const TARGET_PROFILE_NAME = 'Administrador da Empresa';
-const SMOKE_USER_NAME = 'K6 TESTE GANDRA RDO CONTROLADO';
-const SMOKE_USER_EMAIL = 'k6.gandra.rdo.smoke@invalid.local';
+const SMOKE_USER_NAME = 'K6 TESTE GANDRA CHECKLIST CONTROLADO';
+const SMOKE_USER_EMAIL = 'k6.gandra.checklist.smoke@invalid.local';
 const SMOKE_USER_FUNCTION = 'TST Smoke Controlado';
-const SMOKE_USER_BASE_CPF = '987654316';
-const UA = 'sgs-prod-gandra-rdo-smoke/1.0';
+const SMOKE_USER_BASE_CPF = '987654315';
+const UA = 'sgs-prod-gandra-checklist-smoke/1.0';
 
 function assertSafeMode() {
   if (!TEST_COMPANY_ID) throw new Error('TEST_COMPANY_ID ausente. Abortando.');
@@ -121,7 +121,7 @@ function extractCookie(setCookieHeader, cookieName) {
 
 function buildSmokeTitulo() {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  return `${TEST_DOCUMENT_PREFIX}${stamp}-RDO-001`;
+  return `${TEST_DOCUMENT_PREFIX}${stamp}-CHK-001`;
 }
 
 function getReportPaths(titulo) {
@@ -237,9 +237,10 @@ async function resolveProfileId(client) {
 
 async function findResumableDid(client, titulo) {
   const rows = await client.query(
-    `SELECT id, numero, condicao_terreno, status, pdf_file_key
-       FROM rdos
-      WHERE company_id = $1 AND deleted_at IS NULL AND condicao_terreno LIKE $2
+    `SELECT id, titulo, status, pdf_file_key
+       FROM checklists
+      WHERE company_id = $1 AND deleted_at IS NULL
+        AND is_modelo = false AND titulo LIKE $2
       ORDER BY created_at DESC`,
     [TEST_COMPANY_ID, `${TEST_DOCUMENT_PREFIX}%`],
   );
@@ -248,10 +249,10 @@ async function findResumableDid(client, titulo) {
     // marcador tenha sido gerado em outro dia (o smoke é resumível).
     if (rows.rows.length === 1) return rows.rows[0];
     throw new Error(
-      `Já existe ${rows.rows.length} RDO de teste com prefixo ${TEST_DOCUMENT_PREFIX}. Abortando.`,
+      `Já existe ${rows.rows.length} checklist de teste com prefixo ${TEST_DOCUMENT_PREFIX}. Abortando.`,
     );
   }
-  return rows.rows.find((row) => row.condicao_terreno === titulo) || null;
+  return rows.rows.find((row) => row.titulo === titulo) || null;
 }
 
 async function reconcileSmokeUser(client, siteId) {
@@ -333,6 +334,18 @@ async function reconcileSmokeUser(client, siteId) {
       [userId, siteId, TEST_COMPANY_ID],
     );
 
+    // PIN de assinatura (necessário para a assinatura hmac do checklist).
+    const pinHash = await argon2.hash('1234', {
+      type: argon2.argon2id,
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    });
+    await client.query(
+      `UPDATE users SET signature_pin_hash = $2, signature_pin_salt = $3 WHERE id = $1`,
+      [userId, pinHash, crypto.randomBytes(32).toString('hex')],
+    );
+
     await client.query('COMMIT');
 
     if (process.env.REDIS_CACHE_URL) {
@@ -370,7 +383,7 @@ async function buildSmokePdfBuffer(params) {
     height: 48,
     color: rgb(0.95, 0.97, 1),
   });
-  page.drawText('SGS - RDO Smoke Test Controlado', {
+  page.drawText('SGS - Checklist Smoke Test Controlado', {
     x: 52,
     y: 788,
     size: 18,
@@ -388,7 +401,7 @@ async function buildSmokePdfBuffer(params) {
   const lines = [
     `Empresa: ${TEST_COMPANY_NAME}`,
     `Titulo: ${params.titulo}`,
-    `RDO ID: ${params.rdoId}`,
+    `Checklist ID: ${params.checklistId}`,
     `Site ID mascarado: ${maskId(params.siteId)}`,
     `Usuario tecnico: ${maskEmail(SMOKE_USER_EMAIL)}`,
     'Conteudo: teste controlado sem assinatura real e sem integracoes externas.',
@@ -409,11 +422,11 @@ async function buildSmokePdfBuffer(params) {
   return Buffer.from(await pdf.save());
 }
 
-async function attachPdf(accessToken, rdoId, pdfBuffer, fileName) {
+async function attachPdf(accessToken, checklistId, pdfBuffer, fileName) {
   const csrfHeaders = await getMutationCsrfHeaders();
   const form = new FormData();
   form.set('file', new File([pdfBuffer], fileName, { type: 'application/pdf' }));
-  const response = await fetch(`${API_BASE_URL}/rdos/${rdoId}/file`, {
+  const response = await fetch(`${API_BASE_URL}/checklists/${checklistId}/file`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -427,41 +440,41 @@ async function attachPdf(accessToken, rdoId, pdfBuffer, fileName) {
   return { status: response.status, ok: response.ok, body };
 }
 
-async function verifyDatabaseState(client, rdoId) {
-  const rdoRes = await client.query(
-    `SELECT d.id, d.numero, d.status, d.company_id, d.site_id,
-            d.responsavel_id, d.pdf_file_key,
+async function verifyDatabaseState(client, checklistId) {
+  const checklistRes = await client.query(
+    `SELECT d.id, d.titulo, d.status, d.company_id, d.site_id,
+            d.inspetor_id, d.pdf_file_key,
             s.company_id AS site_company_id
-       FROM rdos d
+       FROM checklists d
        JOIN sites s ON s.id = d.site_id
       WHERE d.id = $1 AND d.deleted_at IS NULL`,
-    [rdoId],
+    [checklistId],
   );
-  if (rdoRes.rows.length !== 1)
-    throw new Error('RDO criado não encontrado para verificação final.');
+  if (checklistRes.rows.length !== 1)
+    throw new Error('Checklist criado não encontrado para verificação final.');
 
   const registryRes = await client.query(
     `SELECT id, company_id, module, entity_id, document_code, file_key,
             file_hash, original_name, status
        FROM document_registry
-      WHERE module = 'rdo' AND entity_id = $1
+      WHERE module = 'checklist' AND entity_id = $1
       ORDER BY created_at DESC`,
-    [rdoId],
+    [checklistId],
   );
 
-  const rdo = rdoRes.rows[0];
-  if (rdo.company_id !== TEST_COMPANY_ID)
-    throw new Error('RDO persistido fora do tenant esperado.');
-  if (rdo.site_company_id !== TEST_COMPANY_ID)
-    throw new Error('Site do RDO não pertence ao tenant esperado.');
+  const arr = checklistRes.rows[0];
+  if (arr.company_id !== TEST_COMPANY_ID)
+    throw new Error('Checklist persistido fora do tenant esperado.');
+  if (arr.site_company_id !== TEST_COMPANY_ID)
+    throw new Error('Site do checklist não pertence ao tenant esperado.');
   if (registryRes.rows.length !== 1)
     throw new Error(
-      `Esperado 1 registro governado para o RDO; encontrado ${registryRes.rows.length}.`,
+      `Esperado 1 registro governado para o checklist; encontrado ${registryRes.rows.length}.`,
     );
   if (registryRes.rows[0].company_id !== TEST_COMPANY_ID)
     throw new Error('Registro governado pertence a tenant incorreto.');
 
-  return { rdo, registry: registryRes.rows[0] };
+  return { checklist: arr, registry: registryRes.rows[0] };
 }
 
 async function run() {
@@ -478,7 +491,7 @@ async function run() {
     let resumable = await findResumableDid(client, titulo);
     if (resumable)
       warnings.push(
-        `resuming_existing_rdo:${maskId(resumable.id)} status=${resumable.status}`,
+        `resuming_existing_checklist:${maskId(resumable.id)} status=${resumable.status}`,
       );
 
     const smokeUser = await reconcileSmokeUser(client, site.id);
@@ -490,112 +503,71 @@ async function run() {
     if (!me.ok) throw new Error(`/auth/me falhou. status=${me.status}`);
 
     // 1. Criação
-    let rdoId = resumable?.id || null;
+    let checklistId = resumable?.id || null;
     let currentStatus = resumable?.status || null;
     let hasPdfAlready = Boolean(resumable?.pdf_file_key);
 
-    if (!rdoId) {
-      const created = await requestJson('/rdos', session.accessToken, {
+    if (!checklistId) {
+      const created = await requestJson('/checklists', session.accessToken, {
         method: 'POST',
         companyId: TEST_COMPANY_ID,
         includeCsrf: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: new Date().toISOString().slice(0, 10),
+          titulo,
+          descricao:
+            'Documento de teste controlado em produção. Dados sintéticos.',
+          data: new Date().toISOString(),
+          equipamento: 'Equipamento sintético de smoke test',
           site_id: site.id,
-          responsavel_id: smokeUser.userId,
-          clima_manha: 'ensolarado',
-          // Marcador de resumabilidade do smoke (numero é auto-gerado).
-          condicao_terreno: titulo,
-          servicos_executados: [
+          inspetor_id: smokeUser.userId,
+          itens: [
             {
-              descricao:
-                'SMOKE TEST CONTROLADO. Atividade sintética de validação documental.',
-              percentual_concluido: 100,
-              observacao: 'Sem execução operacional real.',
+              item: 'Item sintético de validação documental controlada',
+              status: 'Conforme',
+            },
+            {
+              item: 'Segundo item sintético (sem execução operacional real)',
+              status: 'Conforme',
             },
           ],
-          observacoes: 'SMOKE TEST CONTROLADO. USO EXCLUSIVO DE VALIDACAO.',
         }),
       });
       if (!created.ok || !created.body?.id) {
         throw new Error(
-          `Criação do RDO falhou. status=${created.status} body=${JSON.stringify(created.body)}`,
+          `Criação do checklist falhou. status=${created.status} body=${JSON.stringify(created.body)}`,
         );
       }
-      rdoId = created.body.id;
-      currentStatus = created.body.status || 'rascunho';
+      checklistId = created.body.id;
+      currentStatus = created.body.status || 'Pendente';
     }
 
-    const moveStatus = async (nextStatus) => {
-      const moved = await requestJson(
-        `/rdos/${rdoId}/status`,
-        session.accessToken,
-        {
-          method: 'PATCH',
-          companyId: TEST_COMPANY_ID,
-          includeCsrf: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus }),
-        },
-      );
-      if (!moved.ok) {
+    // 2. Assinatura do inspetor (obrigatória antes do PDF final)
+    if (!hasPdfAlready) {
+      const signature = await requestJson('/signatures', session.accessToken, {
+        method: 'POST',
+        companyId: TEST_COMPANY_ID,
+        includeCsrf: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_id: checklistId,
+          document_type: 'CHECKLIST',
+          signature_data: 'SMOKE-TEST-CONTROLADO-SEM-VALOR-JURIDICO',
+          type: 'hmac',
+          pin: '1234',
+        }),
+      });
+      if (!signature.ok) {
         throw new Error(
-          `Transição do RDO para ${nextStatus} falhou. status=${moved.status} body=${JSON.stringify(moved.body)}`,
+          `Assinatura do checklist falhou. status=${signature.status} body=${JSON.stringify(signature.body)}`,
         );
       }
-      currentStatus = nextStatus;
-    };
-
-    // 2. Enviar para revisão (rascunho → enviado) — pré-requisito das assinaturas
-    if (currentStatus === 'rascunho') {
-      await moveStatus('enviado');
     }
 
-    // 3. Assinaturas obrigatórias (responsável + engenheiro) antes da aprovação
-    const smokeCpfFormatted = smokeUser.smokeCpf.replace(
-      /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
-      '$1.$2.$3-$4',
-    );
-    if (!hasPdfAlready && currentStatus === 'enviado') {
-      for (const tipo of ['responsavel', 'engenheiro']) {
-        const signed = await requestJson(
-          `/rdos/${rdoId}/sign`,
-          session.accessToken,
-          {
-            method: 'PATCH',
-            companyId: TEST_COMPANY_ID,
-            includeCsrf: true,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tipo,
-              nome: SMOKE_USER_NAME,
-              cpf: smokeCpfFormatted,
-            }),
-          },
-        );
-        if (!signed.ok) {
-          const message = String(signed.body?.message || '');
-          if (signed.status === 400 && /j[áa]\s+(foi\s+)?assinad/i.test(message)) {
-            warnings.push(`rdo_signature_${tipo}_already_present`);
-            continue;
-          }
-          throw new Error(
-            `Assinatura (${tipo}) do RDO falhou. status=${signed.status} body=${JSON.stringify(signed.body)}`,
-          );
-        }
-      }
-    }
-
-    // 4. Aprovar (enviado → aprovado) — valida as assinaturas no backend
-    if (currentStatus === 'enviado') {
-      await moveStatus('aprovado');
-    }
-
-    // 4. Anexo do PDF final governado
+    // 3. Anexo do PDF final governado
     const artifactPaths = getReportPaths(titulo);
     const pdfBuffer = await buildSmokePdfBuffer({
-      rdoId,
+      checklistId,
       siteId: site.id,
       titulo,
     });
@@ -605,7 +577,7 @@ async function run() {
     if (!hasPdfAlready) {
       attachment = await attachPdf(
         session.accessToken,
-        rdoId,
+        checklistId,
         pdfBuffer,
         `${titulo}.pdf`,
       );
@@ -615,12 +587,12 @@ async function run() {
         );
       }
     } else {
-      warnings.push('rdo_pdf_already_attached');
+      warnings.push('checklist_pdf_already_attached');
     }
 
     // 4. Acesso ao PDF + verificação de banco
     const pdfAccess = await requestJson(
-      `/rdos/${rdoId}/pdf`,
+      `/checklists/${checklistId}/pdf`,
       session.accessToken,
       { companyId: TEST_COMPANY_ID },
     );
@@ -630,7 +602,7 @@ async function run() {
       );
     }
 
-    const db = await verifyDatabaseState(client, rdoId);
+    const db = await verifyDatabaseState(client, checklistId);
 
     const report = {
       apiBaseUrl: API_BASE_URL,
@@ -645,11 +617,10 @@ async function run() {
         profile: TARGET_PROFILE_NAME,
         email: maskEmail(SMOKE_USER_EMAIL),
       },
-      rdo: {
-        id: maskId(rdoId),
-        numero: db.rdo.numero,
-        marcador: titulo,
-        status: db.rdo.status,
+      checklist: {
+        id: maskId(checklistId),
+        titulo,
+        status: db.checklist.status,
         resumed: Boolean(resumable),
       },
       attachment: {
@@ -662,11 +633,11 @@ async function run() {
         hasFinalPdf: Boolean(pdfAccess.body?.hasFinalPdf),
       },
       database: {
-        rdoId: maskId(db.rdo.id),
-        rdoStatus: db.rdo.status,
-        rdoCompanyId: maskId(db.rdo.company_id),
-        siteCompanyId: maskId(db.rdo.site_company_id),
-        hasPdfKey: Boolean(db.rdo.pdf_file_key),
+        checklistId: maskId(db.checklist.id),
+        checklistStatus: db.checklist.status,
+        checklistCompanyId: maskId(db.checklist.company_id),
+        siteCompanyId: maskId(db.checklist.site_company_id),
+        hasPdfKey: Boolean(db.checklist.pdf_file_key),
         documentRegistryId: maskId(db.registry?.id),
         documentRegistryCompanyId: maskId(db.registry?.company_id),
         documentCode: db.registry?.document_code || null,
@@ -676,7 +647,7 @@ async function run() {
       publicValidation: {
         status: null,
         valid: null,
-        note: 'not_applicable: módulo RDO não possui portal de validação pública com grant.',
+        note: 'partial: portal checklist_public_validation existe, mas a API não expõe validation-context para checklists (token não emitido).',
       },
       artifacts: {
         pdfPath: artifactPaths.pdfPath,
