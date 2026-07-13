@@ -65,7 +65,9 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
 
   if (!isOpen) return null;
 
-  const isImageType = (type: string) => ['digital', 'upload', 'facial'].includes(type);
+  // Tipos canônicos (drawn/upload) + legados que também guardam imagem.
+  const isImageType = (type: string) =>
+    ['drawn', 'upload', 'digital', 'facial'].includes(type);
 
   return (
     <ModalFrame isOpen={isOpen} onClose={onClose} shellClassName="max-w-lg" overlayClassName="z-[60]">

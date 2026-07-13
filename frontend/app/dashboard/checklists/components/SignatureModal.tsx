@@ -198,6 +198,10 @@ useEffect(() => {
 
   const handleSave = () => {
     let signatureData = '';
+    // A aba é rótulo de UI; o `type` enviado precisa ser um dos tipos
+    // canônicos aceitos pelo backend (só `hmac` é prova verificada — os
+    // demais são captura de evidência e são rotulados como tal no PDF).
+    let signatureType: 'hmac' | 'drawn' | 'upload' = 'drawn';
 
     if (activeTab === 'digital') {
       if (sigCanvas.current?.isEmpty()) {
@@ -209,6 +213,7 @@ useEffect(() => {
         toast.error('Não foi possível capturar a assinatura. Tente novamente.');
         return;
       }
+      signatureType = 'drawn';
     } else if (activeTab === 'hmac') {
       if (!/^\d{4,6}$/.test(pin)) {
         toast.error('Digite um PIN válido (4 a 6 dígitos).');
@@ -225,9 +230,11 @@ useEffect(() => {
         return;
       }
       signatureData = previewImage;
+      // 'upload' e 'facial' são ambos imagem enviada/capturada pelo cliente.
+      signatureType = 'upload';
     }
 
-    onSave(signatureData, activeTab);
+    onSave(signatureData, signatureType);
     onClose();
   };
 

@@ -78,7 +78,7 @@ describe('SignaturesController (http)', () => {
         document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
-        type: 'digital',
+        type: 'drawn',
         company_id: 'tenant-forjado',
       })
       .expect(400);
@@ -95,7 +95,7 @@ describe('SignaturesController (http)', () => {
         document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
-        type: 'digital',
+        type: 'drawn',
       })
       .expect(201);
 
@@ -104,7 +104,7 @@ describe('SignaturesController (http)', () => {
         document_id: DOCUMENT_ID,
         document_type: 'APR',
         signature_data: 'data:image/png;base64,AAAA',
-        type: 'digital',
+        type: 'drawn',
       },
       'user-1',
     );

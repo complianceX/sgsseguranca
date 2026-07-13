@@ -381,7 +381,7 @@ describe('SignaturesService', () => {
         document_id: 'dds-1',
         document_type: 'DDS',
         user_id: 'user-1',
-        type: 'digital',
+        type: 'drawn',
         signature_data: null,
         signature_data_key: 'signatures/dds-1/digital.dat',
         user: {
@@ -440,14 +440,14 @@ describe('SignaturesService', () => {
         document_type: 'APR',
         user_id: 'user-1',
         signature_data: signatureData,
-        type: 'digital',
+        type: 'drawn',
       },
       'user-1',
     );
 
     expect(storageService.uploadFile).toHaveBeenCalledWith(
       expect.stringMatching(
-        /^signatures\/apr-1\/digital-\d+-[0-9a-f-]{36}\.dat$/,
+        /^signatures\/apr-1\/drawn-\d+-[0-9a-f-]{36}\.dat$/,
       ),
       Buffer.from(signatureData, 'utf8'),
       'application/octet-stream',
@@ -471,7 +471,7 @@ describe('SignaturesService', () => {
         document_type: 'APR',
         user_id: 'user-obra-a',
         signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
-        type: 'digital',
+        type: 'drawn',
       },
       'user-obra-a',
     );
@@ -516,7 +516,7 @@ describe('SignaturesService', () => {
         document_id: 'apr-obra-b',
         document_type: 'APR',
         user_id: 'user-obra-b',
-        type: 'digital',
+        type: 'drawn',
         signature_data: 'data:image/png;base64,ASSINATURA_OBRA_B',
       } as unknown as Signature,
     ]);
@@ -551,7 +551,7 @@ describe('SignaturesService', () => {
         document_id: 'apr-obra-a',
         document_type: 'APR',
         user_id: 'user-obra-a',
-        type: 'digital',
+        type: 'drawn',
         signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
         user: {
           id: 'user-obra-a',
@@ -586,7 +586,7 @@ describe('SignaturesService', () => {
         document_id: 'training-1',
         document_type: 'TREINAMENTO',
         user_id: 'worker-a',
-        type: 'digital',
+        type: 'drawn',
         signature_data: 'data:image/png;base64,ASSINATURA_TREINAMENTO',
         user: {
           id: 'worker-a',
@@ -628,7 +628,7 @@ describe('SignaturesService', () => {
           document_id: 'apr-obra-b',
           document_type: 'APR',
           signature_data: 'data:image/png;base64,ASSINATURA_OBRA_A',
-          type: 'digital',
+          type: 'drawn',
           user_id: 'user-obra-a',
         },
         'user-obra-a',
@@ -646,7 +646,7 @@ describe('SignaturesService', () => {
           document_id: 'rdo-inexistente',
           document_type: 'RDO',
           signature_data: 'data:image/png;base64,ASSINATURA',
-          type: 'digital',
+          type: 'drawn',
           user_id: 'user-1',
         },
         'user-1',
@@ -849,7 +849,7 @@ describe('SignaturesService', () => {
           document_type: 'Inspeção',
           user_id: 'user-1',
           signature_data: 'data:image/png;base64,BBBB',
-          type: 'digital',
+          type: 'drawn',
         },
         'user-1',
       ),
@@ -865,7 +865,7 @@ describe('SignaturesService', () => {
         document_type: 'APR',
         user_id: 'user-1',
         signature_data: 'data:image/png;base64,AAAA',
-        type: 'digital',
+        type: 'drawn',
         signature_hash: 'client-hash',
         timestamp_token: 'client-token',
         timestamp_authority: 'client-authority',
@@ -889,7 +889,7 @@ describe('SignaturesService', () => {
       signed_at: new Date('2026-03-16T12:00:00.000Z'),
       document_id: 'apr-1',
       document_type: 'APR',
-      type: 'digital',
+      type: 'drawn',
       integrity_payload: {
         verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
         legal_assurance: 'not_legal_strong',
@@ -916,6 +916,54 @@ describe('SignaturesService', () => {
     );
   });
 
+  describe('allowlist de tipo de assinatura', () => {
+    const baseInput = {
+      document_id: 'apr-1',
+      document_type: 'APR',
+      user_id: 'user-1',
+      signature_data: 'data:image/png;base64,AAAA',
+    };
+
+    it.each(['digital', 'facial', 'simple', 'cpf_pin'])(
+      'recusa o tipo legado "%s" (rótulo de prova sem verificação)',
+      async (legacyType) => {
+        // Regressão: o `type` era string livre e virava o rótulo impresso no
+        // PDF governado — dava para gravar "digital" (apresentado como
+        // "Assinatura Digital") sem nenhuma verificação criptográfica.
+        await expect(
+          service.create({ ...baseInput, type: legacyType } as never, 'user-1'),
+        ).rejects.toThrow(/descontinuado por não representar prova verificada/);
+      },
+    );
+
+    it('recusa tipo arbitrário inventado pelo cliente', async () => {
+      await expect(
+        service.create(
+          { ...baseInput, type: 'assinatura_notarial_icp' } as never,
+          'user-1',
+        ),
+      ).rejects.toThrow(/Tipo de assinatura inválido/);
+    });
+
+    it.each(['drawn', 'upload', 'acknowledgement'])(
+      'aceita o tipo canônico "%s"',
+      async (type) => {
+        await expect(
+          service.create({ ...baseInput, type } as never, 'user-1'),
+        ).resolves.toBeDefined();
+      },
+    );
+
+    it('aceita team_photo_* do DDS', async () => {
+      await expect(
+        service.create(
+          { ...baseInput, type: 'team_photo_1' } as never,
+          'user-1',
+        ),
+      ).resolves.toBeDefined();
+    });
+  });
+
   it('prioriza o tenant autenticado sobre company_id legado no payload', async () => {
     await service.create(
       {
@@ -923,7 +971,7 @@ describe('SignaturesService', () => {
         document_type: 'APR',
         user_id: 'user-1',
         signature_data: 'data:image/png;base64,AAAA',
-        type: 'digital',
+        type: 'drawn',
         company_id: 'forged-company',
       } as unknown as Parameters<SignaturesService['create']>[0],
       'user-1',
@@ -992,7 +1040,7 @@ describe('SignaturesService', () => {
           document_type: 'APR',
           user_id: 'user-1',
           signature_data: 'data:image/png;base64,AAAA',
-          type: 'digital',
+          type: 'drawn',
         },
         'user-1',
       ),
@@ -1044,7 +1092,7 @@ describe('SignaturesService', () => {
           document_type: 'CAT',
           user_id: 'user-1',
           signature_data: 'data:image/png;base64,CCCC',
-          type: 'digital',
+          type: 'drawn',
         },
         'user-1',
       ),
@@ -1069,7 +1117,7 @@ describe('SignaturesService', () => {
           document_type: 'RDO',
           user_id: 'user-1',
           signature_data: 'data:image/png;base64,RRRR',
-          type: 'digital',
+          type: 'drawn',
         },
         'user-1',
       ),
