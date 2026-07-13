@@ -9,7 +9,7 @@ import {
   type AprPdfAccessResponse,
 } from "@/services/aprsService";
 import { openUrlInNewTab } from "@/lib/print-utils";
-import { handleApiError } from "@/lib/error-handler";
+import { extractApiErrorMessage, handleApiError } from "@/lib/error-handler";
 
 import type { AprFormData } from "../components/aprForm.schema";
 import type { AprWorkflowEvidenceItem } from "./useAprPdfWorkflow";
@@ -213,7 +213,12 @@ export function useAprWorkflowActions({
       );
     } catch (error) {
       console.error("Erro ao emitir PDF governado da APR:", error);
-      toast.error("Não foi possível emitir o PDF final governado.");
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          "Não foi possível emitir o PDF final governado.",
+        ),
+      );
     } finally {
       setEmittingGovernedPdf(false);
     }

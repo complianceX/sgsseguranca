@@ -836,6 +836,12 @@ export function AprForm({ id }: AprFormProps) {
       .then((template) => {
         if (active) {
           setSelectedActivityTemplate(template);
+          if (selectedTipoAtividade !== template.tipo_atividade) {
+            setValue("tipo_atividade", template.tipo_atividade, {
+              shouldDirty: false,
+              shouldTouch: false,
+            });
+          }
         }
       })
       .catch((error) => {
@@ -856,7 +862,7 @@ export function AprForm({ id }: AprFormProps) {
     return () => {
       active = false;
     };
-  }, [selectedTipoAtividade]);
+  }, [selectedTipoAtividade, setValue]);
 
   useEffect(() => {
     if (!selectedElaborador?.nome) {

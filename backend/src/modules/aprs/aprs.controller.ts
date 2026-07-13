@@ -472,6 +472,12 @@ export class AprsController {
     return this.aprsService.getAnalyticsOverview();
   }
 
+  @Get('capabilities')
+  @Authorize(APR_PERMISSIONS.VIEW)
+  getCapabilities() {
+    return this.aprsService.getCapabilities();
+  }
+
   @Get(':id/export/excel')
   @Authorize(APR_PERMISSIONS.VIEW)
   @Header(

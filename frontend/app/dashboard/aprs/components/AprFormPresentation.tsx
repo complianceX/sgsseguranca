@@ -11,6 +11,7 @@ export type AprDocumentRiskLevelStyle = {
   key: AprDocumentRiskLevel;
   label: string;
   tone: string;
+  accent: string;
   subtle: string;
 };
 
@@ -19,30 +20,35 @@ export const APR_DOCUMENT_RISK_LEVELS: AprDocumentRiskLevelStyle[] = [
     key: "insignificante",
     label: "Insignificante",
     tone: "bg-[var(--ds-color-border-strong)]",
+    accent: "accent-[var(--ds-color-border-strong)]",
     subtle: "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
   },
   {
     key: "baixo",
     label: "Baixo",
     tone: "bg-emerald-600",
+    accent: "accent-emerald-600",
     subtle: "bg-emerald-50 text-emerald-700",
   },
   {
     key: "medio",
     label: "Médio",
     tone: "bg-amber-600",
+    accent: "accent-amber-600",
     subtle: "bg-amber-50 text-amber-700",
   },
   {
     key: "alto",
     label: "Alto",
     tone: "bg-orange-600",
+    accent: "accent-orange-600",
     subtle: "bg-orange-50 text-orange-700",
   },
   {
     key: "critico",
     label: "Crítico",
     tone: "bg-red-600",
+    accent: "accent-red-600",
     subtle: "bg-red-50 text-red-700",
   },
 ];
@@ -95,7 +101,6 @@ export function DocumentRiskSummaryList({
     <div className="mt-4 space-y-3">
       {levels.map((level) => {
         const count = summary.counts[level.key];
-        const width = `${Math.round((count / denominator) * 100)}%`;
 
         return (
           <div key={level.key}>
@@ -115,12 +120,15 @@ export function DocumentRiskSummaryList({
                 {count}
               </span>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--ds-color-surface-base)]">
-              <div
-                className={cn("h-full rounded-full", level.tone)}
-                style={{ width }}
-              />
-            </div>
+            <progress
+              value={count}
+              max={denominator}
+              aria-label={`${level.label}: ${count} de ${summary.total}`}
+              className={cn(
+                "mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--ds-color-surface-base)]",
+                level.accent,
+              )}
+            />
           </div>
         );
       })}
