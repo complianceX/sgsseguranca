@@ -637,6 +637,25 @@ describe('RdosService', () => {
     );
   });
 
+  it('aprova RDO enviado quando as duas assinaturas estão presentes', async () => {
+    // Regressão: a aprovação validava o status "aprovado" no próprio RDO
+    // (via assertRdoReadyForFinalDocument), tornando a transição impossível.
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        status: 'enviado',
+        assinatura_responsavel: JSON.stringify({ nome: 'Resp Teste' }),
+        assinatura_engenheiro: JSON.stringify({ nome: 'Eng Teste' }),
+      }),
+    );
+    const result = await service.updateStatus(RDO_ID, 'aprovado');
+    expect(result.status).toBe('aprovado');
+    expect(rdoAuditService.recordStatusChange).toHaveBeenCalledWith(
+      RDO_ID,
+      'enviado',
+      'aprovado',
+    );
+  });
+
   it('bloqueia transicao de status invalida', async () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'aprovado' }));
     await expect(service.updateStatus(RDO_ID, 'rascunho')).rejects.toThrow(
