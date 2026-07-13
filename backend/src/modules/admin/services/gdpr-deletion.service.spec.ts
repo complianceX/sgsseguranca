@@ -113,6 +113,22 @@ describe('GDPRDeletionService', () => {
       );
     });
 
+    it('executa a exclusão em contexto super-admin (senão a RLS zera o efeito)', async () => {
+      // Regressão: gdpr_delete_user_data() não é SECURITY DEFINER e a role
+      // runtime (sgs_app) não tem BYPASSRLS. Todas as tabelas alvo têm RLS
+      // com FORCE — sem este contexto, a RLS filtra as linhas do titular, a
+      // função anonimiza 0 registros e o serviço reporta "completed" com
+      // sucesso. O direito de exclusão ficava sem efeito, silenciosamente.
+      mockDataSource.query.mockResolvedValue([]);
+
+      await service.deleteUserData(VALID_UUID);
+
+      expect(mockTenantService.run).toHaveBeenCalledWith(
+        expect.objectContaining({ isSuperAdmin: true, companyId: undefined }),
+        expect.any(Function),
+      );
+    });
+
     it('persiste o registro duas vezes (criacao + atualizacao final)', async () => {
       mockDataSource.query.mockResolvedValue([]);
 

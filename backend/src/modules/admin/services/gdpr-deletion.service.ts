@@ -135,9 +135,17 @@ export class GDPRDeletionService {
     );
 
     try {
-      const result = await this.queryRows<GDPRDeletionCountRow>(
-        `SELECT * FROM gdpr_delete_user_data($1)`,
-        [userId],
+      // Contexto super-admin OBRIGATÓRIO: gdpr_delete_user_data() não é
+      // SECURITY DEFINER e a role runtime (sgs_app) não tem BYPASSRLS. Todas
+      // as tabelas alvo têm RLS com FORCE — sem este wrap, a RLS filtra as
+      // linhas do titular e a função anonimiza 0 registros, reportando
+      // "completed" com sucesso. O direito de exclusão (LGPD Art. 18, VI)
+      // ficava sem efeito, silenciosamente.
+      const result = await this.runAsGlobalSuperAdmin(() =>
+        this.queryRows<GDPRDeletionCountRow>(
+          `SELECT * FROM gdpr_delete_user_data($1)`,
+          [userId],
+        ),
       );
 
       for (const row of result) {
