@@ -53,6 +53,13 @@ COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/src/modules/sophie/kb ./dist/modules/sophie/kb
 COPY --from=builder --chown=node:node /app/scripts ./scripts
 COPY --from=builder --chown=node:node /app/newrelic.js ./newrelic.js
+
+# TenantBackupService escreve em ./output/disaster-recovery por padrão
+# (TENANT_BACKUP_ROOT não setado). Sem este diretório pré-criado com o
+# owner correto, o worker roda como usuário node sem permissão de escrita
+# e todo backup diário falha com EACCES silenciosamente na fila.
+RUN mkdir -p /app/output && chown node:node /app/output
+
 USER node
 
 CMD ["node", "dist/worker.js"]

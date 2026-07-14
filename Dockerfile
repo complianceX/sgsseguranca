@@ -103,6 +103,10 @@ COPY --chown=node:node backend/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' entrypoint.sh \
   && chmod +x entrypoint.sh
 
+# Mesmo motivo do Dockerfile.worker: TenantBackupService e outras rotinas
+# que escrevem em ./output precisam do diretório pré-criado com owner node.
+RUN mkdir -p /app/output && chown node:node /app/output
+
 EXPOSE 8080
 
 USER node

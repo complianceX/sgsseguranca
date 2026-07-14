@@ -15,6 +15,7 @@ describe('ActivitiesService (catalog cache)', () => {
       create: jest.fn((data: EntityLike) => data),
       save: jest.fn(),
       remove: jest.fn(),
+      softDelete: jest.fn(),
       createQueryBuilder: jest.fn(),
       count: jest.fn(),
     };

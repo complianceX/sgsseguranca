@@ -11,6 +11,7 @@ describe('ServiceOrdersService', () => {
     save: jest.Mock;
     findOne: jest.Mock;
     remove: jest.Mock;
+    softDelete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
 
@@ -36,6 +37,7 @@ describe('ServiceOrdersService', () => {
       ),
       findOne: jest.fn(),
       remove: jest.fn(),
+      softDelete: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(defaultQb),
     };
 
@@ -101,5 +103,17 @@ describe('ServiceOrdersService', () => {
     ).rejects.toThrow(
       'Já existe uma ordem de serviço com este número na empresa atual.',
     );
+  });
+
+  it('remove() usa soft delete em vez de apagar a linha', async () => {
+    repository.findOne.mockResolvedValueOnce({
+      id: 'os-1',
+      company_id: 'company-1',
+    } as ServiceOrder);
+
+    await service.remove('os-1');
+
+    expect(repository.softDelete).toHaveBeenCalledWith('os-1');
+    expect(repository.remove).not.toHaveBeenCalled();
   });
 });

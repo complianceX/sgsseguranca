@@ -85,7 +85,10 @@ export class ActivitiesService {
       query.where('activity.company_id = :companyId', {
         companyId: opts.companyId,
       });
+    } else {
+      query.where('1 = 1');
     }
+    query.andWhere('activity.deleted_at IS NULL');
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
@@ -94,11 +97,7 @@ export class ActivitiesService {
         LOWER(activity.nome) LIKE :search ESCAPE '\\'
         OR LOWER(COALESCE(activity.descricao, '')) LIKE :search ESCAPE '\\'
       )`;
-      if (tenantId || opts?.companyId) {
-        query.andWhere(condition, { search });
-      } else {
-        query.where(condition, { search });
-      }
+      query.andWhere(condition, { search });
     }
 
     const [data, total] = await query.getManyAndCount();
@@ -150,7 +149,7 @@ export class ActivitiesService {
 
   async remove(id: string): Promise<void> {
     const activity = await this.findOne(id);
-    await this.activitiesRepository.remove(activity);
+    await this.activitiesRepository.softDelete(id);
     await this.invalidateCatalogCache(activity.company_id);
   }
 

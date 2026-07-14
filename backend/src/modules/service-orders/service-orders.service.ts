@@ -169,7 +169,9 @@ export class ServiceOrdersService {
       .skip(skip)
       .take(limit);
 
-    qb.where('so.company_id = :tenantId', { tenantId });
+    qb.where('so.company_id = :tenantId', { tenantId }).andWhere(
+      'so.deleted_at IS NULL',
+    );
     if (opts?.status)
       qb.andWhere('so.status = :status', { status: opts.status });
     if (scope.hasCompanyWideAccess && opts?.site_id) {
@@ -228,8 +230,11 @@ export class ServiceOrdersService {
   }
 
   async remove(id: string): Promise<void> {
-    const order = await this.findOne(id);
-    await this.serviceOrdersRepository.remove(order);
+    // Soft delete: entidade tem @DeleteDateColumn; hard delete destruiria
+    // o histórico de ordens de serviço sem necessidade (mesmo padrão do
+    // restante do sistema).
+    await this.findOne(id);
+    await this.serviceOrdersRepository.softDelete(id);
   }
 
   async exportExcel(): Promise<Buffer> {
@@ -240,7 +245,9 @@ export class ServiceOrdersService {
       .leftJoinAndSelect('so.responsavel', 'responsavel')
       .leftJoinAndSelect('so.site', 'site')
       .orderBy('so.data_emissao', 'DESC');
-    qb.where('so.company_id = :tenantId', { tenantId });
+    qb.where('so.company_id = :tenantId', { tenantId }).andWhere(
+      'so.deleted_at IS NULL',
+    );
     if (!scope.hasCompanyWideAccess) {
       qb.andWhere('so.site_id = :siteId', { siteId: scope.siteId });
     }
