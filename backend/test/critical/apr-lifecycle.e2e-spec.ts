@@ -144,7 +144,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
           document_id: aprId,
           document_type: 'APR',
           signature_data: 'assinatura-e2e-apr-life-finalize',
-          type: 'simple',
+          type: 'drawn',
         });
 
       expect(signatureRes.status).toBe(201);
@@ -219,7 +219,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
           document_id: pdfApr.id,
           document_type: 'APR',
           signature_data: 'assinatura-e2e-apr-pdf-final',
-          type: 'simple',
+          type: 'drawn',
         });
 
       expect(signatureRes.status).toBe(201);

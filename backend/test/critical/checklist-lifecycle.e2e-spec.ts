@@ -220,7 +220,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         document_id: checklistId,
         document_type: 'CHECKLIST',
         signature_data: 'assinatura-e2e-checklist',
-        type: 'simple',
+        type: 'drawn',
       });
 
     expect(signatureRes.status).toBe(201);
@@ -437,7 +437,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         document_id: checklistId,
         document_type: 'CHECKLIST',
         signature_data: 'sig-bfla',
-        type: 'simple',
+        type: 'drawn',
       });
 
     const delByWorker = await testApp
@@ -514,7 +514,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         document_id: id,
         document_type: 'CHECKLIST',
         signature_data: 'sig-order',
-        type: 'simple',
+        type: 'drawn',
       });
 
     const pdfOk = await testApp
@@ -558,7 +558,7 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         document_id: cid,
         document_type: 'CHECKLIST',
         signature_data: 'sig-del',
-        type: 'simple',
+        type: 'drawn',
       });
     await testApp
       .request()

@@ -99,7 +99,7 @@ describeE2E('E2E — APR critical flow: criar → aprovar → PDF → encerrar',
         document_id: aprId,
         document_type: 'APR',
         signature_data: 'assinatura-e2e-apr-critical-flow',
-        type: 'simple',
+        type: 'drawn',
       });
 
     expect(signatureRes.status).toBe(201);

@@ -202,7 +202,7 @@ describeE2E(
           .send({
             document_id: apr.id,
             document_type: 'APR',
-            type: 'digital',
+            type: 'drawn',
             signature_data:
               'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+XxNcAAAAASUVORK5CYII=',
           });
