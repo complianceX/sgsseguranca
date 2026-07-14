@@ -123,7 +123,13 @@ export abstract class BaseService<T extends ObjectLiteral> {
   }
 
   async remove(id: string): Promise<void> {
-    const entity = await this.findOne(id);
-    await this.repository.remove(entity);
+    // Soft delete: cadastros (máquinas, ferramentas, EPIs, riscos, ações
+    // corretivas) são referenciados por junções de documentos já emitidos
+    // (ex.: apr_machines/apr_tools/apr_risks/apr_epis, epi_assignments).
+    // Hard delete ou é bloqueado por FK sem cascade, ou — pior — com
+    // ON DELETE CASCADE apaga silenciosamente o vínculo em documentos
+    // históricos de SST, corrompendo a integridade probatória.
+    await this.findOne(id);
+    await this.repository.softDelete(id);
   }
 }

@@ -205,6 +205,20 @@ describe('NonConformitiesService', () => {
     expect(softDelete).toHaveBeenCalledWith('nc-1');
   });
 
+  it('bloqueia remocao de NC que ja tem PDF final emitido', async () => {
+    const nc = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/nc-1.pdf',
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(nc);
+
+    await expect(service.remove('nc-1')).rejects.toThrow('sem PDF final');
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).not.toHaveBeenCalled();
+  });
+
   it('remove o arquivo da NC do storage quando a governanca falha', async () => {
     const nc = {
       id: 'nc-1',

@@ -2842,6 +2842,23 @@ describe('ChecklistsService', () => {
       // sem entradas de foto governada neste teste, cleanup nao disparado
       expect(resetSpy).toHaveBeenCalled();
     });
+
+    it('bloqueia remocao de checklist que ja tem PDF final emitido', async () => {
+      const checklist = {
+        id: 'checklist-del',
+        company_id: 'company-1',
+        pdf_file_key: 'documents/checklist-del.pdf',
+      } as unknown as Checklist;
+
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
+
+      await expect(service.remove('checklist-del')).rejects.toThrow(
+        'sem PDF final',
+      );
+      expect(
+        documentGovernanceService.removeFinalDocumentReference,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   // ── testes de índices de performance (via mocks de query) ─────────────────

@@ -61,7 +61,9 @@ const makeService = (opts: { companyWideAccess?: boolean } = {}) => {
   };
 
   const documentStorageService = { getSignedUrl: jest.fn() };
-  const documentGovernanceService = {};
+  const documentGovernanceService = {
+    removeFinalDocumentReference: jest.fn(),
+  };
   const documentRegistryService = {
     findByEntityId: jest.fn().mockResolvedValue(null),
     upsertFromEntityEvent: jest.fn().mockResolvedValue(undefined),
@@ -82,6 +84,7 @@ const makeService = (opts: { companyWideAccess?: boolean } = {}) => {
     tenantService,
     userRepo,
     queryBuilderBase,
+    documentGovernanceService,
   };
 };
 
@@ -274,14 +277,47 @@ describe('TrainingsService — validações de cadastro', () => {
   });
 
   describe('remove', () => {
-    it('remove treinamento existente', async () => {
-      const { service, trainingsRepository } = makeService();
+    it('remove treinamento existente sem PDF final via esteira de governance', async () => {
+      const { service, trainingsRepository, documentGovernanceService } =
+        makeService();
       const training = makeTraining();
       trainingsRepository.findOne.mockResolvedValueOnce(training);
+      const softDelete = jest.fn();
+      const manager = { getRepository: jest.fn(() => ({ softDelete })) };
+      documentGovernanceService.removeFinalDocumentReference.mockImplementationOnce(
+        async (input: {
+          removeEntityState?: (manager: unknown) => Promise<void>;
+        }) => {
+          await input.removeEntityState?.(manager);
+        },
+      );
 
       await service.remove(training.id);
 
-      expect(trainingsRepository.softDelete).toHaveBeenCalledWith(training.id);
+      expect(
+        documentGovernanceService.removeFinalDocumentReference,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: training.company_id,
+          module: 'training',
+          entityId: training.id,
+        }),
+      );
+      expect(softDelete).toHaveBeenCalledWith(training.id);
+    });
+
+    it('bloqueia remocao de treinamento que ja tem certificado PDF emitido', async () => {
+      const { service, trainingsRepository, documentGovernanceService } =
+        makeService();
+      const training = { ...makeTraining(), pdf_file_key: 'documents/t-1.pdf' };
+      trainingsRepository.findOne.mockResolvedValueOnce(training);
+
+      await expect(service.remove(training.id)).rejects.toThrow(
+        'sem certificado',
+      );
+      expect(
+        documentGovernanceService.removeFinalDocumentReference,
+      ).not.toHaveBeenCalled();
     });
 
     it('lança NotFoundException ao remover treinamento inexistente', async () => {

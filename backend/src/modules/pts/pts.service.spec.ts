@@ -611,6 +611,20 @@ describe('PtsService', () => {
     expect(softDelete).toHaveBeenCalledWith('pt-1');
   });
 
+  it('bloqueia remocao de PT que ja tem PDF final emitido', async () => {
+    const pt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/pt-1.pdf',
+    } as unknown as Pt;
+    ptsRepository.findOne.mockResolvedValue(pt);
+
+    await expect(service.remove('pt-1')).rejects.toThrow('sem PDF final');
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).not.toHaveBeenCalled();
+  });
+
   it('bloqueia create generico com status de aprovacao sensivel', async () => {
     await expect(
       service.create({

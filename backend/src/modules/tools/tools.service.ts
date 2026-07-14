@@ -101,7 +101,9 @@ export class ToolsService extends BaseService<Tool> {
       .skip(skip)
       .take(limit);
 
-    query.where('tool.company_id = :tenantId', { tenantId });
+    query
+      .where('tool.company_id = :tenantId', { tenantId })
+      .andWhere('tool.deleted_at IS NULL');
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {

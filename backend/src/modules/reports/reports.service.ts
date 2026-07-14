@@ -385,7 +385,9 @@ export class ReportsService {
           this.documentStorageService.deleteFile(fileKey),
       });
     }
-    await this.reportRepository.remove(report);
+    // Soft delete: a entidade tem @DeleteDateColumn; hard delete destruiria
+    // permanentemente um relatório mensal já emitido sem retenção histórica.
+    await this.reportRepository.softDelete(id);
   }
 
   async generateBuffer(

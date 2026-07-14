@@ -36,6 +36,7 @@ const makeService = (tenantId: string | undefined = TENANT_ID) => {
     create: jest.fn((data: Partial<Epi>) => data as Epi),
     save: jest.fn((entity: Epi) => Promise.resolve({ ...entity })),
     remove: jest.fn().mockResolvedValue(undefined),
+    softDelete: jest.fn().mockResolvedValue(undefined),
     merge: jest.fn((entity: Epi, data: Partial<Epi>) =>
       Object.assign(entity, data),
     ),
@@ -220,7 +221,8 @@ describe('EpisService', () => {
 
       await service.remove(epi.id);
 
-      expect(episRepository.remove).toHaveBeenCalledWith(epi);
+      expect(episRepository.softDelete).toHaveBeenCalledWith(epi.id);
+      expect(episRepository.remove).not.toHaveBeenCalled();
       expect(cacheManager.del).toHaveBeenCalledWith(
         `catalog:epis:${TENANT_ID}`,
       );
@@ -269,7 +271,10 @@ describe('EpisService', () => {
 
       await service.findPaginated({ search: '' });
 
-      expect(queryBuilder.andWhere).not.toHaveBeenCalled();
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'epi.deleted_at IS NULL',
+      );
+      expect(queryBuilder.andWhere).toHaveBeenCalledTimes(1);
     });
 
     it('usa defaults de paginação quando page/limit não fornecidos', async () => {
@@ -311,7 +316,8 @@ describe('EpisService', () => {
 
       await service.findCaExpirySummary();
 
-      expect(queryBuilder.where).toHaveBeenCalledWith(
+      expect(queryBuilder.where).toHaveBeenCalledWith('epi.deleted_at IS NULL');
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         'epi.company_id = :tenantId',
         { tenantId: TENANT_ID },
       );
