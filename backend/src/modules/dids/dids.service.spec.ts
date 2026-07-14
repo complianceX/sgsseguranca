@@ -469,4 +469,14 @@ describe('DidsService', () => {
       status: DidStatus.ARQUIVADO,
     });
   });
+
+  it('bloqueia remocao de DID que ja tem PDF final emitido', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'did-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/did-1.pdf',
+    } as unknown as Did);
+
+    await expect(service.remove('did-1')).rejects.toThrow('sem PDF final');
+  });
 });

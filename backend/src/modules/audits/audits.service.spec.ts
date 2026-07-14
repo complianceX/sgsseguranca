@@ -640,6 +640,22 @@ describe('AuditsService', () => {
     expect(softDelete).toHaveBeenCalledWith('audit-1');
   });
 
+  it('bloqueia remocao de auditoria que ja tem PDF final emitido', async () => {
+    const audit = {
+      id: 'audit-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/audit-1.pdf',
+    } as unknown as Audit;
+    tenantRepo.findOne.mockResolvedValue(audit);
+
+    await expect(service.remove('audit-1', 'company-1')).rejects.toThrow(
+      'sem PDF final',
+    );
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).not.toHaveBeenCalled();
+  });
+
   it('remove o arquivo da auditoria do storage quando a governanca falha depois do upload', async () => {
     const audit = {
       id: 'audit-1',

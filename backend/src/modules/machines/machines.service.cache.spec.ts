@@ -24,6 +24,7 @@ describe('MachinesService (catalog cache)', () => {
       create: jest.fn((data: EntityLike) => data),
       save: jest.fn(),
       remove: jest.fn(),
+      softDelete: jest.fn(),
       merge: jest.fn((entity: EntityLike, data: EntityLike) =>
         Object.assign(entity, data),
       ),

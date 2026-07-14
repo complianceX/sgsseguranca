@@ -101,7 +101,9 @@ export class EpisService extends BaseService<Epi> {
       .skip(skip)
       .take(limit);
 
-    query.where('epi.company_id = :tenantId', { tenantId });
+    query
+      .where('epi.company_id = :tenantId', { tenantId })
+      .andWhere('epi.deleted_at IS NULL');
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
@@ -139,9 +141,11 @@ export class EpisService extends BaseService<Epi> {
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() + days);
 
-    const query = this.episRepository.createQueryBuilder('epi');
+    const query = this.episRepository
+      .createQueryBuilder('epi')
+      .where('epi.deleted_at IS NULL');
     if (tenantId) {
-      query.where('epi.company_id = :tenantId', { tenantId });
+      query.andWhere('epi.company_id = :tenantId', { tenantId });
     }
 
     const epis = await query.getMany();

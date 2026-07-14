@@ -1217,6 +1217,11 @@ export class NonConformitiesService {
 
   async remove(id: string) {
     const nonConformity = await this.findOneEntity(id);
+    if (nonConformity.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente não conformidades sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
     const before = { ...nonConformity };
     const governedAttachments = this.getGovernedAttachmentEntries(
       nonConformity.anexos,

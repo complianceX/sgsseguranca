@@ -778,10 +778,6 @@ export class DossiersService {
     });
   }
 
-  // NOTE: Other dossier generation methods (`generateContractDossier`, `generateSiteDossier`)
-  // would need similar refactoring (adding `take` limits) but are omitted here for brevity
-  // following the same correction pattern.
-
   private buildPdf(doc: jsPDF, data: EmployeeDossierPdfData): void {
     const {
       user,

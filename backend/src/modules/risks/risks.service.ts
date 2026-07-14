@@ -154,7 +154,9 @@ export class RisksService extends BaseService<Risk> {
       .skip(skip)
       .take(limit);
 
-    query.where('risk.company_id = :tenantId', { tenantId });
+    query
+      .where('risk.company_id = :tenantId', { tenantId })
+      .andWhere('risk.deleted_at IS NULL');
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {

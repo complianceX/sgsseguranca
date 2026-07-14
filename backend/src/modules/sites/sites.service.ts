@@ -60,9 +60,11 @@ export class SitesService {
       .skip(skip)
       .take(limit);
 
-    query.where('site.company_id = :companyId', {
-      companyId: tenant.companyId,
-    });
+    query
+      .where('site.company_id = :companyId', {
+        companyId: tenant.companyId,
+      })
+      .andWhere('site.deleted_at IS NULL');
 
     if (tenant.siteScope !== 'all') {
       if (tenant.siteIds.length === 0) {
@@ -139,8 +141,14 @@ export class SitesService {
   }
 
   async remove(id: string): Promise<void> {
-    const site = await this.findOne(id);
-    await this.sitesRepository.remove(site);
+    // Soft delete: dezenas de tabelas (aprs, pts, dds, checklists, audits,
+    // epi_assignments, corrective_actions, nonconformities, cats, rdos,
+    // service_orders, dids, arrs, expenses, signatures...) têm FK para
+    // sites.id sem ON DELETE CASCADE. Hard delete além de violar a FK em
+    // qualquer obra com documento vinculado, destruiria a trilha probatória
+    // de documentos de SST com retenção legal (mesmo padrão de companies.service).
+    await this.findOne(id);
+    await this.sitesRepository.softDelete(id);
   }
 
   private requireTenantContext(options?: { allowMissingSiteScope?: boolean }): {

@@ -280,6 +280,7 @@ export class TrainingsService {
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
       .where('training.company_id = :tenantId', { tenantId })
+      .andWhere('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC')
       .skip(skip)
       .take(limit);
@@ -326,6 +327,7 @@ export class TrainingsService {
         'training.updated_at',
       ])
       .where('training.company_id = :tenantId', { tenantId: scope.companyId })
+      .andWhere('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC')
       .take(5000);
     this.applyUserSiteScope(qb, 'user', scope);
@@ -360,6 +362,7 @@ export class TrainingsService {
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
       .where('training.company_id = :tenantId', { tenantId })
+      .andWhere('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC')
       .skip(skip)
       .take(limit);
@@ -460,7 +463,8 @@ export class TrainingsService {
       .where('training.id = :id', { id })
       .andWhere('training.company_id = :tenantId', {
         tenantId: scope.companyId,
-      });
+      })
+      .andWhere('training.deleted_at IS NULL');
     this.applyUserSiteScope(qb, 'user', scope);
     const training = await qb.getOne();
     if (!training) {
@@ -644,7 +648,21 @@ export class TrainingsService {
 
   async remove(id: string): Promise<void> {
     const training = await this.findOne(id);
-    await this.trainingsRepository.softDelete(training.id);
+    if (training.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente treinamentos sem certificado (PDF) final podem ser removidos. Use os fluxos formais de cancelamento para registros já emitidos.',
+      );
+    }
+    // Mesmo sem PDF final, garante que nenhuma entrada de registry órfã
+    // permaneça publicamente validável por QR após a remoção do treinamento.
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: training.company_id,
+      module: 'training',
+      entityId: training.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Training).softDelete(training.id);
+      },
+    });
   }
 
   async findByUserId(userId: string): Promise<Training[]> {
@@ -661,7 +679,8 @@ export class TrainingsService {
       .where('training.user_id = :userId', { userId })
       .andWhere('training.company_id = :tenantId', {
         tenantId: scope.companyId,
-      });
+      })
+      .andWhere('training.deleted_at IS NULL');
     this.applyUserSiteScope(qb, 'user', scope);
     return qb.getMany();
   }

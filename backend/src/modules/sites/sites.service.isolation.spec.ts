@@ -50,6 +50,7 @@ const makeRepo = (): jest.Mocked<Repository<Site>> =>
     create: jest.fn((d: Partial<Site>) => d as Site),
     save: jest.fn((e: Site) => Promise.resolve(e)),
     remove: jest.fn().mockResolvedValue(undefined),
+    softDelete: jest.fn().mockResolvedValue(undefined),
     createQueryBuilder: jest.fn().mockReturnValue(makeQb()),
   }) as unknown as jest.Mocked<Repository<Site>>;
 
@@ -242,7 +243,7 @@ describe('SitesService — isolamento de tenant', () => {
   });
 
   describe('remove', () => {
-    it('remove site do tenant correto', async () => {
+    it('remove (soft-delete) site do tenant correto', async () => {
       const repo = makeRepo();
       const site = makeSite();
       repo.findOne.mockResolvedValueOnce(site);
@@ -250,8 +251,12 @@ describe('SitesService — isolamento de tenant', () => {
 
       await service.remove(SITE_ID);
 
+      // Soft delete: hard delete quebraria FKs de aprs/pts/dds/checklists/...
+      // e destruiria retenção legal de documentos de SST vinculados à obra.
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(repo.remove).toHaveBeenCalledWith(site);
+      expect(repo.softDelete).toHaveBeenCalledWith(SITE_ID);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(repo.remove).not.toHaveBeenCalled();
     });
 
     it('lança NotFoundException ao remover site inexistente', async () => {

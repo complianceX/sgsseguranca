@@ -1906,6 +1906,11 @@ export class PtsService {
 
   async remove(id: string): Promise<void> {
     const pt = await this.findOne(id);
+    if (pt.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente PTs sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: pt.company_id,
       module: 'pt',
