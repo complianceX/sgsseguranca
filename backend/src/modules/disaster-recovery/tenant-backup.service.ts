@@ -436,6 +436,19 @@ export class TenantBackupService {
       .map((row) => row.id)
       .filter((id: string | undefined): id is string => Boolean(id));
 
+    // Trava de sanidade: zero empresas ativas é quase sempre sinal de que o
+    // contexto RLS não foi injetado (companies tem RLS FORCE) — nunca deveria
+    // acontecer em produção com clientes reais. Falhar alto em vez de
+    // "terminar com sucesso" tendo processado nada.
+    if (ids.length === 0) {
+      const message =
+        'backupAllActiveTenants não encontrou nenhuma empresa ativa. ' +
+        'Suspeita de contexto RLS ausente (companies tem RLS FORCE) — ' +
+        'abortando em vez de reportar sucesso vazio.';
+      this.logger.error({ event: 'tenant_backup_zero_companies_found' });
+      throw new Error(message);
+    }
+
     for (const companyId of ids) {
       await this.backupTenant(companyId, {
         triggerSource: 'scheduled_daily',

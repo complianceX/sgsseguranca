@@ -5,6 +5,7 @@ import { captureException } from '../../shared/monitoring/sentry';
 import { TenantBackupService } from './tenant-backup.service';
 import type { TenantBackupJobData } from './tenant-backup.types';
 import { withJobTimeout } from '../../infra/queue/job-timeout.util';
+import { TenantService } from '../../shared/tenant/tenant.service';
 
 // Timeouts por tipo de job: operacoes de backup/restore variam muito em duracao.
 const TENANT_BACKUP_TIMEOUT_MS: Partial<
@@ -21,7 +22,10 @@ const DEFAULT_BACKUP_TIMEOUT_MS = 5 * 60_000;
 export class TenantBackupProcessor extends WorkerHost {
   private readonly logger = new Logger(TenantBackupProcessor.name);
 
-  constructor(private readonly tenantBackupService: TenantBackupService) {
+  constructor(
+    private readonly tenantBackupService: TenantBackupService,
+    private readonly tenantService: TenantService,
+  ) {
     super();
   }
 
@@ -30,41 +34,53 @@ export class TenantBackupProcessor extends WorkerHost {
       TENANT_BACKUP_TIMEOUT_MS[job.data.type] ?? DEFAULT_BACKUP_TIMEOUT_MS;
 
     try {
-      return await withJobTimeout(
-        async () => {
-          switch (job.data.type) {
-            case 'backup_tenant':
-              return this.tenantBackupService.backupTenant(job.data.companyId, {
-                triggerSource: job.data.triggerSource,
-                requestedByUserId: job.data.requestedByUserId,
-              });
-            case 'backup_all_active_tenants':
-              return this.tenantBackupService.backupAllActiveTenants(
-                job.data.requestedByUserId,
-              );
-            case 'restore_tenant':
-              return this.tenantBackupService.restoreBackup({
-                sourceCompanyId: job.data.sourceCompanyId,
-                mode: job.data.mode,
-                targetCompanyId: job.data.targetCompanyId,
-                backupId: job.data.backupId,
-                backupFilePath: job.data.backupFilePath,
-                requestedByUserId: job.data.requestedByUserId,
-                confirmCompanyId: job.data.confirmCompanyId,
-                confirmPhrase: job.data.confirmPhrase,
-                targetCompanyName: job.data.targetCompanyName,
-                targetCompanyCnpj: job.data.targetCompanyCnpj,
-              });
-            case 'prune_tenant_backups':
-              return this.tenantBackupService.pruneBackups();
-            default: {
-              const exhaustive: never = job.data;
-              return exhaustive;
-            }
-          }
-        },
-        timeoutMs,
-        { jobName: job.data.type, jobId: job.id, logger: this.logger },
+      // Contexto super-admin OBRIGATÓRIO: este processor roda fora de qualquer
+      // request HTTP, sem TenantInterceptor. companies/aprs/pts/... têm RLS
+      // FORCE — sem isto, toda leitura via dataSource.query() retorna 0 linhas
+      // silenciosamente e o backup "termina com sucesso" vazio (confirmado
+      // empiricamente contra produção: 0 linhas em companies/aprs sem contexto).
+      return await this.tenantService.run(
+        { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+        () =>
+          withJobTimeout(
+            async () => {
+              switch (job.data.type) {
+                case 'backup_tenant':
+                  return this.tenantBackupService.backupTenant(
+                    job.data.companyId,
+                    {
+                      triggerSource: job.data.triggerSource,
+                      requestedByUserId: job.data.requestedByUserId,
+                    },
+                  );
+                case 'backup_all_active_tenants':
+                  return this.tenantBackupService.backupAllActiveTenants(
+                    job.data.requestedByUserId,
+                  );
+                case 'restore_tenant':
+                  return this.tenantBackupService.restoreBackup({
+                    sourceCompanyId: job.data.sourceCompanyId,
+                    mode: job.data.mode,
+                    targetCompanyId: job.data.targetCompanyId,
+                    backupId: job.data.backupId,
+                    backupFilePath: job.data.backupFilePath,
+                    requestedByUserId: job.data.requestedByUserId,
+                    confirmCompanyId: job.data.confirmCompanyId,
+                    confirmPhrase: job.data.confirmPhrase,
+                    targetCompanyName: job.data.targetCompanyName,
+                    targetCompanyCnpj: job.data.targetCompanyCnpj,
+                  });
+                case 'prune_tenant_backups':
+                  return this.tenantBackupService.pruneBackups();
+                default: {
+                  const exhaustive: never = job.data;
+                  return exhaustive;
+                }
+              }
+            },
+            timeoutMs,
+            { jobName: job.data.type, jobId: job.id, logger: this.logger },
+          ),
       );
     } catch (error) {
       captureException(error, {

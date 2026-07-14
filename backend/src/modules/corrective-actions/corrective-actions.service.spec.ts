@@ -249,4 +249,46 @@ describe('CorrectiveActionsService', () => {
       expect(result.avgResolutionDays).toBe('0.0');
     });
   });
+
+  describe('getSlaBySite()', () => {
+    it('agrupa por site.nome (coluna real da entidade Site, não site.name)', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            siteId: 'site-1',
+            siteName: 'Obra Central',
+            total: '2',
+            overdue: '1',
+          },
+        ]),
+      };
+      const repo = {
+        find: jest.fn().mockResolvedValue([]),
+        createQueryBuilder: jest.fn().mockReturnValue(qb),
+      };
+      const service = makeService({
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
+      });
+
+      const result = await service.getSlaBySite();
+
+      expect(qb.addSelect).toHaveBeenCalledWith('site.nome', 'siteName');
+      expect(qb.groupBy).toHaveBeenCalledWith('site.nome');
+      expect(result[0]).toMatchObject({
+        siteId: 'site-1',
+        site: 'Obra Central',
+        total: 2,
+        overdue: 1,
+      });
+    });
+  });
 });
