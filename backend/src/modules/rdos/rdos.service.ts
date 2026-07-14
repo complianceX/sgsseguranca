@@ -952,6 +952,14 @@ export class RdosService {
       qb.andWhere(clause, parameters);
     };
 
+    // RDO tem soft-delete (deleted_at, incluído no gdpr_delete_user_data).
+    // createQueryBuilder NÃO filtra deleted_at automaticamente (só
+    // Repository.find/count o fazem), então tanto a listagem quanto o total
+    // precisam do filtro explícito — senão RDOs de titular anonimizado por
+    // GDPR contam no total e criam "buracos" na página (IDs que o .find()
+    // posterior descarta).
+    appendClause('rdo.deleted_at IS NULL', {});
+
     if (tenantId) {
       appendClause('rdo.company_id = :tenantId', { tenantId });
     }
@@ -2192,6 +2200,7 @@ export class RdosService {
     if (companyId) {
       qb.where('rdo.company_id = :companyId', { companyId });
     }
+    qb.andWhere('rdo.deleted_at IS NULL');
     if (!isSuperAdmin && siteScope !== 'all') {
       qb.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
     }
@@ -2225,6 +2234,7 @@ export class RdosService {
     if (companyId) {
       qb.where('rdo.company_id = :companyId', { companyId });
     }
+    qb.andWhere('rdo.deleted_at IS NULL');
     if (!isSuperAdmin && siteScope !== 'all') {
       qb.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
     }

@@ -783,6 +783,9 @@ describe('AprsService', () => {
       sort: 'priority',
     });
 
+    // Regressão GDPR: APRs soft-deletadas (ex.: titular anonimizado) não
+    // podem aparecer na listagem nem contar no total.
+    expect(qb.andWhere).toHaveBeenCalledWith('apr.deleted_at IS NULL');
     expect(qb.addSelect).toHaveBeenCalledWith(
       expect.stringContaining("WHEN apr.status = 'Pendente'"),
       'apr_priority_order',
@@ -1824,6 +1827,7 @@ describe('AprsService', () => {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ avg: '7.5', criticos: '3' }),
     };
     aprRepository.createQueryBuilder.mockReturnValue(riskQb);

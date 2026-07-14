@@ -1497,6 +1497,12 @@ export class AprsService {
       qb.where('apr.company_id = :companyId', { companyId: opts.companyId });
     }
 
+    // APR tem soft-delete (deleted_at, incluído no gdpr_delete_user_data).
+    // createQueryBuilder não filtra deleted_at automaticamente — sem isto,
+    // APRs de titular anonimizado por GDPR apareceriam na listagem e
+    // inflariam o total.
+    qb.andWhere('apr.deleted_at IS NULL');
+
     if (!isSuperAdmin && siteScope !== 'all') {
       qb.andWhere('apr.site_id IN (:...siteIds)', { siteIds });
     } else if (opts?.siteId) {
@@ -2641,6 +2647,7 @@ export class AprsService {
       ])
       .where('(apr.id = :rootId OR apr.parent_apr_id = :rootId)', { rootId })
       .andWhere('apr.company_id = :tenantId', { tenantId })
+      .andWhere('apr.deleted_at IS NULL')
       .orderBy('apr.versao', 'ASC')
       .getMany();
   }
@@ -2821,6 +2828,8 @@ export class AprsService {
             'criticos',
           )
           .where('apr.company_id = :tenantId', { tenantId })
+          .andWhere('apr.deleted_at IS NULL')
+          .andWhere('ri.deleted_at IS NULL')
           .getRawOne<{ avg: string; criticos: string }>();
 
         return {
@@ -2914,6 +2923,7 @@ export class AprsService {
       ])
       .orderBy('apr.created_at', 'DESC');
     if (companyId) qb.where('apr.company_id = :companyId', { companyId });
+    qb.andWhere('apr.deleted_at IS NULL');
     if (!isSuperAdmin && siteScope !== 'all') {
       qb.andWhere('apr.site_id IN (:...siteIds)', { siteIds });
     }
