@@ -50,22 +50,6 @@ export class IntegrationResilienceService {
       this.getIntegrationNumberEnv(normalized, 'TIMEOUT_MS') ??
       this.getNumberEnv('INTEGRATION_TIMEOUT_MS', 10_000);
 
-    const breakerConfig = {
-      failureThreshold:
-        opts?.breaker?.failureThreshold ??
-        this.getIntegrationNumberEnv(normalized, 'CB_FAILURE_THRESHOLD') ??
-        this.getNumberEnv('INTEGRATION_CB_FAILURE_THRESHOLD', 5),
-      successThreshold:
-        opts?.breaker?.successThreshold ??
-        this.getIntegrationNumberEnv(normalized, 'CB_SUCCESS_THRESHOLD') ??
-        this.getNumberEnv('INTEGRATION_CB_SUCCESS_THRESHOLD', 2),
-      resetTimeout:
-        opts?.breaker?.resetTimeoutMs ??
-        this.getIntegrationNumberEnv(normalized, 'CB_RESET_TIMEOUT_MS') ??
-        this.getNumberEnv('INTEGRATION_CB_RESET_TIMEOUT_MS', 30_000),
-      timeout: timeoutMs,
-    };
-
     const retryMode = opts?.retry?.mode ?? 'idempotent';
     const retryAttempts =
       opts?.retry?.attempts ??
@@ -84,8 +68,39 @@ export class IntegrationResilienceService {
       this.getIntegrationNumberEnv(normalized, 'RETRY_JITTER_RATIO') ??
       this.getNumberEnv('INTEGRATION_RETRY_JITTER_RATIO', 0.2);
 
+    const effectiveAttempts = Math.max(1, retryAttempts);
+
+    // O circuit breaker envolve TODAS as tentativas de retry (retryService roda
+    // dentro do breaker). Se o timeout do breaker fosse igual ao de UMA
+    // tentativa (timeoutMs), qualquer chamada lenta com retry estouraria com
+    // "Circuit breaker timeout" antes do retry terminar — foi exatamente o que
+    // derrubou a Sophie em produção (LLM lento + attempts:2). O timeout do
+    // breaker precisa cobrir n tentativas + os delays de backoff entre elas,
+    // com uma folga. O timeout por-tentativa (abort do fetch) continua sendo
+    // timeoutMs, imposto por quem chama.
+    const breakerTimeout =
+      timeoutMs * effectiveAttempts +
+      maxDelayMs * (effectiveAttempts - 1) +
+      500;
+
+    const breakerConfig = {
+      failureThreshold:
+        opts?.breaker?.failureThreshold ??
+        this.getIntegrationNumberEnv(normalized, 'CB_FAILURE_THRESHOLD') ??
+        this.getNumberEnv('INTEGRATION_CB_FAILURE_THRESHOLD', 5),
+      successThreshold:
+        opts?.breaker?.successThreshold ??
+        this.getIntegrationNumberEnv(normalized, 'CB_SUCCESS_THRESHOLD') ??
+        this.getNumberEnv('INTEGRATION_CB_SUCCESS_THRESHOLD', 2),
+      resetTimeout:
+        opts?.breaker?.resetTimeoutMs ??
+        this.getIntegrationNumberEnv(normalized, 'CB_RESET_TIMEOUT_MS') ??
+        this.getNumberEnv('INTEGRATION_CB_RESET_TIMEOUT_MS', 30_000),
+      timeout: breakerTimeout,
+    };
+
     const retryOptions = {
-      attempts: Math.max(1, retryAttempts),
+      attempts: effectiveAttempts,
       baseDelayMs,
       maxDelayMs,
       jitterRatio,
