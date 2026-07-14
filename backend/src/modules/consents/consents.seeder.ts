@@ -12,7 +12,7 @@ const TERMS_VERSION =
 const AI_CONSENT_VERSION =
   process.env.LEGAL_AI_CONSENT_VERSION ||
   process.env.NEXT_PUBLIC_LEGAL_AI_CONSENT_VERSION ||
-  '2026-07-13';
+  '2026-07-15';
 
 /**
  * Seed de textos base. O body_md aqui é um resumo operacional — a versão
@@ -54,8 +54,8 @@ Este aceite representa ciência integral dos Termos de Uso publicados em /termos
 Autorizo o processamento dos meus dados operacionais por funcionalidades de IA (SOPHIE), ciente de que:
 
 - Dados pessoais diretos (CPF, e-mail, telefone, nomes) devem ser minimizados e filtrados antes do envio ao provedor.
-- O provedor atualmente utilizado é NVIDIA Corporation, por meio da NVIDIA NIM API, para o modelo textual openai/gpt-oss-120b, com possibilidade de transferência internacional conforme a Política de Privacidade vigente.
-- Fotos e outros conteúdos visuais não são enviados a esse modelo textual; a análise visual permanece desabilitada enquanto não houver modelo visual aprovado e informado em nova versão deste consentimento.
+- O provedor atualmente utilizado é OpenAI, L.L.C. (OpenAI), por meio da API oficial da OpenAI, para o modelo gpt-4o, com transferência internacional de dados para os Estados Unidos, sob as salvaguardas previstas na Política de Privacidade vigente.
+- Este modelo possui capacidade de análise visual: quando eu enviar fotos ou imagens a funcionalidades de IA (por exemplo, análise de risco a partir de foto de frente de obra), esses conteúdos visuais serão transmitidos ao provedor para processamento. Não devo enviar imagens que contenham dados pessoais sensíveis ou de terceiros sem necessidade.
 - A ativação depende da base contratual e das salvaguardas de transferência internacional aplicáveis ao Cliente.
 - A saída da IA é auxiliar e não substitui decisão humana.
 - Posso revogar este consentimento a qualquer tempo em Configurações → Privacidade, sem prejuízo dos demais serviços.
@@ -105,7 +105,7 @@ export class ConsentsSeederService implements OnModuleInit {
         type: 'ai_processing',
         versionLabel: AI_CONSENT_VERSION,
         summary:
-          'Consentimento para uso da IA SOPHIE (NVIDIA NIM / GPT-OSS 120B).',
+          'Consentimento para uso da IA SOPHIE (OpenAI / gpt-4o, com análise visual e transferência internacional).',
       },
       {
         type: 'cookies',
