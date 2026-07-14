@@ -393,7 +393,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       .createQueryBuilder('ca')
       .leftJoinAndSelect('ca.site', 'site')
       .select('site.id', 'siteId')
-      .addSelect('site.name', 'siteName')
+      .addSelect('site.nome', 'siteName')
       .addSelect('COUNT(ca.id)', 'total')
       .addSelect(
         "SUM(CASE WHEN ca.status = 'overdue' THEN 1 ELSE 0 END)",
@@ -401,7 +401,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       )
       .where('ca.deleted_at IS NULL')
       .andWhere('ca.company_id = :companyId', { companyId: scope.companyId })
-      .groupBy('site.name')
+      .groupBy('site.nome')
       .addGroupBy('site.id');
     if (!scope.hasCompanyWideAccess) {
       sitesQuery.andWhere('ca.site_id = :siteId', { siteId: scope.siteId });
