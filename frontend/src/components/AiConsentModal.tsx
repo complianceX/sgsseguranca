@@ -49,15 +49,18 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
           <div className="space-y-3">
             <InfoItem icon={<ShieldCheck className="h-4 w-4" />} title="O que é enviado para a IA">
               Dados <strong>minimizados e pseudonimizados</strong> do contexto operacional
-              podem ser usados para gerar respostas. Não informe CPF, dados de saúde
-              individual, documentos pessoais ou informações excessivas nos prompts.
+              podem ser usados para gerar respostas. Quando você enviar fotos ou imagens
+              (ex.: análise de risco a partir de foto de obra), esses conteúdos visuais
+              serão transmitidos ao provedor. Não informe CPF, dados de saúde individual,
+              documentos pessoais ou imagens de terceiros sem necessidade.
             </InfoItem>
 
             <InfoItem icon={<Globe className="h-4 w-4" />} title="Para onde são enviados">
               Quando o recurso estiver habilitado contratualmente, os dados necessários
-              são processados pela <strong>NVIDIA Corporation, por meio da NVIDIA NIM API</strong>,
-              com possibilidade de transferência internacional conforme a Política de
-              Privacidade vigente. O modelo atual é textual; fotos não são enviadas a ele.
+              são processados pela <strong>OpenAI, por meio da API oficial da OpenAI</strong>{' '}
+              (modelo gpt-4o), com <strong>transferência internacional para os Estados
+              Unidos</strong>, sob as salvaguardas da Política de Privacidade vigente. O
+              modelo tem capacidade de análise visual.
             </InfoItem>
 
             <InfoItem icon={<RotateCcw className="h-4 w-4" />} title="Você pode revogar a qualquer momento">
