@@ -586,30 +586,29 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     const hasNc = ncCreate.status === 201;
     const ncid = hasNc ? ((ncCreate.body as { id?: string }).id ?? null) : null;
 
-    // delete por admin (permitido)
+    // checklist já tem PDF final: remove() deve bloquear (trava de integridade
+    // documental — só é possível excluir checklist sem PDF final emitido).
     const delRes = await testApp
       .request()
       .delete(`/checklists/${cid}`)
       .set(testApp.authHeaders(adminSession))
       .set(csrfHeaders);
-    // pode ser 200/204 ou 404 se ja processado; aceitamos sucesso ou no content
-    expect([200, 204, 404]).toContain(delRes.status);
+    expect(delRes.status).toBe(400);
 
-    // apos delete, get deve 404 (scoping + soft)
+    // checklist continua acessível (nao foi removido)
     const getAfter = await testApp
       .request()
       .get(`/checklists/${cid}`)
       .set(testApp.authHeaders(adminSession));
-    expect(getAfter.status).toBe(404);
+    expect(getAfter.status).toBe(200);
 
-    // se NC foi criado, deve continuar existindo e checklist_id provavelmente null ou preservado (soft)
+    // NC criado permanece vinculado, já que o checklist não foi removido
     if (hasNc && ncid) {
       const ncGet = await testApp
         .request()
         .get(`/nonconformities/${ncid}`)
         .set(testApp.authHeaders(adminSession));
       expect(ncGet.status).toBe(200);
-      // link pode ser null por SET NULL no hard delete, mas soft mantem; aceitamos ambos
       const ncBody: unknown = ncGet.body;
       expect(ncBody).toBeDefined();
     }
