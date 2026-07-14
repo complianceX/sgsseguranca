@@ -538,6 +538,11 @@ export class DidsService {
 
   async remove(id: string): Promise<void> {
     const did = await this.findOne(id);
+    if (did.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente DIDs sem PDF final podem ser removidos. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
 
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: did.company_id,

@@ -2457,6 +2457,11 @@ export class ChecklistsService {
 
   async remove(id: string): Promise<void> {
     const checklist = await this.findOneEntity(id);
+    if (checklist.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente checklists sem PDF final podem ser removidos. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
     const governedPhotoEntries =
       this.getGovernedChecklistPhotoEntries(checklist);
 

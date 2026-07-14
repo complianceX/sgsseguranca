@@ -404,4 +404,14 @@ describe('ArrsService', () => {
       url: null,
     });
   });
+
+  it('bloqueia remocao de ARR que ja tem PDF final emitido', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'arr-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/arr-1.pdf',
+    } as unknown as Arr);
+
+    await expect(service.remove('arr-1')).rejects.toThrow('sem PDF final');
+  });
 });

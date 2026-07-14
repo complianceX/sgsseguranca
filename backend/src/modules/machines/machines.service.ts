@@ -101,7 +101,9 @@ export class MachinesService extends BaseService<Machine> {
       .skip(skip)
       .take(limit);
 
-    query.where('machine.company_id = :tenantId', { tenantId });
+    query
+      .where('machine.company_id = :tenantId', { tenantId })
+      .andWhere('machine.deleted_at IS NULL');
 
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {

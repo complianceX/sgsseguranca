@@ -570,6 +570,11 @@ export class AuditsService {
   async remove(id: string, companyId: string) {
     const audit = await this.findOne(id, companyId);
     const auditId = audit.id;
+    if (audit.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente auditorias sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: audit.company_id,
       module: 'audit',

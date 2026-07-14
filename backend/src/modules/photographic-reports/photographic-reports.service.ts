@@ -920,6 +920,16 @@ export class PhotographicReportsService {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(id, companyId);
 
+    if (
+      report.status === PhotographicReportStatus.FINALIZADO ||
+      report.status === PhotographicReportStatus.EXPORTADO ||
+      (report.exports || []).length > 0
+    ) {
+      throw new BadRequestException(
+        'Somente relatórios fotográficos sem exportação final podem ser removidos. Use os fluxos formais de cancelamento para registros já finalizados/exportados.',
+      );
+    }
+
     const exportKeys = Array.from(
       new Set(
         (report.exports || []).map((entry) => entry.file_url).filter(Boolean),
@@ -963,7 +973,7 @@ export class PhotographicReportsService {
       cleanupStoredFile: () => Promise.resolve(undefined),
     });
 
-    await this.reportRepository.delete({ id: report.id });
+    await this.reportRepository.softDelete(report.id);
   }
 
   async createDay(

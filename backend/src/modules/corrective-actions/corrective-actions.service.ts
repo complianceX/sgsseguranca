@@ -516,8 +516,11 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   async remove(id: string) {
-    const entity = await this.findOne(id);
-    await this.correctiveActionsRepository.remove(entity);
+    // Soft delete: hard delete apagaria a ação corretiva vinculada a uma
+    // não conformidade/auditoria já registrada, quebrando a trilha de
+    // conformidade (mesmo padrão de BaseService.remove()).
+    await this.findOne(id);
+    await this.correctiveActionsRepository.softDelete(id);
   }
 
   private async refreshOverdueActions() {

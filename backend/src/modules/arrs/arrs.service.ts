@@ -472,6 +472,11 @@ export class ArrsService {
 
   async remove(id: string): Promise<void> {
     const arr = await this.findOne(id);
+    if (arr.pdf_file_key) {
+      throw new BadRequestException(
+        'Somente ARRs sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
 
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: arr.company_id,

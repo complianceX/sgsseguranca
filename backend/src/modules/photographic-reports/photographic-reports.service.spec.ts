@@ -13,7 +13,7 @@ import { RequestContext } from '../../shared/middleware/request-context.middlewa
 
 type ReportRepoMock = Pick<
   Repository<PhotographicReport>,
-  'create' | 'save' | 'delete' | 'findOne' | 'createQueryBuilder'
+  'create' | 'save' | 'delete' | 'softDelete' | 'findOne' | 'createQueryBuilder'
 >;
 type DayRepoMock = Pick<Repository<PhotographicReportDay>, 'create' | 'save'>;
 type ImageRepoMock = Pick<Repository<PhotographicReportImage>, 'save'>;
@@ -24,6 +24,7 @@ describe('PhotographicReportsService', () => {
     create: jest.fn(),
     save: jest.fn(),
     delete: jest.fn(),
+    softDelete: jest.fn(),
     findOne: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
@@ -103,25 +104,26 @@ describe('PhotographicReportsService', () => {
     );
   });
 
-  it('remove() apaga exports e imagens do storage antes de excluir o relatório', async () => {
+  it('remove() apaga imagens do storage e soft-deleta relatório sem exportação', async () => {
     const report = {
       id: 'report-1',
       company_id: 'company-1',
+      status: PhotographicReportStatus.RASCUNHO,
       deleted_at: null,
       images: [
         { image_url: 'companies/company-1/report-1/images/a.jpg' },
         { image_url: 'companies/company-1/report-1/images/a.jpg' },
         { image_url: 'companies/company-1/report-1/images/b.jpg' },
       ],
-      exports: [
-        { file_url: 'companies/company-1/report-1/exports/r1.pdf' },
-        { file_url: 'companies/company-1/report-1/exports/r1.pdf' },
-        { file_url: 'companies/company-1/report-1/exports/r2.docx' },
-      ],
+      exports: [],
     } as unknown as PhotographicReport;
 
     reportRepository.findOne.mockResolvedValue(report);
-    reportRepository.delete.mockResolvedValue({ affected: 1, raw: [] });
+    reportRepository.softDelete.mockResolvedValue({
+      affected: 1,
+      raw: [],
+      generatedMaps: [],
+    });
 
     await service.remove('report-1');
 
@@ -139,16 +141,29 @@ describe('PhotographicReportsService', () => {
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'companies/company-1/report-1/images/b.jpg',
     );
-    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'companies/company-1/report-1/exports/r1.pdf',
-    );
-    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'companies/company-1/report-1/exports/r2.docx',
-    );
     expect(
       documentGovernanceService.removeFinalDocumentReference,
     ).toHaveBeenCalled();
-    expect(reportRepository.delete).toHaveBeenCalledWith({ id: 'report-1' });
+    expect(reportRepository.softDelete).toHaveBeenCalledWith('report-1');
+  });
+
+  it('bloqueia remove() quando o relatório já tem exportação final', async () => {
+    const report = {
+      id: 'report-1',
+      company_id: 'company-1',
+      status: PhotographicReportStatus.EXPORTADO,
+      deleted_at: null,
+      images: [],
+      exports: [{ file_url: 'companies/company-1/report-1/exports/r1.pdf' }],
+    } as unknown as PhotographicReport;
+
+    reportRepository.findOne.mockResolvedValue(report);
+
+    await expect(service.remove('report-1')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
+    expect(reportRepository.softDelete).not.toHaveBeenCalled();
   });
 
   it('update() bloqueia transição direta de status fora dos fluxos dedicados', async () => {
