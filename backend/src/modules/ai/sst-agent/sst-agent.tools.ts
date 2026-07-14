@@ -22,6 +22,7 @@ import { CatsService } from '../../cats/cats.service';
 import { NonConformitiesService } from '../../nonconformities/nonconformities.service';
 import { ServiceOrdersService } from '../../service-orders/service-orders.service';
 import { AprsService } from '../../aprs/aprs.service';
+import { PtsService } from '../../pts/pts.service';
 import { EpisService } from '../../epis/epis.service';
 import { DdsService } from '../../dds/dds.service';
 import { SstToolResult } from './sst-agent.types';
@@ -145,6 +146,40 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
       },
     },
   },
+  {
+    name: 'buscar_aprs',
+    description:
+      'Conta e resume as APRs (Análise Preliminar de Risco) da empresa, agrupadas por status ' +
+      '(Pendente, Aprovada, Encerrada, Cancelada). Use para responder "quantas APRs existem", ' +
+      '"quantas estão pendentes de aprovação", etc. Referência: NR-1 (GRO/PGR). DADOS REAIS.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        status: {
+          type: 'string',
+          description:
+            'Filtro opcional por status: Pendente, Aprovada, Encerrada, Cancelada.',
+        },
+      },
+    },
+  },
+  {
+    name: 'buscar_permissoes_trabalho',
+    description:
+      'Conta e resume as PTs (Permissões de Trabalho) da empresa, agrupadas por status ' +
+      '(Pendente, Aprovada, Encerrada, Cancelada, Expirada). Use para "quantas PTs existem", ' +
+      '"quantas PTs ativas/pendentes". Referência: NR-33 (espaço confinado), NR-35 (altura). DADOS REAIS.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        status: {
+          type: 'string',
+          description:
+            'Filtro opcional por status: Pendente, Aprovada, Encerrada, Cancelada, Expirada.',
+        },
+      },
+    },
+  },
 ];
 
 type OpenAiToolDefinition = {
@@ -197,6 +232,7 @@ export class SstToolsExecutor {
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly serviceOrdersService: ServiceOrdersService,
     private readonly aprsService: AprsService,
+    private readonly ptsService: PtsService,
     private readonly episService: EpisService,
     private readonly ddsService: DdsService,
   ) {}
@@ -269,6 +305,14 @@ export class SstToolsExecutor {
           return await this.buscarDdsRecentes(
             input.status as string | undefined,
             Number(input.dias ?? 7),
+          );
+
+        case 'buscar_aprs':
+          return await this.buscarAprs(input.status as string | undefined);
+
+        case 'buscar_permissoes_trabalho':
+          return await this.buscarPermissoesTrabalho(
+            input.status as string | undefined,
           );
 
         default:
@@ -551,6 +595,67 @@ export class SstToolsExecutor {
         link: '/dashboard/dds',
         referencia:
           'DDS — Diálogo Diário de Segurança: registro, aprovação e validação de alinhamento de segurança.',
+        sanitized_for_ai: true,
+      },
+    };
+  }
+
+  /** Contagem/agrupamento por status de um documento paginado, sem PII. */
+  private countByStatus(rows: LooseRecord[]): Record<string, number> {
+    const byStatus: Record<string, number> = {};
+    for (const row of rows) {
+      const status = this.toSafeString(row.status) || 'sem_status';
+      byStatus[status] = (byStatus[status] ?? 0) + 1;
+    }
+    return byStatus;
+  }
+
+  private async buscarAprs(status?: string): Promise<SstToolResult> {
+    // Carrega até 100 (teto do findPaginated) só para agregar por status;
+    // nenhum dado individual identificável é enviado à IA.
+    const page = await this.aprsService.findPaginated({
+      page: 1,
+      limit: 100,
+      ...(status ? { status } : {}),
+    });
+    const rows = this.toLooseRecordArray(page.data);
+    return {
+      success: true,
+      is_stub: false,
+      data: {
+        total: page.total,
+        amostra_carregada: rows.length,
+        filtro_status: status ?? 'todos',
+        por_status: this.countByStatus(rows),
+        link: '/dashboard/aprs',
+        referencia:
+          'NR-1 (GRO/PGR): APR — Análise Preliminar de Risco identifica perigos antes da atividade.',
+        sanitized_for_ai: true,
+      },
+    };
+  }
+
+  private async buscarPermissoesTrabalho(
+    status?: string,
+  ): Promise<SstToolResult> {
+    const page = await this.ptsService.findPaginated({
+      page: 1,
+      limit: 100,
+      ...(status ? { status } : {}),
+    });
+    const rows = this.toLooseRecordArray(page.data);
+    return {
+      success: true,
+      is_stub: false,
+      data: {
+        total: page.total,
+        amostra_carregada: rows.length,
+        filtro_status: status ?? 'todos',
+        por_status: this.countByStatus(rows),
+        link: '/dashboard/pts',
+        referencia:
+          'PT — Permissão de Trabalho: liberação formal para atividades de risco ' +
+          '(NR-33 espaço confinado, NR-35 altura).',
         sanitized_for_ai: true,
       },
     };

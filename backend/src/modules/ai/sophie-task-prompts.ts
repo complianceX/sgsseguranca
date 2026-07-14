@@ -108,6 +108,11 @@ export const SOPHIE_TASK_PROMPT_DEFINITIONS: Record<
         'risks e epis devem conter apenas IDs válidos recebidos no contexto',
         'explanation deve ser curta, técnica e objetiva',
         'não inventar riscos, EPIs, IDs ou evidências operacionais',
+        'quando risks/epis vierem vazios por falta de cadastro aderente, ' +
+          'NÃO deixe a resposta vazia: em notes, liste de 3 a 6 riscos ' +
+          'descritivos prováveis do cenário (ex.: queda de altura, choque ' +
+          'elétrico, projeção de partículas) e os EPIs recomendados, deixando ' +
+          'claro que são sugestões técnicas para cadastro, não IDs do sistema',
       ],
     }),
   },

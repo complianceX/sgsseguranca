@@ -73,7 +73,7 @@ function formatCapabilityLabel(key: string) {
 export function SophieStatusCard() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<SophieStatus | null>(null);
-  const { consentGiven, requestConsent, ConsentGate } = useAiConsent();
+  const { consentGiven, needsReacceptance, requestConsent, ConsentGate } = useAiConsent();
 
   useEffect(() => {
     let active = true;
@@ -127,10 +127,12 @@ export function SophieStatusCard() {
         <div className="mt-5 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-6 text-center">
           <BrainCircuit className="mx-auto mb-3 h-8 w-8 text-[var(--ds-color-text-muted)]" />
           <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
-            Para visualizar o status detalhado da SOPHIE, é necessário aceitar os termos de processamento por IA (LGPD).
+            {needsReacceptance
+              ? 'Os termos de processamento por IA (LGPD) foram atualizados. Revise e aceite a nova versão para continuar usando a SOPHIE.'
+              : 'Para visualizar o status detalhado da SOPHIE, é necessário aceitar os termos de processamento por IA (LGPD).'}
           </p>
           <Button variant="primary" onClick={requestConsent}>
-            Aceitar termos de IA
+            {needsReacceptance ? 'Revisar e aceitar novos termos' : 'Aceitar termos de IA'}
           </Button>
         </div>
       ) : loading ? (
