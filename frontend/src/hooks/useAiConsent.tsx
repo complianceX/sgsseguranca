@@ -28,6 +28,12 @@ import { consentsService } from '@/services/consentsService';
 interface UseAiConsentReturn {
   /** True se o usuário já deu consentimento (no perfil ou nesta sessão). */
   consentGiven: boolean;
+  /**
+   * True quando o usuário JÁ aceitou uma versão anterior do consentimento de IA
+   * mas ela foi retirada (precisa re-aceitar a versão vigente). Permite ao
+   * componente distinguir "primeiro aceite" de "atualização de termos".
+   */
+  needsReacceptance: boolean;
   /** Abre o modal de consentimento. Chamar antes de qualquer operação de IA. */
   requestConsent: () => void;
   /** Renderiza o modal quando necessário — inclua no JSX do componente. */
@@ -39,10 +45,12 @@ export function useAiConsent(): UseAiConsentReturn {
   const [modalOpen, setModalOpen] = useState(false);
   const [sessionConsent, setSessionConsent] = useState<boolean | null>(null);
   const [versionedConsent, setVersionedConsent] = useState(false);
+  const [needsReacceptance, setNeedsReacceptance] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
       setVersionedConsent(false);
+      setNeedsReacceptance(false);
       return;
     }
 
@@ -53,9 +61,14 @@ export function useAiConsent(): UseAiConsentReturn {
         if (!active) return;
         const aiConsent = consents.find((consent) => consent.type === 'ai_processing');
         setVersionedConsent(Boolean(aiConsent?.active && !aiConsent.needsReacceptance));
+        // "Precisa re-aceitar" = já aceitou algo antes, mas a versão mudou.
+        setNeedsReacceptance(Boolean(aiConsent?.needsReacceptance));
       })
       .catch(() => {
-        if (active) setVersionedConsent(false);
+        if (active) {
+          setVersionedConsent(false);
+          setNeedsReacceptance(false);
+        }
       });
 
     return () => {
@@ -83,5 +96,5 @@ export function useAiConsent(): UseAiConsentReturn {
     );
   }, [modalOpen]);
 
-  return { consentGiven, requestConsent, ConsentGate };
+  return { consentGiven, needsReacceptance, requestConsent, ConsentGate };
 }
