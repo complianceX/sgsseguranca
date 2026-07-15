@@ -8,6 +8,7 @@
   Logger,
 } from '@nestjs/common';
 import { randomBytes, pbkdf2Sync, createHmac, randomUUID } from 'crypto';
+import { Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -17,6 +18,7 @@ import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { PasswordService } from '../../shared/services/password.service';
 import { PwnedPasswordService } from '../auth/services/pwned-password.service';
+import { MailService } from '../../infra/mail/mail.service';
 import { CpfUtil } from '../../shared/utils/cpf.util';
 import { USER_WITH_PASSWORD_FIELDS } from './constants/user-fields.constant';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -125,6 +127,8 @@ export class UsersService {
     private auditService: AuditService,
     private rbacService: RbacService,
     private redisService: AuthRedisService,
+    @Inject(forwardRef(() => MailService))
+    private readonly mailService?: MailService,
   ) {}
 
   private getTenantIdOrThrow(message?: string): string {
@@ -468,6 +472,22 @@ export class UsersService {
     );
   }
 
+  private generateTemporaryPassword(): string {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const specials = '!@#$%^&*()-_=+[]{}<>?';
+    const all = upper + lower + digits + specials;
+    const rand = (s: string) => s[Math.floor(Math.random() * s.length)];
+    let pass = '';
+    pass += rand(upper);
+    pass += rand(lower);
+    pass += rand(digits);
+    pass += rand(specials);
+    while (pass.length < 12) pass += rand(all);
+    return pass.split('').sort(() => 0.5 - Math.random()).join('');
+  }
+
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
     const {
       password,
@@ -564,6 +584,7 @@ export class UsersService {
     }
 
     let hashedPassword = '';
+    let plainTempPassword: string | undefined = undefined;
     if (password && typeof password === 'string') {
       const validation = this.passwordService.validate(password);
       if (!validation.valid) {
@@ -573,6 +594,26 @@ export class UsersService {
       }
       await this.pwnedPasswordService.assertNotPwned(password);
       hashedPassword = await this.passwordService.hash(password);
+    } else if (typeof rest.email === 'string' && rest.email.trim()) {
+      // Gera senha temporária que atende à política e não está pwned
+      let attempts = 0;
+      while (!plainTempPassword && attempts < 5) {
+        attempts += 1;
+        const candidate = this.generateTemporaryPassword();
+        const validation = this.passwordService.validate(candidate);
+        if (!validation.valid) continue;
+        try {
+          await this.pwnedPasswordService.assertNotPwned(candidate);
+        } catch {
+          continue;
+        }
+        plainTempPassword = candidate;
+      }
+      if (plainTempPassword) {
+        hashedPassword = await this.passwordService.hash(plainTempPassword);
+      } else {
+        throw new BadRequestException('Não foi possível gerar senha temporária segura para o usuário. Tente novamente.');
+      }
     }
     const userId =
       typeof createUserData.id === 'string' && createUserData.id
@@ -619,6 +660,25 @@ export class UsersService {
       saved.module_access_keys,
     );
     this.attachUserSiteSummary(saved, requestedSiteIds);
+    // Envia e-mail com CPF e senha temporária se foi gerada
+    if (typeof plainTempPassword === 'string' && plainTempPassword && typeof rest.email === 'string' && rest.email.trim()) {
+      try {
+        const subject = 'Bem-vindo ao SGS — suas credenciais de acesso';
+        const body = `Olá ${saved.nome || ''},\n\nSuas credenciais de acesso ao SGS:\nCPF: ${normalizedCpf}\nSenha temporária: ${plainTempPassword}\n\nPor segurança, troque sua senha ao entrar pela primeira vez.\n\nAtenciosamente,\nSGS`;
+        await this.mailService?.sendMailSimple(rest.email, subject, body, {
+          companyId,
+          userId: saved.id,
+        });
+      } catch (err) {
+        this.logger.warn({
+          event: 'user_welcome_email_failed',
+          companyId,
+          userId: saved.id,
+          recipient: rest.email,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
     await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
   }
