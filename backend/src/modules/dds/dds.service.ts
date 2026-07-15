@@ -1126,6 +1126,7 @@ export class DdsService {
         .createQueryBuilder('dds')
         .setLock('pessimistic_write')
         .whereInIds([id])
+        .andWhere('dds.deleted_at IS NULL')
         .getOne();
 
       await this.signaturesService.replaceDocumentSignatures({

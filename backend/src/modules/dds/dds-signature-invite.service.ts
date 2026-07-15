@@ -688,7 +688,8 @@ export class DdsSignatureInviteService implements OnModuleInit {
       .andWhere('invite.dds_id = :ddsId', { ddsId: input.ddsId })
       .andWhere('invite.token_hash = :tokenHash', {
         tokenHash: input.tokenHash,
-      });
+      })
+      .andWhere('dds.deleted_at IS NULL');
 
     if (input.lock) {
       query.setLock('pessimistic_write');

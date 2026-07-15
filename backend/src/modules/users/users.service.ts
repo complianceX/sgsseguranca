@@ -675,6 +675,8 @@ export class UsersService {
       qb.andWhere('user.company_id = :tenantId', { tenantId });
     }
 
+    qb.andWhere('user.deleted_at IS NULL');
+
     if (scope.hasCompanyWideAccess && requestedSiteId) {
       qb.andWhere(
         '(user.site_id = :siteId OR siteLinks.site_id = :siteId OR user.site_id IS NULL)',
@@ -1367,6 +1369,7 @@ export class UsersService {
         .createQueryBuilder('u')
         .innerJoin('u.profile', 'p')
         .where('u.company_id = :companyId', { companyId: tenantId })
+        .andWhere('u.deleted_at IS NULL')
         .andWhere('p.nome = :profileName', { profileName: Role.ADMIN_EMPRESA })
         .andWhere('u.status = :status', { status: true })
         .andWhere('u.deleted_at IS NULL')
