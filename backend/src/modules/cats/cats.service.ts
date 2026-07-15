@@ -227,6 +227,7 @@ export class CatsService {
       .leftJoinAndSelect('cat.investigated_by', 'investigated_by')
       .leftJoinAndSelect('cat.closed_by', 'closed_by')
       .where('cat.company_id = :companyId', { companyId })
+      .andWhere('cat.deleted_at IS NULL')
       .orderBy('cat.created_at', 'DESC')
       .skip(skip)
       .take(limit);

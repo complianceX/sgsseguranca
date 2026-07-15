@@ -416,7 +416,8 @@ export class DdsApprovalService {
       const qb = ddsRepository
         .createQueryBuilder('dds')
         .setLock('pessimistic_write')
-        .where('dds.id = :ddsId', { ddsId });
+        .where('dds.id = :ddsId', { ddsId })
+        .andWhere('dds.deleted_at IS NULL');
 
       if (companyId) {
         qb.andWhere('dds.company_id = :companyId', { companyId });

@@ -298,6 +298,7 @@ export class CompaniesService {
         .update(Company)
         .set({ account_status: 'trial_expired' as const })
         .where('account_status = :status', { status: 'trialing' })
+        .andWhere('deleted_at IS NULL')
         .andWhere('trial_ends_at IS NOT NULL')
         .andWhere('trial_ends_at < :now', { now: new Date() })
         .execute(),
@@ -334,6 +335,7 @@ export class CompaniesService {
         ])
         .where('company.account_status = :status', { status: 'trialing' })
         .andWhere('company.status = true')
+        .andWhere('company.deleted_at IS NULL')
         .andWhere('company.trial_ends_at >= :windowStart', { windowStart })
         .andWhere('company.trial_ends_at < :windowEnd', { windowEnd })
         .getMany(),
@@ -464,6 +466,7 @@ export class CompaniesService {
         'company.created_at',
         'company.updated_at',
       ])
+      .where('company.deleted_at IS NULL')
       .orderBy('company.created_at', 'DESC')
       .skip(skip)
       .take(limit);
@@ -471,7 +474,7 @@ export class CompaniesService {
     const searchTerm = normalizeOptionalSearchQuery(opts?.search);
     if (searchTerm) {
       const search = `%${escapeLikePattern(searchTerm)}%`;
-      query.where(
+      query.andWhere(
         `(
           company.razao_social ILIKE :search ESCAPE '\\'
           OR company.cnpj ILIKE :search ESCAPE '\\'

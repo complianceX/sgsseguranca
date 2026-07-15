@@ -578,6 +578,10 @@ describe('UsersService.findPaginated', () => {
     expect(qb.andWhere).toHaveBeenCalledWith('user.company_id = :tenantId', {
       tenantId: 'company-1',
     });
+    // Regressão: a listagem paginada nunca deve retornar usuários soft-deletados
+    // (anonimizados por erasure LGPD). createQueryBuilder não filtra deleted_at
+    // automaticamente — o filtro precisa ser explícito.
+    expect(qb.andWhere).toHaveBeenCalledWith('user.deleted_at IS NULL');
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
       'user.company',
       'company',

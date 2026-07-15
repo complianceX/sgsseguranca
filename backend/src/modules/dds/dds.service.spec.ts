@@ -171,6 +171,7 @@ describe('DdsService', () => {
       createQueryBuilder: jest.fn(() => ({
         setLock: jest.fn().mockReturnThis(),
         whereInIds: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       })),
     };

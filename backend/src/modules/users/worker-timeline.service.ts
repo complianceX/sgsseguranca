@@ -100,6 +100,7 @@ export class WorkerTimelineService {
       .andWhere('user.deleted_at IS NULL');
 
     qb.andWhere('user.company_id = :tenantId', { tenantId });
+    qb.andWhere('user.deleted_at IS NULL');
 
     const user = await qb.getOne();
 

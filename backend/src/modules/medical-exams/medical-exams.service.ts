@@ -390,6 +390,7 @@ export class MedicalExamsService {
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
       .where('exam.id = :id', { id })
+      .andWhere('exam.deleted_at IS NULL')
       .andWhere('exam.company_id = :tenantId', {
         tenantId: scope.companyId,
       })
