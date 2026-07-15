@@ -19,6 +19,7 @@ import {
 } from '@/services/documentRegistryService';
 import { openPdfForPrint, preparePdfPrintWindow } from '@/lib/print-utils';
 import { Button } from '@/components/ui/button';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import {
   EmptyState,
   ErrorState,
@@ -573,25 +574,36 @@ export default function DocumentRegistryPage() {
           </div>
         </div>
 
-        {loadingBundle ? (
-          <div className="px-4 pb-4">
-            <InlineLoadingState label="Gerando pacote consolidado" />
+        {!loadingBundle && (loading || filteredEntries.length > 0) ? (
+          <div className="px-4 pt-2 text-sm text-[var(--ds-color-text-secondary)]">
+            {filteredEntries.length} documento(s) encontrado(s) no índice
+            consolidado.
           </div>
-        ) : !loading && filteredEntries.length === 0 ? (
-          <div className="p-6">
-            <EmptyState
-              title="Nenhum documento indexado"
-              description="Não há documentos no registry para o filtro aplicado."
-              compact
-            />
-          </div>
-        ) : (
-          <>
-            <div className="px-4 pt-2 text-sm text-[var(--ds-color-text-secondary)]">
-              {filteredEntries.length} documento(s) encontrado(s) no índice
-              consolidado.
-            </div>
-            <div className="hidden md:block">
+        ) : null}
+
+        <ResponsiveDataList
+          items={filteredEntries}
+          getKey={(entry) => entry.id}
+          loading={
+            loadingBundle ? (
+              <div className="px-4 pb-4">
+                <InlineLoadingState label="Gerando pacote consolidado" />
+              </div>
+            ) : undefined
+          }
+          empty={
+            !loading ? (
+              <div className="p-6">
+                <EmptyState
+                  title="Nenhum documento indexado"
+                  description="Não há documentos no registry para o filtro aplicado."
+                  compact
+                />
+              </div>
+            ) : undefined
+          }
+          desktop={(desktopEntries) => (
+            <div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -605,7 +617,7 @@ export default function DocumentRegistryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry) => (
+                  {desktopEntries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell>
                         {entry.document_date
@@ -657,12 +669,10 @@ export default function DocumentRegistryPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="space-y-3 px-4 pb-4 md:hidden">
-              {filteredEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
-                >
+          )}
+          mobileClassName="space-y-3 px-4 pb-4"
+          mobile={(entry) => (
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -706,11 +716,9 @@ export default function DocumentRegistryPage() {
                       Imprimir
                     </Button>
                   </div>
-                </div>
-              ))}
             </div>
-          </>
-        )}
+          )}
+        />
       </div>
     </ListPageLayout>
   );

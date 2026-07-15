@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type {
   GovernedDocumentVideoAccessResponse,
@@ -12,6 +12,8 @@ import type {
 type UseDocumentVideosOptions = {
   documentId?: string | null;
   enabled?: boolean;
+  /** Invalida respostas e feedback quando o consumidor troca de tenant/documento. */
+  operationKey: string;
   loadVideos: (documentId: string) => Promise<GovernedDocumentVideoAttachment[]>;
   uploadVideo: (
     documentId: string,
@@ -77,6 +79,7 @@ function extractVideoApiMessage(error: unknown): string | undefined {
 export function useDocumentVideos({
   documentId,
   enabled = true,
+  operationKey,
   loadVideos,
   uploadVideo,
   removeVideo,
@@ -87,17 +90,55 @@ export function useDocumentVideos({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const operationGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const operationContextRef = useRef({ documentId, enabled, operationKey });
+  const previousContext = operationContextRef.current;
+  if (
+    previousContext.documentId !== documentId ||
+    previousContext.enabled !== enabled ||
+    previousContext.operationKey !== operationKey
+  ) {
+    operationContextRef.current = { documentId, enabled, operationKey };
+    operationGenerationRef.current += 1;
+  }
+  const isCurrent = useCallback(
+    (generation: number) =>
+      mountedRef.current && generation === operationGenerationRef.current,
+    [],
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      operationGenerationRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    setAttachments([]);
+    setLoading(false);
+    setUploading(false);
+    setRemovingId(null);
+  }, [documentId, enabled, operationKey]);
 
   const refresh = useCallback(async () => {
+    const generation = operationGenerationRef.current;
+    const isRefreshCurrent = () => isCurrent(generation);
     if (!enabled || !documentId) {
       setAttachments([]);
+      setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      setAttachments(await loadVideos(documentId));
+      const result = await loadVideos(documentId);
+      if (!isRefreshCurrent()) return;
+      setAttachments(result);
     } catch (error) {
+      if (!isRefreshCurrent()) return;
       console.error("Erro ao carregar vídeos governados:", error);
       toast.error(
         extractVideoApiMessage(error) ||
@@ -105,13 +146,14 @@ export function useDocumentVideos({
           "Não foi possível carregar os vídeos anexados.",
       );
     } finally {
-      setLoading(false);
+      if (isRefreshCurrent()) setLoading(false);
     }
-  }, [documentId, enabled, labels?.loadError, loadVideos]);
+  }, [documentId, enabled, isCurrent, labels?.loadError, loadVideos]);
 
   useEffect(() => {
+    if (operationContextRef.current.operationKey !== operationKey) return;
     void refresh();
-  }, [refresh]);
+  }, [operationKey, refresh]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -120,13 +162,16 @@ export function useDocumentVideos({
         return null;
       }
 
+      const generation = operationGenerationRef.current;
       try {
         setUploading(true);
         const result = await uploadVideo(documentId, file);
+        if (!isCurrent(generation)) return null;
         setAttachments(result.attachments);
         toast.success(labels?.uploadSuccess || result.message || "Vídeo anexado com sucesso.");
         return result;
       } catch (error) {
+        if (!isCurrent(generation)) return null;
         console.error("Erro ao enviar vídeo governado:", error);
         toast.error(
           extractVideoApiMessage(error) ||
@@ -135,10 +180,10 @@ export function useDocumentVideos({
         );
         throw error;
       } finally {
-        setUploading(false);
+        if (isCurrent(generation)) setUploading(false);
       }
     },
-    [documentId, labels?.uploadError, labels?.uploadSuccess, uploadVideo],
+    [documentId, isCurrent, labels?.uploadError, labels?.uploadSuccess, uploadVideo],
   );
 
   const handleRemove = useCallback(
@@ -147,13 +192,16 @@ export function useDocumentVideos({
         return null;
       }
 
+      const generation = operationGenerationRef.current;
       try {
         setRemovingId(attachment.id);
         const result = await removeVideo(documentId, attachment.id);
+        if (!isCurrent(generation)) return null;
         setAttachments(result.attachments);
         toast.success(labels?.removeSuccess || result.message || "Vídeo removido.");
         return result;
       } catch (error) {
+        if (!isCurrent(generation)) return null;
         console.error("Erro ao remover vídeo governado:", error);
         toast.error(
           extractVideoApiMessage(error) ||
@@ -162,10 +210,10 @@ export function useDocumentVideos({
         );
         throw error;
       } finally {
-        setRemovingId(null);
+        if (isCurrent(generation)) setRemovingId(null);
       }
     },
-    [documentId, labels?.removeError, labels?.removeSuccess, removeVideo],
+    [documentId, isCurrent, labels?.removeError, labels?.removeSuccess, removeVideo],
   );
 
   const resolveAccess = useCallback(
@@ -174,13 +222,16 @@ export function useDocumentVideos({
         return null;
       }
 
+      const generation = operationGenerationRef.current;
       try {
         const result = await getVideoAccess(documentId, attachment.id);
+        if (!isCurrent(generation)) return null;
         if (!result.url && result.message) {
           toast.warning(result.message);
         }
         return result;
       } catch (error) {
+        if (!isCurrent(generation)) return null;
         console.error("Erro ao resolver acesso ao vídeo governado:", error);
         toast.error(
           extractVideoApiMessage(error) ||
@@ -190,7 +241,7 @@ export function useDocumentVideos({
         throw error;
       }
     },
-    [documentId, getVideoAccess, labels?.accessError],
+    [documentId, getVideoAccess, isCurrent, labels?.accessError],
   );
 
   return {

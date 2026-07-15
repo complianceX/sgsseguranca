@@ -72,6 +72,27 @@ describe("Header", () => {
     useRealtimeNotificationsMock.mockClear();
   });
 
+  it("marca o topbar como limite superior seguro para a SOPHIE", async () => {
+    const { container } = render(<Header />);
+
+    await waitFor(() => expect(getOfflineQueueCount).toHaveBeenCalled());
+    expect(container.querySelector("header")).toHaveAttribute(
+      "data-sophie-reserved-zone",
+      "top",
+    );
+  });
+
+  it("limita o painel de notificações a 320px", async () => {
+    render(<Header />);
+
+    await waitFor(() => expect(getOfflineQueueCount).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Notificações" }));
+
+    expect(screen.getByRole("dialog", { name: "Notificações" })).toHaveClass(
+      "max-w-[320px]",
+    );
+  });
+
   it("exibe aviso honesto quando a lista de notificações degrada", async () => {
     realtimeState = {
       unreadCount: 1,

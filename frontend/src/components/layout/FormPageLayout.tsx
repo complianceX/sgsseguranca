@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { PageHeader } from './PageHeader';
+import { MobileActionBar } from '@/components/ui/mobile-action-bar';
 
 interface FormPageLayoutProps {
   eyebrow?: string;
@@ -105,11 +106,7 @@ export function FormPageLayout({
       />
       {summary}
       {children}
-      {footer ? (
-        <div className="ds-form-sticky-bar" role="toolbar" aria-label="Acoes do formulario">
-          {footer}
-        </div>
-      ) : null}
+      {footer ? <MobileActionBar>{footer}</MobileActionBar> : null}
     </div>
   );
 }

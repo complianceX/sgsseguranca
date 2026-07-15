@@ -1,7 +1,7 @@
 const SW_URL = new URL(self.location.href);
 const BUILD_ID = SW_URL.searchParams.get('build') || 'local-dev';
-const CACHE_PREFIX = 'sgs-shell';
-const LEGACY_CACHE_PREFIXES = ['gst-shell', CACHE_PREFIX];
+const CACHE_PREFIX = 'sgs-shell-v2';
+const LEGACY_CACHE_PREFIXES = ['gst-shell', 'sgs-shell', CACHE_PREFIX];
 const CACHE_NAME = `${CACHE_PREFIX}-${BUILD_ID}`;
 const APP_SHELL = [
   '/offline.html',
@@ -31,8 +31,20 @@ function isSensitivePath(pathname) {
   return (
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/tenant') ||
+    pathname.startsWith('/companies') ||
     pathname.startsWith('/_next/data') ||
     pathname.startsWith('/_next/image')
+  );
+}
+
+function hasSensitiveRequestContext(request) {
+  return (
+    request.headers.has('authorization') ||
+    request.headers.has('x-company-id') ||
+    request.headers.has('x-tenant-id')
   );
 }
 
@@ -102,6 +114,7 @@ self.addEventListener('fetch', (event) => {
   if (
     requestUrl.search ||
     isSensitivePath(requestUrl.pathname) ||
+    hasSensitiveRequestContext(event.request) ||
     (!isImmutableNextAsset(requestUrl.pathname) &&
       !isSafeStaticAsset(requestUrl.pathname))
   ) {

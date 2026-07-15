@@ -18,6 +18,7 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/lib/offline-cache', () => ({
   consumeOfflineCache: jest.fn(),
+  createOfflineCacheContext: jest.fn(() => ({ generation: 0, tenantId: 'test' })),
   isOfflineRequestError: jest.fn(),
   setOfflineCache: jest.fn(),
   CACHE_TTL: { LIST: 60000, RECORD: 300000 },

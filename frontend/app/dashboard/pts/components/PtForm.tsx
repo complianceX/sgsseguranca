@@ -39,6 +39,7 @@ import { AuditSection } from '@/components/AuditSection';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
+import { MobileActionBar } from '@/components/ui/mobile-action-bar';
 import { PageHeader } from '@/components/layout';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { toast } from 'sonner';
@@ -366,6 +367,49 @@ function extractPtKeywordsFromApr(apr?: Apr | null) {
   return parts.filter(Boolean).join(' ');
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof DOMException && error.name === 'AbortError'
+  ) || (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'AbortError'
+  );
+}
+
+function normalizeEmbeddedPtAprSeed(pt: Pt): Apr | null {
+  const apr = pt.apr;
+  if (
+    !pt.apr_id ||
+    !isEntityWithId<{ id: string; numero?: string; titulo?: string }>(apr) ||
+    apr.id !== pt.apr_id
+  ) {
+    return null;
+  }
+
+  const numero = apr.numero?.trim() || pt.apr_id;
+  return {
+    ...apr,
+    numero,
+    titulo: apr.titulo?.trim() || numero,
+    // A relação APR no DTO da PT não repete o tenant. O vínculo da própria
+    // PT é a fonte segura do escopo para preservar a opção durante o offline.
+    company_id: pt.company_id,
+  } as Apr;
+}
+
+function mergeTenantScopedEntities<T extends { id: string; company_id: string }>(
+  companyId: string,
+  current: T[],
+  incoming: T[],
+): T[] {
+  return dedupeById([
+    ...current.filter((entity) => entity.company_id === companyId),
+    ...incoming.filter((entity) => entity.company_id === companyId),
+  ]);
+}
+
 function summarizeChecklistAnswers<T extends { id?: string; resposta?: string }>(
   items: T[],
   optionalIds: ReadonlySet<string> = new Set<string>(),
@@ -450,6 +494,9 @@ export function PtForm({ id }: PtFormProps) {
   const [preApprovalHistoryLoading, setPreApprovalHistoryLoading] = useState(false);
   const lastHandledAprIdRef = useRef<string>('');
   const draftAutosaveTimerRef = useRef<number | undefined>(undefined);
+  const aprTenantRef = useRef<string | undefined>(undefined);
+  const siteTenantRef = useRef<string | undefined>(undefined);
+  const userTenantRef = useRef<string | undefined>(undefined);
   const getFocusHighlightClass = useCallback(
     (target: PtFocusTarget) =>
       focusTarget === target
@@ -1317,11 +1364,14 @@ export function PtForm({ id }: PtFormProps) {
           setSignatures(sigMap);
           setPersistedSignatures(persistedSigMap);
           companySeedId = pt.company_id;
-          setAprs(
-            dedupeById(
-              isEntityWithId<Apr>(pt.apr) ? [pt.apr] : [],
-            ),
-          );
+          // Embedded relations are trusted seeds for the PT being edited. Record
+          // their owner before reset changes the watched company, so initialization
+          // is not mistaken for a real tenant switch.
+          aprTenantRef.current = pt.company_id;
+          siteTenantRef.current = pt.company_id;
+          userTenantRef.current = pt.company_id;
+          const embeddedAprSeed = normalizeEmbeddedPtAprSeed(pt);
+          setAprs(embeddedAprSeed ? [embeddedAprSeed] : []);
           setSites(
             dedupeById(
               isEntityWithId<Site>(pt.site) ? [pt.site] : [],
@@ -1475,8 +1525,16 @@ export function PtForm({ id }: PtFormProps) {
   }, [draftStorageKey, id, legacyDraftStorageKey, methods, reset, user?.company_id, user?.profile?.nome]);
 
   useEffect(() => {
+    let active = true;
+    const requestCompanyId = selectedCompanyId;
+
+    if (aprTenantRef.current !== requestCompanyId) {
+      aprTenantRef.current = requestCompanyId;
+      setAprs([]);
+    }
+
     async function loadCompanyScopedAprs() {
-      if (!selectedCompanyId) {
+      if (!requestCompanyId) {
         setAprs([]);
         return;
       }
@@ -1485,46 +1543,57 @@ export function PtForm({ id }: PtFormProps) {
         const aprResult = await aprsService.findPaginated({
           page: 1,
           limit: 100,
-          companyId: selectedCompanyId,
+          companyId: requestCompanyId,
         });
+        if (!active) return;
 
         let nextAprs = aprResult.data;
         if (selectedAprId && !nextAprs.some((apr) => apr.id === selectedAprId)) {
           try {
             const currentApr = await aprsService.findOne(selectedAprId);
-            if (currentApr.company_id === selectedCompanyId) {
+            if (!active) return;
+            if (currentApr.company_id === requestCompanyId) {
               nextAprs = dedupeById([currentApr, ...nextAprs]);
             }
           } catch (error) {
+            if (!active || isAbortError(error)) return;
             logger.warn('Falha ao carregar APR selecionada para fallback da PT:', error);
           }
-        } else {
-          nextAprs = dedupeById(nextAprs);
         }
 
-        setAprs((prev) =>
-          dedupeById([
-            ...prev.filter((apr) => apr.company_id === selectedCompanyId),
-            ...nextAprs,
-          ]),
+        if (!active) return;
+        setAprs((current) =>
+          mergeTenantScopedEntities(requestCompanyId, current, nextAprs),
         );
       } catch (error) {
+        if (!active || isAbortError(error)) return;
         logger.error('Erro ao carregar APRs da PT:', error);
-        toast.error(
-          await extractApiErrorMessage(
-            error,
-            'Não foi possível carregar as APRs da PT.',
-          ),
+        const message = await extractApiErrorMessage(
+          error,
+          'Não foi possível carregar as APRs da PT.',
         );
+        if (!active) return;
+        toast.error(message);
       }
     }
 
     void loadCompanyScopedAprs();
+    return () => {
+      active = false;
+    };
   }, [selectedAprId, selectedCompanyId]);
 
   useEffect(() => {
+    let active = true;
+    const requestCompanyId = selectedCompanyId;
+
+    if (siteTenantRef.current !== requestCompanyId) {
+      siteTenantRef.current = requestCompanyId;
+      setSites([]);
+    }
+
     async function loadCompanyScopedSites() {
-      if (!selectedCompanyId) {
+      if (!requestCompanyId) {
         setSites([]);
         return;
       }
@@ -1533,8 +1602,9 @@ export function PtForm({ id }: PtFormProps) {
         const siteResult = await sitesService.findPaginated({
           page: 1,
           limit: 100,
-          companyId: selectedCompanyId,
+          companyId: requestCompanyId,
         });
+        if (!active) return;
 
         let nextSites = siteResult.data;
         if (
@@ -1543,39 +1613,49 @@ export function PtForm({ id }: PtFormProps) {
         ) {
           try {
             const currentSite = await sitesService.findOne(selectedSiteId);
-            if (currentSite.company_id === selectedCompanyId) {
+            if (!active) return;
+            if (currentSite.company_id === requestCompanyId) {
               nextSites = dedupeById([currentSite, ...nextSites]);
             }
           } catch (error) {
+            if (!active || isAbortError(error)) return;
             logger.warn('Falha ao carregar site selecionado para fallback da PT:', error);
           }
-        } else {
-          nextSites = dedupeById(nextSites);
         }
 
-        setSites((prev) =>
-          dedupeById([
-            ...prev.filter((site) => site.company_id === selectedCompanyId),
-            ...nextSites,
-          ]),
+        if (!active) return;
+        setSites((current) =>
+          mergeTenantScopedEntities(requestCompanyId, current, nextSites),
         );
       } catch (error) {
+        if (!active || isAbortError(error)) return;
         logger.error('Erro ao carregar obras da PT:', error);
-        toast.error(
-          await extractApiErrorMessage(
-            error,
-            'Não foi possível carregar as obras da PT.',
-          ),
+        const message = await extractApiErrorMessage(
+          error,
+          'Não foi possível carregar as obras da PT.',
         );
+        if (!active) return;
+        toast.error(message);
       }
     }
 
     void loadCompanyScopedSites();
+    return () => {
+      active = false;
+    };
   }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
+    let active = true;
+    const requestCompanyId = selectedCompanyId;
+
+    if (userTenantRef.current !== requestCompanyId) {
+      userTenantRef.current = requestCompanyId;
+      setUsers([]);
+    }
+
     async function loadCompanyScopedUsers() {
-      if (!selectedCompanyId) {
+      if (!requestCompanyId) {
         setUsers([]);
         return;
       }
@@ -1584,9 +1664,10 @@ export function PtForm({ id }: PtFormProps) {
         const userPage = await usersService.findPaginated({
           page: 1,
           limit: 100,
-          companyId: selectedCompanyId,
+          companyId: requestCompanyId,
           siteId: selectedSiteId || undefined,
         });
+        if (!active) return;
 
         let nextUsers = userPage.data;
 
@@ -1609,35 +1690,38 @@ export function PtForm({ id }: PtFormProps) {
               usersService.findOne(userId).catch(() => null),
             ),
           );
+          if (!active) return;
           const presentUsers = fetchedUsers.filter(
             (currentUser): currentUser is User => currentUser !== null,
           );
           nextUsers = dedupeById([
             ...presentUsers.filter(
-              (currentUser) => currentUser.company_id === selectedCompanyId,
+              (currentUser) => currentUser.company_id === requestCompanyId,
             ),
             ...nextUsers,
           ]);
         }
 
-        setUsers((prev) =>
-          dedupeById([
-            ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
-            ...nextUsers,
-          ]),
+        if (!active) return;
+        setUsers((current) =>
+          mergeTenantScopedEntities(requestCompanyId, current, nextUsers),
         );
       } catch (error) {
+        if (!active || isAbortError(error)) return;
         logger.error('Erro ao carregar usuários da PT:', error);
-        toast.error(
-          await extractApiErrorMessage(
-            error,
-            'Não foi possível carregar os usuários da PT.',
-          ),
+        const message = await extractApiErrorMessage(
+          error,
+          'Não foi possível carregar os usuários da PT.',
         );
+        if (!active) return;
+        toast.error(message);
       }
     }
 
     void loadCompanyScopedUsers();
+    return () => {
+      active = false;
+    };
   }, [
     selectedAuditadoPorId,
     selectedCompanyId,
@@ -2393,10 +2477,10 @@ export function PtForm({ id }: PtFormProps) {
               </div>
             )}
 
-            <div className={cn(
-              "flex flex-col gap-4 border-t border-[var(--ds-color-border-default)] pt-6 sm:flex-row sm:items-center sm:justify-between",
-              isFieldMode && "ds-form-sticky-bar border-none p-0 shadow-none",
-            )}>
+            <MobileActionBar
+              aria-label="Ações da Permissão de Trabalho"
+              className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="flex gap-2">
                 {currentStep > 1 ? (
                   <Button type="button" variant="outline" onClick={prevStep}>
@@ -2463,7 +2547,7 @@ export function PtForm({ id }: PtFormProps) {
                   </Button>
                 )}
               </div>
-            </div>
+            </MobileActionBar>
           </fieldset>
         </form>
       </FormProvider>

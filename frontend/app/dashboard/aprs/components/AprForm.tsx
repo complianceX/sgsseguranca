@@ -61,6 +61,7 @@ import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
 import { InlineLoadingState } from "@/components/ui/state";
+import { MobileActionBar } from "@/components/ui/mobile-action-bar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
@@ -5198,13 +5199,45 @@ export function AprForm({ id }: AprFormProps) {
             )}
           </fieldset>
 
-          <div
-            className={cn(
-              "sticky z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-overlay)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
-              !id && draftStorageKey && !isReadOnly ? "bottom-14" : "bottom-4",
-            )}
+          <MobileActionBar
+            aria-label="Ações da APR"
+            className="flex flex-col gap-4"
           >
-            <div className="flex items-center gap-2">
+            {!id && draftStorageKey && !isReadOnly ? (
+              <div
+                role="status"
+                className="ds-mobile-form-status flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--ds-color-border-subtle)] pb-3 text-sm"
+              >
+                <div className="min-w-0 font-semibold text-[var(--ds-color-text-primary)]">
+                  {draftSaving
+                    ? "Salvando…"
+                    : draftSaveError
+                      ? "Falha ao salvar"
+                      : draftLastSavedAt
+                        ? (() => {
+                            const diffMin = Math.floor(
+                              (Date.now() - draftLastSavedAt.getTime()) / 60000,
+                            );
+                            if (diffMin < 1) return "Salvo agora";
+                            if (diffMin < 60) return `Salvo há ${diffMin} min`;
+                            return `Salvo às ${draftLastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+                          })()
+                        : "Salvo"}
+                </div>
+                {draftSaveError ? (
+                  <button
+                    type="button"
+                    onClick={retryDraftPersist}
+                    className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-none hover:bg-transparent/80"
+                  >
+                    Tentar novamente
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
               {currentStep > 1 ? (
                 <button
                   type="button"
@@ -5226,13 +5259,13 @@ export function AprForm({ id }: AprFormProps) {
               )}
             </div>
 
-            <div
-              className={cn(
-                "flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4",
-                isFieldMode &&
-                  "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
-              )}
-            >
+              <div
+                className={cn(
+                  "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4",
+                  isFieldMode &&
+                    "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
+                )}
+              >
               {currentStep >= 3 ? (
                 hasFinalPdf ? (
                   <div
@@ -5430,42 +5463,12 @@ export function AprForm({ id }: AprFormProps) {
                   <ArrowRight className="h-4 w-4" />
                 </button>
               )}
+              </div>
             </div>
-          </div>
+          </MobileActionBar>
         </div>
       </form>
 
-      {!id && draftStorageKey && !isReadOnly ? (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)]/95 px-4 py-2 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[min(96vw,1880px)] items-center justify-between gap-3 text-sm">
-            <div className="font-semibold text-[var(--ds-color-text-primary)]">
-              {draftSaving
-                ? "Salvando…"
-                : draftSaveError
-                  ? "Falha ao salvar"
-                  : draftLastSavedAt
-                    ? (() => {
-                        const diffMin = Math.floor(
-                          (Date.now() - draftLastSavedAt.getTime()) / 60000,
-                        );
-                        if (diffMin < 1) return "Salvo agora";
-                        if (diffMin < 60) return `Salvo há ${diffMin} min`;
-                        return `Salvo às ${draftLastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-                      })()
-                    : "Salvo"}
-            </div>
-            {draftSaveError ? (
-              <button
-                type="button"
-                onClick={retryDraftPersist}
-                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-none hover:bg-transparent/80"
-              >
-                Tentar novamente
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       {formActionModal ? (
         <AprActionModal

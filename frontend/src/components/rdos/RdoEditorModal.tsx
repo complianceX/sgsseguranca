@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { Site } from "@/services/sitesService";
 import type { User } from "@/services/usersService";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
@@ -19,6 +19,12 @@ import type {
   RdoFormState,
 } from "@/components/rdos/rdo-modal-types";
 import type { LucideIcon } from "lucide-react";
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from "@/components/ui/modal-frame";
 
 type ModalStep = {
   label: string;
@@ -123,40 +129,22 @@ export function RdoEditorModal({
   onRemoveActivityPhoto,
   resolveActivityPhotoSrc,
 }: RdoEditorModalProps) {
-  if (!open) {
-    return null;
-  }
-
   const ActiveIcon = steps[currentStep]?.icon;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--ds-color-action-primary)]/10 text-[var(--ds-color-action-primary)]">
-              {ActiveIcon ? <ActiveIcon className="h-5 w-5" /> : null}
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
-                {editingId ? "Editar RDO" : "Novo Relatório Diário de Obra"}
-              </h2>
-              <p className="text-sm text-[var(--ds-color-text-secondary)]">
-                {steps[currentStep]?.label}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar editor"
-            onClick={onClose}
-            className="rounded-lg p-2 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <ModalFrame
+      isOpen={open}
+      onClose={onClose}
+      shellClassName="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-5xl flex-col"
+    >
+        <ModalHeader
+          title={editingId ? "Editar RDO" : "Novo Relatório Diário de Obra"}
+          description={steps[currentStep]?.label ?? "Preencha os dados do relatório diário de obra"}
+          icon={ActiveIcon ? <ActiveIcon className="h-5 w-5" /> : undefined}
+          onClose={onClose}
+        />
 
-        <div className="overflow-y-auto px-6 py-5">
+        <ModalBody className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6">
           <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1">
             {steps.map((step, idx) => {
               const Icon = step.icon;
@@ -274,7 +262,7 @@ export function RdoEditorModal({
 
             {currentStep === 1 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="rdo-clima-manha"
@@ -399,14 +387,16 @@ export function RdoEditorModal({
                 {form.mao_de_obra.map((item, i) => (
                   <div
                     key={item.__rowKey}
-                    className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    className="grid grid-cols-1 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3 sm:grid-cols-2 lg:grid-cols-4"
                   >
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+                      <label htmlFor={`rdo-work-role-${i}`} className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                         Função
                       </label>
                       <input
+                        id={`rdo-work-role-${i}`}
                         type="text"
+                        aria-label={`Função ${i + 1}`}
                         value={item.funcao}
                         onChange={(e) =>
                           updateMaoDeObra(i, "funcao", e.target.value)
@@ -421,7 +411,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="number"
-                        aria-label="Quantidade de trabalhadores"
+                        aria-label={`Quantidade de trabalhadores da função ${i + 1}${item.funcao ? `, ${item.funcao}` : ""}`}
                         value={item.quantidade}
                         min={1}
                         onChange={(e) =>
@@ -439,7 +429,7 @@ export function RdoEditorModal({
                         Turno
                       </label>
                       <select
-                        aria-label="Turno de trabalho"
+                        aria-label={`Turno de trabalho da função ${i + 1}${item.funcao ? `, ${item.funcao}` : ""}`}
                         value={item.turno}
                         onChange={(e) =>
                           updateMaoDeObra(i, "turno", e.target.value)
@@ -458,7 +448,7 @@ export function RdoEditorModal({
                         </label>
                         <input
                           type="number"
-                          aria-label="Horas trabalhadas"
+                          aria-label={`Horas trabalhadas da função ${i + 1}${item.funcao ? `, ${item.funcao}` : ""}`}
                           value={item.horas}
                           min={0}
                           max={24}
@@ -470,7 +460,7 @@ export function RdoEditorModal({
                       </div>
                       <button
                         type="button"
-                        title="Remover"
+                        aria-label={`Remover função ${i + 1}${item.funcao ? `, ${item.funcao}` : ""}`}
                         onClick={() => removeMaoDeObra(i)}
                         className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                       >
@@ -494,7 +484,7 @@ export function RdoEditorModal({
                 {form.equipamentos.map((item, i) => (
                   <div
                     key={item.__rowKey}
-                    className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    className="grid grid-cols-1 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3 sm:grid-cols-2 lg:grid-cols-4"
                   >
                     <div className="col-span-2">
                       <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
@@ -502,6 +492,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="text"
+                        aria-label={`Equipamento ${i + 1}`}
                         value={item.nome}
                         onChange={(e) =>
                           updateEquipamento(i, "nome", e.target.value)
@@ -516,7 +507,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="number"
-                        aria-label="Quantidade de equipamentos"
+                        aria-label={`Quantidade do equipamento ${i + 1}${item.nome ? `, ${item.nome}` : ""}`}
                         value={item.quantidade}
                         min={1}
                         onChange={(e) =>
@@ -536,7 +527,7 @@ export function RdoEditorModal({
                         </label>
                         <input
                           type="number"
-                          aria-label="Horas trabalhadas pelo equipamento"
+                          aria-label={`Horas trabalhadas pelo equipamento ${i + 1}${item.nome ? `, ${item.nome}` : ""}`}
                           value={item.horas_trabalhadas}
                           min={0}
                           onChange={(e) =>
@@ -551,7 +542,7 @@ export function RdoEditorModal({
                       </div>
                       <button
                         type="button"
-                        title="Remover"
+                        aria-label={`Remover equipamento ${i + 1}${item.nome ? `, ${item.nome}` : ""}`}
                         onClick={() => removeEquipamento(i)}
                         className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                       >
@@ -575,7 +566,7 @@ export function RdoEditorModal({
                 {form.materiais_recebidos.map((item, i) => (
                   <div
                     key={item.__rowKey}
-                    className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    className="grid grid-cols-1 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3 sm:grid-cols-2 lg:grid-cols-4"
                   >
                     <div className="col-span-2">
                       <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
@@ -583,6 +574,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="text"
+                        aria-label={`Descrição do material ${i + 1}`}
                         value={item.descricao}
                         onChange={(e) =>
                           updateMaterial(i, "descricao", e.target.value)
@@ -597,6 +589,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="text"
+                        aria-label={`Unidade do material ${i + 1}`}
                         value={item.unidade}
                         onChange={(e) =>
                           updateMaterial(i, "unidade", e.target.value)
@@ -612,7 +605,7 @@ export function RdoEditorModal({
                         </label>
                         <input
                           type="number"
-                          aria-label="Quantidade do material"
+                          aria-label={`Quantidade do material ${i + 1}${item.descricao ? `, ${item.descricao}` : ""}`}
                           value={item.quantidade}
                           min={0}
                           onChange={(e) =>
@@ -627,7 +620,7 @@ export function RdoEditorModal({
                       </div>
                       <button
                         type="button"
-                        title="Remover"
+                        aria-label={`Remover material ${i + 1}${item.descricao ? `, ${item.descricao}` : ""}`}
                         onClick={() => removeMaterial(i)}
                         className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                       >
@@ -698,6 +691,7 @@ export function RdoEditorModal({
                         Tipo
                       </label>
                       <select
+                        aria-label={`Tipo da ocorrência ${i + 1}`}
                         value={item.tipo}
                         onChange={(e) =>
                           updateOcorrencia(i, "tipo", e.target.value)
@@ -717,6 +711,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="text"
+                        aria-label={`Descrição da ocorrência ${i + 1}`}
                         value={item.descricao}
                         onChange={(e) =>
                           updateOcorrencia(i, "descricao", e.target.value)
@@ -731,6 +726,7 @@ export function RdoEditorModal({
                       </label>
                       <input
                         type="time"
+                        aria-label={`Hora da ocorrência ${i + 1}`}
                         value={item.hora ?? ""}
                         onChange={(e) =>
                           updateOcorrencia(i, "hora", e.target.value)
@@ -741,7 +737,7 @@ export function RdoEditorModal({
                     <div className="flex items-end justify-end">
                       <button
                         type="button"
-                        title="Remover"
+                        aria-label={`Remover ocorrência ${i + 1}${item.descricao ? `, ${item.descricao}` : ""}`}
                         onClick={() => removeOcorrencia(i)}
                         className="rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                       >
@@ -857,9 +853,9 @@ export function RdoEditorModal({
               </div>
             )}
           </div>
-        </div>
+        </ModalBody>
 
-        <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] px-6 py-4">
+        <ModalFooter className="flex flex-wrap items-center justify-between gap-2 px-4 py-4 sm:px-6">
           <button
             type="button"
             onClick={onClose}
@@ -889,6 +885,7 @@ export function RdoEditorModal({
               <>
                 <button
                   type="button"
+                  data-offline-action="write"
                   onClick={() => onSave({ printAfterSave: true })}
                   disabled={saving}
                   className="rounded-xl border border-[var(--ds-color-border-subtle)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)] disabled:opacity-50 motion-safe:transition-colors"
@@ -901,6 +898,7 @@ export function RdoEditorModal({
                 </button>
                 <button
                   type="button"
+                  data-offline-action="write"
                   onClick={() => onSave()}
                   disabled={saving}
                   className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
@@ -914,8 +912,7 @@ export function RdoEditorModal({
               </>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </ModalFrame>
   );
 }

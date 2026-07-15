@@ -45,6 +45,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [mobileView, setMobileView] = useState<'agenda' | 'grid'>('agenda');
   const [activeFilters, setActiveFilters] = useState<Set<CalendarEventType>>(new Set(ALL_TYPES));
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function CalendarPage() {
   const today = formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
   const selectedDateStr = selectedDay ? formatDate(year, month, selectedDay) : null;
   const selectedEvents = selectedDateStr ? (eventsByDate[selectedDateStr] ?? []) : [];
+  const agendaEvents = [...filteredEvents].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div className="space-y-6 p-6">
@@ -126,7 +128,9 @@ export default function CalendarPage() {
           return (
             <button
               key={type}
+              type="button"
               onClick={() => toggleFilter(type)}
+              aria-pressed={active}
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium motion-safe:transition-all ${
                 active
                   ? `${color.bg} ${color.text} border-transparent shadow-[var(--ds-shadow-sm)]`
@@ -140,21 +144,30 @@ export default function CalendarPage() {
         })}
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center justify-between">
-            <Button onClick={prevMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
+            <Button aria-label="Mês anterior" onClick={prevMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
               {MONTH_NAMES[month - 1]} {year}
             </h2>
-            <Button onClick={nextMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
+            <Button aria-label="Próximo mês" onClick={nextMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
 
-          <Card tone="elevated" padding="none" className="overflow-hidden">
+          <div className="mb-3 flex justify-end gap-2 lg:hidden" role="group" aria-label="Visualização do calendário">
+            <Button type="button" size="sm" variant={mobileView === 'agenda' ? 'default' : 'outline'} aria-pressed={mobileView === 'agenda'} onClick={() => setMobileView('agenda')}>
+              Agenda
+            </Button>
+            <Button type="button" size="sm" variant={mobileView === 'grid' ? 'default' : 'outline'} aria-pressed={mobileView === 'grid'} onClick={() => setMobileView('grid')}>
+              Grade
+            </Button>
+          </div>
+
+          <Card tone="elevated" padding="none" className={`${mobileView === 'agenda' ? 'hidden lg:block' : 'block'} overflow-hidden`}>
             <div className="grid grid-cols-7 border-b border-[var(--ds-color-border-subtle)]">
               {WEEKDAYS.map((weekday) => (
                 <div key={weekday} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
@@ -174,12 +187,16 @@ export default function CalendarPage() {
                   const isSelected = day === selectedDay;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={index}
+                      disabled={!day}
                       onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
-                      className={`min-h-[80px] border-b border-r border-[var(--ds-color-border-subtle)] p-1.5 motion-safe:transition-colors last:border-r-0 ${
+                      aria-pressed={day ? isSelected : undefined}
+                      aria-label={day ? `${day} de ${MONTH_NAMES[month - 1]} de ${year}, ${dayEvents.length} evento${dayEvents.length === 1 ? '' : 's'}` : undefined}
+                      className={`min-h-[80px] border-b border-r border-[var(--ds-color-border-subtle)] p-1.5 text-left motion-safe:transition-colors last:border-r-0 ${
                         day
-                          ? `cursor-pointer ${isSelected ? 'bg-[var(--ds-color-primary-subtle)]/30' : 'hover:bg-[var(--ds-color-surface-muted)]/18'}`
+                          ? `${isSelected ? 'bg-[var(--ds-color-primary-subtle)]/30' : 'hover:bg-[var(--ds-color-surface-muted)]/18'}`
                           : 'bg-[var(--ds-color-surface-muted)]/16'
                       }`}
                     >
@@ -215,10 +232,35 @@ export default function CalendarPage() {
                           </div>
                         </>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+            )}
+          </Card>
+
+          <Card tone="elevated" padding="none" className={`${mobileView === 'agenda' ? 'block' : 'hidden'} divide-y divide-[var(--ds-color-border-subtle)] lg:hidden`}>
+            {loading ? (
+              <p className="p-6 text-center text-sm text-[var(--ds-color-text-secondary)]">Carregando...</p>
+            ) : agendaEvents.length === 0 ? (
+              <p className="p-6 text-center text-sm text-[var(--ds-color-text-secondary)]">Nenhum evento neste mês.</p>
+            ) : (
+              agendaEvents.map((event) => {
+                const eventDate = new Date(`${event.date}T12:00:00`);
+                const color = EVENT_TYPE_COLOR[event.type];
+                return (
+                  <article key={event.id} className="p-4">
+                    <time dateTime={event.date} className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                      {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                    </time>
+                    <p className="mt-1 font-medium text-[var(--ds-color-text-primary)]">{event.title}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <Badge variant="primary" className={`${color.bg} ${color.text}`}>{EVENT_TYPE_LABEL[event.type]}</Badge>
+                      <Link href={EVENT_TYPE_HREF[event.type]} className="text-sm text-[var(--ds-color-action-primary)] hover:underline">Ver módulo →</Link>
+                    </div>
+                  </article>
+                );
+              })
             )}
           </Card>
 
@@ -232,7 +274,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="w-72 shrink-0">
+        <div className="w-full shrink-0 lg:w-72">
           <Card tone="elevated" padding="none" className="h-fit overflow-hidden">
             {selectedDay ? (
               <>

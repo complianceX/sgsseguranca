@@ -13,6 +13,11 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import {
+  CatalogMobileCard,
+  catalogMobileActionClassName,
+} from '../components/CatalogMobileCard';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -157,46 +162,60 @@ export default function ActivitiesPage() {
           />
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead>Data de criação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {activities.map((activity) => (
-              <TableRow key={activity.id}>
-                <TableCell className="font-medium text-[var(--ds-color-text-primary)]">{activity.nome}</TableCell>
-                <TableCell className="text-[var(--ds-color-text-secondary)]">{activity.descricao || '—'}</TableCell>
-                <TableCell>{safeToLocaleDateString(activity.createdAt, 'pt-BR', undefined, '—')}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Link
-                      href={`/dashboard/activities/edit/${activity.id}`}
-                      className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                      title="Editar atividade"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(activity.id)}
-                      className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                      title="Excluir atividade"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <ResponsiveDataList
+          items={activities}
+          getKey={(activity) => activity.id}
+          mobileClassName="grid min-w-0 gap-3 p-3"
+          desktop={() => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Data de criação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activities.map((activity) => (
+                  <TableRow key={activity.id}>
+                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">{activity.nome}</TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">{activity.descricao || '—'}</TableCell>
+                    <TableCell>{safeToLocaleDateString(activity.createdAt, 'pt-BR', undefined, '—')}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/dashboard/activities/edit/${activity.id}`} className={buttonVariants({ size: 'icon', variant: 'ghost' })} title="Editar atividade">
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <Button type="button" size="icon" variant="ghost" onClick={() => handleDelete(activity.id)} className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]" title="Excluir atividade">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          mobile={(activity) => (
+            <CatalogMobileCard
+              title={activity.nome}
+              description={activity.descricao || 'Sem descrição'}
+              fields={[{ label: 'Data de criação', value: safeToLocaleDateString(activity.createdAt, 'pt-BR', undefined, '—') }]}
+              actionsLabel={`Ações da atividade ${activity.nome}`}
+              actions={
+                <>
+                  <Link href={`/dashboard/activities/edit/${activity.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                    <Pencil className="h-4 w-4" /> Editar
+                  </Link>
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(activity.id)} className={cn(catalogMobileActionClassName, 'text-[var(--ds-color-danger)]')}>
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
+                </>
+              }
+            />
+          )}
+        />
       )}
     </ListPageLayout>
   );

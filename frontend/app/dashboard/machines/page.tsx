@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { CatalogMobileCard, catalogMobileActionClassName } from '../components/CatalogMobileCard';
 
 export default function MachinesPage() {
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -191,7 +193,12 @@ export default function MachinesPage() {
           />
         </div>
       ) : (
-        <Table>
+        <ResponsiveDataList
+          items={machines}
+          getKey={(machine) => machine.id}
+          mobileClassName="grid min-w-0 gap-3 p-3"
+          desktop={() => (
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -241,7 +248,33 @@ export default function MachinesPage() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+            </Table>
+          )}
+          mobile={(machine) => (
+            <CatalogMobileCard
+              title={machine.nome}
+              description={machine.descricao}
+              fields={[
+                { label: 'Placa', value: machine.placa || '—' },
+                { label: 'Horímetro atual', value: machine.horimetro_atual ?? 0 },
+              ]}
+              actionsLabel={`Ações da máquina ${machine.nome}`}
+              actions={
+                <>
+                  <Link href={`/dashboard/checklist-models/new?maquina=${encodeURIComponent(machine.nome)}&company_id=${machine.company_id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                    <ClipboardList className="h-4 w-4" /> Checklist
+                  </Link>
+                  <Link href={`/dashboard/machines/edit/${machine.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                    <Pencil className="h-4 w-4" /> Editar
+                  </Link>
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(machine.id)} className={cn(catalogMobileActionClassName, 'text-[var(--ds-color-danger)]')}>
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
+                </>
+              }
+            />
+          )}
+        />
       )}
     </ListPageLayout>
   );

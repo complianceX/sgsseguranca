@@ -47,6 +47,9 @@ export function RdoActivityEditorCard({
   resolveActivityPhotoSrc,
 }: RdoActivityEditorCardProps) {
   const inputId = `rdo-activity-photo-${activityIndex}`;
+  const descriptionId = `rdo-activity-description-${item.__rowKey}`;
+  const percentualId = `rdo-activity-percentual-${item.__rowKey}`;
+  const observationId = `rdo-activity-observation-${item.__rowKey}`;
 
   return (
     <div className="space-y-4 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
@@ -62,7 +65,6 @@ export function RdoActivityEditorCard({
         </div>
         <button
           type="button"
-          title="Remover atividade"
           aria-label={`Remover atividade ${activityIndex + 1}`}
           onClick={onRemoveActivity}
           className="rounded-lg p-2 text-[var(--ds-color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger)]/10"
@@ -73,11 +75,13 @@ export function RdoActivityEditorCard({
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
         <div>
-          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+          <label htmlFor={descriptionId} className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
             Descrição da atividade
           </label>
           <input
+            id={descriptionId}
             type="text"
+            aria-label={`Descrição da atividade ${activityIndex + 1}`}
             value={item.descricao}
             onChange={(event) => onUpdateDescription(event.target.value)}
             className={formInputClassName}
@@ -85,12 +89,13 @@ export function RdoActivityEditorCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+          <label htmlFor={percentualId} className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
             % Concluído
           </label>
           <input
+            id={percentualId}
             type="number"
-            aria-label="Percentual concluído"
+            aria-label={`Percentual concluído da atividade ${activityIndex + 1}${item.descricao ? `, ${item.descricao}` : ""}`}
             value={item.percentual_concluido}
             min={0}
             max={100}
@@ -103,10 +108,12 @@ export function RdoActivityEditorCard({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+        <label htmlFor={observationId} className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
           Observação operacional
         </label>
         <textarea
+          id={observationId}
+          aria-label={`Observação operacional da atividade ${activityIndex + 1}`}
           value={item.observacao ?? ""}
           onChange={(event) => onUpdateObservacao(event.target.value)}
           className={formInputClassName}

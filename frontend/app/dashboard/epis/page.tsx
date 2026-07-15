@@ -14,9 +14,20 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { CatalogMobileCard, catalogMobileActionClassName } from '../components/CatalogMobileCard';
 
 const panelClassName =
   'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
+
+type ValidityStatus = 'expired' | 'warning' | 'valid' | 'none';
+
+function ValidityBadge({ status }: { status: ValidityStatus }) {
+  if (status === 'expired') return <Badge variant="danger"><AlertCircle className="h-3 w-3" /> Expirado</Badge>;
+  if (status === 'warning') return <Badge variant="warning"><AlertCircle className="h-3 w-3" /> Vence em breve</Badge>;
+  if (status === 'valid') return <Badge variant="success"><CheckCircle2 className="h-3 w-3" /> Válido</Badge>;
+  return <Badge variant="neutral">Não informado</Badge>;
+}
 
 export default function EpisPage() {
   const [epis, setEpis] = useState<Epi[]>([]);
@@ -103,7 +114,7 @@ export default function EpisPage() {
             <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">EPIs</h1>
             <p className="text-[var(--ds-color-text-muted)]">Gerencie os Equipamentos de Proteção Individual e validades de C.A.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Badge variant="primary" className="px-3 py-1">
               {summary.total} resultado(s)
             </Badge>
@@ -138,7 +149,14 @@ export default function EpisPage() {
           </div>
         </div>
 
-        <Table>
+        <ResponsiveDataList
+          items={epis}
+          getKey={(epi) => epi.id}
+          mobileClassName="grid min-w-0 gap-3 p-3"
+          loading={loading ? <div className="p-6 text-center text-sm text-[var(--ds-color-text-muted)]">Carregando EPIs...</div> : null}
+          empty={<div className="p-6 text-center text-sm text-[var(--ds-color-text-muted)]">Nenhum EPI encontrado.</div>}
+          desktop={() => (
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -175,24 +193,7 @@ export default function EpisPage() {
                       {safeFormatDate(epi.validade_ca, 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell>
-                      {status === 'expired' && (
-                        <Badge variant="danger">
-                          <AlertCircle className="h-3 w-3" /> Expirado
-                        </Badge>
-                      )}
-                      {status === 'warning' && (
-                        <Badge variant="warning">
-                          <AlertCircle className="h-3 w-3" /> Vence em breve
-                        </Badge>
-                      )}
-                      {status === 'valid' && (
-                        <Badge variant="success">
-                          <CheckCircle2 className="h-3 w-3" /> Válido
-                        </Badge>
-                      )}
-                      {status === 'none' && (
-                        <Badge variant="neutral">Não informado</Badge>
-                      )}
+                      <ValidityBadge status={status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -218,7 +219,34 @@ export default function EpisPage() {
               })
             )}
           </TableBody>
-        </Table>
+            </Table>
+          )}
+          mobile={(epi) => {
+            const status = getValidityStatus(epi.validade_ca);
+            return (
+              <CatalogMobileCard
+                title={epi.nome}
+                description={epi.descricao || 'Sem descrição'}
+                fields={[
+                  { label: 'C.A.', value: epi.ca || '—' },
+                  { label: 'Validade C.A.', value: safeFormatDate(epi.validade_ca, 'dd/MM/yyyy') },
+                  { label: 'Status', value: <ValidityBadge status={status} /> },
+                ]}
+                actionsLabel={`Ações do EPI ${epi.nome}`}
+                actions={
+                  <>
+                    <Link href={`/dashboard/epis/edit/${epi.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                      <Pencil className="h-4 w-4" /> Editar
+                    </Link>
+                    <button type="button" onClick={() => handleDelete(epi.id)} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName, 'text-[var(--ds-color-danger)]')}>
+                      <Trash2 className="h-4 w-4" /> Excluir
+                    </button>
+                  </>
+                }
+              />
+            );
+          }}
+        />
         {!loading && total > 0 ? (
           <PaginationControls
             page={page}

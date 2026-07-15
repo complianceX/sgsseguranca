@@ -186,6 +186,7 @@ export const usersService = {
     siteId?: string;
     identityType?: UserIdentityType;
     accessStatus?: UserAccessStatus;
+    signal?: AbortSignal;
   }): Promise<PaginatedResponse<User>> => {
     const params = {
       page: opts?.page ?? 1,
@@ -200,6 +201,7 @@ export const usersService = {
       const response = await api.get<PaginatedResponse<User>>("/users", {
         params,
         headers,
+        signal: opts?.signal,
       });
       return response.data;
     } catch (error) {

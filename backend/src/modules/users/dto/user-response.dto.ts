@@ -82,4 +82,7 @@ export class UserResponseDto {
 
   @Expose()
   updated_at: Date;
+
+  @Expose()
+  must_change_password?: boolean;
 }

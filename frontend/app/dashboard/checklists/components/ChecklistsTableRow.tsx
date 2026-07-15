@@ -11,6 +11,7 @@ import { ChecklistColumnKey } from '../columns';
 import { useAuth } from '@/context/AuthContext';
 import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import { getChecklistManualNcHref, getChecklistSophieNcHref } from './checklistActions';
 
 interface ChecklistsTableRowProps {
   checklist: Checklist;
@@ -60,26 +61,8 @@ export const ChecklistsTableRow = React.memo(({
   const { hasPermission } = useAuth();
   const canManageChecklists = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
   const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
-  const sophieNcHref = (() => {
-    const params = new URLSearchParams();
-    params.set('documentType', 'nc');
-    params.set('source_type', 'checklist');
-    params.set('source_reference', checklist.id);
-    params.set('title', checklist.titulo || 'Não conformidade oriunda de checklist');
-    if (checklist.descricao) {
-      params.set('description', checklist.descricao);
-    }
-    if (checklist.site_id) {
-      params.set('site_id', checklist.site_id);
-    }
-    params.set(
-      'source_context',
-      `Checklist ${checklist.titulo} com status ${checklist.status}.`,
-    );
-    return `/dashboard/sst-agent?${params.toString()}`;
-  })();
-
-  const directNcHref = `/dashboard/nonconformities/new?checklist_id=${checklist.id}&title=${encodeURIComponent(checklist.titulo || 'Não conformidade oriunda de checklist')}${checklist.site_id ? `&site_id=${checklist.site_id}` : ''}`;
+  const sophieNcHref = getChecklistSophieNcHref(checklist);
+  const directNcHref = getChecklistManualNcHref(checklist);
 
   const renderCell = (column: ChecklistColumnKey) => {
     switch (column) {

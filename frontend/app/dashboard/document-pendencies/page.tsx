@@ -50,6 +50,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/PaginationControls";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
 import { cn } from "@/lib/utils";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { safeFormatDate } from "@/lib/date/safeFormat";
@@ -57,7 +58,7 @@ import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
 const inputClassName =
-  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "min-h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const criticalityOptions: Array<{
   value: DocumentPendencyCriticality;
@@ -779,7 +780,26 @@ export default function DocumentPendenciesPage() {
             icon={<FileWarning className="h-5 w-5" />}
           />
         ) : data ? (
-          <Table>
+          <ResponsiveDataList
+            items={data.items}
+            getKey={(item) => item.id}
+            mobileClassName="space-y-3"
+            mobile={(item) => {
+              const actions = [...item.allowedActions];
+              if (item.publicValidationUrl && !actions.some((action) => action.key === "open_public_validation")) actions.push({ key: "open_public_validation", label: "Validar documento", kind: "route", enabled: true, href: item.publicValidationUrl });
+              return <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2"><Badge variant={getTypeBadgeVariant(item.type)}>{item.typeLabel}</Badge>{item.documentCode ? <Badge variant="neutral">{item.documentCode}</Badge> : null}<Badge variant={getCriticalityBadgeVariant(item.criticality)}>{criticalityOptions.find((option) => option.value === item.criticality)?.label || item.criticality}</Badge></div>
+                <h3 className="mt-3 font-semibold">{item.title || "Documento sem título operacional"}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{item.message}</p>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Módulo</dt><dd>{item.moduleLabel}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Status</dt><dd>{item.status || "Sem status"}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Empresa / site</dt><dd>{item.companyName || item.companyId}<br />{item.siteName || "Sem site vinculado"}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Data relevante</dt><dd>{formatRelevantDate(item.relevantDate)}</dd></div></dl>
+                <div className="mt-4 grid gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3">{actions.map((action) => {
+                  const key = `${item.id}:${action.key}`;
+                  const safeHref = action.key === "open_public_validation" ? safeExternalArtifactUrl(action.href) : safeInternalHref(action.href);
+                  if (action.kind === "route" && safeHref && action.enabled) return <Link key={key} href={safeHref} target={action.key === "open_public_validation" ? "_blank" : undefined} rel={action.key === "open_public_validation" ? "noopener noreferrer" : undefined} className={cn(buttonVariants({ variant: getActionButtonVariant(action) }), "min-h-11 justify-center")}>{action.label}<ArrowUpRight className="ml-2 h-4 w-4" /></Link>;
+                  return <Button key={key} type="button" className="min-h-11" variant={getActionButtonVariant(action)} loading={runningActionId === key} disabled={!action.enabled || runningActionId === key} title={action.reason || undefined} onClick={() => void handleOperationalAction(item, action)}>{action.label}</Button>;
+                })}{actions.length === 0 ? <span className="text-sm text-[var(--ds-color-text-muted)]">Sem ação direta</span> : null}</div>
+              </article>;
+            }}
+            desktop={() => <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Pendência</TableHead>
@@ -954,7 +974,8 @@ export default function DocumentPendenciesPage() {
                 );
               })}
             </TableBody>
-          </Table>
+          </Table>}
+          />
         ) : null}
       </div>
     </ListPageLayout>

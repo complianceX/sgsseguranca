@@ -57,6 +57,11 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { safeFormatDate } from "@/lib/date/safeFormat";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
+import {
+  CatalogMobileCard,
+  catalogMobileActionClassName,
+} from "../components/CatalogMobileCard";
 
 const SendMailModal = dynamic(
   () =>
@@ -668,6 +673,11 @@ useEffect(() => {
             />
           ) : (
             <>
+              <ResponsiveDataList
+                items={audits}
+                getKey={(audit) => audit.id}
+                mobileClassName="grid min-w-0 gap-3 py-3"
+                desktop={() => (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -784,6 +794,45 @@ useEffect(() => {
                   ))}
                 </TableBody>
               </Table>
+                )}
+                mobile={(audit) => (
+                  <CatalogMobileCard
+                    title={audit.titulo}
+                    description={audit.tipo_auditoria}
+                    fields={[
+                      { label: "Site / Unidade", value: audit.site?.nome || "—" },
+                      { label: "Data", value: safeFormatDate(audit.data_auditoria, "dd/MM/yyyy", { locale: ptBR }) },
+                      { label: "Auditor", value: audit.auditor?.nome || "—" },
+                    ]}
+                    actionsLabel={`Ações da auditoria ${audit.titulo}`}
+                    actions={
+                      <>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleCreateCapa(audit)} className={cn(catalogMobileActionClassName, "min-h-11")}>
+                          <Plus className="h-4 w-4" /> Gerar CAPA
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleOpenGovernedPdf(audit)} className={cn(catalogMobileActionClassName, "min-h-11")}>
+                          <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" /> {audit.pdf_file_key ? "Abrir PDF final" : "Emitir PDF final"}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handlePrint(audit)} className={cn(catalogMobileActionClassName, "min-h-11")}>
+                          <Printer className="h-4 w-4" /> Imprimir
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleSendEmail(audit)} className={cn(catalogMobileActionClassName, "min-h-11")}>
+                          <Mail className="h-4 w-4" /> Enviar
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleDownloadPdf(audit)} className={cn(catalogMobileActionClassName, "min-h-11")}>
+                          <Download className="h-4 w-4" /> Baixar
+                        </Button>
+                        <Link href={`/dashboard/audits/edit/${audit.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), catalogMobileActionClassName, "min-h-11")}>
+                          <Edit className="h-4 w-4" /> Editar
+                        </Link>
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(audit.id)} className={cn(catalogMobileActionClassName, "min-h-11 text-[var(--ds-color-danger)]")}>
+                          <Trash2 className="h-4 w-4" /> Excluir
+                        </Button>
+                      </>
+                    }
+                  />
+                )}
+              />
 
               <PaginationControls
                 page={page}

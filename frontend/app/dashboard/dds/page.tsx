@@ -77,6 +77,8 @@ import { Permission } from '@/lib/permissions';
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
+import { getDdsActionPolicy } from "../components/documentActionPolicy";
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),
@@ -1401,6 +1403,17 @@ useEffect(() => {
             {observabilityLoading ? (
               <InlineLoadingState label="Carregando ranking de validações DDS" />
             ) : observability?.publicValidation.topDocuments.length ? (
+              <ResponsiveDataList
+                items={observability.publicValidation.topDocuments}
+                getKey={(item) => item.documentRef}
+                mobileClassName="space-y-3"
+                mobile={(item) => (
+                  <article className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-3">
+                    <h3 className="font-semibold text-[var(--ds-color-text-primary)]">{item.documentRef}</h3>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Consultas</dt><dd>{item.total}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Suspeitas</dt><dd>{item.suspicious}</dd></div><div className="col-span-2"><dt className="text-xs text-[var(--ds-color-text-muted)]">Última consulta</dt><dd>{item.lastSeenAt ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</dd></div></dl>
+                  </article>
+                )}
+                desktop={() => (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1433,6 +1446,8 @@ useEffect(() => {
                   ))}
                 </TableBody>
               </Table>
+                )}
+              />
             ) : (
               <EmptyState
                 title="Sem telemetria pública suficiente"
@@ -1780,6 +1795,17 @@ useEffect(() => {
             />
           ) : (
             <>
+              <ResponsiveDataList
+                items={pagedStoredFiles}
+                getKey={(file) => `${file.ddsId}-${file.fileKey}`}
+                mobileClassName="space-y-3"
+                mobile={(file) => (
+                  <article className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-4">
+                    <h3 className="font-semibold text-[var(--ds-color-text-primary)]">{file.tema}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">{safeFormatDate(file.data, "dd/MM/yyyy", { locale: ptBR })} · {file.siteName || file.siteId || "Obra não identificada"}</p><p className="mt-2 break-all text-xs text-[var(--ds-color-text-secondary)]">{file.folderPath}/{file.originalName}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2"><Button type="button" size="sm" variant="outline" onClick={() => handleDownloadStoredPdf(file.ddsId)} leftIcon={<Download className="h-4 w-4" />}>Baixar</Button><Button type="button" size="sm" variant="ghost" onClick={() => handleCopyPdfLink(file.ddsId)} leftIcon={<Link2 className="h-4 w-4" />}>Copiar link</Button></div>
+                  </article>
+                )}
+                desktop={() => (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1853,6 +1879,8 @@ useEffect(() => {
                   ))}
                 </TableBody>
               </Table>
+                )}
+              />
 
               <div className="mt-4 flex items-center justify-between text-sm text-[var(--ds-color-text-muted)]">
                 <span>
@@ -2042,6 +2070,33 @@ useEffect(() => {
               }
             />
           ) : (
+            <ResponsiveDataList
+              items={ddsList}
+              getKey={(dds) => dds.id}
+              mobileClassName="space-y-3 p-3"
+              mobile={(dds) => {
+                const status = getEffectiveStatus(dds);
+                const locked = Boolean(dds.pdf_file_key) || status === "auditado" || status === "arquivado";
+                const transitions = getAllowedStatusTransitions(dds);
+                const participantCount = getDdsParticipantCount(dds);
+                const actions = getDdsActionPolicy({
+                  canManage: canManageDds,
+                  hasFinalPdf: Boolean(dds.pdf_file_key),
+                  status,
+                  isModel: Boolean(dds.is_modelo),
+                  participantCount,
+                  hasStatusTransitions: transitions.length > 0,
+                });
+                return (
+                  <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-[var(--ds-color-text-primary)]">{dds.tema}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">{safeFormatDate(dds.data, "dd/MM/yyyy", { locale: ptBR })} · {dds.is_modelo ? "Modelo" : "DDS padrão"}</p></div><span className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold", DDS_STATUS_COLORS[status])}>{DDS_STATUS_LABEL[status]}</span></div>
+                    <p className="mt-3 text-sm"><Users className="mr-1 inline h-4 w-4" />{participantCount} participantes</p>
+                    {actions.canChangeStatus ? <select aria-label={`Mover status de ${dds.tema}`} className={cn(inputClassName, "mt-3")} value="" onChange={(event) => event.target.value && void handleStatusChange(dds, event.target.value as DdsStatus)}><option value="">Mover para...</option>{transitions.map((nextStatus) => <option key={nextStatus} value={nextStatus}>{DDS_STATUS_LABEL[nextStatus]}</option>)}</select> : null}
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3"><Button type="button" size="sm" variant="outline" onClick={() => handleOpenGovernedPdf(dds)} disabled={!actions.canOpenOrEmitFinalPdf} leftIcon={<ShieldCheck className="h-4 w-4" />}>{dds.pdf_file_key ? "Abrir PDF final" : "Emitir PDF final"}</Button><Button type="button" size="sm" variant="outline" onClick={() => handlePrint(dds)} leftIcon={<Printer className="h-4 w-4" />}>Imprimir</Button><Button type="button" size="sm" variant="outline" onClick={() => handleEmail(dds)} leftIcon={<Mail className="h-4 w-4" />}>Enviar</Button>{actions.canCopySignatureLinks ? <Button type="button" size="sm" variant="outline" onClick={() => handleCopySignatureLinks(dds)} disabled={issuingSignatureLinksId === dds.id} leftIcon={<Link2 className="h-4 w-4" />}>Links de assinatura</Button> : null}{actions.canOperationalizeModel ? <Button type="button" size="sm" variant="outline" onClick={() => handleOperationalize(dds)} leftIcon={<Copy className="h-4 w-4" />}>Operacionalizar</Button> : null}{actions.canEdit && !locked ? <Link href={`/dashboard/dds/edit/${dds.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "justify-center")}><Pencil className="mr-2 h-4 w-4" />Editar</Link> : null}{actions.canDelete ? <Button type="button" size="sm" variant="destructive" onClick={() => handleDelete(dds.id)} leftIcon={<Trash2 className="h-4 w-4" />}>Excluir</Button> : null}</div>
+                  </article>
+                );
+              }}
+              desktop={() => (
             <Table>
               <TableHeader>
                 <TableRow className="bg-[color:var(--ds-color-surface-muted)]/40">
@@ -2076,6 +2131,14 @@ useEffect(() => {
                     isLockedByFinalPdf ||
                     currentStatus === "auditado" ||
                     currentStatus === "arquivado";
+                  const actions = getDdsActionPolicy({
+                    canManage: canManageDds,
+                    hasFinalPdf: isLockedByFinalPdf,
+                    status: currentStatus,
+                    isModel: Boolean(dds.is_modelo),
+                    participantCount,
+                    hasStatusTransitions: transitions.length > 0,
+                  });
                   return (
                     <TableRow
                       key={dds.id}
@@ -2147,7 +2210,7 @@ useEffect(() => {
                           >
                             {DDS_STATUS_LABEL[currentStatus]}
                           </span>
-                          {canManageDds && transitions.length > 0 && (
+                          {actions.canChangeStatus && (
                             <select
                               aria-label="Mover status"
                               className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
@@ -2186,10 +2249,7 @@ useEffect(() => {
                                     ? "Emitir PDF final governado"
                                     : "Somente usuários com gestão podem emitir o PDF final"
                             }
-                            disabled={
-                              !dds.pdf_file_key &&
-                              (!canManageDds || currentStatus !== "auditado")
-                            }
+                            disabled={!actions.canOpenOrEmitFinalPdf}
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                           </Button>
@@ -2249,11 +2309,7 @@ useEffect(() => {
                                 icon: <Link2 className="h-4 w-4" />,
                                 onClick: () => handleCopySignatureLinks(dds),
                                 disabled:
-                                  !canManageDds ||
-                                  Boolean(dds.is_modelo) ||
-                                  Boolean(dds.pdf_file_key) ||
-                                  currentStatus === "arquivado" ||
-                                  participantCount === 0 ||
+                                  !actions.canCopySignatureLinks ||
                                   issuingSignatureLinksId === dds.id,
                                 title:
                                   dds.is_modelo
@@ -2266,7 +2322,7 @@ useEffect(() => {
                                           ? "Adicione participantes antes de gerar links"
                                           : "Gerar e copiar links públicos de assinatura",
                               },
-                              ...(dds.is_modelo && canManageDds
+                              ...(actions.canOperationalizeModel
                                 ? [
                                     {
                                       label: "Operacionalizar modelo",
@@ -2299,6 +2355,8 @@ useEffect(() => {
               </TableBody>
               )}
             </Table>
+              )}
+            />
           )}
         </CardContent>
         {!loading && total > 0 ? (

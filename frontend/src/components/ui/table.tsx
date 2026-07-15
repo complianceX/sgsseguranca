@@ -32,7 +32,6 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(
     >
       <table
         ref={ref}
-        role="grid"
         aria-label={ariaLabel ?? label}
         aria-rowcount={rowCount}
         aria-colcount={colCount}

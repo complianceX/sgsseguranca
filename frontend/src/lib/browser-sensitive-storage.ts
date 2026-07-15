@@ -1,3 +1,6 @@
+import { secureOfflineDB } from "./offline-db-secure";
+import { clearOfflineCache } from "./offline-cache";
+
 const SENSITIVE_STORAGE_PREFIXES = [
   "gst.cache.",
   "compliancex.cache.",
@@ -14,8 +17,16 @@ const SENSITIVE_STORAGE_KEYS = [
   "compliancex.offline.queue",
 ];
 
-export function clearSensitiveBrowserStorage() {
+export async function clearSensitiveBrowserStorage(): Promise<void> {
   if (typeof window === "undefined") return;
+
+  // Tenant changes must invalidate encrypted records as well as legacy storage.
+  // These stores may contain cached entities, queued writes, or session context.
+  await Promise.all([
+    clearOfflineCache(),
+    secureOfflineDB.clear("sgs-queue"),
+    secureOfflineDB.clear("sgs-session"),
+  ]);
 
   for (const key of SENSITIVE_STORAGE_KEYS) {
     try {

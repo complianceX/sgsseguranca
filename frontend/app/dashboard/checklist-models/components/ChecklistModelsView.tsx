@@ -21,7 +21,7 @@ import { ListPageLayout } from "@/components/layout";
 import { PaginationControls } from "@/components/PaginationControls";
 import { StatusPill } from "@/components/ui/status-pill";
 
-import { EmptyState } from "@/components/ui/state";
+import { EmptyState, InlineLoadingState } from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { checklistsService, type Checklist } from "@/services/checklistsService";
 import { signaturesService } from "@/services/signaturesService";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
 import { useAuth } from "@/context/AuthContext";
 import { Permission } from "@/lib/permissions";
 
@@ -351,7 +352,19 @@ export function ChecklistModelsView({
             />
           </div>
         ) : (
-          <Table className="min-w-[1040px]">
+          <ResponsiveDataList
+            items={filteredModels}
+            getKey={(model) => model.id}
+            mobileClassName="space-y-3 p-3"
+            loading={loading && filteredModels.length === 0 ? <div className="p-6"><InlineLoadingState label="Carregando modelos de checklist..." /></div> : undefined}
+            mobile={(model) => (
+              <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h3 className="font-semibold">{model.titulo}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{model.descricao || "Sem descrição"}</p></div>{model.is_modelo ? <Badge variant="accent">Modelo</Badge> : null}</div>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Categoria</dt><dd>{model.categoria || "Sem categoria"}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Equipamento / máquina</dt><dd>{model.equipamento || "-"}{model.maquina ? ` / ${model.maquina}` : ""}</dd></div></dl>
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3"><Link href={area.segment ? `/dashboard/checklists/new?source=model&templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}` : `/dashboard/checklists/fill/${model.id}`} className={cn(buttonVariants({ variant: "outline" }), "min-h-11 justify-center text-[var(--ds-color-success)]")}><PlayCircle className="mr-2 h-4 w-4" />Preencher</Link>{canManageChecklists ? <Link href={`/dashboard/checklist-models/edit/${model.id}`} className={cn(buttonVariants({ variant: "outline" }), "min-h-11 justify-center")}><PenTool className="mr-2 h-4 w-4" />Editar</Link> : null}<Button type="button" variant="outline" className="min-h-11" onClick={() => void handleSendEmail(model)} disabled={printingId === model.id}><Mail className="mr-2 h-4 w-4" />E-mail</Button>{canManageChecklists ? <Button type="button" variant="outline" className="min-h-11 text-[var(--ds-color-danger)]" onClick={() => void handleDelete(model.id)}><Trash2 className="mr-2 h-4 w-4" />Excluir</Button> : null}</div>
+              </article>
+            )}
+            desktop={() => <Table className="min-w-[1040px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[38%]">Título</TableHead>
@@ -445,7 +458,8 @@ export function ChecklistModelsView({
                 ))
               )}
             </TableBody>
-          </Table>
+          </Table>}
+          />
         )}
       </div>
     </ListPageLayout>

@@ -9,6 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { ChecklistMobileCard } from './ChecklistMobileCard';
+import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 
 interface ChecklistsTableProps {
   checklists: Checklist[];
@@ -41,7 +45,31 @@ export const ChecklistsTable = React.memo(({
   onSendEmail,
   onDelete
 }: ChecklistsTableProps) => {
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission(Permission.CAN_MANAGE_CHECKLISTS);
+  const canManageNc = hasPermission(Permission.CAN_MANAGE_NC);
   return (
+    <ResponsiveDataList
+      items={checklists}
+      getKey={(checklist) => checklist.id}
+      mobileClassName="space-y-3"
+      mobile={(checklist) => (
+        <ChecklistMobileCard
+          checklist={checklist}
+          selected={selectedIds.includes(checklist.id)}
+          canManage={canManage}
+          canManageNc={canManageNc}
+          analyzing={analyzingId === checklist.id}
+          printing={printingId === checklist.id}
+          onToggleSelect={onToggleSelect}
+          onAiAnalysis={onAiAnalysis}
+          onPrint={onPrint}
+          onDownloadPdf={onDownloadPdf}
+          onSendEmail={onSendEmail}
+          onDelete={onDelete}
+        />
+      )}
+      desktop={() => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -79,6 +107,8 @@ export const ChecklistsTable = React.memo(({
         ))}
       </TableBody>
     </Table>
+      )}
+    />
   );
 });
 

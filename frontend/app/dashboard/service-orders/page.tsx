@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
@@ -47,7 +48,7 @@ import {
 } from '@/components/ui/status-pill';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'min-h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 const labelClassName =
   'mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
@@ -460,7 +461,19 @@ export default function ServiceOrdersPage() {
             />
           </div>
         ) : (
-          <Table>
+          <ResponsiveDataList
+            items={orders}
+            getKey={(order) => order.id}
+            mobileClassName="space-y-3 p-3"
+            mobile={(order) => {
+              const allowed = OS_ALLOWED_TRANSITIONS[order.status] ?? [];
+              return <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-mono text-xs text-[var(--ds-color-text-muted)]">{order.numero}</p><h3 className="mt-1 font-semibold">{order.titulo}</h3></div><StatusPill tone={getOrderStatusTone(order.status)}>{OS_STATUS_LABEL[order.status] ?? order.status}</StatusPill></div>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Obra</dt><dd>{order.site?.nome ?? '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Emissão</dt><dd>{safeToLocaleDateString(order.data_emissao, 'pt-BR', undefined, '—')}</dd></div><div className="col-span-2"><dt className="text-xs text-[var(--ds-color-text-muted)]">Responsável</dt><dd>{order.responsavel?.nome ?? '-'}</dd></div></dl>
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3">{allowed.length > 0 ? <StatusSelect value="" disabled={updatingStatus === order.id} onChange={(event) => { if (event.target.value) void handleStatusChange(order, event.target.value); }} className="col-span-2 min-h-11 w-full"><option value="">Mover para...</option>{allowed.map((status) => <option key={status} value={status}>{OS_STATUS_LABEL[status]}</option>)}</StatusSelect> : null}<Button type="button" variant="outline" className="min-h-11" onClick={() => openEdit(order)}><Pencil className="mr-2 h-4 w-4" />Editar</Button><Button type="button" variant="outline" className="min-h-11 text-[var(--ds-color-danger)]" onClick={() => handleDelete(order.id)}><Trash2 className="mr-2 h-4 w-4" />Excluir</Button></div>
+              </article>;
+            }}
+            desktop={() => <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Numero</TableHead>
@@ -539,7 +552,8 @@ export default function ServiceOrdersPage() {
                 );
               })}
             </TableBody>
-          </Table>
+          </Table>}
+          />
         )}
       </ListPageLayout>
 
@@ -556,7 +570,7 @@ export default function ServiceOrdersPage() {
             onClose={closeModal}
           />
 
-          <ModalBody className="max-h-[70vh] space-y-4 overflow-y-auto">
+          <ModalBody className="max-h-[calc(100dvh-9rem)] space-y-4 overflow-y-auto sm:max-h-[70vh]">
               <div>
                 <label htmlFor="service-order-titulo" className={labelClassName}>Titulo *</label>
                 <input
@@ -693,11 +707,11 @@ export default function ServiceOrdersPage() {
               </div>
           </ModalBody>
 
-          <ModalFooter>
-            <Button type="button" variant="outline" onClick={closeModal}>
+          <ModalFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <Button type="button" variant="outline" className="min-h-11" onClick={closeModal}>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving}>
+            <Button type="submit" loading={saving} className="min-h-11">
               {editId ? 'Salvar' : 'Criar OS'}
             </Button>
           </ModalFooter>

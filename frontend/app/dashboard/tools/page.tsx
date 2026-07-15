@@ -13,6 +13,8 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { CatalogMobileCard, catalogMobileActionClassName } from '../components/CatalogMobileCard';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -194,7 +196,12 @@ export default function ToolsPage() {
           />
         </div>
       ) : (
-        <Table>
+        <ResponsiveDataList
+          items={tools}
+          getKey={(tool) => tool.id}
+          mobileClassName="grid min-w-0 gap-3 p-3"
+          desktop={() => (
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -244,7 +251,32 @@ export default function ToolsPage() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+            </Table>
+          )}
+          mobile={(tool) => (
+            <CatalogMobileCard
+              title={tool.nome}
+              fields={[
+                { label: 'Número de série', value: tool.numero_serie || '—' },
+                { label: 'Data de criação', value: safeToLocaleDateString(tool.created_at, 'pt-BR', undefined, '—') },
+              ]}
+              actionsLabel={`Ações da ferramenta ${tool.nome}`}
+              actions={
+                <>
+                  <Link href={`/dashboard/checklist-models/new?equipamento=${encodeURIComponent(tool.nome)}&company_id=${tool.company_id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                    <ClipboardList className="h-4 w-4" /> Checklist
+                  </Link>
+                  <Link href={`/dashboard/tools/edit/${tool.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName)}>
+                    <Pencil className="h-4 w-4" /> Editar
+                  </Link>
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(tool.id)} className={cn(catalogMobileActionClassName, 'text-[var(--ds-color-danger)]')}>
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
+                </>
+              }
+            />
+          )}
+        />
       )}
     </ListPageLayout>
   );

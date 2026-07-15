@@ -14,6 +14,7 @@ import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
   consumeOfflineCache,
+  createOfflineCacheContext,
   isOfflineRequestError,
   setOfflineCache,
   CACHE_TTL,
@@ -355,6 +356,7 @@ export const aprsService = {
     companyId?: string;
     isModeloPadrao?: boolean;
     contextFilter?: "minhas" | "vence-hoje" | "preciso-assinar";
+    signal?: AbortSignal;
   }) => {
     const params = {
       page: opts?.page ?? 1,
@@ -372,18 +374,20 @@ export const aprsService = {
       ...(opts?.contextFilter ? { context_filter: opts.contextFilter } : {}),
     };
     const cacheKey = `aprs.paginated.${JSON.stringify(params)}`;
+    const cacheContext = createOfflineCacheContext();
 
     try {
       const response = await api.get<PaginatedResponse<Apr>>("/aprs", {
         params,
+        signal: opts?.signal,
       });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.CRITICAL);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.CRITICAL, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<PaginatedResponse<Apr>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Apr>>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -391,6 +395,7 @@ export const aprsService = {
 
   findAll: async (companyId?: string) => {
     const cacheKey = "aprs.all";
+    const cacheContext = createOfflineCacheContext();
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -400,13 +405,13 @@ export const aprsService = {
         batchSize: 3,
         cacheKey: `GET:/aprs?page=*&limit=100&company_id=${companyId || "current"}`,
       });
-      setOfflineCache(cacheKey, data, CACHE_TTL.CRITICAL);
+      setOfflineCache(cacheKey, data, CACHE_TTL.CRITICAL, cacheContext);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Apr[]>(cacheKey);
+      const cached = consumeOfflineCache<Apr[]>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -414,15 +419,16 @@ export const aprsService = {
 
   findOne: async (id: string) => {
     const cacheKey = `aprs.one.${id}`;
+    const cacheContext = createOfflineCacheContext();
     try {
       const response = await api.get<Apr>(`/aprs/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Apr>(cacheKey);
+      const cached = consumeOfflineCache<Apr>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }

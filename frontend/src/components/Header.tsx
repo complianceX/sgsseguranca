@@ -176,7 +176,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     "flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--chrome-topbar-chip-border)] bg-[var(--chrome-topbar-chip-bg)] text-[var(--ds-color-text-primary)] transition-colors duration-[120ms] hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
 
   return (
-    <header className="ds-topbar">
+    <header className="ds-topbar" data-sophie-reserved-zone="top">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -302,7 +302,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                     aria-label="Notificações"
                     aria-describedby="notifications-desc"
                     tabIndex={-1}
-                    className="absolute right-0 z-50 mt-3 w-[21.5rem] origin-top-right overflow-hidden rounded-[1rem] border border-[var(--chrome-topbar-border)] bg-[var(--chrome-topbar-bg)] shadow-[var(--ds-shadow-md)]"
+                    className="absolute right-0 z-50 mt-3 w-[calc(100vw-2rem)] max-w-[320px] origin-top-right overflow-hidden rounded-[1rem] border border-[var(--chrome-topbar-border)] bg-[var(--chrome-topbar-bg)] shadow-[var(--ds-shadow-md)]"
                   >
                     <p id="notifications-desc" className="sr-only">
                       {unreadCount > 0

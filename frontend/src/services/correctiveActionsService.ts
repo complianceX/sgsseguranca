@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { assertNonConformityActionAvailable } from '@/lib/offline-capabilities';
 import { PaginatedResponse } from './pagination';
 
 export type CorrectiveActionStatus =
@@ -123,6 +124,7 @@ export const correctiveActionsService = {
   },
 
   createFromNonConformity: async (id: string) => {
+    assertNonConformityActionAvailable("capa");
     const response = await api.post<CorrectiveAction>(
       `/corrective-actions/from/nonconformity/${id}`,
     );

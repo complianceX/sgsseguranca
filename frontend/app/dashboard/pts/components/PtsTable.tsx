@@ -2,21 +2,12 @@
 
 import React from 'react';
 import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
-import type {
-  PtApprovalChecklistState,
-  PtApprovalReview,
-} from './PtApprovalReviewPanel';
+import type { PtApprovalChecklistState, PtApprovalReview } from './PtApprovalReviewPanel';
 import { PtsTableRow } from './PtsTableRow';
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/state';
-import { TableRowSkeleton } from '@/components/ui/skeleton';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { PtMobileCard } from './PtMobileCard';
 
 interface PtsTableProps {
   pts: Pt[];
@@ -74,64 +65,95 @@ export const PtsTable = React.memo(
     onDismissApprovalReview,
     onUpdateApprovalChecklist,
   }: PtsTableProps) => {
+    const row = (pt: Pt) => (
+      <PtsTableRow
+        key={pt.id}
+        pt={pt}
+        onDelete={onDelete}
+        onPrint={onPrint}
+        onSendEmail={onSendEmail}
+        onDownloadPdf={onDownloadPdf}
+        onPrepareApproval={onPrepareApproval}
+        onApprove={onApprove}
+        onReject={onReject}
+        onFinalize={onFinalize}
+        approvingId={approvingId}
+        rejectingId={rejectingId}
+        finalizingId={finalizingId}
+        approvalReviewLoadingId={approvalReviewLoadingId}
+        approvalIssue={approvalIssuesById[pt.id]}
+        approvalReview={approvalReviewById[pt.id]}
+        approvalChecklist={approvalChecklistById[pt.id] || EMPTY_APPROVAL_CHECKLIST}
+        onDismissApprovalIssue={onDismissApprovalIssue}
+        onDismissApprovalReview={onDismissApprovalReview}
+        onUpdateApprovalChecklist={onUpdateApprovalChecklist}
+      />
+    );
+
+    if (loading || pts.length === 0) {
+      return (
+        <div className="p-6">
+          {loading ? (
+            <div
+              className="h-24 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]"
+              aria-label="Carregando PTs"
+            />
+          ) : (
+            <EmptyState
+              title="Nenhuma PT encontrada"
+              description="Tente ajustar os filtros ou crie uma nova permissão de trabalho."
+              compact
+            />
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Número / Título</TableHead>
-              <TableHead>Início</TableHead>
-              <TableHead>Fim</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRowSkeleton key={index} cols={5} />
-              ))
-            ) : pts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10">
-                  <EmptyState
-                    title="Nenhuma PT encontrada"
-                    description="Tente ajustar os filtros ou crie uma nova permissão de trabalho."
-                    compact
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              pts.map((pt) => (
-                <PtsTableRow
-                  key={pt.id}
-                  pt={pt}
-                  onDelete={onDelete}
-                  onPrint={onPrint}
-                  onSendEmail={onSendEmail}
-                  onDownloadPdf={onDownloadPdf}
-                  onPrepareApproval={onPrepareApproval}
-                  onApprove={onApprove}
-                  onReject={onReject}
-                  onFinalize={onFinalize}
-                  approvingId={approvingId}
-                  rejectingId={rejectingId}
-                  finalizingId={finalizingId}
-                  approvalReviewLoadingId={approvalReviewLoadingId}
-                  approvalIssue={approvalIssuesById[pt.id]}
-                  approvalReview={approvalReviewById[pt.id]}
-                  approvalChecklist={
-                    approvalChecklistById[pt.id] || EMPTY_APPROVAL_CHECKLIST
-                  }
-                  onDismissApprovalIssue={onDismissApprovalIssue}
-                  onDismissApprovalReview={onDismissApprovalReview}
-                  onUpdateApprovalChecklist={onUpdateApprovalChecklist}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ResponsiveDataList
+        items={pts}
+        getKey={(pt) => pt.id}
+        mobileClassName="grid min-w-0 gap-3 p-3"
+        desktop={() => (
+          <div className="overflow-x-auto" aria-label="PTs em tabela">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número / Título</TableHead>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Fim</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>{pts.map(row)}</TableBody>
+            </Table>
+          </div>
+        )}
+        mobile={(pt) => (
+          <PtMobileCard
+            pt={pt}
+            onDelete={onDelete}
+            onPrint={onPrint}
+            onSendEmail={onSendEmail}
+            onDownloadPdf={onDownloadPdf}
+            onPrepareApproval={onPrepareApproval}
+            onApprove={onApprove}
+            onReject={onReject}
+            onFinalize={onFinalize}
+            preparing={approvalReviewLoadingId === pt.id}
+            approving={approvingId === pt.id}
+            rejecting={rejectingId === pt.id}
+            finalizing={finalizingId === pt.id}
+            approvalIssue={approvalIssuesById[pt.id]}
+            approvalReview={approvalReviewById[pt.id]}
+            approvalChecklist={approvalChecklistById[pt.id] || EMPTY_APPROVAL_CHECKLIST}
+            onDismissApprovalIssue={onDismissApprovalIssue}
+            onDismissApprovalReview={onDismissApprovalReview}
+            onUpdateApprovalChecklist={onUpdateApprovalChecklist}
+          />
+        )}
+      />
     );
   },
 );

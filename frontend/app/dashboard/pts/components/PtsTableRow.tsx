@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import dynamic from 'next/dynamic';
+import React from 'react';
 import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -11,18 +10,15 @@ import {
   Clock,
   Download,
   Mail,
-  PenLine,
   Pencil,
   Printer,
   Trash2,
-  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { signaturesService } from '@/services/signaturesService';
 import { useAuth } from '@/context/AuthContext';
 import { Permission } from '@/lib/permissions';
-import { toast } from 'sonner';
+
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -33,15 +29,7 @@ import {
 } from './PtApprovalReviewPanel';
 import { buildPtEditFocusHref } from './pt-approval-focus';
 import { safeFormatDate } from '@/lib/date/safeFormat';
-
-const SignatureModal = dynamic(
-  () => import('@/components/SignatureModal').then((module) => module.SignatureModal),
-  { ssr: false },
-);
-const SignaturesPanel = dynamic(
-  () => import('@/components/SignaturesPanel').then((module) => module.SignaturesPanel),
-  { ssr: false },
-);
+import { PtSignatureActions } from './PtSignatureActions';
 
 interface PtsTableRowProps {
   pt: Pt;
@@ -147,43 +135,20 @@ export const PtsTableRow = React.memo(
     onDismissApprovalReview,
     onUpdateApprovalChecklist,
   }: PtsTableRowProps) => {
-    const { user, hasPermission } = useAuth();
-    const [showSignModal, setShowSignModal] = useState(false);
-    const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
+    const { hasPermission } = useAuth();
     const isApproved = pt.status === 'Aprovada';
     const isAwaitingApproval = pt.status === 'Pendente';
     const isFinalizable = pt.status === 'Aprovada' || pt.status === 'Expirada';
     const isEditable = pt.status === 'Pendente';
     const canManagePt = hasPermission(Permission.CAN_MANAGE_PT);
     const canManageMail = hasPermission(Permission.CAN_MANAGE_MAIL);
-    const canManageSignatures = hasPermission(Permission.CAN_MANAGE_SIGNATURES);
-    const canViewSignatures = hasPermission(Permission.CAN_VIEW_SIGNATURES);
+
     const canApprovePt = hasPermission(Permission.CAN_APPROVE_PT);
-    const activeApprovalRules = approvalRuleLabels.filter(
-      ({ key }) => approvalIssue?.rules[key],
-    );
+    const activeApprovalRules = approvalRuleLabels.filter(({ key }) => approvalIssue?.rules[key]);
     const isApproving = approvingId === pt.id;
     const isRejecting = rejectingId === pt.id;
     const isFinalizing = finalizingId === pt.id;
     const isPreparingApproval = approvalReviewLoadingId === pt.id;
-
-    const handleSignSave = async (signatureData: string, type: string) => {
-      try {
-        await signaturesService.create({
-          document_id: pt.id,
-          document_type: 'PT',
-          signature_data: signatureData,
-          type,
-          user_id: user?.id,
-          company_id: pt.company_id,
-        });
-        onDismissApprovalReview(pt.id);
-        onDismissApprovalIssue(pt.id);
-        toast.success('Assinatura registrada com sucesso.');
-      } catch {
-        toast.error('Erro ao registrar assinatura.');
-      }
-    };
 
     return (
       <>
@@ -192,9 +157,7 @@ export const PtsTableRow = React.memo(
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="font-medium text-[var(--ds-color-text-primary)]">{pt.numero}</div>
-                {approvalIssue ? (
-                  <Badge variant="warning">Aprovação bloqueada</Badge>
-                ) : null}
+                {approvalIssue ? <Badge variant="warning">Aprovação bloqueada</Badge> : null}
               </div>
               <div className="text-[var(--ds-color-text-primary)]">{pt.titulo}</div>
             </div>
@@ -251,11 +214,7 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onDownloadPdf(pt.id)}
-                title={
-                  pt.pdf_file_key || isApproved
-                    ? 'Abrir PDF final governado'
-                    : 'Baixar PDF'
-                }
+                title={pt.pdf_file_key || isApproved ? 'Abrir PDF final governado' : 'Baixar PDF'}
               >
                 <Download className="h-4 w-4" />
               </Button>
@@ -306,11 +265,7 @@ export const PtsTableRow = React.memo(
                         ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
                         : '',
                     )}
-                    title={
-                      isEditable
-                        ? 'Editar PT'
-                        : 'Somente PTs pendentes podem ser editadas'
-                    }
+                    title={isEditable ? 'Editar PT' : 'Somente PTs pendentes podem ser editadas'}
                   >
                     <Pencil className="h-4 w-4" />
                   </Link>
@@ -326,28 +281,17 @@ export const PtsTableRow = React.memo(
                   </Button>
                 </>
               ) : null}
-              {canManageSignatures ? (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowSignModal(true)}
-                  title="Assinar PT"
-                >
-                  <PenLine className="h-4 w-4" />
-                </Button>
-              ) : null}
-              {canViewSignatures ? (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowSignaturesPanel(true)}
-                  title="Ver assinaturas"
-                >
-                  <Users className="h-4 w-4" />
-                </Button>
-              ) : null}
+              <PtSignatureActions
+                ptId={pt.id}
+                companyId={pt.company_id}
+                iconOnly
+                onSignatureSaved={() => {
+                  onDismissApprovalIssue(pt.id);
+                  if (isAwaitingApproval && approvalReview) {
+                    onPrepareApproval(pt.id);
+                  }
+                }}
+              />
             </div>
           </TableCell>
         </TableRow>
@@ -360,9 +304,7 @@ export const PtsTableRow = React.memo(
                 review={approvalReview}
                 checklist={approvalChecklist}
                 confirming={isApproving}
-                onChecklistChange={(key, checked) =>
-                  onUpdateApprovalChecklist(pt.id, key, checked)
-                }
+                onChecklistChange={(key, checked) => onUpdateApprovalChecklist(pt.id, key, checked)}
                 onConfirm={() => onApprove(pt.id)}
                 onDismiss={() => onDismissApprovalReview(pt.id)}
               />
@@ -432,19 +374,6 @@ export const PtsTableRow = React.memo(
             </TableCell>
           </TableRow>
         ) : null}
-
-        <SignatureModal
-          isOpen={showSignModal}
-          onClose={() => setShowSignModal(false)}
-          onSave={handleSignSave}
-          userName={user?.nome ?? 'Usuário'}
-        />
-        <SignaturesPanel
-          isOpen={showSignaturesPanel}
-          onClose={() => setShowSignaturesPanel(false)}
-          documentId={pt.id}
-          documentType="PT"
-        />
       </>
     );
   },

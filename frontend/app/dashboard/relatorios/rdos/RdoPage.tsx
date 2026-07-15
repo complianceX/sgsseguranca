@@ -23,9 +23,7 @@ import {
   RDO_STATUS_COLORS,
   RDO_ALLOWED_TRANSITIONS,
 } from "@/services/rdosService";
-import { sitesService, Site } from "@/services/sitesService";
-import { usersService, User } from "@/services/usersService";
-import { downloadExcel } from "@/lib/download-excel";
+import { exportCurrentRdoExcel } from "./rdoExcelExport";
 import {
   Plus,
   Search,
@@ -50,6 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/PaginationControls";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
@@ -66,8 +65,6 @@ import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
 import { Permission } from '@/lib/permissions';
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
-import { selectedTenantStore } from "@/lib/selectedTenantStore";
-import { sessionStore } from "@/lib/sessionStore";
 import {
   safeToLocaleDateString,
   toInputDateValue,
@@ -85,6 +82,11 @@ import {
   RdoSignModalState,
   RdoServicoItem,
 } from "@/components/rdos/rdo-modal-types";
+import { useRdoTenantReferenceData } from "./useRdoTenantReferenceData";
+import {
+  useRdoTenantPageIsolation,
+  type RdoTenantOperation,
+} from "./useRdoTenantPageIsolation";
 const StoredFilesPanel = dynamic(
   () =>
     import("@/components/StoredFilesPanel").then(
@@ -198,18 +200,14 @@ function rdoToForm(rdo: Rdo): RdoFormState {
 
 export default function RdosPage() {
   const { hasPermission } = useAuth();
+  const canManageRdo = hasPermission(Permission.CAN_MANAGE_RDOS);
   const [rdos, setRdos] = useState<Rdo[]>([]);
-const timerRef = useRef<number | undefined>(undefined);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() =>
-    selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || null,
-  );
-  const referenceDataScopeRef = useRef<string | null>(null);
-  const usersScopeRef = useRef<string | null>(null);
-  const usersLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const handleReferenceDataError = useCallback((message: string) => {
+    setLoadError(message);
+  }, []);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -260,22 +258,6 @@ useEffect(() => {
       revokePendingActivityEntries(pendingActivityPhotosRef.current);
     };
   }, [revokePendingActivityEntries]);
-
-  useEffect(() => {
-    const syncActiveCompanyId = () => {
-      setActiveCompanyId(
-        selectedTenantStore.get()?.companyId ||
-          sessionStore.get()?.companyId ||
-          null,
-      );
-    };
-
-    syncActiveCompanyId();
-    const unsubscribe = selectedTenantStore.subscribe(syncActiveCompanyId);
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   const resetPendingActivityPhotos = useCallback(() => {
     revokePendingActivityEntries(pendingActivityPhotosRef.current);
@@ -333,7 +315,43 @@ useEffect(() => {
     aprovado: 0,
     cancelado: 0,
   });
-  const canManageRdo = hasPermission(Permission.CAN_MANAGE_RDOS);
+  const clearTenantOwnedPageState = useCallback(() => {
+    setRdos([]);
+    setTotal(0);
+    setLastPage(1);
+    setSummary({
+      total: 0,
+      rascunho: 0,
+      enviado: 0,
+      aprovado: 0,
+      cancelado: 0,
+    });
+    setLoading(true);
+    setLoadError(null);
+    setViewRdo(null);
+    setShowModal(false);
+    setEditingId(null);
+    setCurrentStep(0);
+    setForm(defaultForm);
+    resetPendingActivityPhotos();
+    setResolvedActivityPhotoUrls({});
+    setSignModal(null);
+    setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
+    setSigning(false);
+    setEmailModal(null);
+    setEmailTo("");
+    setSendingEmail(false);
+    setFilterSiteId("");
+    setPage(1);
+  }, [resetPendingActivityPhotos]);
+  const tenantPageIsolation = useRdoTenantPageIsolation(
+    clearTenantOwnedPageState,
+  );
+  const { activeCompanyId, sites, users, ensureUsersLoaded } =
+    useRdoTenantReferenceData({
+      canManageRdo,
+      onReferenceDataError: handleReferenceDataError,
+    });
   const viewRdoLocked =
     Boolean(viewRdo?.pdf_file_key) ||
     viewRdo?.status === "aprovado" ||
@@ -348,6 +366,7 @@ useEffect(() => {
   const viewRdoVideos = useDocumentVideos({
     documentId: viewRdo?.id,
     enabled: Boolean(viewRdo?.id),
+    operationKey: `${activeCompanyId ?? "none"}:${viewRdo?.id ?? "closed"}`,
     loadVideos: rdosService.listVideoAttachments,
     uploadVideo: rdosService.uploadVideoAttachment,
     removeVideo: rdosService.removeVideoAttachment,
@@ -391,78 +410,6 @@ useEffect(() => {
     });
   }, []);
 
-  const loadReferenceData = useCallback(async () => {
-    if (!activeCompanyId) {
-      setSites([]);
-      referenceDataScopeRef.current = null;
-      return;
-    }
-
-    const nextScope = canManageRdo ? "manage" : "view";
-    if (referenceDataScopeRef.current === nextScope) {
-      return;
-    }
-
-    try {
-      const sitesResult = await sitesService.findAll(activeCompanyId);
-      setSites(sitesResult);
-      referenceDataScopeRef.current = nextScope;
-    } catch (error) {
-      logger.error("Erro ao carregar dados de referência do RDO:", error);
-      setLoadError("Não foi possível carregar os dados de apoio do RDO.");
-      toast.error("Erro ao carregar dados de apoio do RDO.");
-    }
-  }, [activeCompanyId, canManageRdo]);
-
-  const ensureUsersLoaded = useCallback(async () => {
-    if (!canManageRdo) {
-      return;
-    }
-
-    if (!activeCompanyId) {
-      setUsers([]);
-      usersScopeRef.current = null;
-      return;
-    }
-
-    const nextScope = "manage";
-    if (usersScopeRef.current === nextScope && users.length > 0) {
-      return;
-    }
-
-    if (usersLoadPromiseRef.current) {
-      await usersLoadPromiseRef.current;
-      return;
-    }
-
-    const loadPromise = (async () => {
-      try {
-        const usersResult = await usersService.findAll(activeCompanyId);
-        setUsers(usersResult);
-        usersScopeRef.current = nextScope;
-      } catch (error) {
-        logger.error("Erro ao carregar responsáveis do RDO:", error);
-        toast.error("Não foi possível carregar os responsáveis do RDO.");
-        throw error;
-      } finally {
-        usersLoadPromiseRef.current = null;
-      }
-    })();
-
-    usersLoadPromiseRef.current = loadPromise;
-    await loadPromise;
-  }, [activeCompanyId, canManageRdo, users.length]);
-
-  useEffect(() => {
-    if (canManageRdo) {
-      return;
-    }
-
-    setUsers([]);
-    usersScopeRef.current = "view";
-    usersLoadPromiseRef.current = null;
-  }, [canManageRdo]);
-
   const refreshOverview = useCallback(async () => {
     if (!activeCompanyId) {
       setSummary({
@@ -475,33 +422,53 @@ useEffect(() => {
       return;
     }
 
-    const overviewResult = await rdosService.getAnalyticsOverview();
-    setSummary({
-      total: overviewResult.totalRdos,
-      rascunho: overviewResult.rascunho,
-      enviado: overviewResult.enviado,
-      aprovado: overviewResult.aprovado,
-      cancelado: overviewResult.cancelado,
-    });
-  }, [activeCompanyId]);
+    const companyId = activeCompanyId;
+    const requestToken = tenantPageIsolation.start("overview", companyId);
+    try {
+      const overviewResult = await rdosService.getAnalyticsOverview();
+      if (
+        !tenantPageIsolation.isCurrent("overview", requestToken, companyId)
+      ) {
+        return;
+      }
+      setSummary({
+        total: overviewResult.totalRdos,
+        rascunho: overviewResult.rascunho,
+        enviado: overviewResult.enviado,
+        aprovado: overviewResult.aprovado,
+        cancelado: overviewResult.cancelado,
+      });
+    } catch (error) {
+      if (
+        !tenantPageIsolation.isCurrent("overview", requestToken, companyId)
+      ) {
+        return;
+      }
+      throw error;
+    }
+  }, [activeCompanyId, tenantPageIsolation]);
 
   const loadRdoPageData = useCallback(async () => {
+    if (!activeCompanyId) {
+      setRdos([]);
+      setTotal(0);
+      setLastPage(1);
+      setSummary({
+        total: 0,
+        rascunho: 0,
+        enviado: 0,
+        aprovado: 0,
+        cancelado: 0,
+      });
+      setLoading(false);
+      return;
+    }
+
+    const companyId = activeCompanyId;
+    const requestToken = tenantPageIsolation.start("list", companyId);
     try {
       setLoading(true);
       setLoadError(null);
-      if (!activeCompanyId) {
-        setRdos([]);
-        setTotal(0);
-        setLastPage(1);
-        setSummary({
-          total: 0,
-          rascunho: 0,
-          enviado: 0,
-          aprovado: 0,
-          cancelado: 0,
-        });
-        return;
-      }
       const rdosResult = await rdosService.findPaginated({
         page,
         limit,
@@ -512,17 +479,23 @@ useEffect(() => {
         data_fim: filterDataFim || undefined,
       });
 
-      const rdosData = rdosResult;
-      setRdos(rdosData.data);
-      setTotal(rdosData.total);
-      setLastPage(rdosData.lastPage);
-
+      if (!tenantPageIsolation.isCurrent("list", requestToken, companyId)) {
+        return;
+      }
+      setRdos(rdosResult.data);
+      setTotal(rdosResult.total);
+      setLastPage(rdosResult.lastPage);
     } catch (error) {
+      if (!tenantPageIsolation.isCurrent("list", requestToken, companyId)) {
+        return;
+      }
       logger.error("Erro ao carregar RDOs:", error);
       setLoadError("Não foi possível carregar os RDOs.");
       toast.error("Erro ao carregar RDOs.");
     } finally {
-      setLoading(false);
+      if (tenantPageIsolation.isCurrent("list", requestToken, companyId)) {
+        setLoading(false);
+      }
     }
   }, [
     activeCompanyId,
@@ -533,6 +506,7 @@ useEffect(() => {
     filterDataInicio,
     filterDataFim,
     deferredSearch,
+    tenantPageIsolation,
   ]);
 
   const refreshRdoDashboard = useCallback(async () => {
@@ -543,10 +517,6 @@ useEffect(() => {
   useEffect(() => {
     void loadRdoPageData();
   }, [loadRdoPageData]);
-
-  useEffect(() => {
-    void loadReferenceData();
-  }, [loadReferenceData]);
 
   useEffect(() => {
     void refreshOverview().catch((error) => {
@@ -566,10 +536,14 @@ useEffect(() => {
           ),
       );
 
-      if (!missing.length) {
+      if (!missing.length || !activeCompanyId) {
         return;
       }
 
+      const companyId = activeCompanyId;
+      // Editor e viewer podem hidratar documentos diferentes em paralelo.
+      const photoChannel = `photos:${documentId}`;
+      const requestToken = tenantPageIsolation.start(photoChannel, companyId);
       const resolvedEntries = await Promise.all(
         missing.map(async ({ photo, activityIndex, photoIndex }) => {
           try {
@@ -580,7 +554,11 @@ useEffect(() => {
             );
             return access.url ? ([photo, access.url] as const) : null;
           } catch (error) {
-            logger.error("Erro ao resolver foto da atividade do RDO:", error);
+            if (
+              tenantPageIsolation.isCurrent(photoChannel, requestToken, companyId)
+            ) {
+              logger.error("Erro ao resolver foto da atividade do RDO:", error);
+            }
             return null;
           }
         }),
@@ -592,14 +570,17 @@ useEffect(() => {
         ),
       );
 
-      if (Object.keys(nextEntries).length) {
+      if (
+        Object.keys(nextEntries).length &&
+        tenantPageIsolation.isCurrent(photoChannel, requestToken, companyId)
+      ) {
         setResolvedActivityPhotoUrls((current) => ({
           ...current,
           ...nextEntries,
         }));
       }
     },
-    [resolvedActivityPhotoUrls],
+    [activeCompanyId, resolvedActivityPhotoUrls, tenantPageIsolation],
   );
 
   useEffect(() => {
@@ -626,29 +607,34 @@ useEffect(() => {
     );
   }, [hydrateActivityPhotoUrls, viewRdo]);
 
-  const getGovernedPdfAccess = useCallback(async (rdoId: string) => {
-    const access = await rdosService.getPdfAccess(rdoId);
-    return access.hasFinalPdf ? access : null;
-  }, []);
+  const getGovernedPdfAccess = useCallback(
+    async (rdoId: string, operation: RdoTenantOperation) => {
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
+      const access = await rdosService.getPdfAccess(rdoId);
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
+      return access.hasFinalPdf ? access : null;
+    },
+    [tenantPageIsolation],
+  );
 
   const ensureGovernedPdf = useCallback(
-    async (rdo: Rdo) => {
-      const existingAccess = await getGovernedPdfAccess(rdo.id);
-      if (existingAccess) {
-        return existingAccess;
-      }
-
-      if (rdo.status !== "aprovado") {
-        return null;
-      }
+    async (rdo: Rdo, operation: RdoTenantOperation) => {
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
+      const existingAccess = await getGovernedPdfAccess(rdo.id, operation);
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
+      if (existingAccess) return existingAccess;
+      if (rdo.status !== "aprovado") return null;
 
       const fullRdo = await rdosService.findOne(rdo.id);
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
       const { generateRdoPdf } = await loadRdoPdfGenerator();
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
         draftWatermark: false,
       })) as { base64: string; filename: string } | undefined;
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
 
       if (!result?.base64) {
         throw new Error("Falha ao gerar o PDF oficial do RDO.");
@@ -656,11 +642,14 @@ useEffect(() => {
 
       const pdfFile = base64ToPdfFile(result.base64, result.filename);
       await rdosService.attachFile(rdo.id, pdfFile);
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
       await refreshRdoDashboard();
+      if (!tenantPageIsolation.isOperationCurrent(operation)) return null;
       toast.success("PDF final do RDO emitido e registrado com sucesso.");
-      return rdosService.getPdfAccess(rdo.id);
+      const access = await rdosService.getPdfAccess(rdo.id);
+      return tenantPageIsolation.isOperationCurrent(operation) ? access : null;
     },
-    [getGovernedPdfAccess, refreshRdoDashboard],
+    [getGovernedPdfAccess, refreshRdoDashboard, tenantPageIsolation],
   );
 
   const handleOpenCreate = async () => {
@@ -669,8 +658,18 @@ useEffect(() => {
       return;
     }
 
+    if (!activeCompanyId) {
+      return;
+    }
+    const companyId = activeCompanyId;
+    const requestToken = tenantPageIsolation.start("openEditor", companyId);
     try {
       await ensureUsersLoaded();
+      if (
+        !tenantPageIsolation.isCurrent("openEditor", requestToken, companyId)
+      ) {
+        return;
+      }
       resetPendingActivityPhotos();
       setEditingId(null);
       setForm(defaultForm);
@@ -682,6 +681,9 @@ useEffect(() => {
   };
 
   const handleOpenEdit = async (rdo: Rdo) => {
+    if (!tenantPageIsolation.isActiveCompany(rdo.company_id)) {
+      return;
+    }
     if (!canManageRdo) {
       toast.error("Você não tem permissão para editar RDOs.");
       return;
@@ -697,8 +699,18 @@ useEffect(() => {
       return;
     }
 
+    if (!activeCompanyId) {
+      return;
+    }
+    const companyId = activeCompanyId;
+    const requestToken = tenantPageIsolation.start("openEditor", companyId);
     try {
       await ensureUsersLoaded();
+      if (
+        !tenantPageIsolation.isCurrent("openEditor", requestToken, companyId)
+      ) {
+        return;
+      }
       resetPendingActivityPhotos();
       setEditingId(rdo.id);
       setForm(rdoToForm(rdo));
@@ -710,19 +722,24 @@ useEffect(() => {
   };
 
   const handlePrintAfterSave = useCallback(
-    async (rdo: Rdo) => {
+    async (rdo: Rdo, operation: RdoTenantOperation) => {
+      const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+      if (!isCurrent()) return;
       toast.info("Preparando impressão do RDO...");
 
       const shouldUseGovernedPdf =
         Boolean(rdo.pdf_file_key) || rdo.status === "aprovado";
 
       if (shouldUseGovernedPdf) {
-        const access = await ensureGovernedPdf(rdo);
+        const access = await ensureGovernedPdf(rdo, operation);
+        if (!isCurrent()) return;
         if (access?.hasFinalPdf && access.url) {
           openPdfForPrint(access.url, () => {
-            toast.info(
-              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
-            );
+            if (isCurrent()) {
+              toast.info(
+                "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+              );
+            }
           });
           return;
         }
@@ -733,11 +750,14 @@ useEffect(() => {
               "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos o download oficial do arquivo para impressão.",
           );
           const officialBlob = await rdosService.downloadPdf(rdo.id);
+          if (!isCurrent()) return;
           const officialFileUrl = URL.createObjectURL(officialBlob);
           openPdfForPrint(officialFileUrl, () => {
-            toast.info(
-              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
-            );
+            if (isCurrent()) {
+              toast.info(
+                "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+              );
+            }
           });
           setTimeout(() => URL.revokeObjectURL(officialFileUrl), 60_000);
           return;
@@ -749,12 +769,15 @@ useEffect(() => {
       }
 
       const fullRdo = await rdosService.findOne(rdo.id);
+      if (!isCurrent()) return;
       const { generateRdoPdf } = await loadRdoPdfGenerator();
+      if (!isCurrent()) return;
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
         draftWatermark: true,
       })) as { base64: string } | undefined;
+      if (!isCurrent()) return;
 
       if (!result?.base64) {
         throw new Error("Falha ao gerar PDF do RDO para impressão.");
@@ -762,13 +785,15 @@ useEffect(() => {
 
       const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
       openPdfForPrint(fileURL, () => {
-        toast.info(
-          "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
-        );
+        if (isCurrent()) {
+          toast.info(
+            "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+          );
+        }
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     },
-    [ensureGovernedPdf],
+    [ensureGovernedPdf, tenantPageIsolation],
   );
 
   const validateRdoForm = () => {
@@ -848,7 +873,10 @@ useEffect(() => {
     return null;
   };
 
-  const uploadQueuedActivityPhotos = async (rdoId: string) => {
+  const uploadQueuedActivityPhotos = async (
+    rdoId: string,
+    operation: RdoTenantOperation,
+  ) => {
     const queuedEntries = Object.entries(pendingActivityPhotosRef.current)
       .map(([activityIndex, photos]) => ({
         activityIndex: Number(activityIndex),
@@ -862,17 +890,23 @@ useEffect(() => {
 
     for (const entry of queuedEntries) {
       for (const photo of entry.photos) {
+        if (!tenantPageIsolation.isOperationCurrent(operation)) {
+          return { uploadedCount, signaturesReset, stale: true };
+        }
         const result = await rdosService.attachActivityPhoto(
           rdoId,
           entry.activityIndex,
           photo.file,
         );
+        if (!tenantPageIsolation.isOperationCurrent(operation)) {
+          return { uploadedCount, signaturesReset, stale: true };
+        }
         uploadedCount += 1;
         signaturesReset = signaturesReset || result.signaturesReset;
       }
     }
 
-    return { uploadedCount, signaturesReset };
+    return { uploadedCount, signaturesReset, stale: false };
   };
 
   const handleSave = async (options?: { printAfterSave?: boolean }) => {
@@ -882,6 +916,13 @@ useEffect(() => {
       toast.error(validationMessage);
       return;
     }
+    if (!activeCompanyId) return;
+    const operation = tenantPageIsolation.beginOperation(
+      `save:${editingId ?? "new"}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+    if (!isCurrent()) return;
     setSaving(true);
     const payload = {
       data: form.data,
@@ -948,18 +989,21 @@ useEffect(() => {
       let savedRdo: Rdo;
       if (editingId) {
         savedRdo = await rdosService.update(editingId, payload);
-        toast.success("RDO atualizado com sucesso!");
       } else {
         savedRdo = await rdosService.create(payload);
-        toast.success("RDO criado com sucesso!");
       }
+      if (!isCurrent()) return;
+      toast.success(editingId ? "RDO atualizado com sucesso!" : "RDO criado com sucesso!");
 
       try {
         const queuedUploadResult = await uploadQueuedActivityPhotos(
           savedRdo.id,
+          operation,
         );
+        if (!isCurrent() || queuedUploadResult.stale) return;
         if (queuedUploadResult.uploadedCount > 0) {
           savedRdo = await rdosService.findOne(savedRdo.id);
+          if (!isCurrent()) return;
           if (queuedUploadResult.signaturesReset) {
             toast.warning(
               "RDO salvo e fotos anexadas, mas as assinaturas foram invalidadas pela mudança de conteúdo.",
@@ -971,6 +1015,7 @@ useEffect(() => {
           }
         }
       } catch (uploadError) {
+        if (!isCurrent()) return;
         logger.error(
           "Erro ao enviar fotos pendentes das atividades do RDO:",
           uploadError,
@@ -981,20 +1026,24 @@ useEffect(() => {
         );
       }
 
+      if (!isCurrent()) return;
       closeEditorModal();
       try {
         await refreshRdoDashboard();
+        if (!isCurrent()) return;
       } catch (refreshError) {
+        if (!isCurrent()) return;
         logger.error("Erro ao atualizar a lista de RDOs após salvar:", refreshError);
         toast.warning(
           "RDO salvo, mas a atualização da lista falhou. Recarregue a tela para ver o conteúdo atualizado.",
         );
       }
 
-      if (shouldPrintAfterSave) {
+      if (shouldPrintAfterSave && isCurrent()) {
         try {
-          await handlePrintAfterSave(savedRdo);
+          await handlePrintAfterSave(savedRdo, operation);
         } catch (printError) {
+          if (!isCurrent()) return;
           logger.error(
             "Erro ao preparar impressão automática do RDO:",
             printError,
@@ -1005,10 +1054,11 @@ useEffect(() => {
         }
       }
     } catch (error) {
+      if (!isCurrent()) return;
       logger.error("Erro ao salvar RDO:", error);
       toast.error(getApiErrorMessage(error) || "Erro ao salvar RDO.");
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   };
 
@@ -1017,8 +1067,16 @@ useEffect(() => {
       toast.error("Você não tem permissão para alterar o status do RDO.");
       return;
     }
+    if (!activeCompanyId) return;
+    const operation = tenantPageIsolation.beginOperation(
+      `status:${id}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
     try {
+      if (!isCurrent()) return;
       const updated = await rdosService.updateStatus(id, newStatus);
+      if (!isCurrent()) return;
       setRdos((prev) =>
         prev.map((r) => (r.id === id ? { ...r, ...updated } : r)),
       );
@@ -1026,10 +1084,13 @@ useEffect(() => {
         setViewRdo((v) => (v ? { ...v, ...updated } : v));
       }
       void refreshOverview().catch((error) => {
-        logger.error("Erro ao atualizar overview após mudança de status:", error);
+        if (isCurrent()) {
+          logger.error("Erro ao atualizar overview após mudança de status:", error);
+        }
       });
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
+      if (!isCurrent()) return;
       logger.error("Erro ao atualizar status:", error);
       toast.error(
         getApiErrorMessage(error) || "Erro ao atualizar status do RDO.",
@@ -1038,6 +1099,7 @@ useEffect(() => {
   };
 
   const handleCancelRdo = async (rdo: Rdo) => {
+    if (!tenantPageIsolation.isActiveCompany(rdo.company_id)) return;
     if (!canManageRdo) {
       toast.error("Você não tem permissão para cancelar RDOs.");
       return;
@@ -1058,8 +1120,16 @@ useEffect(() => {
       return;
     }
 
+    if (!activeCompanyId) return;
+    const operation = tenantPageIsolation.beginOperation(
+      `cancel:${rdo.id}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
     try {
+      if (!isCurrent()) return;
       const updated = await rdosService.cancel(rdo.id, reason.trim());
+      if (!isCurrent()) return;
       setRdos((prev) =>
         prev.map((item) => (item.id === updated.id ? updated : item)),
       );
@@ -1069,6 +1139,7 @@ useEffect(() => {
       void refreshOverview();
       toast.success("RDO cancelado com sucesso.");
     } catch (error) {
+      if (!isCurrent()) return;
       logger.error("Erro ao cancelar RDO:", error);
       toast.error(
         getApiErrorMessage(error) || "Não foi possível cancelar o RDO.",
@@ -1082,11 +1153,20 @@ useEffect(() => {
       return;
     }
     if (!confirm("Deseja excluir este RDO?")) return;
+    if (!activeCompanyId) return;
+    const operation = tenantPageIsolation.beginOperation(
+      `delete:${id}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
     try {
+      if (!isCurrent()) return;
       await rdosService.delete(id);
+      if (!isCurrent()) return;
       toast.success("RDO excluído.");
       await refreshRdoDashboard();
     } catch (error) {
+      if (!isCurrent()) return;
       logger.error("Erro ao excluir RDO:", error);
       toast.error("Erro ao excluir RDO.");
     }
@@ -1248,6 +1328,13 @@ useEffect(() => {
     }
 
     if (editingId) {
+      if (!activeCompanyId) return;
+      const documentId = editingId;
+      const operation = tenantPageIsolation.beginOperation(
+        `upload:${documentId}:${activityIndex}`,
+        activeCompanyId,
+      );
+      const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
       try {
         const uploaded: Array<{
           photoReference: string;
@@ -1255,14 +1342,17 @@ useEffect(() => {
         }> = [];
 
         for (const file of selectedFiles) {
+          if (!isCurrent()) return;
           const result = await rdosService.attachActivityPhoto(
-            editingId,
+            documentId,
             activityIndex,
             file,
           );
+          if (!isCurrent()) return;
           uploaded.push(result);
         }
 
+        if (!isCurrent()) return;
         const appendedReferences = uploaded.map((entry) => entry.photoReference);
         setForm((current) => {
           const nextActivities = [...current.servicos_executados];
@@ -1279,7 +1369,8 @@ useEffect(() => {
           return { ...current, servicos_executados: nextActivities };
         });
 
-        const refreshedRdo = await rdosService.findOne(editingId);
+        const refreshedRdo = await rdosService.findOne(documentId);
+        if (!isCurrent()) return;
         setRdos((current) =>
           current.map((item) =>
             item.id === refreshedRdo.id ? refreshedRdo : item,
@@ -1297,6 +1388,7 @@ useEffect(() => {
           toast.success("Foto(s) da atividade anexada(s) ao RDO.");
         }
       } catch (error) {
+        if (!isCurrent()) return;
         logger.error("Erro ao anexar fotos da atividade do RDO:", error);
         toast.error(
           getApiErrorMessage(error) ||
@@ -1348,16 +1440,24 @@ useEffect(() => {
       return;
     }
 
-    if (!editingId) {
+    if (!editingId || !activeCompanyId) {
       return;
     }
+    const documentId = editingId;
+    const operation = tenantPageIsolation.beginOperation(
+      `remove-photo:${documentId}:${activityIndex}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
 
     try {
+      if (!isCurrent()) return;
       const result = await rdosService.removeActivityPhoto(
-        editingId,
+        documentId,
         activityIndex,
         photoIndex,
       );
+      if (!isCurrent()) return;
       setForm((current) => {
         const nextActivities = [...current.servicos_executados];
         const currentActivity = nextActivities[activityIndex];
@@ -1380,7 +1480,8 @@ useEffect(() => {
         return next;
       });
 
-      const refreshedRdo = await rdosService.findOne(editingId);
+      const refreshedRdo = await rdosService.findOne(documentId);
+      if (!isCurrent()) return;
       setRdos((current) =>
         current.map((item) =>
           item.id === refreshedRdo.id ? refreshedRdo : item,
@@ -1398,6 +1499,7 @@ useEffect(() => {
         toast.success("Foto da atividade removida.");
       }
     } catch (error) {
+      if (!isCurrent()) return;
       logger.error("Erro ao remover foto da atividade do RDO:", error);
       toast.error(
         getApiErrorMessage(error) ||
@@ -1431,13 +1533,21 @@ useEffect(() => {
     });
 
   const printGeneratedRdoPdf = useCallback(
-    async (fullRdo: Rdo, draftWatermark: boolean) => {
+    async (
+      fullRdo: Rdo,
+      draftWatermark: boolean,
+      operation: RdoTenantOperation,
+    ) => {
+      const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+      if (!isCurrent()) return;
       const { generateRdoPdf } = await loadRdoPdfGenerator();
+      if (!isCurrent()) return;
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
         draftWatermark,
       })) as { base64: string } | undefined;
+      if (!isCurrent()) return;
 
       if (!result?.base64) {
         throw new Error("Falha ao gerar o PDF do RDO para impressão.");
@@ -1445,50 +1555,67 @@ useEffect(() => {
 
       const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
       openPdfForPrint(fileURL, () => {
-        toast.info(
-          "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
-        );
+        if (isCurrent()) {
+          toast.info(
+            "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+          );
+        }
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     },
-    [],
+    [tenantPageIsolation],
   );
 
   const handlePrint = (rdo: Rdo) => {
+    if (!activeCompanyId || !tenantPageIsolation.isActiveCompany(rdo.company_id)) {
+      return;
+    }
+    const operation = tenantPageIsolation.beginOperation(
+      `print:${rdo.id}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
     void (async () => {
       try {
+        if (!isCurrent()) return;
         const shouldUseGovernedPdf =
           Boolean(rdo.pdf_file_key) || rdo.status === "aprovado";
 
         if (shouldUseGovernedPdf) {
           const access =
             canManageRdo && !rdo.pdf_file_key
-              ? await ensureGovernedPdf(rdo)
-              : await getGovernedPdfAccess(rdo.id);
+              ? await ensureGovernedPdf(rdo, operation)
+              : await getGovernedPdfAccess(rdo.id, operation);
+          if (!isCurrent()) return;
           if (access?.hasFinalPdf && access.url) {
             openPdfForPrint(access.url, () => {
-              toast.info(
-                "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
-              );
+              if (isCurrent()) {
+                toast.info(
+                  "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+                );
+              }
             });
             return;
           }
 
-        if (access?.hasFinalPdf) {
-          toast.warning(
-            access.message ||
-              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos o download oficial do arquivo para impressão.",
-          );
-          const officialBlob = await rdosService.downloadPdf(rdo.id);
-          const fileURL = URL.createObjectURL(officialBlob);
-          openPdfForPrint(fileURL, () => {
-            toast.info(
-              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+          if (access?.hasFinalPdf) {
+            toast.warning(
+              access.message ||
+                "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos o download oficial do arquivo para impressão.",
             );
-          });
-          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
-          return;
-        }
+            const officialBlob = await rdosService.downloadPdf(rdo.id);
+            if (!isCurrent()) return;
+            const fileURL = URL.createObjectURL(officialBlob);
+            openPdfForPrint(fileURL, () => {
+              if (isCurrent()) {
+                toast.info(
+                  "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+                );
+              }
+            });
+            setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+            return;
+          }
 
           throw new Error(
             "O RDO aprovado precisa do PDF final governado antes da impressão.",
@@ -1496,8 +1623,10 @@ useEffect(() => {
         }
 
         const fullRdo = await rdosService.findOne(rdo.id);
-        await printGeneratedRdoPdf(fullRdo, true);
+        if (!isCurrent()) return;
+        await printGeneratedRdoPdf(fullRdo, true, operation);
       } catch (error) {
+        if (!isCurrent()) return;
         logger.error("Erro ao imprimir RDO:", error);
         toast.error("Não foi possível preparar a impressão do RDO.");
       }
@@ -1506,7 +1635,19 @@ useEffect(() => {
 
   const handleOpenGovernedPdf = useCallback(
     async (rdo: Rdo) => {
+      if (
+        !activeCompanyId ||
+        !tenantPageIsolation.isActiveCompany(rdo.company_id)
+      ) {
+        return;
+      }
+      const operation = tenantPageIsolation.beginOperation(
+        `open-pdf:${rdo.id}`,
+        activeCompanyId,
+      );
+      const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
       try {
+        if (!isCurrent()) return;
         toast.info("Preparando PDF final governado...");
         if (!canManageRdo && !rdo.pdf_file_key) {
           toast.error(
@@ -1517,8 +1658,9 @@ useEffect(() => {
 
         const access =
           canManageRdo && !rdo.pdf_file_key
-            ? await ensureGovernedPdf(rdo)
-            : await getGovernedPdfAccess(rdo.id);
+            ? await ensureGovernedPdf(rdo, operation)
+            : await getGovernedPdfAccess(rdo.id, operation);
+        if (!isCurrent()) return;
         if (!access) {
           toast.error(
             "O RDO precisa estar aprovado e assinado pelo responsável e engenheiro antes da emissão final.",
@@ -1539,6 +1681,7 @@ useEffect(() => {
               "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos o download oficial do arquivo.",
           );
           const officialBlob = await rdosService.downloadPdf(rdo.id);
+          if (!isCurrent()) return;
           const fileUrl = URL.createObjectURL(officialBlob);
           const openedWindow = window.open(
             fileUrl,
@@ -1557,23 +1700,33 @@ useEffect(() => {
         }
 
         const opened = openSafeExternalUrlInNewTab(access.url, () => {
-          toast.error(
-            "Não foi possível abrir o PDF final em uma nova janela. Permita pop-ups para continuar.",
-          );
+          if (isCurrent()) {
+            toast.error(
+              "Não foi possível abrir o PDF final em uma nova janela. Permita pop-ups para continuar.",
+            );
+          }
         });
         if (!opened) {
           return;
         }
       } catch (error) {
+        if (!isCurrent()) return;
         logger.error("Erro ao emitir/abrir PDF final do RDO:", error);
         toast.error("Não foi possível emitir ou abrir o PDF final do RDO.");
       }
     },
-    [canManageRdo, ensureGovernedPdf, getGovernedPdfAccess],
+    [
+      activeCompanyId,
+      canManageRdo,
+      ensureGovernedPdf,
+      getGovernedPdfAccess,
+      tenantPageIsolation,
+    ],
   );
 
   const handleSign = async () => {
     if (!signModal) return;
+    if (!tenantPageIsolation.isActiveCompany(signModal.rdo.company_id)) return;
     if (!canManageRdo) {
       toast.error("Você não tem permissão para assinar RDOs.");
       return;
@@ -1591,27 +1744,39 @@ useEffect(() => {
       /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
       "$1.$2.$3-$4",
     );
+    if (!activeCompanyId) return;
+    const signingRdoId = signModal.rdo.id;
+    const signingType = signModal.tipo;
+    const operation = tenantPageIsolation.beginOperation(
+      `sign:${signingRdoId}:${signingType}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+    if (!isCurrent()) return;
     setSigning(true);
     try {
-      const updated = await rdosService.sign(signModal.rdo.id, {
-        tipo: signModal.tipo,
+      const updated = await rdosService.sign(signingRdoId, {
+        tipo: signingType,
         nome: signForm.nome,
         cpf: normalizedCpf,
       });
+      if (!isCurrent()) return;
       setRdos((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       if (viewRdo?.id === updated.id) setViewRdo(updated);
       toast.success("RDO assinado com sucesso!");
       setSignModal(null);
       setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
     } catch {
+      if (!isCurrent()) return;
       toast.error("Erro ao assinar RDO.");
     } finally {
-      setSigning(false);
+      if (isCurrent()) setSigning(false);
     }
   };
 
   const handleSendEmail = async () => {
     if (!emailModal) return;
+    if (!tenantPageIsolation.isActiveCompany(emailModal.company_id)) return;
     if (!canManageRdo) {
       toast.error("Você não tem permissão para enviar RDOs por e-mail.");
       return;
@@ -1624,9 +1789,18 @@ useEffect(() => {
       toast.error("Informe pelo menos um e-mail.");
       return;
     }
+    if (!activeCompanyId) return;
+    const emailRdoId = emailModal.id;
+    const operation = tenantPageIsolation.beginOperation(
+      `email:${emailRdoId}`,
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+    if (!isCurrent()) return;
     setSendingEmail(true);
     try {
-      const access = await rdosService.getPdfAccess(emailModal.id);
+      const access = await rdosService.getPdfAccess(emailRdoId);
+      if (!isCurrent()) return;
       if (!access.hasFinalPdf) {
         toast.info(
           access.message ||
@@ -1641,14 +1815,37 @@ useEffect(() => {
         );
       }
 
-      const result = await rdosService.sendEmail(emailModal.id, emails);
+      if (!isCurrent()) return;
+      const result = await rdosService.sendEmail(emailRdoId, emails);
+      if (!isCurrent()) return;
       toast.success(result.message);
       setEmailModal(null);
       setEmailTo("");
     } catch (error) {
+      if (!isCurrent()) return;
       toast.error(getApiErrorMessage(error) || "Erro ao enviar e-mail.");
     } finally {
-      setSendingEmail(false);
+      if (isCurrent()) setSendingEmail(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!activeCompanyId) return;
+    const operation = tenantPageIsolation.beginOperation(
+      "export:excel",
+      activeCompanyId,
+    );
+    const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
+    try {
+      await exportCurrentRdoExcel({
+        url: "/rdos/export/excel",
+        filename: "rdos.xlsx",
+        isCurrent,
+      });
+    } catch (error) {
+      if (!isCurrent()) return;
+      logger.error("Erro ao exportar RDOs para Excel:", error);
+      toast.error("Não foi possível exportar os RDOs para Excel.");
     }
   };
 
@@ -1683,14 +1880,16 @@ useEffect(() => {
             <Button
               type="button"
               variant="outline"
+              data-offline-action="read"
               leftIcon={<FileSpreadsheet className="h-4 w-4" />}
-              onClick={() => downloadExcel("/rdos/export/excel", "rdos.xlsx")}
+              onClick={() => void handleExportExcel()}
             >
               Exportar Excel
             </Button>
             {canManageRdo ? (
               <Button
                 type="button"
+                data-offline-action="write"
                 leftIcon={<Plus className="h-4 w-4" />}
                 onClick={handleOpenCreate}
               >
@@ -1853,7 +2052,12 @@ useEffect(() => {
               />
             </div>
           ) : (
-            <Table className="min-w-[980px]">
+            <ResponsiveDataList
+              items={filteredRdos}
+              getKey={(rdo) => rdo.id}
+              mobileClassName="grid min-w-0 gap-3 p-3"
+              desktop={() => (
+            <Table className="min-w-[980px]" aria-label="RDOs em tabela">
               <TableHeader>
                 <TableRow>
                   <TableHead>Número</TableHead>
@@ -1943,7 +2147,16 @@ useEffect(() => {
                             type="button"
                             size="icon"
                             variant="ghost"
-                            onClick={() => setViewRdo(rdo)}
+                            data-offline-action="read"
+                            onClick={() => {
+                              if (
+                                tenantPageIsolation.isActiveCompany(
+                                  rdo.company_id,
+                                )
+                              ) {
+                                setViewRdo(rdo);
+                              }
+                            }}
                             title="Visualizar"
                             aria-label={`Visualizar RDO ${rdo.numero}`}
                           >
@@ -1955,6 +2168,7 @@ useEffect(() => {
                                 type="button"
                                 size="icon"
                                 variant="ghost"
+                                data-offline-action="write"
                                 onClick={() => handleOpenEdit(rdo)}
                                 className={cn(
                                   "",
@@ -1977,6 +2191,7 @@ useEffect(() => {
                                 type="button"
                                 size="icon"
                                 variant="ghost"
+                                data-offline-action="write"
                                 onClick={() => {
                                   if (
                                     rdo.status === "aprovado" ||
@@ -2014,6 +2229,43 @@ useEffect(() => {
                 })}
               </TableBody>
             </Table>
+              )}
+              mobile={(rdo) => {
+                const statusTransitions = getAllowedStatusTransitions(rdo);
+                const deletionBlocked = rdo.status === "aprovado" || rdo.status === "cancelado";
+                const editBlocked = Boolean(rdo.pdf_file_key) || rdo.status === "cancelado";
+                return (
+                  <article className="min-w-0 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm" aria-label={`RDO ${rdo.numero}`}>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm font-semibold text-[var(--ds-color-action-primary)]">{rdo.numero}</p>
+                        <h3 className="mt-1 truncate font-semibold text-[var(--ds-color-text-primary)]">{rdo.site?.nome ?? "Obra não informada"}</h3>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-secondary)]/30 bg-[color:var(--ds-color-text-secondary)]/12 text-[var(--ds-color-text-secondary)]"}`}>
+                        {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
+                      </span>
+                    </div>
+                    <dl className="mt-4 grid min-w-0 grid-cols-2 gap-3 text-sm">
+                      <div><dt className="text-xs text-[var(--ds-color-text-secondary)]">Data</dt><dd>{safeToLocaleDateString(rdo.data, "pt-BR", undefined, "—")}</dd></div>
+                      <div className="min-w-0"><dt className="text-xs text-[var(--ds-color-text-secondary)]">Responsável</dt><dd className="truncate">{rdo.responsavel?.nome ?? "—"}</dd></div>
+                      <div><dt className="text-xs text-[var(--ds-color-text-secondary)]">Trabalhadores</dt><dd>{totalTrabalhadores(rdo) || "—"}</dd></div>
+                      <div><dt className="text-xs text-[var(--ds-color-text-secondary)]">Acidente</dt><dd className={rdo.houve_acidente ? "font-medium text-[var(--ds-color-danger)]" : ""}>{rdo.houve_acidente ? "Sim" : "Não"}</dd></div>
+                    </dl>
+                    {canManageRdo && statusTransitions.length > 0 ? (
+                      <select aria-label={`Mover status do RDO ${rdo.numero}`} value="" onChange={(event) => event.target.value && handleStatusChange(rdo.id, event.target.value)} className="mt-4 min-h-11 w-full rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm">
+                        <option value="">Mover para...</option>
+                        {statusTransitions.map((status) => <option key={status} value={status}>{RDO_STATUS_LABEL[status]}</option>)}
+                      </select>
+                    ) : null}
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label={`Ações do RDO ${rdo.numero}`}>
+                      <Button type="button" variant="outline" className="min-h-11" data-offline-action="read" onClick={() => tenantPageIsolation.isActiveCompany(rdo.company_id) && setViewRdo(rdo)}><Eye className="h-4 w-4" /> Visualizar</Button>
+                      {canManageRdo ? <Button type="button" variant="outline" className="min-h-11" data-offline-action="write" disabled={editBlocked} onClick={() => handleOpenEdit(rdo)}><Pencil className="h-4 w-4" /> Editar</Button> : null}
+                      {canManageRdo ? <Button type="button" variant="outline" className="min-h-11 text-[var(--ds-color-danger)]" data-offline-action="write" disabled={deletionBlocked} onClick={() => handleDelete(rdo.id)}><Trash2 className="h-4 w-4" /> Excluir</Button> : null}
+                    </div>
+                  </article>
+                );
+              }}
+            />
           )}
         </div>
       </ListPageLayout>

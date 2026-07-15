@@ -3,428 +3,150 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
-import { Permission, type AppPermission } from '@/lib/permissions';
-import {
-  AlertCircle,
-  AlertTriangle,
-  BarChart3,
-  BookOpen,
-  Building2,
-  CalendarDays,
-  CheckSquare,
-  ChevronDown,
-  ClipboardCheck,
-  ClipboardList,
-  ClipboardX,
-  Construction,
-  FileLock2,
-  FileText,
-  GraduationCap,
-  HardHat,
-  LayoutDashboard,
-  LineChart,
-  LogOut,
-  Map,
-  MapPin,
-  MessageSquare,
-  Receipt,
-  Settings,
-  Shield,
-  Stethoscope,
-  Sparkles,
-  Upload,
-  Wrench,
-  Users,
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, LogOut, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { isAiEnabled } from '@/lib/featureFlags';
+import {
+  getActiveNavigationItem,
+  getVisibleNavigationItems,
+  navigationSections,
+} from '@/lib/navigation-config';
+import { cn } from '@/lib/utils';
 
-type MenuEntry = {
-  icon?: typeof LayoutDashboard;
-  label: string;
-  href?: string;
-  adminOnly?: boolean;
-  superAdminOnly?: boolean;
-  requiresAi?: boolean;
-  permission?: AppPermission;
-};
+const DESKTOP_QUERY = '(min-width: 1280px)';
 
-type MenuSection = {
-  id: string;
-  label: string;
-  items: MenuEntry[];
-  defaultOpen?: boolean;
-};
+function useDesktopSidebar() {
+  const [isDesktop, setIsDesktop] = useState(true);
 
-const menuSections: MenuSection[] = [
-  {
-    id: 'estrutura',
-    label: 'Estrutura',
-    defaultOpen: true,
-    items: [
-      { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
-      { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: Permission.CAN_MANAGE_SITES },
-      { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: Permission.CAN_MANAGE_USERS },
-      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: Permission.CAN_VIEW_CALENDAR },
-    ],
-  },
-  {
-    id: 'operacao',
-    label: 'Campo e Operação',
-    defaultOpen: true,
-    items: [
-      { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
-      {
-        icon: CalendarDays,
-        label: 'Início do Dia',
-        href: '/dashboard/dids',
-        permission: Permission.CAN_VIEW_DIDS,
-      },
-      {
-        icon: AlertTriangle,
-        label: 'ARR',
-        href: '/dashboard/arrs',
-        permission: Permission.CAN_VIEW_ARRS,
-      },
-      { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
-      { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: Permission.CAN_VIEW_EXPENSES },
-      {
-        icon: AlertTriangle,
-        label: 'Não conformidades',
-        href: '/dashboard/nonconformities',
-        permission: Permission.CAN_VIEW_NC,
-      },
-      { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
-      { icon: Sparkles, label: 'SOPHIE', href: '/dashboard/sst-agent', requiresAi: true },
-    ],
-  },
-  {
-    id: 'relatorios',
-    label: 'Relatórios',
-    defaultOpen: false,
-    items: [
-      { icon: BarChart3, label: 'Central de relatórios', href: '/dashboard/relatorios' },
-      { icon: FileText, label: 'Relatório fotográfico', href: '/dashboard/relatorios/fotografico' },
-      { icon: BookOpen, label: 'RDO', href: '/dashboard/relatorios/rdos' },
-    ],
-  },
-  {
-    id: 'saude-ocupacional',
-    label: 'Saúde ocupacional',
-    defaultOpen: false,
-    items: [
-      {
-        icon: GraduationCap,
-        label: 'Treinamentos',
-        href: '/dashboard/trainings',
-        permission: Permission.CAN_VIEW_TRAININGS,
-      },
-      {
-        icon: Stethoscope,
-        label: 'Exames médicos',
-        href: '/dashboard/medical-exams',
-        permission: Permission.CAN_VIEW_MEDICAL_EXAMS,
-      },
-      {
-        icon: FileText,
-        label: 'Fichas de EPI',
-        href: '/dashboard/epi-fichas',
-        permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS,
-      },
-    ],
-  },
-  {
-    id: 'cadastros-operacionais',
-    label: 'Cadastros operacionais',
-    defaultOpen: false,
-    items: [
-      {
-        icon: HardHat,
-        label: 'Atividades',
-        href: '/dashboard/activities',
-        permission: Permission.CAN_VIEW_ACTIVITIES,
-      },
-      {
-        icon: AlertTriangle,
-        label: 'Riscos',
-        href: '/dashboard/risks',
-        permission: Permission.CAN_VIEW_RISKS,
-      },
-      {
-        icon: Shield,
-        label: 'EPIs',
-        href: '/dashboard/epis',
-        permission: Permission.CAN_MANAGE_CATALOGS,
-      },
-      {
-        icon: Wrench,
-        label: 'Ferramentas',
-        href: '/dashboard/tools',
-        permission: Permission.CAN_MANAGE_CATALOGS,
-      },
-      {
-        icon: Construction,
-        label: 'Máquinas',
-        href: '/dashboard/machines',
-        permission: Permission.CAN_MANAGE_CATALOGS,
-      },
-    ],
-  },
-  {
-    id: 'checklists',
-    label: 'Checklists',
-    defaultOpen: false,
-    items: [
-      { icon: ClipboardList, label: 'Central de modelos', href: '/dashboard/checklist-models' },
-      {
-        icon: FileText,
-        label: 'Normativos',
-        href: '/dashboard/checklist-models/normativos',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-      {
-        icon: FileText,
-        label: 'Operacionais',
-        href: '/dashboard/checklist-models/operacionais',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-      {
-        icon: Settings,
-        label: 'Equipamentos',
-        href: '/dashboard/checklist-models/equipamentos',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-      {
-        icon: MapPin,
-        label: 'Veículos',
-        href: '/dashboard/checklist-models/veiculos',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-      {
-        icon: Shield,
-        label: 'Modelos de EPI',
-        href: '/dashboard/checklist-models/epis',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-      {
-        icon: ClipboardCheck,
-        label: 'Execuções',
-        href: '/dashboard/checklists',
-        permission: Permission.CAN_VIEW_CHECKLISTS,
-      },
-    ],
-  },
-  {
-    id: 'principal',
-    label: 'Leitura e Gestão',
-    defaultOpen: false,
-    items: [
-      { icon: AlertCircle, label: 'CATs', href: '/dashboard/cats' },
-      {
-        icon: Shield,
-        label: 'Pendências documentais',
-        href: '/dashboard/document-pendencies',
-      },
-      { icon: Map, label: 'Mapa de risco', href: '/dashboard/risk-map' },
-      { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
-      { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
-      { icon: BarChart3, label: 'Indicadores', href: '/dashboard/kpis' },
-      { icon: LineChart, label: 'Executivo', href: '/dashboard/executive' },
-    ],
-  },
-  {
-    id: 'sistema',
-    label: 'Sistema',
-    defaultOpen: false,
-    items: [
-      { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
-    ],
-  },
-];
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia(DESKTOP_QUERY);
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
-const SECTION_IDS = menuSections.map((section) => section.id);
+  return isDesktop;
+}
 
 export function Sidebar({
   isOpen = false,
   onClose,
+  onModalChange,
 }: {
   isOpen?: boolean;
   onClose?: () => void;
+  onModalChange?: (modal: boolean) => void;
 }) {
   const pathname = usePathname();
   const { logout, user, hasPermission, isAdminGeral } = useAuth();
-  const aiEnabled = isAiEnabled();
-  const defaultOpenSections = useMemo(
-    () =>
-      Object.fromEntries(
-        menuSections.map((section) => [section.id, section.defaultOpen ?? true]),
-      ) as Record<string, boolean>,
-    [],
-  );
-
-  const visibleSections = useMemo(() => {
-    return menuSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => {
-          if (!isTemporarilyVisibleDashboardRoute(item.href)) return false;
-          if (item.adminOnly && !isAdminGeral) return false;
-          if (item.superAdminOnly && !isAdminGeral) return false;
-          if (item.requiresAi && !aiEnabled) return false;
-          if (item.permission && !hasPermission(item.permission)) return false;
-
-          const href = item.href || '';
-          const needsDashboardPermission = [
-            '/dashboard/kpis',
-            '/dashboard/executive',
-            '/dashboard/relatorios',
-            '/dashboard/document-pendencies',
-          ].includes(href);
-
-          if (needsDashboardPermission && !hasPermission(Permission.CAN_VIEW_DASHBOARD)) {
-            return false;
-          }
-
-          if (href === '/dashboard/risks' && !hasPermission(Permission.CAN_VIEW_RISKS)) {
-            return false;
-          }
-
-          if (href === '/dashboard/document-registry' && !hasPermission(Permission.CAN_VIEW_DOCUMENTS_REGISTRY)) {
-            return false;
-          }
-
-          return true;
-        }),
-      }))
-      .filter((section) => section.items.length > 0);
-  }, [aiEnabled, hasPermission, isAdminGeral]);
-
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpenSections);
+  const drawerRef = useRef<HTMLElement>(null);
+  const isDesktop = useDesktopSidebar();
+  const isModal = isOpen && !isDesktop;
+  const isHiddenMobileDrawer = !isOpen && !isDesktop;
+  useFocusTrap(drawerRef, isModal, onClose);
 
   useEffect(() => {
-    setOpenSections((current) =>
-      Object.fromEntries(
-        SECTION_IDS.map((sectionId) => [
-          sectionId,
-          current[sectionId] ?? defaultOpenSections[sectionId] ?? false,
-        ]),
-      ),
-    );
-  }, [defaultOpenSections]);
+    onModalChange?.(isModal);
+    return () => onModalChange?.(false);
+  }, [isModal, onModalChange]);
 
-  const toggleSection = (sectionId: string) => {
-    setOpenSections((current) => ({
-      ...current,
-      [sectionId]: !current[sectionId],
-    }));
-  };
+  useEffect(() => {
+    if (isDesktop && isOpen) onClose?.();
+  }, [isDesktop, isOpen, onClose]);
+
+  const visibleItems = useMemo(
+    () => getVisibleNavigationItems('sidebar', {
+      hasPermission,
+      isAdmin: isAdminGeral,
+      featureFlags: { ai: isAiEnabled() },
+    }),
+    [hasPermission, isAdminGeral],
+  );
+  const activeItem = getActiveNavigationItem(pathname, visibleItems);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navigationSections.map((section) => [section.id, section.defaultOpen])),
+  );
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Fechar menu lateral"
-        tabIndex={-1}
-        onClick={onClose}
-        className={cn(
-          'fixed inset-0 z-40 bg-[color:var(--component-overlay)] transition-opacity xl:hidden',
-          isOpen ? 'pointer-events-auto opacity-100' : 'hidden',
-        )}
-      />
+      {isModal ? (
+        <button
+          type="button"
+          aria-label="Fechar menu lateral"
+          tabIndex={-1}
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-[color:var(--component-overlay)] xl:hidden"
+        />
+      ) : null}
       <aside
+        ref={drawerRef}
         aria-label="Menu lateral"
+        aria-hidden={isHiddenMobileDrawer ? true : undefined}
+        aria-modal={isModal ? true : undefined}
+        role={isModal ? 'dialog' : undefined}
+        tabIndex={isModal ? -1 : undefined}
+        inert={isHiddenMobileDrawer ? true : undefined}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--chrome-sidebar-border)] bg-[var(--chrome-sidebar-bg-solid)] text-[var(--ds-color-sidebar-text)] shadow-[var(--chrome-sidebar-shadow)] transition-transform duration-300 ease-in-out xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0',
         )}
       >
-        {/* Logo / Brand */}
         <div className="flex items-center gap-3 border-b border-[color:var(--chrome-sidebar-divider)] px-4 py-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--chrome-sidebar-logo-bg)] ring-1 ring-[var(--chrome-sidebar-logo-ring)]">
-            <Image
-              src="/logo-sgs-mark.svg?v=20260425"
-              alt="SGS - Sistema de Gestão de Segurança"
-              width={26}
-              height={26}
-              className="h-6.5 w-6.5 object-contain"
-              priority
-            />
+            <Image src="/logo-sgs-mark.svg?v=20260425" alt="SGS - Sistema de Gestão de Segurança" width={26} height={26} className="h-6.5 w-6.5 object-contain" priority />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-bold tracking-[0.01em] text-[var(--ds-color-sidebar-text)]">SGS</p>
-            <p className="truncate text-[11px] text-[var(--ds-color-sidebar-muted)]">
-              Sistema de Gestão de Segurança
-            </p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-bold text-[var(--ds-color-sidebar-text)]">SGS</p>
+            <p className="truncate text-[11px] text-[var(--ds-color-sidebar-muted)]">Sistema de Gestão de Segurança</p>
           </div>
+          {isModal ? (
+            <button type="button" onClick={onClose} aria-label="Fechar navegação" className="flex h-9 w-9 items-center justify-center rounded-lg xl:hidden">
+              <X aria-hidden="true" className="h-5 w-5" />
+            </button>
+          ) : null}
         </div>
 
-        {/* Nav */}
         <div className="flex-1 overflow-y-auto scroll-smooth px-2 py-3">
           <nav aria-label="Módulos do sistema" className="py-1">
-            {visibleSections.map((section) => {
-              const isSectionActive = section.items.some((item) => pathname === item.href);
-              const isOpenSection = openSections[section.id] || isSectionActive;
-
+            {navigationSections.map((section) => {
+              const items = visibleItems.filter((entry) => entry.section === section.id);
+              if (!items.length) return null;
+              const sectionActive = items.some((entry) => entry.id === activeItem?.id);
+              const expanded = openSections[section.id] || sectionActive;
               return (
                 <section key={section.id} className="pt-5 first:pt-2">
                   <button
                     type="button"
-                    onClick={() => toggleSection(section.id)}
-                    aria-expanded={isOpenSection}
+                    onClick={() => setOpenSections((current) => ({ ...current, [section.id]: !current[section.id] }))}
+                    aria-expanded={expanded}
                     aria-controls={`sidebar-section-${section.id}`}
-                    className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
+                    className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)]"
                   >
-                    <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--chrome-sidebar-section-text)]">
-                      {section.label}
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        'h-3.5 w-3.5 text-[var(--chrome-sidebar-section-text)]/70',
-                        isOpenSection ? 'rotate-180' : '',
-                      )}
-                      aria-hidden="true"
-                    />
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--chrome-sidebar-section-text)]">{section.label}</span>
+                    <ChevronDown aria-hidden="true" className={cn('h-3.5 w-3.5', expanded && 'rotate-180')} />
                   </button>
-
-                  {isOpenSection ? (
+                  {expanded ? (
                     <div id={`sidebar-section-${section.id}`} className="space-y-1 pb-0.5">
-                      {section.items.map((item) => {
-                        const Icon = item.icon!;
-                        const active = pathname === item.href;
-
+                      {items.map((entry) => {
+                        const Icon = entry.icon;
+                        const active = entry.id === activeItem?.id;
                         return (
                           <Link
-                            key={item.href}
-                            href={item.href!}
+                            key={entry.id}
+                            href={entry.href}
                             onClick={onClose}
-                            aria-current={active ? "page" : undefined}
+                            aria-current={active ? 'page' : undefined}
                             className={cn(
-                              'mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]',
-                              active
-                                ? 'border-[color:var(--chrome-sidebar-item-active-border)] bg-[var(--chrome-sidebar-item-active-bg)] text-[var(--ds-color-sidebar-text)]'
-                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--chrome-sidebar-item-hover-border)] hover:bg-[var(--chrome-sidebar-item-hover-bg)] hover:text-[var(--ds-color-sidebar-text)]',
+                              'mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)]',
+                              active ? 'border-[color:var(--chrome-sidebar-item-active-border)] bg-[var(--chrome-sidebar-item-active-bg)] text-[var(--ds-color-sidebar-text)]' : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:bg-[var(--chrome-sidebar-item-hover-bg)]',
                             )}
                           >
-                            <span
-                              className={cn(
-                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                                active
-                                  ? 'text-[var(--chrome-sidebar-item-active-icon)]'
-                                  : 'text-[var(--ds-color-sidebar-muted)]',
-                              )}
-                            >
-                              <Icon
-                                aria-hidden="true"
-                                className="h-4 w-4 shrink-0"
-                              />
-                            </span>
-                            <span className="flex-1 truncate">{item.label}</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Icon aria-hidden="true" className="h-4 w-4" /></span>
+                            <span className="flex-1 truncate">{entry.label}</span>
                           </Link>
                         );
                       })}
@@ -436,26 +158,13 @@ export function Sidebar({
           </nav>
         </div>
 
-        {/* Footer */}
         <div className="border-t border-[color:var(--chrome-sidebar-divider)] px-3.5 py-3.5">
           <div className="rounded-[1rem] border border-[var(--chrome-sidebar-user-card-border)] bg-[var(--chrome-sidebar-user-card-bg)] p-3">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--chrome-sidebar-item-active-bg)] text-[12px] font-bold text-[var(--ds-color-sidebar-text)] ring-1 ring-[var(--chrome-sidebar-item-hover-border)]">
-                {user?.nome?.trim()?.slice(0, 2).toUpperCase() || 'SG'}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-[var(--ds-color-sidebar-text)]">{user?.nome}</p>
-                <p className="truncate text-xs text-[var(--ds-color-sidebar-muted)]">{user?.profile?.nome}</p>
-              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--chrome-sidebar-item-active-bg)] text-xs font-bold">{user?.nome?.trim()?.slice(0, 2).toUpperCase() || 'SG'}</div>
+              <div className="min-w-0"><p className="truncate text-[13px] font-semibold">{user?.nome}</p><p className="truncate text-xs text-[var(--ds-color-sidebar-muted)]">{user?.profile?.nome}</p></div>
             </div>
-            <button
-              type="button"
-              onClick={logout}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors duration-[120ms] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--chrome-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              Sair
-            </button>
+            <button type="button" onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)]"><LogOut aria-hidden="true" className="h-4 w-4" />Sair</button>
           </div>
         </div>
       </aside>

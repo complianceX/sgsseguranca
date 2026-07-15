@@ -6,12 +6,84 @@ import { sessionStore } from './sessionStore';
 import { tokenStore } from './tokenStore';
 import { selectedTenantStore } from './selectedTenantStore';
 import { AxiosError } from 'axios';
+import { OfflineCapabilityError } from './offline-capabilities';
 
 describe('api client', () => {
   beforeEach(() => {
     tokenStore.clear();
     sessionStore.clear();
     selectedTenantStore.clear();
+    window.history.replaceState({}, '', '/');
+    Object.defineProperty(global.navigator, 'onLine', {
+      value: true,
+      configurable: true,
+    });
+  });
+
+  describe('barreira central de mutações offline', () => {
+    const setOfflineRoute = (pathname: string) => {
+      window.history.replaceState({}, '', pathname);
+      Object.defineProperty(global.navigator, 'onLine', {
+        value: false,
+        configurable: true,
+      });
+    };
+
+    it.each([
+      ['/dashboard/relatorios/rdos', 'patch', 'online-required'],
+      ['/dashboard/medical-exams', 'delete', 'online-required'],
+      ['/dashboard/arrs', 'post', 'read-only'],
+      ['/dashboard/unknown', 'put', 'unsupported'],
+    ])(
+      'bloqueia %s %s antes do adapter quando a capacidade é %s',
+      async (pathname, method, capability) => {
+        setOfflineRoute(pathname);
+        const adapter = jest.fn();
+
+        await expect(
+          api.request({ url: '/resource', method, adapter }),
+        ).rejects.toMatchObject({
+          name: 'OfflineCapabilityError',
+          code: 'ERR_OFFLINE_CAPABILITY',
+          pathname,
+          method: method.toUpperCase(),
+          capability,
+        });
+        expect(adapter).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      '/dashboard/aprs',
+      '/dashboard/pts',
+      '/dashboard/checklists',
+      '/dashboard/nonconformities',
+    ])('não aplica a barreira offline a mutações read-write em %s', async (pathname) => {
+      setOfflineRoute(pathname);
+
+      await expect(api.post('/resource', {})).rejects.not.toBeInstanceOf(
+        OfflineCapabilityError,
+      );
+    });
+
+    it.each(['get', 'head', 'options'])(
+      'não aplica a barreira offline ao método de leitura %s',
+      async (method) => {
+        setOfflineRoute('/dashboard/medical-exams');
+
+        await expect(
+          api.request({ url: '/medical-exams', method }),
+        ).rejects.not.toBeInstanceOf(OfflineCapabilityError);
+      },
+    );
+
+    it('não bloqueia mutação online em módulo online-required', async () => {
+      window.history.replaceState({}, '', '/dashboard/medical-exams');
+
+      await expect(api.delete('/medical-exams/exam-1')).rejects.not.toBeInstanceOf(
+        OfflineCapabilityError,
+      );
+    });
   });
 
   it('bloqueia rota protegida sem access token em memória', async () => {

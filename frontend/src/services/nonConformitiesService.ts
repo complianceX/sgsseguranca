@@ -4,6 +4,7 @@ import { AxiosError } from "axios";
 import { Site } from "./sitesService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
+import { assertNonConformityActionAvailable } from "@/lib/offline-capabilities";
 
 export interface NonConformity {
   id: string;
@@ -396,6 +397,7 @@ export const nonConformitiesService = {
   },
 
   updateStatus: async (id: string, status: NcStatus) => {
+    assertNonConformityActionAvailable("update-status");
     const response = await api.patch<NonConformity>(
       `/nonconformities/${id}/status`,
       { status },
@@ -418,6 +420,7 @@ export const nonConformitiesService = {
   },
 
   remove: async (id: string) => {
+    assertNonConformityActionAvailable("remove");
     await api.delete(`/nonconformities/${id}`);
   },
 };

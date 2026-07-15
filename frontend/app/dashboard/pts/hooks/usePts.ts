@@ -16,10 +16,7 @@ import { signaturesService } from '@/services/signaturesService';
 import { usersService } from '@/services/usersService';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
-import {
-  openPdfForPrint,
-  openUrlInNewTab,
-} from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
 import type {
@@ -83,7 +80,7 @@ async function loadPtPdfGenerator() {
 
 export function usePts() {
   const [pts, setPts] = useState<Pt[]>([]);
-const timerRef = useRef<number | undefined>(undefined);
+  const timerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,23 +93,19 @@ const timerRef = useRef<number | undefined>(undefined);
   const [lastPage, setLastPage] = useState(1);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [approvalIssuesById, setApprovalIssuesById] = useState<
     Record<string, PtApprovalBlockedPayload>
   >({});
-  const [approvalRules, setApprovalRules] = useState<PtApprovalRules | null>(
-    null,
-  );
-  const [overviewMetrics, setOverviewMetrics] =
-    useState<PtAnalyticsOverview | null>(null);
+  const [approvalRules, setApprovalRules] = useState<PtApprovalRules | null>(null);
+  const [overviewMetrics, setOverviewMetrics] = useState<PtAnalyticsOverview | null>(null);
   const [approvalRulesLoading, setApprovalRulesLoading] = useState(true);
-  const [approvalReviewLoadingId, setApprovalReviewLoadingId] = useState<
-    string | null
-  >(null);
+  const [approvalReviewLoadingId, setApprovalReviewLoadingId] = useState<string | null>(null);
   const [finalizingId, setFinalizingId] = useState<string | null>(null);
   const [closingPt, setClosingPt] = useState<Pt | null>(null);
-  const [approvalReviewById, setApprovalReviewById] = useState<
-    Record<string, PtApprovalReview>
-  >({});
+  const [approvalReviewById, setApprovalReviewById] = useState<Record<string, PtApprovalReview>>(
+    {},
+  );
   const [approvalChecklistById, setApprovalChecklistById] = useState<
     Record<string, PtApprovalChecklistState>
   >({});
@@ -182,8 +175,11 @@ const timerRef = useRef<number | undefined>(undefined);
     if (!isAiEnabled()) return;
     try {
       const result = await aiService.getInsights();
-      const ptInsights = result.insights.filter((i: Insight) => 
-        i.action.includes('/pts') || i.title.toLowerCase().includes('pt') || i.title.toLowerCase().includes('risco')
+      const ptInsights = result.insights.filter(
+        (i: Insight) =>
+          i.action.includes('/pts') ||
+          i.title.toLowerCase().includes('pt') ||
+          i.title.toLowerCase().includes('risco'),
       );
       setInsights(ptInsights);
     } catch (error) {
@@ -215,7 +211,7 @@ const timerRef = useRef<number | undefined>(undefined);
     };
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     setPage(1);
   }, [deferredSearchTerm, statusFilter]);
 
@@ -290,11 +286,7 @@ useEffect(() => {
   }, []);
 
   const updateApprovalChecklist = useCallback(
-    (
-      id: string,
-      key: keyof PtApprovalChecklistState,
-      checked: boolean,
-    ) => {
+    (id: string, key: keyof PtApprovalChecklistState, checked: boolean) => {
       setApprovalChecklistById((current) => ({
         ...current,
         [id]: {
@@ -323,16 +315,11 @@ useEffect(() => {
               roleLabel: 'Executante',
             }))
           : []),
-      ].filter(
-        (
-          member,
-        ): member is { id: string; nome: string; roleLabel: string } =>
-          Boolean(member?.id),
+      ].filter((member): member is { id: string; nome: string; roleLabel: string } =>
+        Boolean(member?.id),
       );
 
-      const uniqueTeam = Array.from(
-        new Map(team.map((member) => [member.id, member])).values(),
-      );
+      const uniqueTeam = Array.from(new Map(team.map((member) => [member.id, member])).values());
 
       if (uniqueTeam.length === 0) {
         return { workers: [], warnings: [] };
@@ -420,8 +407,7 @@ useEffect(() => {
       const workElectricSummary = summarizeChecklistAnswers(workElectricChecklist);
       const workHotSummary = summarizeChecklistAnswers(workHotChecklist);
       const workConfinedSummary = summarizeChecklistAnswers(workConfinedChecklist);
-      const workExcavationSummary =
-        summarizeChecklistAnswers(workExcavationChecklist);
+      const workExcavationSummary = summarizeChecklistAnswers(workExcavationChecklist);
 
       const unansweredChecklistItems =
         generalChecklistSummary.unanswered +
@@ -454,16 +440,11 @@ useEffect(() => {
           'Marcar pelo menos um tipo de trabalho crítico ou confirmar que a PT é geral.',
         );
       }
-      if (
-        hasRapidRiskBlocker &&
-        !String(pt.analise_risco_rapida_observacoes || '').trim()
-      ) {
+      if (hasRapidRiskBlocker && !String(pt.analise_risco_rapida_observacoes || '').trim()) {
         blockers.push('Registrar ações corretivas na análise de risco rápida.');
       }
       if (unansweredChecklistItems > 0) {
-        blockers.push(
-          `${unansweredChecklistItems} item(ns) de checklist ainda sem resposta.`,
-        );
+        blockers.push(`${unansweredChecklistItems} item(ns) de checklist ainda sem resposta.`);
       }
       if (selectedExecutanteIds.length === 0) {
         blockers.push('Selecionar ao menos um executante.');
@@ -482,15 +463,13 @@ useEffect(() => {
 
       // Avisos NR-33/registro fotográfico — não bloqueiam a aprovação porque a
       // medição inicial e as fotos 'durante'/'depois' ocorrem após a liberação.
-      if (pt.espaco_confinado && !(pt.medicoes_atmosfericas?.length)) {
+      if (pt.espaco_confinado && !pt.medicoes_atmosfericas?.length) {
         warnings.push(
           'Espaço confinado sem medição atmosférica registrada (NR-33). Registre a leitura inicial antes da entrada.',
         );
       }
       if (!pt.fotos_evidencia?.some((foto) => foto.fase === 'antes')) {
-        warnings.push(
-          'Nenhuma foto "antes da atividade" anexada como evidência da área.',
-        );
+        warnings.push('Nenhuma foto "antes da atividade" anexada como evidência da área.');
       }
 
       return {
@@ -546,226 +525,246 @@ useEffect(() => {
     [buildApprovalReview, dismissApprovalIssue],
   );
 
-  const generatePtPdfPayload = useCallback(
-    async (pt: Pt, draftWatermark: boolean) => {
-      const [fullPt, signatures] = await Promise.all([
-        ptsService.findOne(pt.id),
-        signaturesService.findByDocument(pt.id, 'PT'),
-      ]);
-      const { generatePtPdf } = await loadPtPdfGenerator();
-      return (await generatePtPdf(fullPt, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark,
-      })) as { base64: string; filename: string } | undefined;
-    },
-    [],
-  );
+  const generatePtPdfPayload = useCallback(async (pt: Pt, draftWatermark: boolean) => {
+    const [fullPt, signatures] = await Promise.all([
+      ptsService.findOne(pt.id),
+      signaturesService.findByDocument(pt.id, 'PT'),
+    ]);
+    const { generatePtPdf } = await loadPtPdfGenerator();
+    return (await generatePtPdf(fullPt, signatures, {
+      save: false,
+      output: 'base64',
+      draftWatermark,
+    })) as { base64: string; filename: string } | undefined;
+  }, []);
 
-  const handleDownloadPdf = useCallback(async (id: string) => {
-    try {
-      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
+  const handleDownloadPdf = useCallback(
+    async (id: string) => {
+      try {
+        const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
 
-      if (shouldUseGovernedPdf(pt)) {
-        const access = await ptsService.getPdfAccess(pt.id);
-        if (access.hasFinalPdf && access.url) {
-          openUrlInNewTab(access.url);
+        if (shouldUseGovernedPdf(pt)) {
+          const access = await ptsService.getPdfAccess(pt.id);
+          if (access.hasFinalPdf && access.url) {
+            openUrlInNewTab(access.url);
+            return;
+          }
+
+          toast.warning(
+            access.message ||
+              'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
+          );
+          const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
+          if (!result?.base64) {
+            throw new Error('Falha ao gerar a cópia oficial local da PT.');
+          }
+          const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+          openUrlInNewTab(fileURL);
+          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
           return;
         }
 
-        toast.warning(
-          access.message ||
-            'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
-        );
-        const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
+        toast.info('Gerando PDF...');
+        const result = await generatePtPdfPayload(pt, true);
         if (!result?.base64) {
-          throw new Error('Falha ao gerar a cópia oficial local da PT.');
+          throw new Error('Falha ao gerar o PDF da PT.');
         }
         const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openUrlInNewTab(fileURL);
         setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
-        return;
+      } catch (error) {
+        handleApiError(error, 'PDF');
       }
+    },
+    [generatePtPdfPayload, pts, shouldUseGovernedPdf],
+  );
 
-      toast.info('Gerando PDF...');
-      const result = await generatePtPdfPayload(pt, true);
-      if (!result?.base64) {
-        throw new Error('Falha ao gerar o PDF da PT.');
-      }
-      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-      openUrlInNewTab(fileURL);
-      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
-    } catch (error) {
-      handleApiError(error, 'PDF');
-    }
-  }, [generatePtPdfPayload, pts, shouldUseGovernedPdf]);
+  const handleSendEmail = useCallback(
+    async (id: string) => {
+      try {
+        toast.info('Preparando documento...');
+        const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
 
-  const handleSendEmail = useCallback(async (id: string) => {
-    try {
-      toast.info('Preparando documento...');
-      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
-
-      if (shouldUseGovernedPdf(pt)) {
-        const access = await ptsService.getPdfAccess(pt.id);
-        if (access?.hasFinalPdf) {
-          if (access.message) {
-            toast.info(
-              `${access.message} O envio oficial continuará usando o PDF final governado da PT.`,
-            );
+        if (shouldUseGovernedPdf(pt)) {
+          const access = await ptsService.getPdfAccess(pt.id);
+          if (access?.hasFinalPdf) {
+            if (access.message) {
+              toast.info(
+                `${access.message} O envio oficial continuará usando o PDF final governado da PT.`,
+              );
+            }
+            setSelectedDoc({
+              name: pt.titulo,
+              filename: access.originalName || buildPtFilename(pt),
+              storedDocument: {
+                documentId: pt.id,
+                documentType: 'PT',
+              },
+            });
+            setIsMailModalOpen(true);
+            return;
           }
-          setSelectedDoc({
-            name: pt.titulo,
-            filename: access.originalName || buildPtFilename(pt),
-            storedDocument: {
-              documentId: pt.id,
-              documentType: 'PT',
-            },
-          });
-          setIsMailModalOpen(true);
-          return;
-        }
 
-        if (
-          pt.status === 'Aprovada' ||
-          pt.status === 'Encerrada' ||
-          pt.status === 'Expirada'
-        ) {
-          toast.warning(
-            'Emita o PDF final governado antes de enviar esta PT por e-mail.',
-          );
-          return;
-        }
-      }
-
-      toast.warning(
-        'Esta PT ainda não possui PDF final governado emitido. O envio ocorrerá com um PDF local não governado.',
-      );
-
-      const result = await generatePtPdfPayload(pt, true);
-
-      if (result?.base64) {
-        setSelectedDoc({
-          name: pt.titulo,
-          filename: result.filename,
-          base64: result.base64,
-        });
-        setIsMailModalOpen(true);
-      }
-    } catch (error) {
-      handleApiError(error, 'Email');
-    }
-  }, [buildPtFilename, generatePtPdfPayload, pts, shouldUseGovernedPdf]);
-
-  const handlePrint = useCallback(async (id: string) => {
-    try {
-      toast.info('Preparando impressão...');
-      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
-
-      if (shouldUseGovernedPdf(pt)) {
-        const access = await ptsService.getPdfAccess(pt.id);
-        if (access.hasFinalPdf && access.url) {
-          openPdfForPrint(access.url, () => {
-            toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
-          });
-          return;
+          if (pt.status === 'Aprovada' || pt.status === 'Encerrada' || pt.status === 'Expirada') {
+            toast.warning('Emita o PDF final governado antes de enviar esta PT por e-mail.');
+            return;
+          }
         }
 
         toast.warning(
-          access.message ||
-            'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
+          'Esta PT ainda não possui PDF final governado emitido. O envio ocorrerá com um PDF local não governado.',
         );
-        const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
-        if (!result?.base64) {
-          throw new Error('Falha ao gerar a cópia oficial local da PT.');
+
+        const result = await generatePtPdfPayload(pt, true);
+
+        if (result?.base64) {
+          setSelectedDoc({
+            name: pt.titulo,
+            filename: result.filename,
+            base64: result.base64,
+          });
+          setIsMailModalOpen(true);
         }
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-        openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
-        });
-        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+      } catch (error) {
+        handleApiError(error, 'Email');
+      }
+    },
+    [buildPtFilename, generatePtPdfPayload, pts, shouldUseGovernedPdf],
+  );
+
+  const handlePrint = useCallback(
+    async (id: string) => {
+      try {
+        toast.info('Preparando impressão...');
+        const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
+
+        if (shouldUseGovernedPdf(pt)) {
+          const access = await ptsService.getPdfAccess(pt.id);
+          if (access.hasFinalPdf && access.url) {
+            openPdfForPrint(access.url, () => {
+              toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
+            });
+            return;
+          }
+
+          toast.warning(
+            access.message ||
+              'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
+          );
+          const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
+          if (!result?.base64) {
+            throw new Error('Falha ao gerar a cópia oficial local da PT.');
+          }
+          const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+          openPdfForPrint(fileURL, () => {
+            toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          });
+          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+          return;
+        }
+
+        const result = await generatePtPdfPayload(pt, true);
+        if (result?.base64) {
+          const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+          openPdfForPrint(fileURL, () => {
+            toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          });
+        }
+      } catch (error) {
+        handleApiError(error, 'Impressão');
+      }
+    },
+    [generatePtPdfPayload, pts, shouldUseGovernedPdf],
+  );
+
+  const handleApprove = useCallback(
+    async (id: string) => {
+      const review = approvalReviewById[id];
+      const checklist = approvalChecklistById[id];
+
+      if (!review) {
+        toast.info('Abra a pré-liberação da PT antes de aprovar.');
         return;
       }
 
-      const result = await generatePtPdfPayload(pt, true);
-      if (result?.base64) {
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-        openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
-        });
-      }
-    } catch (error) {
-      handleApiError(error, 'Impressão');
-    }
-  }, [generatePtPdfPayload, pts, shouldUseGovernedPdf]);
-
-  const handleApprove = useCallback(async (id: string) => {
-    const review = approvalReviewById[id];
-    const checklist = approvalChecklistById[id];
-
-    if (!review) {
-      toast.info('Abra a pré-liberação da PT antes de aprovar.');
-      return;
-    }
-
-    if (!review.readyForRelease) {
-      toast.error('Ainda existem bloqueios operacionais antes da aprovação.');
-      return;
-    }
-
-    if (!checklist || !Object.values(checklist).every(Boolean)) {
-      toast.error('Conclua o checklist final do aprovador antes de liberar a PT.');
-      return;
-    }
-
-    setApprovingId(id);
-    dismissApprovalIssue(id);
-
-    try {
-      await ptsService.logPreApprovalReview(
-        id,
-        buildPreApprovalAuditPayload(review, 'approval_requested', checklist),
-      );
-      await ptsService.approve(id);
-      await loadPts();
-      void loadOverview();
-      dismissApprovalReview(id);
-      toast.success('PT aprovada com sucesso!');
-    } catch (error) {
-      const blockedPayload = getPtApprovalBlockedPayload(error);
-
-      if (blockedPayload) {
-        setApprovalIssuesById((current) => ({
-          ...current,
-          [id]: blockedPayload,
-        }));
-        toast.error('A PT foi bloqueada pelas regras de segurança.');
+      if (!review.readyForRelease) {
+        toast.error('Ainda existem bloqueios operacionais antes da aprovação.');
         return;
       }
 
-      handleApiError(error, 'PT');
-    } finally {
-      setApprovingId((current) => (current === id ? null : current));
-    }
-  }, [approvalChecklistById, approvalReviewById, dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts]);
+      if (!checklist || !Object.values(checklist).every(Boolean)) {
+        toast.error('Conclua o checklist final do aprovador antes de liberar a PT.');
+        return;
+      }
 
-  const handleReject = useCallback(async (id: string) => {
-    const reason = prompt('Motivo da reprovação:');
-    if (!reason?.trim()) return;
+      setApprovingId(id);
+      dismissApprovalIssue(id);
 
-    setRejectingId(id);
-    dismissApprovalIssue(id);
+      try {
+        await ptsService.logPreApprovalReview(
+          id,
+          buildPreApprovalAuditPayload(review, 'approval_requested', checklist),
+        );
+        await ptsService.approve(id);
+        await loadPts();
+        void loadOverview();
+        dismissApprovalReview(id);
+        toast.success('PT aprovada com sucesso!');
+      } catch (error) {
+        const blockedPayload = getPtApprovalBlockedPayload(error);
 
-    try {
-      await ptsService.reject(id, reason.trim());
-      await loadPts();
-      void loadOverview();
-      toast.success('PT reprovada.');
-    } catch (error) {
-      handleApiError(error, 'PT');
-    } finally {
-      setRejectingId((current) => (current === id ? null : current));
-    }
-  }, [dismissApprovalIssue, loadOverview, loadPts]);
+        if (blockedPayload) {
+          setApprovalIssuesById((current) => ({
+            ...current,
+            [id]: blockedPayload,
+          }));
+          toast.error('A PT foi bloqueada pelas regras de segurança.');
+          return;
+        }
+
+        handleApiError(error, 'PT');
+      } finally {
+        setApprovingId((current) => (current === id ? null : current));
+      }
+    },
+    [
+      approvalChecklistById,
+      approvalReviewById,
+      dismissApprovalIssue,
+      dismissApprovalReview,
+      loadOverview,
+      loadPts,
+    ],
+  );
+
+  const handleReject = useCallback((id: string) => {
+    setRejectTargetId(id);
+  }, []);
+
+  const confirmReject = useCallback(
+    async (reason: string) => {
+      const id = rejectTargetId;
+      const normalizedReason = reason.trim();
+      if (!id || !normalizedReason) return;
+
+      setRejectingId(id);
+      dismissApprovalIssue(id);
+
+      try {
+        await ptsService.reject(id, normalizedReason);
+        await loadPts();
+        void loadOverview();
+        dismissApprovalReview(id);
+        setRejectTargetId(null);
+        toast.success('PT reprovada.');
+      } catch (error) {
+        handleApiError(error, 'PT');
+      } finally {
+        setRejectingId((current) => (current === id ? null : current));
+      }
+    },
+    [dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts, rejectTargetId],
+  );
 
   const handleFinalize = useCallback(
     (id: string) => {
@@ -800,9 +799,7 @@ useEffect(() => {
       } catch (error) {
         handleApiError(error, 'PT');
       } finally {
-        setFinalizingId((current) =>
-          current === target.id ? null : current,
-        );
+        setFinalizingId((current) => (current === target.id ? null : current));
       }
     },
     [closingPt, dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts],
@@ -835,6 +832,8 @@ useEffect(() => {
     overviewMetrics,
     approvingId,
     rejectingId,
+    rejectTargetId,
+    setRejectTargetId,
     finalizingId,
     approvalIssuesById,
     approvalReviewLoadingId,
@@ -854,6 +853,7 @@ useEffect(() => {
     handlePrepareApproval,
     handleApprove,
     handleReject,
+    confirmReject,
     handleFinalize,
     closingPt,
     setClosingPt,

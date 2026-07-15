@@ -22,6 +22,10 @@ import {
   toAlphabeticalLabel,
 } from "../hierarchy";
 import { CHECKLIST_GOVERNED_PHOTO_REF_PREFIX } from "@/services/checklistsService";
+import {
+  blobToBoundedDataUrl,
+  processMobileImages,
+} from "@/lib/images/process-mobile-image";
 
 type GovernedPhotoAccessState = "loading" | "ready" | "error";
 
@@ -31,6 +35,7 @@ interface ExecutionItemProps {
   register: UseFormRegister<ChecklistFormData>;
   watch: UseFormWatch<ChecklistFormData>;
   setValue?: UseFormSetValue<ChecklistFormData>;
+  getPhotoValues?: (index: number) => string[];
   onUploadPhotos?: (index: number, files: File[]) => Promise<string[]>;
   resolvePhotoSrc?: (
     photo: string,
@@ -50,6 +55,7 @@ export const ExecutionItem = React.memo(
     register,
     watch,
     setValue,
+    getPhotoValues,
     onUploadPhotos,
     resolvePhotoSrc,
     photoAccessStates,
@@ -71,6 +77,8 @@ export const ExecutionItem = React.memo(
       item.tipo_resposta === "conforme";
     const hasAnswerableSubitems = supportsSubitemStatus && subitems.length > 0;
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const [photoProcessing, setPhotoProcessing] = React.useState(false);
+    const [photoError, setPhotoError] = React.useState<string | null>(null);
     const choiceBaseClassName =
       "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold motion-safe:transition-colors";
     const fieldClassName =
@@ -143,36 +151,44 @@ export const ExecutionItem = React.memo(
     const handleAddPhotos = async (
       event: React.ChangeEvent<HTMLInputElement>,
     ) => {
-      if (!setValue) {
-        return;
-      }
+      if (!setValue || photoProcessing) return;
 
       const files = Array.from(event.target.files || []);
-      if (!files.length) {
-        return;
-      }
+      if (!files.length) return;
 
       try {
+        setPhotoProcessing(true);
+        setPhotoError(null);
         const encodedPhotos = onUploadPhotos
           ? await onUploadPhotos(index, files)
-          : await Promise.all(
-              files.map(
-                (file) =>
-                  new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(String(reader.result || ""));
-                    reader.onerror = () =>
-                      reject(new Error("Falha ao ler a imagem."));
-                    reader.readAsDataURL(file);
-                  }),
-              ),
-            );
+          : await processMobileImages(files, {
+              maxFiles: Math.max(0, 6 - (getPhotoValues?.(index) ?? photoValues).length),
+            }).then(async ({ processed }) => {
+              const encoded: string[] = [];
+              for (const entry of processed) {
+                encoded.push(await blobToBoundedDataUrl(entry.file));
+              }
+              return encoded;
+            });
 
-        setValue(`itens.${index}.fotos`, [...photoValues, ...encodedPhotos], {
+        // Merge no instante da conclusão, sem sobrescrever remoções/adições
+        // ocorridas enquanto a câmera e o upload estavam ativos.
+        const nextPhotos = [...(getPhotoValues?.(index) ?? photoValues)];
+        encodedPhotos.forEach((photo) => {
+          if (!nextPhotos.includes(photo)) nextPhotos.push(photo);
+        });
+        setValue(`itens.${index}.fotos`, nextPhotos, {
           shouldDirty: true,
           shouldTouch: true,
         });
+      } catch (error) {
+        setPhotoError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível adicionar as fotos.",
+        );
       } finally {
+        setPhotoProcessing(false);
         event.target.value = "";
       }
     };
@@ -184,7 +200,9 @@ export const ExecutionItem = React.memo(
 
       setValue(
         `itens.${index}.fotos`,
-        photoValues.filter((_, currentIndex) => currentIndex !== photoIndex),
+        (getPhotoValues?.(index) ?? photoValues).filter(
+          (_, currentIndex) => currentIndex !== photoIndex,
+        ),
         {
           shouldDirty: true,
           shouldTouch: true,
@@ -315,6 +333,7 @@ export const ExecutionItem = React.memo(
                 onClick={() => onRemove?.(index)}
                 className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
                 title="Remover item"
+                aria-label={`Remover item ${index + 1}: ${item.item?.trim() || "sem descrição"}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -421,6 +440,7 @@ export const ExecutionItem = React.memo(
                     type="button"
                     onClick={() => removeSubitem(subitemIndex)}
                     className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                    aria-label={`Remover subitem ${toAlphabeticalLabel(subitemIndex)} do item ${index + 1}: ${subitem?.texto?.trim() || "sem descrição"}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -499,7 +519,7 @@ export const ExecutionItem = React.memo(
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             multiple
             className="hidden"
@@ -508,12 +528,15 @@ export const ExecutionItem = React.memo(
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 text-xs text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
+            disabled={photoProcessing}
+            className="flex items-center gap-1 text-xs text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:text-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Camera className="h-3 w-3" />
-            {photoValues.length
-              ? `Adicionar Foto (${photoValues.length})`
-              : "Adicionar Foto"}
+            {photoProcessing
+              ? "Processando fotos…"
+              : photoValues.length
+                ? `Adicionar Foto (${photoValues.length})`
+                : "Adicionar Foto"}
           </button>
           {requiresPhoto && photoValues.length === 0 ? (
             <span className="text-xs font-semibold text-[var(--ds-color-danger)]">
@@ -521,6 +544,15 @@ export const ExecutionItem = React.memo(
             </span>
           ) : null}
         </div>
+
+        {photoError ? (
+          <p
+            role="alert"
+            className="mt-2 text-xs font-semibold text-[var(--ds-color-danger)]"
+          >
+            {photoError}
+          </p>
+        ) : null}
 
         {photoValues.length ? (
           <div className="mt-3 flex flex-wrap gap-2">

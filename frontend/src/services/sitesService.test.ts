@@ -4,6 +4,7 @@ import { fetchAllPages } from '@/services/pagination';
 import {
   setOfflineCache,
   consumeOfflineCache,
+  createOfflineCacheContext,
   isOfflineRequestError,
   CACHE_TTL,
 } from '@/lib/offline-cache';
@@ -26,6 +27,7 @@ jest.mock('@/services/pagination', () => ({
 jest.mock('@/lib/offline-cache', () => ({
   setOfflineCache: jest.fn(),
   consumeOfflineCache: jest.fn(),
+  createOfflineCacheContext: jest.fn(() => ({ generation: 0, tenantId: 'test' })),
   isOfflineRequestError: jest.fn(),
   CACHE_TTL: { REFERENCE: 300000 },
 }));
@@ -52,6 +54,10 @@ const mockPaginatedResponse = {
 describe('sitesService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (createOfflineCacheContext as jest.Mock).mockReturnValue({
+      generation: 0,
+      tenantId: 'test',
+    });
     (isOfflineRequestError as jest.Mock).mockReturnValue(false);
   });
 
@@ -70,8 +76,35 @@ describe('sitesService', () => {
       expect.stringContaining('sites.paginated.'),
       mockPaginatedResponse,
       CACHE_TTL.REFERENCE,
+      expect.objectContaining({ generation: 0, tenantId: 'test' }),
     );
     expect(result).toEqual(mockPaginatedResponse);
+  });
+
+  it('mantém o contexto do tenant capturado antes da resposta de rede', async () => {
+    const tenantAContext = { generation: 4, tenantId: 'tenant-a' };
+    let resolveRequest!: (value: { data: typeof mockPaginatedResponse }) => void;
+    (createOfflineCacheContext as jest.Mock).mockReturnValueOnce(tenantAContext);
+    (api.get as jest.Mock).mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    const pending = sitesService.findPaginated();
+    (createOfflineCacheContext as jest.Mock).mockReturnValue({
+      generation: 5,
+      tenantId: 'tenant-b',
+    });
+    resolveRequest({ data: mockPaginatedResponse });
+    await pending;
+
+    expect(setOfflineCache).toHaveBeenCalledWith(
+      expect.stringContaining('sites.paginated.'),
+      mockPaginatedResponse,
+      CACHE_TTL.REFERENCE,
+      tenantAContext,
+    );
   });
 
   it('envia todos os parâmetros opcionais em findPaginated', async () => {
@@ -154,6 +187,7 @@ describe('sitesService', () => {
       'sites.all.co-1',
       allSites,
       CACHE_TTL.REFERENCE,
+      expect.objectContaining({ generation: 0, tenantId: 'test' }),
     );
     expect(result).toEqual(allSites);
   });
@@ -167,6 +201,7 @@ describe('sitesService', () => {
       'sites.all.all',
       [],
       CACHE_TTL.REFERENCE,
+      expect.objectContaining({ generation: 0, tenantId: 'test' }),
     );
   });
 
@@ -202,6 +237,7 @@ describe('sitesService', () => {
       'sites.one.site-1',
       mockSite,
       CACHE_TTL.REFERENCE,
+      expect.objectContaining({ generation: 0, tenantId: 'test' }),
     );
     expect(result).toEqual(mockSite);
   });

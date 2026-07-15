@@ -5,6 +5,14 @@
 :root {
   --font-dm-sans: var(--font-sans);
   --font-syne: var(--font-sans);
+  --ds-safe-area-top: env(safe-area-inset-top, 0px);
+  --ds-safe-area-right: env(safe-area-inset-right, 0px);
+  --ds-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --ds-safe-area-left: env(safe-area-inset-left, 0px);
+  --ds-mobile-nav-height: 4.25rem;
+  --ds-mobile-nav-total-height: calc(var(--ds-mobile-nav-height) + var(--ds-safe-area-bottom));
+  --ds-mobile-action-gap: 0.75rem;
+  --ds-sophie-clearance: 4.5rem;
   color-scheme: light;
   scroll-behavior: smooth;
 }
@@ -2727,9 +2735,158 @@ body {
   }
 }
 
+/* Mobile shell contract: safe area, navigation and form actions share these offsets. */
+.ds-dashboard-shell {
+  height: 100vh;
+  min-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  .ds-dashboard-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+.ds-dashboard-content {
+  padding-bottom: calc(var(--ds-mobile-nav-total-height) + 1.5rem);
+  padding-left: max(1rem, var(--ds-safe-area-left));
+  padding-right: max(1rem, var(--ds-safe-area-right));
+  scroll-padding-bottom: calc(var(--ds-mobile-nav-total-height) + 1rem);
+}
+
+/* The top bar consumes the notch inset; content starts below it in every shell. */
+.ds-topbar {
+  padding-top: calc(0.75rem + var(--ds-safe-area-top));
+}
+
+.ds-mobile-nav {
+  display: none;
+}
+
+.ds-sophie-launcher {
+  right: max(1rem, var(--ds-safe-area-right));
+  bottom: calc(var(--ds-mobile-nav-total-height) + var(--ds-mobile-action-gap));
+}
+
+.ds-mobile-action-bar {
+  position: sticky;
+  z-index: 30;
+  bottom: calc(var(--ds-mobile-nav-total-height) + var(--ds-mobile-action-gap));
+  min-width: 0;
+  margin-top: 1.5rem;
+  margin-right: var(--ds-sophie-clearance);
+  border: 1px solid var(--ds-color-border-strong);
+  border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--ds-color-surface-overlay) 95%, transparent);
+  padding: 0.75rem;
+  box-shadow: var(--ds-shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.ds-mobile-form-status {
+  width: 100%;
+}
+
+@media (max-width: 1279px) {
+  .ds-mobile-nav {
+    position: fixed;
+    z-index: 50;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: var(--ds-mobile-nav-total-height);
+    padding: 0.35rem max(0.25rem, var(--ds-safe-area-right)) var(--ds-safe-area-bottom)
+      max(0.25rem, var(--ds-safe-area-left));
+    border-top: 1px solid var(--ds-color-border-default);
+    background: color-mix(in srgb, var(--ds-color-surface-overlay) 96%, transparent);
+    box-shadow: 0 -8px 24px rgb(15 23 42 / 10%);
+    backdrop-filter: blur(14px);
+  }
+
+  .ds-mobile-nav__item {
+    display: flex;
+    min-width: 0;
+    min-height: 3.5rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .ds-mobile-nav__item--active {
+    background: var(--ds-color-primary-subtle);
+    color: var(--ds-color-action-primary);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1279px) {
+  :root {
+    --ds-sophie-clearance: 12.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --ds-sophie-clearance: 12.5rem;
+  }
+
+  .ds-dashboard-content {
+    padding-bottom: 1.5rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    scroll-padding-bottom: 1rem;
+  }
+
+  .ds-mobile-action-bar {
+    bottom: 1rem;
+    margin-right: var(--ds-sophie-clearance);
+  }
+
+  .ds-sophie-launcher {
+    right: max(1.5rem, var(--ds-safe-area-right));
+    bottom: max(1.5rem, var(--ds-safe-area-bottom));
+  }
+}
+
+@media (max-width: 767px) {
+  .ds-system-scope button,
+  .ds-system-scope [role="button"],
+  .ds-mobile-action-bar a {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .ds-mobile-action-bar > * {
+    min-width: 0;
+  }
+
+  .ds-mobile-action-bar button,
+  .ds-mobile-action-bar a {
+    min-height: 2.75rem;
+    max-width: 100%;
+  }
+
+  .ds-mobile-nav__item span {
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 639px) {
   .ds-topbar {
-    padding: 0.75rem 0.85rem;
+    padding: calc(0.75rem + var(--ds-safe-area-top)) max(0.85rem, var(--ds-safe-area-right)) 0.75rem max(0.85rem, var(--ds-safe-area-left));
   }
 
   .ds-dashboard-actions-strip {

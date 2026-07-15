@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AIChatPanel } from './AIChatPanel';
 import { LifeBuoy, Sparkles, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -15,6 +15,35 @@ type FloatingPosition = {
 const SOPHIE_BUTTON_POSITION_KEY = 'sgs.sophie.floating-button.position';
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD_PX = 4;
+
+type ClampBounds = {
+  viewportWidth: number;
+  viewportHeight: number;
+  width: number;
+  height: number;
+  bottomBoundary?: number;
+  topBoundary?: number;
+  edgeMargin?: number;
+};
+
+export function clampSophiePosition(
+  next: FloatingPosition,
+  bounds: ClampBounds,
+): FloatingPosition {
+  const edge = bounds.edgeMargin ?? EDGE_MARGIN;
+  const bottomBoundary = bounds.bottomBoundary ?? bounds.viewportHeight;
+  const topBoundary = bounds.topBoundary ?? 0;
+  return {
+    x: Math.min(
+      Math.max(next.x, edge),
+      Math.max(edge, bounds.viewportWidth - bounds.width - edge),
+    ),
+    y: Math.min(
+      Math.max(next.y, topBoundary + edge),
+      Math.max(topBoundary + edge, bottomBoundary - bounds.height - edge),
+    ),
+  };
+}
 
 export function AIButton() {
   const aiEnabled = isAiEnabled();
@@ -35,6 +64,57 @@ export function AIButton() {
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
+
+  const getBottomBoundary = useCallback(() => {
+    const reservedZones = document.querySelectorAll<HTMLElement>(
+      '[data-sophie-reserved-zone="bottom"]',
+    );
+    return Array.from(reservedZones).reduce((boundary, zone) => {
+      const rect = zone.getBoundingClientRect();
+      if (rect.height <= 0 || rect.width <= 0) return boundary;
+      return Math.min(boundary, rect.top);
+    }, window.innerHeight);
+  }, []);
+
+  const getTopBoundary = useCallback(() => {
+    const reservedZones = document.querySelectorAll<HTMLElement>(
+      '[data-sophie-reserved-zone="top"]',
+    );
+    return Array.from(reservedZones).reduce((boundary, zone) => {
+      const rect = zone.getBoundingClientRect();
+      if (rect.height <= 0 || rect.width <= 0) return boundary;
+      return Math.max(boundary, rect.bottom);
+    }, 0);
+  }, []);
+
+  const clampPosition = useCallback(
+    (
+      next: FloatingPosition,
+      width = buttonContainerRef.current?.getBoundingClientRect().width || 184,
+      height = buttonContainerRef.current?.getBoundingClientRect().height || 56,
+    ): FloatingPosition =>
+      clampSophiePosition(next, {
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        width,
+        height,
+        bottomBoundary: getBottomBoundary(),
+        topBoundary: getTopBoundary(),
+      }),
+    [getBottomBoundary, getTopBoundary],
+  );
+
+  const persistPosition = useCallback((next: FloatingPosition) => {
+    try {
+      window.localStorage.setItem(
+        SOPHIE_BUTTON_POSITION_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      // Persistencia best-effort; o botão continua funcional sem storage.
+    }
+    return next;
+  }, []);
 
   useEffect(() => {
     if (!aiEnabled) {
@@ -89,14 +169,14 @@ export function AIButton() {
     };
 
     setPosition(resolveInitialPosition());
-  }, [aiEnabled]);
+  }, [aiEnabled, clampPosition]);
 
   useEffect(() => {
     if (!aiEnabled) {
       return;
     }
 
-    const handleResize = () => {
+    const handleLayoutChange = () => {
       const rect = buttonContainerRef.current?.getBoundingClientRect();
       const width = rect?.width || 184;
       const height = rect?.height || 56;
@@ -105,36 +185,31 @@ export function AIButton() {
       );
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [aiEnabled]);
-
-  const clampPosition = (
-    next: FloatingPosition,
-    width = buttonContainerRef.current?.getBoundingClientRect().width || 184,
-    height = buttonContainerRef.current?.getBoundingClientRect().height || 56,
-  ): FloatingPosition => ({
-    x: Math.min(
-      Math.max(next.x, EDGE_MARGIN),
-      Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN),
-    ),
-    y: Math.min(
-      Math.max(next.y, EDGE_MARGIN),
-      Math.max(EDGE_MARGIN, window.innerHeight - height - EDGE_MARGIN),
-    ),
-  });
-
-  const persistPosition = (next: FloatingPosition) => {
-    try {
-      window.localStorage.setItem(
-        SOPHIE_BUTTON_POSITION_KEY,
-        JSON.stringify(next),
-      );
-    } catch {
-      // Persistencia best-effort; o botão continua funcional sem storage.
+    window.addEventListener('resize', handleLayoutChange);
+    window.addEventListener('scroll', handleLayoutChange, true);
+    const observer =
+      typeof MutationObserver === 'function'
+        ? new MutationObserver(handleLayoutChange)
+        : null;
+    observer?.observe(document.body, { childList: true, subtree: true });
+    const resizeObserver =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(handleLayoutChange)
+        : null;
+    document
+      .querySelectorAll<HTMLElement>('[data-sophie-reserved-zone]')
+      .forEach((zone) => resizeObserver?.observe(zone));
+    if (buttonContainerRef.current) {
+      resizeObserver?.observe(buttonContainerRef.current);
     }
-    return next;
-  };
+
+    return () => {
+      window.removeEventListener('resize', handleLayoutChange);
+      window.removeEventListener('scroll', handleLayoutChange, true);
+      observer?.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [aiEnabled, clampPosition, persistPosition]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) {
@@ -215,7 +290,7 @@ export function AIButton() {
     <>
       <div
         ref={buttonContainerRef}
-        className="fixed bottom-24 right-4 z-50 sm:bottom-6 sm:right-6"
+        className="ds-sophie-launcher fixed z-50"
         style={
           position
             ? {

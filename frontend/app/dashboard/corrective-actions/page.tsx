@@ -20,6 +20,7 @@ import { handleApiError } from '@/lib/error-handler';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 import { safeToLocaleDateString, toIsoStringValue } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -369,6 +370,21 @@ export default function CorrectiveActionsPage() {
       </Card>
 
       <Card tone="elevated" padding="none" className="overflow-hidden">
+        <ResponsiveDataList
+          items={actions}
+          getKey={(action) => action.id}
+          loading={actionsLoading && actions.length === 0 ? <p className="p-6 text-center text-sm">Carregando...</p> : undefined}
+          empty={<p className="p-6 text-center text-sm text-[var(--ds-color-text-secondary)]">Nenhuma ação corretiva cadastrada.</p>}
+          mobileClassName="space-y-3 p-3"
+          mobile={(action) => (
+            <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3"><h3 className="font-semibold">{action.title}</h3><Badge variant={priorityVariant(action.priority) as 'danger' | 'warning' | 'accent' | 'neutral'}>{action.priority}</Badge></div>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Prazo</dt><dd>{safeToLocaleDateString(action.due_date, 'pt-BR', undefined, '—')}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Responsável</dt><dd>{action.responsible_user?.nome || action.responsible_name || '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Escalonamento</dt><dd>Nível {action.escalation_level || 0}</dd></div></dl>
+              <label className="mt-4 block text-xs font-medium" htmlFor={`capa-status-${action.id}`}>Status</label>
+              <select id={`capa-status-${action.id}`} className="mt-1 min-h-11 w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3" value={action.status} onChange={(e) => void handleStatusChange(action.id, e.target.value as CorrectiveActionStatus)}>{STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+            </article>
+          )}
+          desktop={() => (
         <Table>
           <TableHeader>
             <TableRow>
@@ -424,6 +440,8 @@ export default function CorrectiveActionsPage() {
             )}
           </TableBody>
         </Table>
+          )}
+        />
         {!actionsLoading && total > 0 ? (
           <PaginationControls
             page={page}

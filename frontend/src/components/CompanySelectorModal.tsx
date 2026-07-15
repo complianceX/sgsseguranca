@@ -120,8 +120,8 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
                 return (
                   <li key={company.id}>
                     <button
-                      onClick={() => {
-                        selectedTenantStore.set({ companyId: company.id, companyName: company.razao_social });
+                      onClick={async () => {
+                        await selectedTenantStore.set({ companyId: company.id, companyName: company.razao_social });
                         onSelect(company);
                       }}
                       className={`flex w-full items-center justify-between rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-colors ${
