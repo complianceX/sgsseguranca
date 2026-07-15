@@ -1454,6 +1454,7 @@ export class DashboardService {
                 { companyId },
               )
               .where('notification.read = :read', { read: false })
+              .andWhere('notification.deleted_at IS NULL')
               .andWhere('"notification"."userId"::text = :userId', {
                 userId: input.userId,
               })

@@ -1064,6 +1064,7 @@ export class AprsService {
             .leftJoin('user.site_links', 'siteLink')
             .where('user.id IN (:...uniqueIds)', { uniqueIds })
             .andWhere('user.company_id = :companyId', { companyId })
+            .andWhere('user.deleted_at IS NULL')
             .andWhere(
               '(user.site_id = :siteId OR siteLink.site_id = :siteId OR user.site_id IS NULL)',
               { siteId },

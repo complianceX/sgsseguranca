@@ -303,6 +303,7 @@ export class SignaturesService {
       .createQueryBuilder('signature')
       .where('signature.document_id IN (:...documentIds)', { documentIds })
       .andWhere('signature.document_type = :documentType', { documentType })
+      .andWhere('signature.deleted_at IS NULL')
       .orderBy('signature.created_at', 'DESC');
 
     if (effectiveCompanyId) {

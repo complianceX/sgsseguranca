@@ -1314,6 +1314,7 @@ export class DossiersService {
           .leftJoin('pt.executantes', 'executante')
           .leftJoinAndSelect('pt.responsavel', 'responsavel')
           .where('pt.company_id = :companyId', { companyId })
+          .andWhere('pt.deleted_at IS NULL')
           .andWhere('executante.id = :userId', { userId })
           .orderBy('pt.created_at', 'DESC')
           .take(DOSSIER_RECORD_LIMIT)
@@ -2228,6 +2229,7 @@ export class DossiersService {
       .where('LOWER(user.id) LIKE :prefix', {
         prefix: `${prefix.toLowerCase()}%`,
       })
+      .andWhere('user.deleted_at IS NULL')
       .getOne();
     if (!candidate) {
       return null;
@@ -2303,6 +2305,7 @@ export class DossiersService {
       .where('LOWER(site.id) LIKE :prefix', {
         prefix: `${prefix.toLowerCase()}%`,
       })
+      .andWhere('site.deleted_at IS NULL')
       .getOne();
     if (!candidate) {
       return null;
