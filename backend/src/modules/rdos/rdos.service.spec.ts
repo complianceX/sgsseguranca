@@ -419,6 +419,10 @@ describe('RdosService', () => {
 
     expect(result.total).toBe(2);
     expect(result.data.map((item) => item.id)).toEqual([second.id, first.id]);
+    // Regressão GDPR: RDOs soft-deletados não podem contar no total nem
+    // criar buracos na página. É o primeiro clause do applyFindPaginatedFilters,
+    // então entra via .where().
+    expect(qb.where).toHaveBeenCalledWith('rdo.deleted_at IS NULL', {});
     expect(repository.find).toHaveBeenCalledWith(
       expect.objectContaining({
         relations: ['site', 'responsavel'],
@@ -1084,6 +1088,7 @@ describe('RdosService', () => {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({
         totalRdos: 12,
         rascunho: 5,
