@@ -96,7 +96,8 @@ export class WorkerTimelineService {
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.site', 'site')
       .addSelect('user.cpf_ciphertext')
-      .where('user.id = :userId', { userId });
+      .where('user.id = :userId', { userId })
+      .andWhere('user.deleted_at IS NULL');
 
     qb.andWhere('user.company_id = :tenantId', { tenantId });
 
@@ -132,7 +133,9 @@ export class WorkerTimelineService {
           : { cpfHash },
       );
 
-    qb.andWhere('user.company_id = :tenantId', { tenantId });
+    qb.andWhere('user.company_id = :tenantId', { tenantId }).andWhere(
+      'user.deleted_at IS NULL',
+    );
 
     const user = await qb.getOne();
 
