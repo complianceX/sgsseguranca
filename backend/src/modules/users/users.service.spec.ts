@@ -574,7 +574,8 @@ describe('UsersService.findPaginated', () => {
     const mockedRepo = repo as unknown as { createQueryBuilder: jest.Mock };
     const createQueryBuilderMock = mockedRepo.createQueryBuilder;
     expect(createQueryBuilderMock).toHaveBeenCalledWith('user');
-    expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
+    expect(qb.where).toHaveBeenCalledWith('user.deleted_at IS NULL');
+    expect(qb.andWhere).toHaveBeenCalledWith('user.company_id = :tenantId', {
       tenantId: 'company-1',
     });
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
@@ -716,7 +717,9 @@ describe('UsersService.findPaginated', () => {
       accessStatus: UserAccessStatus.NO_LOGIN,
     });
 
-    expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
+    // deleted_at IS NULL é agora o primeiro clause (.where); tenant vira andWhere.
+    expect(qb.where).toHaveBeenCalledWith('user.deleted_at IS NULL');
+    expect(qb.andWhere).toHaveBeenCalledWith('user.company_id = :tenantId', {
       tenantId: 'company-1',
     });
     expect(qb.andWhere).toHaveBeenCalledWith(
