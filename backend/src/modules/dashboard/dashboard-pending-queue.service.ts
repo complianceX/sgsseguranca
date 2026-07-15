@@ -241,6 +241,7 @@ export class DashboardPendingQueueService {
               'site.nome',
             ])
             .where('nc.company_id = :companyId', { companyId })
+            .andWhere('nc.deleted_at IS NULL')
             .andWhere(
               isSingleScope ? 'nc.site_id = :siteId' : '1=1',
               isSingleScope ? { siteId } : {},
@@ -275,6 +276,7 @@ export class DashboardPendingQueueService {
               'user.nome',
             ])
             .where('training.company_id = :companyId', { companyId })
+            .andWhere('training.deleted_at IS NULL')
             // Usa expressao SQL nativa para evitar desvio de timezone entre
             // o runtime Node e o banco PostgreSQL.
             .andWhere(
@@ -309,6 +311,7 @@ export class DashboardPendingQueueService {
               'user.nome',
             ])
             .where('medicalExam.company_id = :companyId', { companyId })
+            .andWhere('medicalExam.deleted_at IS NULL')
             // Mesmo padrao: expressao SQL nativa para warningLimit.
             .andWhere(
               `(medicalExam.resultado = :inapto OR medicalExam.data_vencimento <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '${WARNING_INTERVAL_DAYS} days'))`,
@@ -346,6 +349,7 @@ export class DashboardPendingQueueService {
               'auditor.nome',
             ])
             .where('audit.company_id = :companyId', { companyId })
+            .andWhere('audit.deleted_at IS NULL')
             // Mesmo filtro: apenas auditorias com acoes pendentes no banco.
             .andWhere(
               `EXISTS (
