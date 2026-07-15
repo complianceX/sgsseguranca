@@ -666,12 +666,13 @@ export class UsersService {
       .leftJoinAndSelect('user.profile', 'profile')
       .addSelect('user.cpf_ciphertext')
       .addSelect('user.cpf_hash')
+      .where('user.deleted_at IS NULL')
       .skip(skip)
       .take(limit)
       .orderBy('user.nome', 'ASC');
 
     if (tenantId) {
-      qb.where('user.company_id = :tenantId', { tenantId });
+      qb.andWhere('user.company_id = :tenantId', { tenantId });
     }
 
     if (scope.hasCompanyWideAccess && requestedSiteId) {
@@ -847,7 +848,8 @@ export class UsersService {
       .leftJoinAndSelect('user.site_links', 'siteLinks')
       .leftJoinAndSelect('siteLinks.site', 'linkedSite')
       .addSelect('user.cpf_ciphertext')
-      .where('user.id = :id', { id });
+      .where('user.id = :id', { id })
+      .andWhere('user.deleted_at IS NULL');
 
     qb.andWhere('user.company_id = :tenantId', { tenantId });
     if (!scope.hasCompanyWideAccess) {
@@ -890,7 +892,8 @@ export class UsersService {
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .addSelect('user.cpf_ciphertext')
-      .where('user.id = :id', { id });
+      .where('user.id = :id', { id })
+      .andWhere('user.deleted_at IS NULL');
 
     if (tenantId) {
       qb.andWhere('user.company_id = :tenantId', { tenantId });
@@ -926,6 +929,9 @@ export class UsersService {
           ? { cpfHash, legacyCpf: normalizedCpf }
           : { cpfHash },
       )
+      // Defesa em profundidade no login: além da checagem de status=false,
+      // nunca autenticar por um registro soft-deletado (remoção ou GDPR).
+      .andWhere('user.deleted_at IS NULL')
       .limit(1);
 
     USER_WITH_PASSWORD_FIELDS.forEach((field) => {
@@ -1363,6 +1369,7 @@ export class UsersService {
         .where('u.company_id = :companyId', { companyId: tenantId })
         .andWhere('p.nome = :profileName', { profileName: Role.ADMIN_EMPRESA })
         .andWhere('u.status = :status', { status: true })
+        .andWhere('u.deleted_at IS NULL')
         .getCount();
 
       if (adminCount <= 1) {

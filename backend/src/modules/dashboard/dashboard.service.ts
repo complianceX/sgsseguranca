@@ -342,6 +342,7 @@ export class DashboardService {
               .createQueryBuilder('epi')
               .select(['epi.id', 'epi.nome', 'epi.ca', 'epi.validade_ca'])
               .where('epi.company_id = :companyId', { companyId })
+              .andWhere('epi.deleted_at IS NULL')
               .andWhere('epi.validade_ca IS NOT NULL')
               .andWhere('epi.validade_ca <= :warningLimit', { warningLimit })
               .orderBy('epi.validade_ca', 'ASC')
@@ -355,6 +356,7 @@ export class DashboardService {
                   .createQueryBuilder('training')
                   .leftJoinAndSelect('training.user', 'user')
                   .where('training.company_id = :companyId', { companyId })
+                  .andWhere('training.deleted_at IS NULL')
                   .andWhere('user.company_id = :companyId', { companyId })
                   .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
                   .andWhere('training.data_vencimento <= :warningLimit', {
@@ -407,6 +409,7 @@ export class DashboardService {
             this.nonConformitiesRepository
               .createQueryBuilder('nc')
               .where('nc.company_id = :companyId', { companyId })
+              .andWhere('nc.deleted_at IS NULL')
               .andWhere(
                 !scope.isSuperAdmin && scope.siteScope !== 'all'
                   ? 'nc.site_id = :siteId'
@@ -533,6 +536,7 @@ export class DashboardService {
                   .createQueryBuilder('training')
                   .leftJoinAndSelect('training.user', 'user')
                   .where('training.company_id = :companyId', { companyId })
+                  .andWhere('training.deleted_at IS NULL')
                   .andWhere('user.company_id = :companyId', { companyId })
                   .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
                   .orderBy('training.data_conclusao', 'DESC')
@@ -558,6 +562,7 @@ export class DashboardService {
                 'conformes',
               )
               .where('checklist.company_id = :companyId', { companyId })
+              .andWhere('checklist.deleted_at IS NULL')
               .andWhere(
                 !scope.isSuperAdmin && scope.siteScope !== 'all'
                   ? 'checklist.site_id = :siteId'
@@ -1345,6 +1350,7 @@ export class DashboardService {
         this.aprsRepository
           .createQueryBuilder('apr')
           .where('apr.company_id = :companyId', { companyId })
+          .andWhere('apr.deleted_at IS NULL')
           .andWhere(
             !scope.isSuperAdmin && scope.siteScope !== 'all'
               ? 'apr.site_id = :siteId'
@@ -1365,6 +1371,7 @@ export class DashboardService {
               .createQueryBuilder('training')
               .innerJoin('training.user', 'user')
               .where('training.company_id = :companyId', { companyId })
+              .andWhere('training.deleted_at IS NULL')
               .andWhere('user.company_id = :companyId', { companyId })
               .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
               .getCount()
@@ -1398,6 +1405,7 @@ export class DashboardService {
           .select('nc.codigo_nc', 'codigo_nc')
           .addSelect('COUNT(nc.id)', 'total')
           .where('nc.company_id = :companyId', { companyId })
+          .andWhere('nc.deleted_at IS NULL')
           .andWhere(
             !scope.isSuperAdmin && scope.siteScope !== 'all'
               ? 'nc.site_id = :siteId'
@@ -1473,6 +1481,7 @@ export class DashboardService {
           )
           .addSelect('COUNT(nc.id)', 'count')
           .where('nc.company_id = :companyId', { companyId })
+          .andWhere('nc.deleted_at IS NULL')
           .andWhere('nc.data_identificacao >= :monthStart', { monthStart })
           .andWhere('nc.data_identificacao < :nextMonth', { nextMonth })
           .groupBy("date_trunc('month', nc.data_identificacao)")
@@ -1777,6 +1786,7 @@ export class DashboardService {
         .addSelect('COUNT(apr.id)', 'apr_count')
         .leftJoin(Site, 'site', 'site.id = apr.site_id')
         .where('apr.company_id = :companyId', { companyId })
+        .andWhere('apr.deleted_at IS NULL')
         .andWhere(isSingleScope ? 'apr.site_id = :siteId' : '1=1', siteFilter)
         .groupBy('apr.site_id')
         .addGroupBy('site.nome')
@@ -1871,6 +1881,7 @@ export class DashboardService {
             'site.nome',
           ])
           .where('nc.company_id = :companyId', { companyId })
+          .andWhere('nc.deleted_at IS NULL')
           .andWhere(
             isSingleScope ? 'nc.site_id = :siteId' : '1=1',
             isSingleScope ? { siteId: scope.siteId } : {},
@@ -1899,6 +1910,7 @@ export class DashboardService {
                 'user.nome',
               ])
               .where('medicalExam.company_id = :companyId', { companyId })
+              .andWhere('medicalExam.deleted_at IS NULL')
               .andWhere(
                 'medicalExam.data_vencimento BETWEEN :now AND :nextWeek',
                 {
@@ -1943,6 +1955,7 @@ export class DashboardService {
                 'user.nome',
               ])
               .where('training.company_id = :companyId', { companyId })
+              .andWhere('training.deleted_at IS NULL')
               .andWhere('training.data_vencimento BETWEEN :now AND :nextWeek', {
                 now,
                 nextWeek,
