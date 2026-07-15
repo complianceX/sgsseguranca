@@ -392,7 +392,8 @@ export class MedicalExamsService {
       .where('exam.id = :id', { id })
       .andWhere('exam.company_id = :tenantId', {
         tenantId: scope.companyId,
-      });
+      })
+      .andWhere('exam.deleted_at IS NULL');
     this.applyUserSiteScope(qb, 'user', scope);
     const exam = await qb.getOne();
     if (!exam) {

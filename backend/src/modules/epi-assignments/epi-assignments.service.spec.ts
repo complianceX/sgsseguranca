@@ -230,4 +230,22 @@ describe('EpiAssignmentsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('findPaginated()', () => {
+    it('exclui atribuições soft-deletadas (deleted_at IS NULL)', async () => {
+      // Regressão LGPD: gdpr_delete_user_data() soft-deleta epi_assignments do
+      // titular anonimizado. Sem este filtro, as fichas de um usuário que
+      // exerceu o direito de exclusão continuariam aparecendo na listagem.
+      const qb = makeQb();
+      const service = makeService({
+        assignmentsRepository: {
+          createQueryBuilder: jest.fn().mockReturnValue(qb),
+        },
+      });
+
+      await service.findPaginated({});
+
+      expect(qb.andWhere).toHaveBeenCalledWith('assignment.deleted_at IS NULL');
+    });
+  });
 });

@@ -140,6 +140,7 @@ export class EpiAssignmentsService {
       .leftJoinAndSelect('assignment.user', 'user')
       .leftJoinAndSelect('assignment.site', 'site')
       .where('assignment.company_id = :companyId', { companyId })
+      .andWhere('assignment.deleted_at IS NULL')
       .orderBy('assignment.created_at', 'DESC')
       .skip(skip)
       .take(limit);
@@ -297,6 +298,7 @@ export class EpiAssignmentsService {
     const caExpiradoQuery = this.assignmentsRepository
       .createQueryBuilder('assignment')
       .where('assignment.company_id = :companyId', { companyId })
+      .andWhere('assignment.deleted_at IS NULL')
       .andWhere("assignment.status = 'entregue'")
       .andWhere('assignment.validade_ca IS NOT NULL')
       .andWhere('assignment.validade_ca < :now', { now });
