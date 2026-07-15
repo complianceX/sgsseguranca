@@ -20,6 +20,8 @@ import { toast } from 'sonner';
 import { ListPageLayout } from '@/components/layout';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import {
   EmptyState,
   ErrorState,
@@ -52,6 +54,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import { getGovernedDocumentActionPolicy } from '../components/documentActionPolicy';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -83,6 +86,7 @@ const timerRef = useRef<number | undefined>(undefined);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [busyArrId, setBusyArrId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -417,19 +421,22 @@ useEffect(() => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!canManageArrs) {
       toast.error('Você não tem permissão para excluir este documento.');
       return;
     }
+    setConfirmDeleteId(id);
+  };
 
-    if (!window.confirm('Tem certeza que deseja excluir este registro?')) {
-      return;
-    }
+  const confirmDelete = async () => {
+    const id = confirmDeleteId;
+    if (!id) return;
 
     try {
       setBusyArrId(id);
       await arrsService.delete(id);
+      setConfirmDeleteId(null);
       toast.success('Registro excluído com sucesso.');
       if (arrs.length === 1 && page > 1) {
         setPage((current) => current - 1);
@@ -608,6 +615,32 @@ useEffect(() => {
           />
         </div>
       ) : (
+        <ResponsiveDataList
+          items={arrs}
+          getKey={(arr) => arr.id}
+          mobileClassName="space-y-3 p-3"
+          mobile={(arr) => {
+            const isBusy = busyArrId === arr.id;
+            const isEditLocked = Boolean(arr.pdf_file_key) || arr.status === 'arquivada';
+            const transitions = getAllowedStatusTransitions(arr);
+            const actions = getGovernedDocumentActionPolicy({
+              canManage: canManageArrs,
+              hasFinalPdf: Boolean(arr.pdf_file_key),
+              isDraft: arr.status === 'rascunho',
+              isArchived: arr.status === 'arquivada',
+              hasStatusTransitions: transitions.length > 0,
+            });
+            return (
+              <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold text-[var(--ds-color-text-primary)]">{arr.titulo}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">{safeFormatDate(arr.data, 'dd/MM/yyyy', { locale: ptBR })} · {arr.site?.nome || arr.site_id}</p></div><span className={cn('shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold', ARR_STATUS_COLORS[arr.status])}>{ARR_STATUS_LABEL[arr.status]}</span></div>
+                <div className="mt-3"><p className="text-xs text-[var(--ds-color-text-muted)]">Risco identificado</p><p className="text-sm">{arr.risco_identificado}</p><div className="mt-2 flex gap-2"><span className="ds-badge ds-badge--warning">{ARR_RISK_LEVEL_LABEL[arr.nivel_risco]}</span><span className="ds-badge">{ARR_SEVERITY_LABEL[arr.severidade]}</span></div></div>
+                <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]"><Users className="mr-1 inline h-4 w-4" />{arr.participants?.length || 0} · {arr.responsavel?.nome || 'Sem responsável'}</p>
+                {actions.canChangeStatus ? <select aria-label={`Mover status de ${arr.titulo}`} className={cn(inputClassName, 'mt-3')} value="" disabled={isBusy} onChange={(event) => event.target.value && void handleStatusChange(arr, event.target.value as ArrStatus)}><option value="">Mover para...</option>{transitions.map((status) => <option key={status} value={status}>{ARR_STATUS_LABEL[status]}</option>)}</select> : null}
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3"><Button type="button" size="sm" variant="outline" onClick={() => void handleOpenGovernedPdf(arr)} disabled={isBusy || !actions.canOpenOrEmitFinalPdf} leftIcon={<ShieldCheck className="h-4 w-4" />}>{arr.pdf_file_key ? 'Abrir PDF final' : 'Emitir PDF final'}</Button><Button type="button" size="sm" variant="outline" onClick={() => void handlePrint(arr)} disabled={isBusy || !actions.canPrintPdf} leftIcon={<Printer className="h-4 w-4" />}>Imprimir</Button><Button type="button" size="sm" variant="outline" onClick={() => void handleEmail(arr)} disabled={isBusy || !actions.canEmailPdf} leftIcon={<Mail className="h-4 w-4" />}>Enviar</Button>{actions.canEdit && !isEditLocked ? <Link href={`/dashboard/arrs/edit/${arr.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'justify-center')}><Pencil className="mr-2 h-4 w-4" />Editar</Link> : null}{actions.canDelete ? <Button type="button" size="sm" variant="destructive" onClick={() => handleDelete(arr.id)} disabled={isBusy} leftIcon={<Trash2 className="h-4 w-4" />}>Excluir</Button> : null}</div>
+              </article>
+            );
+          }}
+          desktop={() => (
         <Table className="min-w-[1040px]">
           <TableHeader>
             <TableRow>
@@ -625,17 +658,14 @@ useEffect(() => {
               const isEditLocked =
                 Boolean(arr.pdf_file_key) || arr.status === 'arquivada';
               const isBusy = busyArrId === arr.id;
-              const canEmitFinalPdf =
-                canManageArrs &&
-                arr.status !== 'rascunho' &&
-                arr.status !== 'arquivada';
-              const canUseGovernedPdfAction =
-                Boolean(arr.pdf_file_key) || canEmitFinalPdf;
-              const canPrintPdf =
-                arr.status !== 'arquivada' || Boolean(arr.pdf_file_key);
-              const canEmailPdf =
-                Boolean(arr.pdf_file_key) ||
-                (canManageArrs && arr.status !== 'arquivada');
+              const actions = getGovernedDocumentActionPolicy({
+                canManage: canManageArrs,
+                hasFinalPdf: Boolean(arr.pdf_file_key),
+                isDraft: arr.status === 'rascunho',
+                isArchived: arr.status === 'arquivada',
+                hasStatusTransitions: transitions.length > 0,
+              });
+              const canEmitFinalPdf = actions.canOpenOrEmitFinalPdf && !arr.pdf_file_key;
 
               return (
                 <TableRow key={arr.id} className="group">
@@ -702,7 +732,7 @@ useEffect(() => {
                       >
                         {ARR_STATUS_LABEL[arr.status]}
                       </span>
-                      {canManageArrs && transitions.length > 0 ? (
+                      {actions.canChangeStatus ? (
                         <select
                           className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1.5 text-xs text-[var(--ds-color-text-muted)] shadow-sm"
                           value=""
@@ -744,7 +774,7 @@ useEffect(() => {
                                   : 'Somente usuarios com gestao podem emitir o PDF final'
                         }
                         onClick={() => void handleOpenGovernedPdf(arr)}
-                        disabled={isBusy || !canUseGovernedPdfAction}
+                        disabled={isBusy || !actions.canOpenOrEmitFinalPdf}
                       >
                         <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                       </Button>
@@ -754,7 +784,7 @@ useEffect(() => {
                         variant="ghost"
                         title="Imprimir documento"
                         onClick={() => void handlePrint(arr)}
-                        disabled={isBusy || !canPrintPdf}
+                        disabled={isBusy || !actions.canPrintPdf}
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
@@ -764,7 +794,7 @@ useEffect(() => {
                         variant="ghost"
                         title="Enviar por e-mail"
                         onClick={() => void handleEmail(arr)}
-                        disabled={isBusy || !canEmailPdf}
+                        disabled={isBusy || !actions.canEmailPdf}
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
@@ -808,6 +838,8 @@ useEffect(() => {
             })}
           </TableBody>
         </Table>
+          )}
+        />
       )}
 
       {selectedDoc ? (
@@ -823,6 +855,15 @@ useEffect(() => {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+      <ConfirmModal
+        open={Boolean(confirmDeleteId)}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => void confirmDelete()}
+        title="Excluir ARR"
+        description="Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        loading={Boolean(confirmDeleteId && busyArrId === confirmDeleteId)}
+      />
     </ListPageLayout>
   );
 }

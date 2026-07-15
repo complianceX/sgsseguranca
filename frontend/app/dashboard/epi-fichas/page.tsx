@@ -30,6 +30,9 @@ import { Plus } from 'lucide-react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { Button } from '@/components/ui/button';
+import { ModalBody, ModalFooter, ModalFrame, ModalHeader } from '@/components/ui/modal-frame';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -105,6 +108,14 @@ export default function EpiFichasPage() {
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget | null>(
     null,
   );
+  const [actionModal, setActionModal] = useState<{
+    assignment: EpiAssignment;
+    mode: 'return' | 'replace';
+    signatureData?: string;
+    signatureType?: string;
+  } | null>(null);
+  const [actionReason, setActionReason] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const assignmentsRequestRef = useRef(0);
 
   const filteredEpis = useMemo(
@@ -261,48 +272,46 @@ export default function EpiFichasPage() {
     }
   };
 
-  const handleReturn = async (
-    assignment: EpiAssignment,
-    signatureData: string,
-    signatureType: string,
-  ) => {
-    const reason = window.prompt('Motivo da devolucao (opcional):', '');
-    try {
-      await epiAssignmentsService.returnAssignment(assignment.id, {
-        assinatura_devolucao: {
-          signature_data: signatureData,
-          signature_type: signatureType,
-          signer_name: assignment.user?.nome || usersMap.get(assignment.user_id),
-        },
-        motivo_devolucao: reason || undefined,
-      });
-      summaryCache.invalidate();
-      toast.success('Devolucao registrada.');
-      await refreshAll();
-    } catch (error) {
-      logger.error('Erro ao devolver EPI:', error);
-      toast.error('Falha ao registrar devolucao.');
-    }
+  const openReturn = (assignment: EpiAssignment, signatureData: string, signatureType: string) => {
+    setActionReason('');
+    setActionModal({ assignment, mode: 'return', signatureData, signatureType });
   };
 
-  const handleReplace = async (assignment: EpiAssignment) => {
-    const reason = window.prompt(
-      'Motivo da substituicao:',
-      assignment.motivo_devolucao || '',
-    );
-    if (!reason?.trim()) {
-      return;
-    }
+  const openReplace = (assignment: EpiAssignment) => {
+    setActionReason(assignment.motivo_devolucao || '');
+    setActionModal({ assignment, mode: 'replace' });
+  };
+
+  const confirmAssignmentAction = async () => {
+    if (!actionModal || (actionModal.mode === 'replace' && !actionReason.trim())) return;
+    const { assignment, mode, signatureData, signatureType } = actionModal;
     try {
-      await epiAssignmentsService.replaceAssignment(assignment.id, {
-        motivo_substituicao: reason.trim(),
-      });
+      setActionSaving(true);
+      if (mode === 'return') {
+        if (!signatureData || !signatureType) return;
+        await epiAssignmentsService.returnAssignment(assignment.id, {
+          assinatura_devolucao: {
+            signature_data: signatureData,
+            signature_type: signatureType,
+            signer_name: assignment.user?.nome || usersMap.get(assignment.user_id),
+          },
+          motivo_devolucao: actionReason.trim() || undefined,
+        });
+        toast.success('Devolucao registrada.');
+      } else {
+        await epiAssignmentsService.replaceAssignment(assignment.id, {
+          motivo_substituicao: actionReason.trim(),
+        });
+        toast.success('Ficha marcada como substituida.');
+      }
       summaryCache.invalidate();
-      toast.success('Ficha marcada como substituida.');
+      setActionModal(null);
       await refreshAll();
     } catch (error) {
-      logger.error('Erro ao substituir EPI:', error);
-      toast.error('Falha ao marcar substituicao.');
+      logger.error('Erro ao atualizar ficha EPI:', error);
+      toast.error('Falha ao atualizar a ficha de EPI.');
+    } finally {
+      setActionSaving(false);
     }
   };
 
@@ -525,6 +534,20 @@ export default function EpiFichasPage() {
             </p>
           </div>
         </div>
+        <ResponsiveDataList
+          items={assignments}
+          getKey={(assignment) => assignment.id}
+          loading={assignmentsLoading ? <p className="p-6 text-center text-sm">Carregando fichas...</p> : undefined}
+          empty={<p className="p-6 text-center text-sm text-[var(--ds-color-text-muted)]">Nenhuma ficha registrada.</p>}
+          mobileClassName="space-y-3 p-3"
+          mobile={(assignment) => (
+            <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{assignment.user?.nome || usersMap.get(assignment.user_id) || '-'}</h3><p className="text-sm text-[var(--ds-color-text-secondary)]">{assignment.epi?.nome || episMap.get(assignment.epi_id) || '-'}</p></div><span className="rounded-full border px-2.5 py-1 text-xs font-semibold">{assignment.status}</span></div>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">CA</dt><dd>{assignment.ca || '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Validade</dt><dd>{assignment.validade_ca ? safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—') : '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Entrega</dt><dd>{safeToLocaleDateString(assignment.entregue_em, 'pt-BR', undefined, '—')}</dd></div></dl>
+              {assignment.status === 'entregue' ? <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3"><Button size="sm" variant="success" onClick={() => setSignatureTarget({ mode: 'return', assignmentId: assignment.id })}>Devolver</Button><Button size="sm" variant="outline" onClick={() => openReplace(assignment)}>Substituir</Button></div> : null}
+            </article>
+          )}
+          desktop={() => (
         <Table>
           <TableHeader>
             <TableRow>
@@ -589,7 +612,7 @@ export default function EpiFichasPage() {
                         <button
                           type="button"
                           className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
-                          onClick={() => void handleReplace(assignment)}
+                          onClick={() => openReplace(assignment)}
                         >
                           Substituir
                         </button>
@@ -601,6 +624,8 @@ export default function EpiFichasPage() {
             )}
           </TableBody>
         </Table>
+          )}
+        />
         {!assignmentsLoading && assignments.length > 0 ? (
           <PaginationControls
             page={page}
@@ -647,9 +672,16 @@ export default function EpiFichasPage() {
             toast.error('Ficha nao encontrada para devolucao.');
             return;
           }
-          void handleReturn(assignment, signatureData, type);
+          openReturn(assignment, signatureData, type);
         }}
       />
+      <ModalFrame isOpen={Boolean(actionModal)} onClose={() => !actionSaving && setActionModal(null)} shellClassName="max-w-md">
+        <form onSubmit={(event) => { event.preventDefault(); void confirmAssignmentAction(); }}>
+          <ModalHeader title={actionModal?.mode === 'replace' ? 'Substituir EPI' : 'Registrar devolução'} description={actionModal?.mode === 'replace' ? 'Informe o motivo obrigatório da substituição.' : 'Confirme a devolução assinada e, se necessário, registre o motivo.'} onClose={() => !actionSaving && setActionModal(null)} />
+          <ModalBody><label htmlFor="epi-action-reason" className="mb-1.5 block text-sm font-medium">Motivo {actionModal?.mode === 'replace' ? '*' : '(opcional)'}</label><textarea id="epi-action-reason" required={actionModal?.mode === 'replace'} rows={4} value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="min-h-24 w-full rounded-md border p-3" /></ModalBody>
+          <ModalFooter><Button variant="outline" onClick={() => setActionModal(null)} disabled={actionSaving}>Cancelar</Button><Button type="submit" loading={actionSaving} disabled={actionModal?.mode === 'replace' && !actionReason.trim()}>Confirmar</Button></ModalFooter>
+        </form>
+      </ModalFrame>
     </div>
   );
 }

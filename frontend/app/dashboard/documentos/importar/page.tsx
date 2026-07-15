@@ -207,6 +207,7 @@ export default function DocumentImportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [polling, setPolling] = useState(false);
@@ -503,6 +504,7 @@ export default function DocumentImportPage() {
 
   const reset = () => {
     setFile(null);
+    setFileError(null);
     resetFlowState();
     terminalToastRef.current = null;
     operationKeyRef.current = null;
@@ -526,12 +528,14 @@ export default function DocumentImportPage() {
     }
 
     if (!isAllowedImportFile(selectedFile)) {
-      toast.error(
-        "Formato não suportado. Envie PDF, DOCX, XLSX, imagem, TXT ou CSV.",
-      );
+      const message =
+        "Formato não suportado. Envie PDF, DOCX, XLSX, imagem, TXT ou CSV.";
+      setFileError(message);
+      toast.error(message);
       return;
     }
 
+    setFileError(null);
     setFile(selectedFile);
     resetFlowState();
     terminalToastRef.current = null;
@@ -724,16 +728,12 @@ export default function DocumentImportPage() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            aria-describedby="document-import-instructions document-import-error"
             className={`
-              relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center motion-safe:transition-all motion-safe:duration-200
+              relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center motion-safe:transition-all motion-safe:duration-200
               ${isDragging ? "border-primary bg-primary/5" : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] hover:border-[var(--ds-color-border-strong)]"}
               ${file ? "border-[var(--ds-color-success)] bg-[var(--ds-color-success-subtle)]" : ""}
             `}
-            onClick={() => {
-              if (canImportDocuments && !uploading && !polling) {
-                fileInputRef.current?.click();
-              }
-            }}
           >
             <input
               type="file"
@@ -754,10 +754,28 @@ export default function DocumentImportPage() {
 
             <div className="space-y-1">
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                {file ? file.name : "Clique ou arraste o documento aqui"}
+                {file ? file.name : "Arraste o documento aqui ou selecione abaixo"}
               </p>
-              <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
-                PDF, DOCX, XLSX, imagens, TXT ou CSV até 10MB
+              <p id="document-import-instructions" className="text-[13px] text-[var(--ds-color-text-secondary)]">
+                Arraste um arquivo para esta área ou use o botão de seleção. PDF,
+                DOCX, XLSX, imagens, TXT ou CSV até 10MB
+              </p>
+              <button
+                type="button"
+                disabled={!canImportDocuments || uploading || polling}
+                onClick={() => fileInputRef.current?.click()}
+                aria-describedby="document-import-instructions document-import-error"
+                className="mt-3 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Selecionar documento SST
+              </button>
+              <p
+                id="document-import-error"
+                role={fileError ? "alert" : undefined}
+                aria-live="polite"
+                className="text-[13px] font-medium text-[var(--ds-color-danger)]"
+              >
+                {fileError}
               </p>
             </div>
 

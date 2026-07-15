@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Script from "next/script";
 import {
@@ -92,6 +92,9 @@ export default function PublicDdsSignaturePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [signatureMode, setSignatureMode] = useState<"draw" | "type">("draw");
+  const [typedName, setTypedName] = useState("");
+  const [signatureStatus, setSignatureStatus] = useState("Nenhuma assinatura informada.");
   const [error, setError] = useState<string | null>(null);
   const [signedAt, setSignedAt] = useState<string | null>(null);
 
@@ -188,11 +191,80 @@ export default function PublicDdsSignaturePage() {
     };
   }, [urlToken]);
 
+  const resizeSignatureCanvas = useCallback(() => {
+    const signature = signatureRef.current;
+    if (!signature || signatureMode !== "draw") return;
+    const canvas = signature.getCanvas();
+    const bounds = canvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const nextWidth = Math.round(bounds.width * ratio);
+    const nextHeight = Math.round(bounds.height * ratio);
+    if (canvas.width === nextWidth && canvas.height === nextHeight) return;
+
+    const copy = document.createElement("canvas");
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    copy.getContext("2d")?.drawImage(canvas, 0, 0);
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+    const context2d = canvas.getContext("2d");
+    context2d?.scale(ratio, ratio);
+    if (copy.width && copy.height) {
+      context2d?.drawImage(
+        copy,
+        0,
+        0,
+        copy.width,
+        copy.height,
+        0,
+        0,
+        bounds.width,
+        bounds.height,
+      );
+    }
+  }, [signatureMode]);
+
+  useEffect(() => {
+    if (!context || signedAt || context.status === "signed" || signatureMode !== "draw") return;
+    resizeSignatureCanvas();
+    window.addEventListener("resize", resizeSignatureCanvas);
+    window.addEventListener("orientationchange", resizeSignatureCanvas);
+    return () => {
+      window.removeEventListener("resize", resizeSignatureCanvas);
+      window.removeEventListener("orientationchange", resizeSignatureCanvas);
+    };
+  }, [context, resizeSignatureCanvas, signatureMode, signedAt]);
+
   function clearSignature() {
     signatureRef.current?.clear();
+    setSignatureStatus("Assinatura desenhada limpa.");
   }
 
   function getSignatureDataUrl() {
+    if (signatureMode === "type") {
+      const normalizedName = typedName.trim();
+      if (!normalizedName) return "";
+      const canvas = document.createElement("canvas");
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = Math.round(720 * ratio);
+      canvas.height = Math.round(180 * ratio);
+      const context2d = canvas.getContext("2d");
+      if (!context2d) return "";
+      context2d.scale(ratio, ratio);
+      context2d.fillStyle = "#ffffff";
+      context2d.fillRect(0, 0, 720, 180);
+      context2d.fillStyle = "#172033";
+      context2d.font = "italic 48px serif";
+      context2d.textAlign = "center";
+      context2d.textBaseline = "middle";
+      context2d.fillText(normalizedName, 360, 82, 660);
+      context2d.font = "16px sans-serif";
+      context2d.fillText("Assinatura digitada com consentimento eletrônico", 360, 142);
+      return canvas.toDataURL("image/png");
+    }
+
     const signatureCanvas = signatureRef.current;
     if (!signatureCanvas) return "";
 
@@ -224,8 +296,15 @@ export default function PublicDdsSignaturePage() {
       toast.error("Confirme a ciência antes de assinar.");
       return;
     }
-    if (!signatureRef.current || signatureRef.current.isEmpty()) {
+    if (
+      signatureMode === "draw" &&
+      (!signatureRef.current || signatureRef.current.isEmpty())
+    ) {
       toast.error("Faça sua assinatura no quadro indicado.");
+      return;
+    }
+    if (signatureMode === "type" && !typedName.trim()) {
+      toast.error("Informe seu nome completo para a assinatura digitada.");
       return;
     }
 
@@ -310,7 +389,7 @@ export default function PublicDdsSignaturePage() {
           </Card>
         ) : error ? (
           <Card>
-            <CardContent className="flex items-start gap-3 py-6 text-sm text-[var(--ds-color-danger)]">
+            <CardContent role="alert" className="flex items-start gap-3 py-6 text-sm text-[var(--ds-color-danger)]">
               <ShieldAlert className="mt-0.5 h-5 w-5" />
               <div>
                 <p className="font-medium">{error}</p>
@@ -391,23 +470,98 @@ export default function PublicDdsSignaturePage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
                       <PenLine className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-                      Assine no quadro abaixo
+                      Informe sua assinatura
                     </CardTitle>
                     <CardDescription>
-                      Use o dedo ou mouse. A assinatura será vinculada somente a
-                      este DDS e a este participante.
+                      Escolha desenhar com o dedo ou mouse, ou digitar seu nome
+                      completo. As duas opções têm o mesmo valor neste registro.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="h-56 overflow-hidden rounded-[var(--ds-radius-lg)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)]">
-                      <SignatureCanvas
-                        ref={signatureRef}
-                        penColor="var(--ds-color-action-primary)"
-                        canvasProps={{
-                          className: "h-full w-full cursor-crosshair",
-                        }}
-                      />
-                    </div>
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium text-[var(--ds-color-text-primary)]">
+                        Forma de assinatura
+                      </legend>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="signature-mode"
+                            value="draw"
+                            checked={signatureMode === "draw"}
+                            onChange={() => {
+                              setSignatureMode("draw");
+                              setSignatureStatus("Modo de assinatura desenhada selecionado.");
+                            }}
+                          />
+                          Desenhar assinatura
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="signature-mode"
+                            value="type"
+                            checked={signatureMode === "type"}
+                            onChange={() => {
+                              setSignatureMode("type");
+                              setSignatureStatus("Modo de assinatura digitada selecionado.");
+                            }}
+                          />
+                          Digitar nome completo
+                        </label>
+                      </div>
+                    </fieldset>
+
+                    {signatureMode === "draw" ? (
+                      <div>
+                        <p id="signature-canvas-instructions" className="mb-2 text-sm text-[var(--ds-color-text-secondary)]">
+                          Desenhe dentro do quadro. Se não puder usar um dispositivo
+                          apontador, selecione “Digitar nome completo”.
+                        </p>
+                        <div className="h-56 overflow-hidden rounded-[var(--ds-radius-lg)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)]">
+                          <SignatureCanvas
+                            ref={signatureRef}
+                            clearOnResize={false}
+                            onEnd={() => setSignatureStatus("Assinatura desenhada informada.")}
+                            penColor="var(--ds-color-action-primary)"
+                            canvasProps={{
+                              className: "h-full w-full cursor-crosshair",
+                              "aria-label": "Quadro para desenhar assinatura",
+                              "aria-describedby": "signature-canvas-instructions",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label htmlFor="typed-signature-name" className="block text-sm font-medium text-[var(--ds-color-text-primary)]">
+                          Nome completo do assinante
+                        </label>
+                        <input
+                          id="typed-signature-name"
+                          type="text"
+                          autoComplete="name"
+                          value={typedName}
+                          onChange={(event) => {
+                            setTypedName(event.target.value);
+                            setSignatureStatus(
+                              event.target.value.trim()
+                                ? "Nome para assinatura digitada informado."
+                                : "Nenhuma assinatura informada.",
+                            );
+                          }}
+                          aria-describedby="typed-signature-help"
+                          className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[var(--ds-color-text-primary)]"
+                        />
+                        <p id="typed-signature-help" className="text-sm text-[var(--ds-color-text-secondary)]">
+                          Digite seu nome completo. Ao confirmar a ciência abaixo,
+                          uma imagem da assinatura será gerada para o registro do DDS.
+                        </p>
+                      </div>
+                    )}
+                    <p role="status" aria-live="polite" className="sr-only">
+                      {signatureStatus}
+                    </p>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <label className="flex max-w-xl items-start gap-3 text-sm text-[var(--ds-color-text-secondary)]">
                         <input
@@ -425,14 +579,16 @@ export default function PublicDdsSignaturePage() {
                           assinatura eletrônica no SGS.
                         </span>
                       </label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={clearSignature}
-                        leftIcon={<Eraser className="h-4 w-4" />}
-                      >
-                        Limpar
-                      </Button>
+                      {signatureMode === "draw" ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={clearSignature}
+                          leftIcon={<Eraser className="h-4 w-4" />}
+                        >
+                          Limpar assinatura desenhada
+                        </Button>
+                      ) : null}
                     </div>
 
                     {turnstileEnabled ? (

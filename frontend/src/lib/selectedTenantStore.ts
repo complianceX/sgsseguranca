@@ -11,6 +11,7 @@ const STORAGE_KEY = "cx_selected_tenant";
 
 let current: SelectedTenant | null = null;
 const listeners = new Set<Listener>();
+let transition = Promise.resolve();
 
 function isValidTenant(value: unknown): value is SelectedTenant {
   if (typeof value !== "object" || value === null) return false;
@@ -56,13 +57,20 @@ export const selectedTenantStore = {
     return current;
   },
 
-  set(tenant: SelectedTenant) {
-    if (current?.companyId && current.companyId !== tenant.companyId) {
-      clearSensitiveBrowserStorage();
-    }
-    current = tenant;
-    saveToStorage(tenant);
-    for (const l of listeners) l(current);
+  set(tenant: SelectedTenant): Promise<void> {
+    transition = transition.then(async () => {
+      const previousTenant = current ?? loadFromStorage();
+      if (
+        previousTenant?.companyId &&
+        previousTenant.companyId !== tenant.companyId
+      ) {
+        await clearSensitiveBrowserStorage();
+      }
+      current = tenant;
+      saveToStorage(tenant);
+      for (const l of listeners) l(current);
+    });
+    return transition;
   },
 
   clear() {

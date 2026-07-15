@@ -69,6 +69,12 @@ import {
   isSensitiveDraftExpired,
   sanitizeSensitiveDraftValue,
 } from "@/lib/sensitive-draft-sanitizer";
+import {
+  blobsToBoundedDataUrls,
+  processMobileImage,
+  processMobileImages,
+} from "@/lib/images/process-mobile-image";
+import { uploadSequentially } from "@/lib/images/sequential-image-upload";
 
 const SignatureModal = dynamic(
   () => import("./SignatureModal").then((module) => module.SignatureModal),
@@ -147,6 +153,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   );
   const [isOfflineQueued, setIsOfflineQueued] = useState(false);
   const [finalizingPdf, setFinalizingPdf] = useState(false);
+  const [processingEquipmentPhoto, setProcessingEquipmentPhoto] = useState(false);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -216,15 +223,22 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     }
   };
 
-  const storeInlineEquipmentPhoto = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setValue("foto_equipamento", reader.result as string, {
-        shouldDirty: true,
-        shouldTouch: true,
-      });
-    };
-    reader.readAsDataURL(file);
+  const storeInlineEquipmentPhoto = async (file: File) => {
+    const formValues = getValues();
+    const existingDataUrls = (formValues.itens || [])
+      .flatMap((item) => item.fotos || [])
+      .filter((photo) => photo.startsWith("data:"));
+    const { values } = await blobsToBoundedDataUrls([file], {
+      existingDataUrls,
+    });
+    const boundedDataUrl = values[0];
+    if (!boundedDataUrl) {
+      throw new Error("A foto do equipamento excede a quota offline agregada.");
+    }
+    setValue("foto_equipamento", boundedDataUrl, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,11 +248,13 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     }
 
     try {
+      setProcessingEquipmentPhoto(true);
+      const processed = await processMobileImage(file);
       if (activeChecklistId && !isOfflineQueued && canManageChecklists) {
         const previousSignatureCount = Object.keys(signatures).length;
         const result = await checklistsService.attachEquipmentPhoto(
           activeChecklistId,
-          file,
+          processed.file,
         );
         setValue("foto_equipamento", result.photoReference, {
           shouldDirty: true,
@@ -267,7 +283,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           "Foto do equipamento enviada para o armazenamento governado.",
         );
       } else {
-        storeInlineEquipmentPhoto(file);
+        await storeInlineEquipmentPhoto(processed.file);
         toast.info(
           activeChecklistId
             ? "Foto mantida localmente porque o checklist não pode usar upload governado neste momento."
@@ -278,6 +294,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       logger.error("Erro ao anexar foto do equipamento:", error);
       toast.error("Não foi possível anexar a foto do equipamento.");
     } finally {
+      setProcessingEquipmentPhoto(false);
       e.target.value = "";
     }
   };
@@ -1661,32 +1678,54 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       return [];
     }
 
+    const existingPhotos = getValues(`itens.${itemIndex}.fotos`) || [];
+    const existingCount = existingPhotos.length;
+    const imageBatch = await processMobileImages(files, {
+      // Backend throttle: no máximo cinco anexos, enviados sequencialmente.
+      maxFiles: Math.min(5, Math.max(0, 6 - existingCount)),
+    });
+    const processedFiles = imageBatch.processed.map((entry) => entry.file);
+    if (imageBatch.rejected.length) {
+      toast.warning(
+        `${imageBatch.rejected.length} foto(s) rejeitada(s): ${imageBatch.rejected[0]?.message}`,
+      );
+    }
+    if (!processedFiles.length) {
+      return [];
+    }
+
     if (!activeChecklistId || isOfflineQueued || !canManageChecklists) {
       toast.info(
         activeChecklistId
-          ? "Fotos do item serão mantidas localmente até o checklist poder usar upload governado."
-          : "Fotos do item serão mantidas localmente até o checklist ser salvo.",
+          ? "Fotos processadas do item serão mantidas localmente até o checklist poder usar upload governado."
+          : "Fotos processadas do item serão mantidas localmente até o checklist ser salvo.",
       );
-      return Promise.all(
-        files.map(
-          (file) =>
-            new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result || ""));
-              reader.onerror = () =>
-                reject(new Error("Falha ao ler a imagem."));
-              reader.readAsDataURL(file);
-            }),
-        ),
+      const formValues = getValues();
+      const existingDataUrls = [
+        formValues.foto_equipamento,
+        ...(formValues.itens || []).flatMap((item) => item.fotos || []),
+      ].filter(
+        (photo): photo is string =>
+          typeof photo === "string" && photo.startsWith("data:"),
       );
+      const localResults = await blobsToBoundedDataUrls(processedFiles, {
+        existingDataUrls,
+      });
+      const localPhotos = localResults.values;
+      if (localPhotos.length !== processedFiles.length) {
+        toast.warning("Parte das fotos não coube na quota offline e não foi adicionada.");
+      }
+      return localPhotos;
     }
 
     const previousSignatureCount = Object.keys(signatures).length;
-    const uploaded = await Promise.all(
-      files.map((file) =>
+    const uploadBatch = await uploadSequentially(
+      processedFiles,
+      (file) =>
         checklistsService.attachItemPhoto(activeChecklistId, itemIndex, file),
-      ),
+      5,
     );
+    const uploaded = uploadBatch.successes.map(({ value }) => value);
 
     if (uploaded.some((entry) => entry.signaturesReset)) {
       await refreshChecklistSignatures(activeChecklistId, {
@@ -1695,7 +1734,12 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       });
     }
 
-    toast.success("Fotos do item enviadas para o armazenamento governado.");
+    if (uploaded.length) {
+      toast.success(`${uploaded.length} foto(s) do item enviada(s) para o armazenamento governado.`);
+    }
+    if (uploaded.length !== processedFiles.length) {
+      toast.warning("Falha parcial no envio: as fotos com erro podem ser selecionadas novamente.");
+    }
     return uploaded.map((entry) => entry.photoReference);
   };
 
@@ -2439,13 +2483,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               <input
                 id="checklist-form-foto-equipamento"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 capture="environment"
                 onChange={handlePhotoChange}
+                disabled={processingEquipmentPhoto}
+                aria-busy={processingEquipmentPhoto}
                 className="w-full text-sm text-[var(--ds-color-text-muted)] file:mr-4 file:rounded-[var(--ds-radius-md)] file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]/45"
                 title="Foto do equipamento"
                 aria-label="Foto do equipamento"
               />
+              {processingEquipmentPhoto ? (
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]" role="status">
+                  Otimizando foto para uso mobile…
+                </p>
+              ) : null}
               {equipmentPhotoValue && (
                 <div className="relative mt-4">
                   <Image
@@ -2719,6 +2770,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                           register={register}
                           watch={watch}
                           setValue={setValue}
+                          getPhotoValues={(itemIndex) =>
+                            getValues(`itens.${itemIndex}.fotos`) || []
+                          }
                           onUploadPhotos={handleUploadItemPhotos}
                           resolvePhotoSrc={resolveChecklistPhotoSrc}
                           photoAccessStates={resolvedGovernedPhotoStates}

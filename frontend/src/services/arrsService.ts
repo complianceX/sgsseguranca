@@ -4,6 +4,7 @@ import type { PaginatedResponse } from './pagination';
 import type { User } from './usersService';
 import {
   consumeOfflineCache,
+  createOfflineCacheContext,
   isOfflineRequestError,
   setOfflineCache,
   CACHE_TTL,
@@ -214,18 +215,19 @@ export const arrsService = {
       ...(opts?.status ? { status: opts.status } : {}),
     };
     const cacheKey = `arrs.paginated.${JSON.stringify(params)}`;
+    const cacheContext = createOfflineCacheContext();
 
     try {
       const response = await api.get<PaginatedResponse<Arr>>('/arrs', {
         params,
       });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<PaginatedResponse<Arr>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Arr>>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -233,16 +235,17 @@ export const arrsService = {
 
   findOne: async (id: string): Promise<Arr> => {
     const cacheKey = `arrs.one.${id}`;
+    const cacheContext = createOfflineCacheContext();
 
     try {
       const response = await api.get<Arr>(`/arrs/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Arr>(cacheKey);
+      const cached = consumeOfflineCache<Arr>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }

@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
-import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
+import { consumeOfflineCache, createOfflineCacheContext, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 const MAX_SITES_PAGE_LIMIT = 100;
 const MAX_SITES_FETCH_ALL_PAGES = 500;
@@ -36,6 +36,7 @@ export const sitesService = {
       ...(opts?.search ? { search: opts.search } : {}),
     };
     const cacheKey = `sites.paginated.${opts?.companyId ?? 'default'}.${JSON.stringify(params)}`;
+    const cacheContext = createOfflineCacheContext();
 
     const headers = opts?.companyId ? { 'x-company-id': opts.companyId } : {};
     try {
@@ -43,13 +44,13 @@ export const sitesService = {
         params,
         headers,
       });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<PaginatedResponse<Site>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Site>>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -57,6 +58,7 @@ export const sitesService = {
 
   findAll: async (companyId?: string) => {
     const cacheKey = `sites.all.${companyId || 'all'}`;
+    const cacheContext = createOfflineCacheContext();
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -68,13 +70,13 @@ export const sitesService = {
         limit: 100,
         maxPages: MAX_SITES_FETCH_ALL_PAGES,
       });
-      setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
+      setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE, cacheContext);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Site[]>(cacheKey);
+      const cached = consumeOfflineCache<Site[]>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -82,15 +84,16 @@ export const sitesService = {
 
   findOne: async (id: string) => {
     const cacheKey = `sites.one.${id}`;
+    const cacheContext = createOfflineCacheContext();
     try {
       const response = await api.get<Site>(`/sites/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Site>(cacheKey);
+      const cached = consumeOfflineCache<Site>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }

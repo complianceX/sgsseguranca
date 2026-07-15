@@ -47,6 +47,17 @@ describe('Input', () => {
     expect(screen.getByTestId('input')).toHaveClass('extra-classe');
   });
 
+  it('usa tipografia e alvo de toque seguros no mobile, preservando densidade no desktop', () => {
+    render(<Input data-testid="input" />);
+
+    expect(screen.getByTestId('input')).toHaveClass(
+      'h-11',
+      'text-base',
+      'md:h-10',
+      'md:text-[13px]',
+    );
+  });
+
   it('chama onChange ao digitar', () => {
     const onChange = jest.fn();
     render(<Input onChange={onChange} data-testid="input" />);

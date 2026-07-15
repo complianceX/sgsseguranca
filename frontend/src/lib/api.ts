@@ -11,6 +11,11 @@ import { selectedTenantStore } from './selectedTenantStore';
 import { normalizePublicApiBaseUrl } from './public-api-url';
 import { isAdminGeralAccount } from './auth-session-state';
 import { getBrowserSentrySync } from './sentry/browser-client';
+import {
+  OfflineCapabilityError,
+  isOfflineActionAllowed,
+  resolveOfflineRouteCapability,
+} from './offline-capabilities';
 
 const resolveBaseUrl = () => {
   const explicitApiUrl = normalizePublicApiBaseUrl(
@@ -519,6 +524,18 @@ api.interceptors.request.use(async (config) => {
   if (!API_BASE_URL) {
     return Promise.reject(new Error(API_BASE_URL_ERROR_MESSAGE));
   }
+  const method = (config.method || 'get').toLowerCase();
+  const isReadMethod =
+    method === 'get' || method === 'head' || method === 'options';
+  if (navigator.onLine === false && !isReadMethod) {
+    const pathname = window.location.pathname;
+    const { capability } = resolveOfflineRouteCapability(pathname);
+    if (!isOfflineActionAllowed(capability, 'write', false)) {
+      return Promise.reject(
+        new OfflineCapabilityError(pathname, method.toUpperCase(), capability),
+      );
+    }
+  }
   let token = tokenStore.get();
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
@@ -555,7 +572,6 @@ api.interceptors.request.use(async (config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  const method = (config.method || 'get').toLowerCase();
   // Proteção CSRF: envia token em requisições mutáveis
   if (method !== 'get' && method !== 'head' && method !== 'options') {
     const csrfToken = await ensureCsrfToken();

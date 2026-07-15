@@ -39,6 +39,10 @@ import {
   Upload,
 } from "lucide-react";
 import { safeToLocaleString, toIsoStringValue } from "@/lib/date/safeFormat";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
+import { Button } from "@/components/ui/button";
+import { ModalBody, ModalFooter, ModalFrame, ModalHeader } from "@/components/ui/modal-frame";
+import { CatMobileCard } from "./CatMobileCard";
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),
@@ -97,6 +101,10 @@ export default function CatsPage() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatNumber, setEditingCatNumber] = useState<string | null>(null);
   const [mailModalOpen, setMailModalOpen] = useState(false);
+  const [workflowModal, setWorkflowModal] = useState<{ cat: CatRecord; mode: "investigate" | "close" } | null>(null);
+  const [workflowPrimary, setWorkflowPrimary] = useState("");
+  const [workflowSecondary, setWorkflowSecondary] = useState("");
+  const [workflowSaving, setWorkflowSaving] = useState(false);
   const [mailPayload, setMailPayload] = useState<{
     name: string;
     filename: string;
@@ -314,67 +322,52 @@ export default function CatsPage() {
     }
   };
 
-  const handleStartInvestigation = async (cat: CatRecord) => {
+  const handleStartInvestigation = (cat: CatRecord) => {
     if (!canManageCats) {
       toast.error("Voce nao tem permissao para investigar CAT.");
       return;
     }
-
-    const detalhes = window.prompt(
-      `Investigation details for CAT ${cat.numero}:`,
-      cat.investigacao_detalhes || "",
-    );
-    if (!detalhes?.trim()) {
-      return;
-    }
-    const causaRaiz = window.prompt(
-      "Causa raiz (opcional):",
-      cat.causa_raiz || "",
-    );
-    try {
-      await catsService.startInvestigation(cat.id, {
-        investigacao_detalhes: detalhes.trim(),
-        causa_raiz: causaRaiz?.trim() || undefined,
-      });
-      catsSummaryCache.invalidate();
-      toast.success("CAT movida para investigacao.");
-      await loadCats();
-      void loadSummary();
-    } catch (error) {
-      logger.error("Erro ao iniciar investigacao:", error);
-      toast.error("Falha ao iniciar investigacao da CAT.");
-    }
+    setWorkflowPrimary(cat.investigacao_detalhes || "");
+    setWorkflowSecondary(cat.causa_raiz || "");
+    setWorkflowModal({ cat, mode: "investigate" });
   };
 
-  const handleClose = async (cat: CatRecord) => {
+  const handleClose = (cat: CatRecord) => {
     if (!canManageCats) {
       toast.error("Voce nao tem permissao para fechar CAT.");
       return;
     }
+    setWorkflowPrimary(cat.plano_acao_fechamento || "");
+    setWorkflowSecondary(cat.licoes_aprendidas || "");
+    setWorkflowModal({ cat, mode: "close" });
+  };
 
-    const plano = window.prompt(
-      `Plano de acao para fechamento da CAT ${cat.numero}:`,
-      cat.plano_acao_fechamento || "",
-    );
-    if (!plano?.trim()) {
-      return;
-    }
-    const licoes = window.prompt(
-      "Licoes aprendidas (opcional):",
-      cat.licoes_aprendidas || "",
-    );
+  const confirmWorkflow = async () => {
+    if (!workflowModal || !workflowPrimary.trim()) return;
+    const { cat, mode } = workflowModal;
     try {
-      await catsService.close(cat.id, {
-        plano_acao_fechamento: plano.trim(),
-        licoes_aprendidas: licoes?.trim() || undefined,
-      });
+      setWorkflowSaving(true);
+      if (mode === "investigate") {
+        await catsService.startInvestigation(cat.id, {
+          investigacao_detalhes: workflowPrimary.trim(),
+          causa_raiz: workflowSecondary.trim() || undefined,
+        });
+      } else {
+        await catsService.close(cat.id, {
+          plano_acao_fechamento: workflowPrimary.trim(),
+          licoes_aprendidas: workflowSecondary.trim() || undefined,
+        });
+      }
       catsSummaryCache.invalidate();
-      toast.success("CAT fechada com sucesso.");
+      toast.success(mode === "investigate" ? "CAT movida para investigacao." : "CAT fechada com sucesso.");
+      setWorkflowModal(null);
       await loadCats();
       void loadSummary();
     } catch (error) {
-      logger.error("Erro ao fechar CAT:", error);
-      toast.error("Falha ao fechar CAT.");
+      logger.error("Erro ao atualizar fluxo da CAT:", error);
+      toast.error("Falha ao atualizar o fluxo da CAT.");
+    } finally {
+      setWorkflowSaving(false);
     }
   };
 
@@ -750,6 +743,28 @@ export default function CatsPage() {
       ) : null}
 
       <div className="ds-surface-card">
+        <ResponsiveDataList
+          items={cats}
+          getKey={(cat) => cat.id}
+          loading={loading ? <p className="p-6 text-center text-sm">Carregando CATs...</p> : undefined}
+          empty={<p className="p-6 text-center text-sm text-[var(--ds-color-text-secondary)]">Nenhuma CAT registrada.</p>}
+          mobileClassName="space-y-3 p-3"
+          mobile={(cat) => (
+            <CatMobileCard
+              cat={cat}
+              location={cat.local_ocorrencia || cat.site?.nome || sitesMap.get(cat.site_id || "") || "-"}
+              canManage={canManageCats}
+              onOpenAttachment={(catId, attachmentId) => void handleOpenAttachment(catId, attachmentId)}
+              onUploadAttachment={(catId, file) => void handleUploadAttachment(catId, file)}
+              onLocalPdf={(item) => void handleDownloadPdf(item)}
+              onGovernedPdf={(item) => void handleOpenGovernedPdf(item)}
+              onEmail={(item) => void handlePrepareEmail(item)}
+              onEdit={handleEdit}
+              onInvestigate={handleStartInvestigation}
+              onClose={handleClose}
+            />
+          )}
+          desktop={() => (
         <Table>
           <TableHeader>
             <TableRow>
@@ -920,6 +935,8 @@ export default function CatsPage() {
             )}
           </TableBody>
         </Table>
+          )}
+        />
         {!loading && cats.length > 0 ? (
           <PaginationControls
             page={page}
@@ -944,6 +961,13 @@ export default function CatsPage() {
           storedDocument={mailPayload.storedDocument}
         />
       ) : null}
+      <ModalFrame isOpen={Boolean(workflowModal)} onClose={() => !workflowSaving && setWorkflowModal(null)} shellClassName="max-w-lg">
+        <form onSubmit={(event) => { event.preventDefault(); void confirmWorkflow(); }}>
+          <ModalHeader title={workflowModal?.mode === "close" ? `Fechar CAT ${workflowModal.cat.numero}` : `Investigar CAT ${workflowModal?.cat.numero || ""}`} description="Registre as informações para manter a rastreabilidade." onClose={() => !workflowSaving && setWorkflowModal(null)} />
+          <ModalBody className="space-y-4"><div><label htmlFor="cat-workflow-primary" className="mb-1 block text-sm font-medium">{workflowModal?.mode === "close" ? "Plano de ação *" : "Detalhes da investigação *"}</label><textarea id="cat-workflow-primary" required rows={4} value={workflowPrimary} onChange={(e) => setWorkflowPrimary(e.target.value)} className="min-h-24 w-full rounded-md border p-3" /></div><div><label htmlFor="cat-workflow-secondary" className="mb-1 block text-sm font-medium">{workflowModal?.mode === "close" ? "Lições aprendidas" : "Causa raiz"}</label><textarea id="cat-workflow-secondary" rows={3} value={workflowSecondary} onChange={(e) => setWorkflowSecondary(e.target.value)} className="w-full rounded-md border p-3" /></div></ModalBody>
+          <ModalFooter><Button variant="outline" onClick={() => setWorkflowModal(null)} disabled={workflowSaving}>Cancelar</Button><Button type="submit" loading={workflowSaving} disabled={!workflowPrimary.trim()}>{workflowModal?.mode === "close" ? "Fechar CAT" : "Iniciar investigação"}</Button></ModalFooter>
+        </form>
+      </ModalFrame>
     </div>
   );
 }

@@ -46,6 +46,8 @@ import {
   ModalHeader,
 } from '@/components/ui/modal-frame';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import {
   formatMedicalExamDateOnly,
   getMedicalExamExpiryTone,
@@ -118,6 +120,8 @@ export default function MedicalExamsPage() {
   const [users, setUsers] = useState<MedicalExamLookupUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MedicalExam | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
@@ -311,22 +315,20 @@ export default function MedicalExamsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!activeCompanyId) {
-      toast.error('Selecione uma empresa antes de excluir um exame.');
-      return;
-    }
-
-    if (!confirm('Excluir este exame medico?')) return;
-
+  const confirmDelete = async () => {
+    if (!activeCompanyId || !deleteTarget) return;
     try {
-      await medicalExamsService.delete(id, activeCompanyId || undefined);
+      setDeleting(true);
+      await medicalExamsService.delete(deleteTarget.id, activeCompanyId);
       toast.success('Exame excluido.');
+      setDeleteTarget(null);
       await loadData();
       void loadSummary();
     } catch (error) {
       logger.error('Erro ao excluir exame medico:', error);
       toast.error('Erro ao excluir exame.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -356,6 +358,7 @@ export default function MedicalExamsPage() {
             <Button
               type="button"
               variant="outline"
+              data-offline-action="read"
               size="sm"
               leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
               onClick={() => downloadExcel('/medical-exams/export/excel', 'exames-medicos.xlsx')}
@@ -365,6 +368,7 @@ export default function MedicalExamsPage() {
             <Button
               type="button"
               size="sm"
+              data-offline-action="write"
               leftIcon={<Plus className="h-4 w-4" />}
               onClick={openCreate}
             >
@@ -478,6 +482,19 @@ export default function MedicalExamsPage() {
               />
             </div>
           ) : (
+            <ResponsiveDataList
+              items={exams}
+              getKey={(exam) => exam.id}
+              mobileClassName="space-y-3 p-3"
+              mobile={(exam) => {
+                const expiry = getMedicalExamExpiryTone(exam.data_vencimento);
+                return <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{exam.user?.nome ?? 'Colaborador'}</h3><p className="text-sm text-[var(--ds-color-text-secondary)]">{TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}</p></div><StatusPill tone={getResultTone(exam.resultado)}>{RESULTADO_LABEL[exam.resultado] ?? exam.resultado}</StatusPill></div>
+                  <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Realização</dt><dd>{formatMedicalExamDateOnly(exam.data_realizacao)}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Vencimento</dt><dd>{exam.data_vencimento ? formatMedicalExamDateOnly(exam.data_vencimento) : 'Sem vencimento'}<span className="block text-xs text-[var(--ds-color-text-muted)]">{expiry.label}</span></dd></div><div className="col-span-2"><dt className="text-xs text-[var(--ds-color-text-muted)]">Médico</dt><dd>{exam.medico_responsavel ?? '-'}</dd></div></dl>
+                  <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3"><Button variant="outline" size="sm" data-offline-action="write" onClick={() => openEdit(exam)} leftIcon={<Pencil className="h-4 w-4" />}>Editar</Button><Button variant="danger" size="sm" data-offline-action="write" onClick={() => setDeleteTarget(exam)} leftIcon={<Trash2 className="h-4 w-4" />}>Excluir</Button></div>
+                </article>;
+              }}
+              desktop={() => (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -553,6 +570,7 @@ export default function MedicalExamsPage() {
                             type="button"
                             size="icon"
                             variant="ghost"
+                            data-offline-action="write"
                             onClick={() => openEdit(exam)}
                             title="Editar exame"
                           >
@@ -562,7 +580,8 @@ export default function MedicalExamsPage() {
                             type="button"
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleDelete(exam.id)}
+                            data-offline-action="write"
+                            onClick={() => setDeleteTarget(exam)}
                             title="Excluir exame"
                             className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                           >
@@ -575,12 +594,15 @@ export default function MedicalExamsPage() {
                 })}
               </TableBody>
             </Table>
+              )}
+            />
           )}
         </div>
       </ListPageLayout>
 
       <ModalFrame isOpen={showModal} onClose={closeModal} shellClassName="max-w-5xl">
         <form
+          data-offline-action="write"
           onSubmit={(event) => {
             event.preventDefault();
             void handleSave();
@@ -817,6 +839,7 @@ export default function MedicalExamsPage() {
           </ModalFooter>
         </form>
       </ModalFrame>
+      <ConfirmModal open={Boolean(deleteTarget)} onClose={() => !deleting && setDeleteTarget(null)} onConfirm={() => void confirmDelete()} title="Excluir exame médico" description={`Tem certeza que deseja excluir o exame de ${deleteTarget?.user?.nome || 'este colaborador'}? Esta ação não pode ser desfeita.`} confirmLabel="Excluir" loading={deleting} />
     </>
   );
 }

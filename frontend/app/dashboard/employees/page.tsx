@@ -30,6 +30,11 @@ import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import {
+  CatalogMobileCard,
+  catalogMobileActionClassName,
+} from '../components/CatalogMobileCard';
 
 const searchInputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] py-2 pl-10 pr-4 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -307,6 +312,11 @@ export default function EmployeesPage() {
             />
           </div>
         ) : (
+          <ResponsiveDataList
+            items={displayedEmployees}
+            getKey={(employee) => employee.id}
+            mobileClassName="grid min-w-0 gap-3 p-3"
+            desktop={() => (
           <Table>
             <TableHeader>
               <TableRow>
@@ -391,6 +401,35 @@ export default function EmployeesPage() {
               ))}
             </TableBody>
           </Table>
+            )}
+            mobile={(employee) => (
+              <CatalogMobileCard
+                title={employee.nome}
+                description={employee.funcao || 'Função não informada'}
+                fields={[
+                  { label: 'CPF', value: maskCpf(employee.cpf) },
+                  { label: 'Perfil', value: employee.profile?.nome || 'Não definido' },
+                  { label: 'Empresa', value: employee.company?.razao_social || 'N/A' },
+                  { label: 'Obra/Setor', value: employee.site?.nome || 'Não vinculada' },
+                  { label: 'Acesso', value: <EmployeeAccessPill employee={employee} /> },
+                ]}
+                actionsLabel={`Ações do funcionário ${employee.nome}`}
+                actions={
+                  <>
+                    <Link href={`/dashboard/employees/${employee.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName, 'min-h-11')}>
+                      <Pencil className="h-4 w-4" /> Editar
+                    </Link>
+                    <Link href={`/dashboard/workers/timeline?userId=${employee.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName, 'min-h-11')}>
+                      <Clock3 className="h-4 w-4" /> Timeline
+                    </Link>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(employee.id)} className={cn(catalogMobileActionClassName, 'min-h-11 text-[var(--ds-color-danger)]')}>
+                      <Trash2 className="h-4 w-4" /> Excluir
+                    </Button>
+                  </>
+                }
+              />
+            )}
+          />
         )}
       </div>
 

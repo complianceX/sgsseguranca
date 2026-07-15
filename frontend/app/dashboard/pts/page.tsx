@@ -11,6 +11,7 @@ import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
 import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
 import { PtClosureModal } from './components/PtClosureModal';
+import { PtRejectModal } from './components/PtRejectModal';
 import { ptsService } from '@/services/ptsService';
 import { companiesService } from '@/services/companiesService';
 import { PaginationControls } from '@/components/PaginationControls';
@@ -28,10 +29,7 @@ const SendMailModal = dynamic(
   { ssr: false },
 );
 const StoredFilesPanel = dynamic(
-  () =>
-    import('@/components/StoredFilesPanel').then(
-      (module) => module.StoredFilesPanel,
-    ),
+  () => import('@/components/StoredFilesPanel').then((module) => module.StoredFilesPanel),
   {
     ssr: false,
     loading: () => (
@@ -68,6 +66,8 @@ export default function PtsPage() {
     overviewMetrics,
     approvingId,
     rejectingId,
+    rejectTargetId,
+    setRejectTargetId,
     finalizingId,
     approvalIssuesById,
     approvalReviewLoadingId,
@@ -87,6 +87,7 @@ export default function PtsPage() {
     handlePrepareApproval,
     handleApprove,
     handleReject,
+    confirmReject,
     handleFinalize,
     closingPt,
     setClosingPt,
@@ -161,8 +162,7 @@ export default function PtsPage() {
     setHasDraft(
       keys.some(
         (key) =>
-          key.startsWith('gst.pt.wizard.draft.') ||
-          key.startsWith('compliancex.pt.wizard.draft.'),
+          key.startsWith('gst.pt.wizard.draft.') || key.startsWith('compliancex.pt.wizard.draft.'),
       ),
     );
   }, []);
@@ -214,7 +214,10 @@ export default function PtsPage() {
               Exportar Excel
             </Button>
             {canManagePt && hasDraft ? (
-              <Link href="/dashboard/pts/new" className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}>
+              <Link
+                href="/dashboard/pts/new"
+                className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}
+              >
                 Retomar rascunho
               </Link>
             ) : null}
@@ -226,7 +229,10 @@ export default function PtsPage() {
                 >
                   PT em campo
                 </Link>
-                <Link href="/dashboard/pts/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                <Link
+                  href="/dashboard/pts/new"
+                  className={cn(buttonVariants(), 'inline-flex items-center')}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Nova PT
                 </Link>
@@ -238,31 +244,31 @@ export default function PtsPage() {
           loading && filteredPts.length === 0
             ? []
             : [
-          {
-            label: 'Pendentes',
-            value: metrics.pendentes,
-            note: 'Base consolidada da empresa.',
-            tone: 'warning',
-          },
-          {
-            label: 'Aprovadas',
-            value: metrics.aprovadas,
-            note: 'Prontas para governança final ou encerramento.',
-            tone: 'success',
-          },
-          {
-            label: 'Encerradas',
-            value: metrics.encerradas,
-            note: 'Fluxo formalmente concluído.',
-            tone: 'neutral',
-          },
-          {
-            label: 'Expiradas',
-            value: metrics.expiradas,
-            note: 'Validade operacional vencida.',
-            tone: 'warning',
-          },
-            ]
+                {
+                  label: 'Pendentes',
+                  value: metrics.pendentes,
+                  note: 'Base consolidada da empresa.',
+                  tone: 'warning',
+                },
+                {
+                  label: 'Aprovadas',
+                  value: metrics.aprovadas,
+                  note: 'Prontas para governança final ou encerramento.',
+                  tone: 'success',
+                },
+                {
+                  label: 'Encerradas',
+                  value: metrics.encerradas,
+                  note: 'Fluxo formalmente concluído.',
+                  tone: 'neutral',
+                },
+                {
+                  label: 'Expiradas',
+                  value: metrics.expiradas,
+                  note: 'Validade operacional vencida.',
+                  tone: 'warning',
+                },
+              ]
         }
         toolbarContent={
           <PtsFilters
@@ -293,10 +299,7 @@ export default function PtsPage() {
 
           {insights.length > 0 ? <PtsInsights insights={insights} /> : null}
 
-          <PtApprovalRulesPanel
-            rules={approvalRules}
-            loading={approvalRulesLoading}
-          />
+          <PtApprovalRulesPanel rules={approvalRules} loading={approvalRulesLoading} />
 
           <PtsTable
             pts={filteredPts}
@@ -361,6 +364,15 @@ export default function PtsPage() {
         loading={Boolean(finalizingId)}
         onClose={() => setClosingPt(null)}
         onConfirm={(payload) => void confirmFinalize(payload)}
+      />
+
+      <PtRejectModal
+        isOpen={Boolean(rejectTargetId)}
+        loading={Boolean(rejectingId)}
+        onClose={() => {
+          if (!rejectingId) setRejectTargetId(null);
+        }}
+        onConfirm={(reason) => void confirmReject(reason)}
       />
     </>
   );

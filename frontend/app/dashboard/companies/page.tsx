@@ -16,6 +16,11 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { CompanyInviteModal } from '@/components/CompanyInviteModal';
 import { cn } from '@/lib/utils';
 import { StatusPill } from '@/components/ui/status-pill';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import {
+  CatalogMobileCard,
+  catalogMobileActionClassName,
+} from '../components/CatalogMobileCard';
 
 type AccountStatusTone = 'success' | 'primary' | 'warning' | 'danger' | 'neutral';
 
@@ -239,6 +244,11 @@ export default function CompaniesPage() {
           />
         </div>
       ) : (
+        <ResponsiveDataList
+          items={companies}
+          getKey={(company) => company.id}
+          mobileClassName="grid min-w-0 gap-3 p-3"
+          desktop={() => (
         <Table>
           <TableHeader>
             <TableRow>
@@ -289,6 +299,45 @@ export default function CompaniesPage() {
             ))}
           </TableBody>
         </Table>
+          )}
+          mobile={(company) => (
+            <CatalogMobileCard
+              title={company.razao_social}
+              description={company.cnpj || 'CNPJ não informado'}
+              fields={[
+                { label: 'Responsável', value: company.responsavel || '—' },
+                {
+                  label: 'Status',
+                  value: (
+                    <StatusPill tone={getAccountStatusTone(company.account_status)}>
+                      {getAccountStatusLabel(company.account_status)}
+                    </StatusPill>
+                  ),
+                },
+              ]}
+              actionsLabel={`Ações da empresa ${company.razao_social}`}
+              actions={
+                <>
+                  <Link
+                    href={`/dashboard/companies/edit/${company.id}`}
+                    className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName, 'min-h-11')}
+                  >
+                    <Pencil className="h-4 w-4" /> Editar
+                  </Link>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmDeleteId(company.id)}
+                    className={cn(catalogMobileActionClassName, 'min-h-11 text-[var(--ds-color-danger)]')}
+                  >
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
+                </>
+              }
+            />
+          )}
+        />
       )}
     </ListPageLayout>
 

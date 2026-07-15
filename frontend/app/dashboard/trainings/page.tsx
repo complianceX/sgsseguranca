@@ -48,6 +48,9 @@ import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { safeToLocaleDateString } from "@/lib/date/safeFormat";
+import { ResponsiveDataList } from "@/components/ui/responsive-data-list";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { TrainingMobileCard } from "./TrainingMobileCard";
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),
@@ -91,6 +94,8 @@ const timerRef = useRef<number | undefined>(undefined);
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Training | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -349,18 +354,21 @@ useEffect(() => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este treinamento?")) return;
-
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await trainingsService.delete(id);
+      setDeleting(true);
+      await trainingsService.delete(deleteTarget.id);
       toast.success("Treinamento excluido com sucesso.");
+      setDeleteTarget(null);
       await loadTrainings();
       void loadExpirySummary();
       void loadBlockingUsers();
     } catch (error) {
       logger.error("Erro ao excluir treinamento:", error);
       toast.error("Erro ao excluir treinamento.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -573,6 +581,23 @@ useEffect(() => {
               />
             </div>
           ) : (
+            <ResponsiveDataList
+              items={filteredTrainings}
+              getKey={(training) => training.id}
+              mobileClassName="space-y-3 p-3"
+              mobile={(training) => (
+                <TrainingMobileCard
+                  training={training}
+                  statusLabel={getStatusLabel(training.data_vencimento)}
+                  statusTone={getTrainingStatusTone(training.data_vencimento)}
+                  busy={printingId === training.id}
+                  onPrint={(item) => void handlePrint(item)}
+                  onDownload={(item) => void handleDownloadPdf(item)}
+                  onEmail={(item) => void handleSendEmail(item)}
+                  onDelete={setDeleteTarget}
+                />
+              )}
+              desktop={() => (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -686,7 +711,7 @@ useEffect(() => {
                           type="button"
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleDelete(training.id)}
+                          onClick={() => setDeleteTarget(training)}
                           title="Excluir treinamento"
                           className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                         >
@@ -698,6 +723,8 @@ useEffect(() => {
                 ))}
               </TableBody>
             </Table>
+              )}
+            />
           )}
         </div>
       </ListPageLayout>
@@ -715,6 +742,7 @@ useEffect(() => {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+      <ConfirmModal open={Boolean(deleteTarget)} onClose={() => !deleting && setDeleteTarget(null)} onConfirm={() => void confirmDelete()} title="Excluir treinamento" description={`Tem certeza que deseja excluir ${deleteTarget?.nome || "este treinamento"}? Esta ação não pode ser desfeita.`} confirmLabel="Excluir" loading={deleting} />
     </>
   );
 }

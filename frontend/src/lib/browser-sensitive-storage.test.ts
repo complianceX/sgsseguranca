@@ -5,7 +5,7 @@ describe("clearSensitiveBrowserStorage", () => {
     window.localStorage.clear();
   });
 
-  it("remove caches, fila offline e rascunhos sensiveis do browser", () => {
+  it("remove caches, fila offline e rascunhos sensiveis do browser", async () => {
     window.localStorage.setItem("gst.cache.aprs", '{"cpf":"12345678900"}');
     window.localStorage.setItem("gst.offline.queue", "enc:payload");
     window.localStorage.setItem("gst.apr.wizard.draft.company-1", "{}");
@@ -15,7 +15,7 @@ describe("clearSensitiveBrowserStorage", () => {
     window.localStorage.setItem("checklist.form.draft.create.user-1.template-1", "{}");
     window.localStorage.setItem("theme", "dark");
 
-    clearSensitiveBrowserStorage();
+    await clearSensitiveBrowserStorage();
 
     expect(window.localStorage.getItem("gst.cache.aprs")).toBeNull();
     expect(window.localStorage.getItem("gst.offline.queue")).toBeNull();

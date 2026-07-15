@@ -1,10 +1,27 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PtForm } from './PtForm';
 import { initialChecklists } from './pt-schema-and-data';
 
 const searchParamsGet = jest.fn();
 const push = jest.fn();
 const refresh = jest.fn();
+const mockToastError = jest.fn();
+const mockLoggerError = jest.fn();
+
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+    warn: jest.fn(),
+  },
+}));
+
+jest.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: jest.fn(),
+    success: jest.fn(),
+  },
+}));
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => ({ get: searchParamsGet }),
@@ -45,9 +62,19 @@ jest.mock('@/components/layout', () => ({
 }));
 
 jest.mock('./BasicInfoSection', () => ({
-  BasicInfoSection: () => {
+  BasicInfoSection: ({
+    filteredAprs,
+    filteredSites,
+    filteredUsers,
+    onCompanyChange,
+  }: {
+    filteredAprs: Array<{ id: string }>;
+    filteredSites: Array<{ id: string }>;
+    filteredUsers: Array<{ id: string }>;
+    onCompanyChange: (companyId: string) => void;
+  }) => {
     const { useFormContext } = jest.requireActual('react-hook-form');
-    const { watch } = useFormContext();
+    const { setValue, watch } = useFormContext();
     return (
       <div>
         <div>Status atual: {watch('status')}</div>
@@ -55,6 +82,18 @@ jest.mock('./BasicInfoSection', () => ({
         <div>Obra atual: {watch('site_id') || ''}</div>
         <div>Responsável atual: {watch('responsavel_id') || ''}</div>
         <div>APR atual: {watch('apr_id') || ''}</div>
+        <div>APRs disponíveis: {filteredAprs.map((item) => item.id).join(',')}</div>
+        <div>Obras disponíveis: {filteredSites.map((item) => item.id).join(',')}</div>
+        <div>Usuários disponíveis: {filteredUsers.map((item) => item.id).join(',')}</div>
+        <button
+          type="button"
+          onClick={() => {
+            setValue('company_id', 'company-2');
+            onCompanyChange('company-2');
+          }}
+        >
+          Trocar para empresa 2
+        </button>
       </div>
     );
   },
@@ -104,6 +143,22 @@ const findUsersPaginated = jest.fn();
 const findUser = jest.fn();
 const findSignatures = jest.fn();
 const createSignature = jest.fn();
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 jest.mock('@/services/ptsService', () => ({
   ptsService: {
@@ -165,6 +220,8 @@ jest.mock('@/services/aiService', () => ({
 describe('PtForm', () => {
   beforeEach(() => {
     localStorage.clear();
+    mockToastError.mockClear();
+    mockLoggerError.mockClear();
     searchParamsGet.mockImplementation(() => null);
 
     createPt.mockResolvedValue({ id: 'pt-1' });
@@ -340,5 +397,219 @@ describe('PtForm', () => {
 
     expect(await screen.findByText('Etapa 2 de 3')).toBeInTheDocument();
     expect(screen.getAllByText(/0 resposta/i).length).toBeGreaterThan(0);
+  });
+
+  it('preserves embedded editing seeds when scoped lookups fail offline', async () => {
+    findPt.mockResolvedValue({
+      id: 'pt-a',
+      numero: 'PT-A',
+      titulo: 'PT offline',
+      status: 'Pendente',
+      company_id: 'company-1',
+      site_id: 'site-a',
+      apr_id: 'apr-a',
+      responsavel_id: 'user-a',
+      data_hora_inicio: '2026-07-14T08:00:00.000Z',
+      data_hora_fim: '2026-07-14T18:00:00.000Z',
+      trabalho_altura: false,
+      espaco_confinado: false,
+      trabalho_quente: false,
+      eletricidade: false,
+      escavacao: false,
+      // Payload real de Pt: a relação resumida não repete company_id.
+      apr: { id: 'apr-a', numero: 'APR-A', titulo: 'APR A' },
+      site: { id: 'site-a', company_id: 'company-1', nome: 'Obra A' },
+      responsavel: { id: 'user-a', company_id: 'company-1', nome: 'Responsável A' },
+      executantes: [{ id: 'user-exec-a', company_id: 'company-1', nome: 'Executante A' }],
+      auditado_por: { id: 'user-audit-a', company_id: 'company-1', nome: 'Auditor A' },
+      auditado_por_id: 'user-audit-a',
+    });
+    findAprsPaginated.mockRejectedValue(new TypeError('offline'));
+    findSitesPaginated.mockRejectedValue(new TypeError('offline'));
+    findUsersPaginated.mockRejectedValue(new TypeError('offline'));
+
+    render(<PtForm id="pt-a" />);
+
+    expect(await screen.findByText('APRs disponíveis: apr-a')).toBeInTheDocument();
+    expect(screen.getByText('Obras disponíveis: site-a')).toBeInTheDocument();
+    expect(screen.getByText('Usuários disponíveis: user-a,user-exec-a,user-audit-a')).toBeInTheDocument();
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(3));
+    expect(mockLoggerError).toHaveBeenCalledTimes(3);
+    expect(screen.getByText('APRs disponíveis: apr-a')).toBeInTheDocument();
+    expect(screen.getByText('Obras disponíveis: site-a')).toBeInTheDocument();
+    expect(screen.getByText('Usuários disponíveis: user-a,user-exec-a,user-audit-a')).toBeInTheDocument();
+  });
+
+  it('shows tenant A, then clears it while tenant B is still pending', async () => {
+    const aprB = deferred<{ data: Array<{ id: string; company_id: string }> }>();
+    const siteB = deferred<{ data: Array<{ id: string; company_id: string }> }>();
+    const usersB = deferred<{ data: Array<{ id: string; nome: string; company_id: string }> }>();
+
+    findAprsPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? Promise.resolve({ data: [{ id: 'apr-a', company_id: 'company-1' }] })
+        : aprB.promise,
+    );
+    findSitesPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? Promise.resolve({ data: [{ id: 'site-a', company_id: 'company-1' }] })
+        : siteB.promise,
+    );
+    findUsersPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? Promise.resolve({ data: [{ id: 'user-a', nome: 'Usuário A', company_id: 'company-1' }] })
+        : usersB.promise,
+    );
+
+    render(<PtForm />);
+    expect(await screen.findByText('APRs disponíveis: apr-a')).toBeInTheDocument();
+    expect(await screen.findByText('Obras disponíveis: site-a')).toBeInTheDocument();
+    expect(await screen.findByText('Usuários disponíveis: user-a')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar para empresa 2' }));
+
+    expect(screen.getByText('APRs disponíveis:')).toBeInTheDocument();
+    expect(screen.getByText('Obras disponíveis:')).toBeInTheDocument();
+    expect(screen.getByText('Usuários disponíveis:')).toBeInTheDocument();
+    expect(screen.queryByText(/disponíveis:.*-a/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      aprB.resolve({ data: [{ id: 'apr-b', company_id: 'company-2' }] });
+      siteB.resolve({ data: [{ id: 'site-b', company_id: 'company-2' }] });
+      usersB.resolve({ data: [{ id: 'user-b', nome: 'Usuário B', company_id: 'company-2' }] });
+      await Promise.all([aprB.promise, siteB.promise, usersB.promise]);
+    });
+
+    expect(screen.getByText('APRs disponíveis: apr-b')).toBeInTheDocument();
+    expect(screen.getByText('Obras disponíveis: site-b')).toBeInTheDocument();
+    expect(screen.getByText('Usuários disponíveis: user-b')).toBeInTheDocument();
+  });
+
+  it('does not toast stale lookup errors for APRs, sites, or users', async () => {
+    const staleAprRequest = deferred<{ data: Array<{ id: string; company_id: string }> }>();
+    const staleSiteRequest = deferred<{ data: Array<{ id: string; company_id: string }> }>();
+    const staleUserRequest = deferred<{ data: Array<{ id: string; nome: string; company_id: string }> }>();
+    findAprsPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? staleAprRequest.promise
+        : Promise.resolve({ data: [{ id: 'apr-b', company_id: 'company-2' }] }),
+    );
+    findSitesPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? staleSiteRequest.promise
+        : Promise.resolve({ data: [{ id: 'site-b', company_id: 'company-2' }] }),
+    );
+    findUsersPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      companyId === 'company-1'
+        ? staleUserRequest.promise
+        : Promise.resolve({ data: [{ id: 'user-b', nome: 'Usuário B', company_id: 'company-2' }] }),
+    );
+
+    render(<PtForm />);
+    await waitFor(() => {
+      expect(findAprsPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: 'company-1' }),
+      );
+      expect(findSitesPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: 'company-1' }),
+      );
+      expect(findUsersPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: 'company-1' }),
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar para empresa 2' }));
+    expect(await screen.findByText('APRs disponíveis: apr-b')).toBeInTheDocument();
+    expect(await screen.findByText('Obras disponíveis: site-b')).toBeInTheDocument();
+    expect(await screen.findByText('Usuários disponíveis: user-b')).toBeInTheDocument();
+
+    await act(async () => {
+      staleAprRequest.reject(new Error('falha tardia de APR da empresa A'));
+      staleSiteRequest.reject(new Error('falha tardia de site da empresa A'));
+      staleUserRequest.reject(new Error('falha tardia de usuário da empresa A'));
+      await Promise.allSettled([
+        staleAprRequest.promise,
+        staleSiteRequest.promise,
+        staleUserRequest.promise,
+      ]);
+    });
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('ignores late selected-item fallbacks for APR, site, and user after tenant change', async () => {
+    const staleAprFallback = deferred<{ id: string; company_id: string }>();
+    const staleSiteFallback = deferred<{ id: string; company_id: string }>();
+    const staleUserFallback = deferred<{ id: string; nome: string; company_id: string }>();
+    localStorage.setItem(
+      'gst.pt.wizard.draft.company-1',
+      JSON.stringify({
+        step: 1,
+        values: {
+          company_id: 'company-1',
+          apr_id: 'apr-a',
+          site_id: 'site-a',
+          responsavel_id: 'user-a',
+          titulo: 'PT A',
+          executantes: [],
+        },
+        metadata: {},
+      }),
+    );
+    findAprsPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      Promise.resolve(
+        companyId === 'company-1'
+          ? { data: [] }
+          : { data: [{ id: 'apr-b', company_id: 'company-2' }] },
+      ),
+    );
+    findSitesPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      Promise.resolve(
+        companyId === 'company-1'
+          ? { data: [] }
+          : { data: [{ id: 'site-b', company_id: 'company-2' }] },
+      ),
+    );
+    findUsersPaginated.mockImplementation(({ companyId }: { companyId: string }) =>
+      Promise.resolve(
+        companyId === 'company-1'
+          ? { data: [] }
+          : { data: [{ id: 'user-b', nome: 'Usuário B', company_id: 'company-2' }] },
+      ),
+    );
+    findApr.mockImplementation((aprId: string) =>
+      aprId === 'apr-a' ? staleAprFallback.promise : Promise.resolve(null),
+    );
+    findSite.mockImplementation((siteId: string) =>
+      siteId === 'site-a' ? staleSiteFallback.promise : Promise.resolve(null),
+    );
+    findUser.mockImplementation((userId: string) =>
+      userId === 'user-a' ? staleUserFallback.promise : Promise.resolve(null),
+    );
+
+    render(<PtForm />);
+    await waitFor(() => {
+      expect(findApr).toHaveBeenCalledWith('apr-a');
+      expect(findSite).toHaveBeenCalledWith('site-a');
+      expect(findUser).toHaveBeenCalledWith('user-a');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar para empresa 2' }));
+    expect(await screen.findByText('APRs disponíveis: apr-b')).toBeInTheDocument();
+    expect(await screen.findByText('Obras disponíveis: site-b')).toBeInTheDocument();
+    expect(await screen.findByText('Usuários disponíveis: user-b')).toBeInTheDocument();
+
+    await act(async () => {
+      staleAprFallback.resolve({ id: 'apr-a', company_id: 'company-1' });
+      staleSiteFallback.resolve({ id: 'site-a', company_id: 'company-1' });
+      staleUserFallback.resolve({ id: 'user-a', nome: 'Usuário A', company_id: 'company-1' });
+      await Promise.all([
+        staleAprFallback.promise,
+        staleSiteFallback.promise,
+        staleUserFallback.promise,
+      ]);
+    });
+
+    expect(screen.getByText('APRs disponíveis: apr-b')).toBeInTheDocument();
+    expect(screen.getByText('Obras disponíveis: site-b')).toBeInTheDocument();
+    expect(screen.getByText('Usuários disponíveis: user-b')).toBeInTheDocument();
+    expect(screen.queryByText(/disponíveis:.*-a/)).not.toBeInTheDocument();
   });
 });

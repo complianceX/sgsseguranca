@@ -651,6 +651,7 @@ export class UsersService {
       access_status: accessStatus,
       module_access_keys: [],
       password: hashedPassword || undefined,
+      must_change_password: typeof plainTempPassword === 'string' ? true : false,
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
     await this.syncUserSites(saved.id, companyId, requestedSiteIds);
@@ -664,11 +665,65 @@ export class UsersService {
     if (typeof plainTempPassword === 'string' && plainTempPassword && typeof rest.email === 'string' && rest.email.trim()) {
       try {
         const subject = 'Bem-vindo ao SGS — suas credenciais de acesso';
-        const body = `Olá ${saved.nome || ''},\n\nSuas credenciais de acesso ao SGS:\nCPF: ${normalizedCpf}\nSenha temporária: ${plainTempPassword}\n\nPor segurança, troque sua senha ao entrar pela primeira vez.\n\nAtenciosamente,\nSGS`;
-        await this.mailService?.sendMailSimple(rest.email, subject, body, {
-          companyId,
-          userId: saved.id,
+        const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+        // Gera token de redefinição de senha e persiste no Redis para o link
+        const LOCAL_RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
+        const token = randomBytes(32).toString('hex');
+        const issuedAtMs = Date.now();
+        const expiresAtMs = issuedAtMs + LOCAL_RESET_TOKEN_TTL_SECONDS * 1000;
+        const redisKey = `reset_password:${token}`;
+        try {
+          await this.redisService.getClient().setex(
+            redisKey,
+            LOCAL_RESET_TOKEN_TTL_SECONDS,
+            JSON.stringify({ userId: saved.id, issuedAtMs, expiresAtMs, v: 1, suppressed: 0 }),
+          );
+        } catch (err) {
+          this.logger.warn({
+            event: 'welcome_reset_token_redis_error',
+            companyId,
+            userId: saved.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+
+        const resetHref = `${frontendBase}/auth/reset-password#token=${token}`;
+
+        const escapeHtmlLocal = (s: string) =>
+          String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const html = this.mailService?.buildGraphiteEmailHtml({
+          eyebrow: 'Acesso temporário',
+          title: `Olá ${escapeHtmlLocal(saved.nome || '')}`,
+          paragraphs: [
+            `Seu CPF: ${escapeHtmlLocal(normalizedCpf)}`,
+            `Senha temporária: <strong>${escapeHtmlLocal(plainTempPassword)}</strong>`,
+            'Por segurança, troque sua senha ao entrar pela primeira vez.',
+          ],
+          cta: {
+            label: 'Trocar minha senha',
+            href: resetHref,
+          },
+          note: 'Caso não tenha solicitado este acesso, contate o administrador da sua empresa.',
         });
+
+        // Texto simples de fallback
+        const body = `Olá ${saved.nome || ''},\n\nSuas credenciais de acesso ao SGS:\nCPF: ${normalizedCpf}\nSenha temporária: ${plainTempPassword}\n\nPor segurança, troque sua senha ao entrar pela primeira vez.\n\nAtenciosamente,\nSGS`;
+
+        await this.mailService?.sendMailSimple(
+          rest.email,
+          subject,
+          body,
+          { companyId, userId: saved.id },
+          undefined,
+          { html: html ?? undefined, filename: 'welcome.html' },
+        );
       } catch (err) {
         this.logger.warn({
           event: 'user_welcome_email_failed',
@@ -864,6 +919,7 @@ export class UsersService {
         identity_type: true,
         access_status: true,
         status: true,
+        must_change_password: true,
         module_access_keys: true,
         created_at: true,
         updated_at: true,
@@ -910,6 +966,7 @@ export class UsersService {
       .leftJoinAndSelect('user.site_links', 'siteLinks')
       .leftJoinAndSelect('siteLinks.site', 'linkedSite')
       .addSelect('user.cpf_ciphertext')
+      .addSelect('user.must_change_password')
       .where('user.id = :id', { id })
       .andWhere('user.deleted_at IS NULL');
 

@@ -2,38 +2,30 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { isAiEnabled } from '@/lib/featureFlags';
+import { getActiveNavigationItem, getVisibleNavigationItems } from '@/lib/navigation-config';
 import { cn } from '@/lib/utils';
-import { Archive, ClipboardCheck, FileText, LayoutDashboard, Radio } from 'lucide-react';
-
-const items = [
-  { href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
-  { href: '/dashboard/tst', label: 'Campo', icon: Radio },
-  { href: '/dashboard/aprs', label: 'APR', icon: FileText },
-  { href: '/dashboard/pts', label: 'PT', icon: ClipboardCheck },
-  { href: '/dashboard/document-registry', label: 'Docs', icon: Archive },
-];
 
 export function MobileFieldNav() {
   const pathname = usePathname();
+  const { hasPermission, isAdminGeral } = useAuth();
+  const items = getVisibleNavigationItems('mobile', {
+    hasPermission,
+    isAdmin: isAdminGeral,
+    featureFlags: { ai: isAiEnabled() },
+  }).slice(0, 5);
+  const activeItem = getActiveNavigationItem(pathname, items);
 
   return (
-    <nav aria-label="Navegação mobile" className="ds-mobile-nav xl:hidden">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active =
-          pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-
+    <nav aria-label="Navegação mobile" className="ds-mobile-nav xl:hidden" data-sophie-reserved-zone="bottom">
+      {items.map((entry) => {
+        const Icon = entry.icon;
+        const active = entry.id === activeItem?.id;
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'ds-mobile-nav__item',
-              active && 'ds-mobile-nav__item--active',
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            <span>{item.label}</span>
+          <Link key={entry.id} href={entry.href} aria-current={active ? 'page' : undefined} className={cn('ds-mobile-nav__item', active && 'ds-mobile-nav__item--active')}>
+            <Icon aria-hidden="true" className="h-4 w-4" />
+            <span>{entry.label}</span>
           </Link>
         );
       })}

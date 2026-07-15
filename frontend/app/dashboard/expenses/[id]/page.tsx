@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PageHeader } from '@/components/layout';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
 import { Permission } from '@/lib/permissions';
@@ -26,7 +27,7 @@ import {
 } from '@/services/expensesService';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60';
+  'min-h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60';
 
 function formatMoney(value: string | number | undefined) {
   return new Intl.NumberFormat('pt-BR', {
@@ -74,6 +75,8 @@ export default function ExpenseReportDetailPage() {
 
   const canClose =
     isAdminGeral || hasPermission(Permission.CAN_CLOSE_EXPENSES);
+  const canManage = isAdminGeral || hasPermission(Permission.CAN_MANAGE_EXPENSES);
+  const canView = isAdminGeral || canManage || hasPermission(Permission.CAN_VIEW_EXPENSES);
   const isClosed = report?.status !== 'aberta';
 
   const categoryRows = useMemo(() => {
@@ -218,6 +221,14 @@ export default function ExpenseReportDetailPage() {
     }
   }
 
+  if (!canView) {
+    return <ErrorState title="Acesso restrito" description="Você não possui permissão para visualizar despesas." />;
+  }
+
+  if (loading && !report) {
+    return <div className="p-6"><InlineLoadingState label="Carregando prestação..." /></div>;
+  }
+
   if (loadError || !report) {
     return (
       <ErrorState
@@ -230,11 +241,6 @@ export default function ExpenseReportDetailPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      {loading && !report ? (
-        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6">
-          <InlineLoadingState label="Carregando prestação..." />
-        </div>
-      ) : null}
 
       <PageHeader
         eyebrow="Despesas por obra"
@@ -288,7 +294,18 @@ export default function ExpenseReportDetailPage() {
           <div className="border-b border-[var(--ds-color-border-subtle)] p-4">
             <h2 className="text-base font-semibold">Despesas lançadas</h2>
           </div>
-          <Table>
+          <ResponsiveDataList
+            items={report.items || []}
+            getKey={(item) => item.id}
+            mobileClassName="space-y-3 p-3"
+            mobile={(item) => (
+              <article className="rounded-lg border border-[var(--ds-color-border-subtle)] p-4">
+                <div className="flex justify-between gap-3"><div><h3 className="font-semibold">{item.description}</h3><p className="text-sm text-[var(--ds-color-text-secondary)]">{EXPENSE_CATEGORY_LABEL[item.category]} · {item.expense_date}</p></div><strong>{formatMoney(item.amount)}</strong></div>
+                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">{[item.vendor, item.location].filter(Boolean).join(' · ') || 'Sem fornecedor/local'}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2"><Button type="button" variant="outline" className="min-h-11" onClick={() => void handleOpenReceipt(item.id)}><ExternalLink className="mr-2 h-4 w-4" />Comprovante</Button>{!isClosed && canManage ? <Button type="button" variant="outline" className="min-h-11 text-[var(--ds-color-danger)]" onClick={() => void handleRemoveItem(item.id)}><Trash2 className="mr-2 h-4 w-4" />Remover</Button> : null}</div>
+              </article>
+            )}
+            desktop={() => <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
@@ -315,7 +332,7 @@ export default function ExpenseReportDetailPage() {
                       <Button type="button" size="icon" variant="ghost" title="Abrir comprovante" onClick={() => void handleOpenReceipt(item.id)}>
                         <ExternalLink className="h-4 w-4" />
                       </Button>
-                      {!isClosed ? (
+                      {!isClosed && canManage ? (
                         <Button
                           type="button"
                           size="icon"
@@ -332,7 +349,8 @@ export default function ExpenseReportDetailPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table>}
+          />
           {(report.items || []).length === 0 ? (
             <div className="p-6 text-sm text-[var(--ds-color-text-muted)]">Nenhuma despesa lançada.</div>
           ) : null}
@@ -376,7 +394,7 @@ export default function ExpenseReportDetailPage() {
         </div>
       </section>
 
-      {!isClosed ? (
+      {!isClosed && canManage ? (
         <section className="grid gap-6 lg:grid-cols-2">
           <form onSubmit={(event) => void handleAddItem(event)} className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
             <h2 className="flex items-center gap-2 text-base font-semibold">

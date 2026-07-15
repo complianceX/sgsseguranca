@@ -91,4 +91,16 @@ describe('Button', () => {
     render(<Button className="extra-class">Salvar</Button>);
     expect(screen.getByRole('button')).toHaveClass('extra-class');
   });
+
+  it('mantém alvo de toque de 44px no mobile e restaura densidade no desktop', () => {
+    render(<Button size="sm">Baixar</Button>);
+
+    expect(screen.getByRole('button', { name: 'Baixar' })).toHaveClass(
+      'min-h-11',
+      'min-w-11',
+      'md:min-h-0',
+      'md:min-w-0',
+      'h-8',
+    );
+  });
 });

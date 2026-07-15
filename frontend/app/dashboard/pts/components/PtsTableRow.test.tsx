@@ -57,7 +57,7 @@ describe('PtsTableRow', () => {
     onDismissApprovalReview.mockClear();
   });
 
-  it('limpa o estado de revisão e bloqueio após salvar uma assinatura', async () => {
+  it('registra a assinatura e limpa eventual bloqueio sem perder o checklist', async () => {
     const pt = {
       id: 'pt-1',
       numero: 'PT-001',
@@ -113,7 +113,7 @@ describe('PtsTableRow', () => {
         user_id: 'user-1',
         company_id: 'company-1',
       });
-      expect(onDismissApprovalReview).toHaveBeenCalledWith('pt-1');
+      expect(onDismissApprovalReview).not.toHaveBeenCalled();
       expect(onDismissApprovalIssue).toHaveBeenCalledWith('pt-1');
     });
   });

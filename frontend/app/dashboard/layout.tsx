@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { ApiStatusBanner } from '@/components/ApiStatusBanner';
+import { OfflineCapabilityBanner } from '@/components/OfflineCapabilityBanner';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { PwaBootstrap } from '@/components/PwaBootstrap';
 import { SentryUserContext } from '@/components/SentryUserContext';
@@ -11,7 +12,7 @@ import { StaleCacheBanner } from '@/components/StaleCacheBanner';
 import { ResponsiveToaster } from '@/components/ResponsiveToaster';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Company } from '@/services/companiesService';
 import { AlertTriangle, Building2, ChevronsUpDown } from 'lucide-react';
@@ -60,7 +61,10 @@ function DashboardShell({
     selectedTenantStore.get(),
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarModal, setSidebarModal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -112,12 +116,12 @@ function DashboardShell({
     setSidebarOpen(false);
   }, [pathname]);
 
-  const handleCompanySelect = (company: Company) => {
+  const handleCompanySelect = async (company: Company) => {
     const nextTenant = {
       companyId: company.id,
       companyName: company.razao_social,
     };
-    selectedTenantStore.set(nextTenant);
+    await selectedTenantStore.set(nextTenant);
     setSelectedTenant(nextTenant);
     setSelectorOpen(false);
   };
@@ -158,10 +162,18 @@ function DashboardShell({
   }
 
   return (
-    <div className="ds-shell-backdrop ds-system-scope ds-density-compact flex h-screen">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onOpenMobileNav={() => setSidebarOpen(true)} />
+    <div className="ds-dashboard-shell ds-shell-backdrop ds-system-scope ds-density-compact flex">
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+        onModalChange={setSidebarModal}
+      />
+      <div
+        className="flex flex-1 flex-col overflow-hidden"
+        inert={sidebarModal ? true : undefined}
+        aria-hidden={sidebarModal ? true : undefined}
+      >
+        <Header onOpenMobileNav={openSidebar} />
         {isAdminGeral && (
           <div className="sticky top-0 z-40 flex min-h-12 items-center justify-between border-b border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-5 py-3">
             <div className="flex min-w-0 items-center gap-2 text-sm text-[var(--ds-color-warning-fg)]">
@@ -197,10 +209,11 @@ function DashboardShell({
           </div>
         )}
         <ApiStatusBanner />
+        <OfflineCapabilityBanner />
         <main
           id="main-content"
           className={cn(
-            'flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-5 md:px-6 md:py-5 xl:px-8 xl:pb-6',
+            'ds-dashboard-content flex-1 overflow-y-auto px-4 py-4 sm:px-5 md:px-6 md:py-5 xl:px-8',
             isAdminGeral && 'pt-12 md:pt-12',
           )}
         >

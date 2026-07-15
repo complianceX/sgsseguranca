@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { ListPageLayout } from '@/components/layout';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import {
   EmptyState,
   ErrorState,
@@ -43,6 +44,7 @@ import { Permission } from '@/lib/permissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 import { getDidTurnoLabel } from './didMeta';
 import { useDids } from './hooks/useDids';
+import { getGovernedDocumentActionPolicy } from '../components/documentActionPolicy';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -227,6 +229,40 @@ export default function DidsPage() {
           />
         </div>
       ) : (
+        <ResponsiveDataList
+          items={dids}
+          getKey={(did) => did.id}
+          mobileClassName="space-y-3 p-3"
+          mobile={(did) => {
+            const isBusy = busyDidId === did.id;
+            const isEditLocked = Boolean(did.pdf_file_key) || did.status === 'arquivado';
+            const transitions = getAllowedStatusTransitions(did);
+            const actions = getGovernedDocumentActionPolicy({
+              canManage: canManageDids,
+              hasFinalPdf: Boolean(did.pdf_file_key),
+              isDraft: did.status === 'rascunho',
+              isArchived: did.status === 'arquivado',
+              hasStatusTransitions: transitions.length > 0,
+            });
+            return (
+              <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><h3 className="font-semibold text-[var(--ds-color-text-primary)]">{did.titulo}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">{safeFormatDate(did.data, 'dd/MM/yyyy', { locale: ptBR })} · {did.site?.nome || did.site_id}</p></div>
+                  <span className={cn('shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold', DID_STATUS_COLORS[did.status])}>{DID_STATUS_LABEL[did.status]}</span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Atividade</dt><dd>{did.atividade_principal}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Participantes</dt><dd>{did.participants?.length || 0} · {did.responsavel?.nome || 'Sem responsável'}</dd></div></dl>
+                {actions.canChangeStatus ? <select aria-label={`Mover status de ${did.titulo}`} className={cn(inputClassName, 'mt-3')} value="" disabled={isBusy} onChange={(event) => event.target.value && void handleStatusChange(did, event.target.value as DidStatus)}><option value="">Mover para...</option>{transitions.map((status) => <option key={status} value={status}>{DID_STATUS_LABEL[status]}</option>)}</select> : null}
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ds-color-border-subtle)] pt-3">
+                  <Button type="button" size="sm" variant="outline" onClick={() => void handleOpenGovernedPdf(did)} disabled={isBusy || !actions.canOpenOrEmitFinalPdf} leftIcon={<ShieldCheck className="h-4 w-4" />}>{did.pdf_file_key ? 'Abrir PDF final' : 'Emitir PDF final'}</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void handlePrint(did)} disabled={isBusy || !actions.canPrintPdf} leftIcon={<Printer className="h-4 w-4" />}>Imprimir</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void handleEmail(did)} disabled={isBusy || !actions.canEmailPdf} leftIcon={<Mail className="h-4 w-4" />}>Enviar</Button>
+                  {actions.canEdit && !isEditLocked ? <Link href={`/dashboard/dids/edit/${did.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'justify-center')}><Pencil className="mr-2 h-4 w-4" />Editar</Link> : null}
+                  {actions.canDelete ? <Button type="button" size="sm" variant="destructive" onClick={() => void handleDelete(did.id)} loading={isBusy} leftIcon={<Trash2 className="h-4 w-4" />}>Excluir</Button> : null}
+                </div>
+              </article>
+            );
+          }}
+          desktop={() => (
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
@@ -244,17 +280,14 @@ export default function DidsPage() {
               const isEditLocked =
                 Boolean(did.pdf_file_key) || did.status === 'arquivado';
               const isBusy = busyDidId === did.id;
-              const canEmitFinalPdf =
-                canManageDids &&
-                did.status !== 'rascunho';
-              const canUseGovernedPdfAction =
-                Boolean(did.pdf_file_key) || canEmitFinalPdf;
-              const canPrintPdf =
-                did.status !== 'arquivado' ||
-                Boolean(did.pdf_file_key) ||
-                canEmitFinalPdf;
-              const canEmailPdf =
-                Boolean(did.pdf_file_key) || canEmitFinalPdf;
+              const actions = getGovernedDocumentActionPolicy({
+                canManage: canManageDids,
+                hasFinalPdf: Boolean(did.pdf_file_key),
+                isDraft: did.status === 'rascunho',
+                isArchived: did.status === 'arquivado',
+                hasStatusTransitions: transitions.length > 0,
+              });
+              const canEmitFinalPdf = actions.canOpenOrEmitFinalPdf && !did.pdf_file_key;
 
               return (
                 <TableRow key={did.id} className="group">
@@ -316,7 +349,7 @@ export default function DidsPage() {
                       >
                         {DID_STATUS_LABEL[did.status]}
                       </span>
-                      {canManageDids && transitions.length > 0 ? (
+                      {actions.canChangeStatus ? (
                         <select
                           className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1.5 text-xs text-[var(--ds-color-text-muted)] shadow-sm"
                           value=""
@@ -358,7 +391,7 @@ export default function DidsPage() {
                                   : 'Somente usuarios com gestao podem emitir o PDF final'
                         }
                         onClick={() => void handleOpenGovernedPdf(did)}
-                        disabled={!canUseGovernedPdfAction}
+                        disabled={!actions.canOpenOrEmitFinalPdf}
                         loading={isBusy}
                       >
                         <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
@@ -369,7 +402,7 @@ export default function DidsPage() {
                         variant="ghost"
                         title="Imprimir documento"
                         onClick={() => void handlePrint(did)}
-                        disabled={isBusy || !canPrintPdf}
+                        disabled={isBusy || !actions.canPrintPdf}
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
@@ -379,7 +412,7 @@ export default function DidsPage() {
                         variant="ghost"
                         title="Enviar por e-mail"
                         onClick={() => void handleEmail(did)}
-                        disabled={isBusy || !canEmailPdf}
+                        disabled={isBusy || !actions.canEmailPdf}
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
@@ -427,6 +460,8 @@ export default function DidsPage() {
             })}
           </TableBody>
         </Table>
+          )}
+        />
       )}
 
       {selectedDoc ? (

@@ -80,6 +80,10 @@ export class User {
   @Column({ default: false })
   ai_processing_consent: boolean;
 
+  // Força troca de senha no primeiro login quando definido como true
+  @Column({ default: false })
+  must_change_password: boolean;
+
   @Column({
     type: isSqlite ? 'simple-json' : 'jsonb',
     nullable: false,

@@ -9,12 +9,18 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { sitesService, Site } from '@/services/sitesService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
+import { ModalBody, ModalFrame, ModalHeader } from '@/components/ui/modal-frame';
+import {
+  CatalogMobileCard,
+  catalogMobileActionClassName,
+} from '../components/CatalogMobileCard';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -202,6 +208,11 @@ export default function SitesPage() {
             />
           </div>
         ) : (
+          <ResponsiveDataList
+            items={sites}
+            getKey={(site) => site.id}
+            mobileClassName="grid min-w-0 gap-3 p-3"
+            desktop={() => (
           <Table>
             <TableHeader>
               <TableRow>
@@ -261,32 +272,46 @@ export default function SitesPage() {
               ))}
             </TableBody>
           </Table>
+            )}
+            mobile={(site) => (
+              <CatalogMobileCard
+                title={site.nome}
+                description={site.cidade && site.estado ? `${site.cidade}/${site.estado}` : site.cidade || site.estado || 'Localização não informada'}
+                fields={[{ label: 'Data de criação', value: safeToLocaleDateString(site.created_at, 'pt-BR', undefined, '—') }]}
+                actionsLabel={`Ações da obra ou setor ${site.nome}`}
+                actions={
+                  <>
+                    <Link href={`/dashboard/sites/edit/${site.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), catalogMobileActionClassName, 'min-h-11')}>
+                      <Pencil className="h-4 w-4" /> Editar
+                    </Link>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setQrSiteId(site.id)} className={cn(catalogMobileActionClassName, 'min-h-11')}>
+                      <QrCode className="h-4 w-4" /> QR Code
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleDelete(site.id)} className={cn(catalogMobileActionClassName, 'min-h-11 text-[var(--ds-color-danger)]')}>
+                      <Trash2 className="h-4 w-4" /> Excluir
+                    </Button>
+                  </>
+                }
+              />
+            )}
+          />
         )}
       </ListPageLayout>
 
-      {qrSiteId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--component-overlay)] p-4">
-          <Card tone="elevated" padding="lg" className="w-full max-w-md">
-            <CardHeader className="flex-row items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle>QR Code da obra</CardTitle>
-                <CardDescription>
-                  Escaneie para acessar o fluxo de DDS/Checklist sem login.
-                </CardDescription>
-              </div>
-              <Button type="button" variant="ghost" onClick={() => setQrSiteId(null)}>
-                Fechar
-              </Button>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4">
-              <QRCodeCanvas value={qrUrl} size={220} includeMargin />
-              <div className="w-full break-all rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-surface-muted)]/45 p-3 text-xs text-[var(--ds-color-text-secondary)]">
-                {qrUrl}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+      <ModalFrame isOpen={Boolean(qrSiteId)} onClose={() => setQrSiteId(null)} shellClassName="max-w-md">
+        <ModalHeader
+          title="QR Code da obra"
+          description="Escaneie para acessar o fluxo de DDS/Checklist sem login."
+          icon={<QrCode className="h-5 w-5" />}
+          onClose={() => setQrSiteId(null)}
+        />
+        <ModalBody className="flex flex-col items-center gap-4">
+          <QRCodeCanvas value={qrUrl} size={220} includeMargin className="max-w-full" />
+          <div className="w-full min-w-0 break-all rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-surface-muted)]/45 p-3 text-xs text-[var(--ds-color-text-secondary)]">
+            {qrUrl}
+          </div>
+        </ModalBody>
+      </ModalFrame>
     </>
   );
 }

@@ -6,6 +6,7 @@ import { DocumentMailDispatchResponse } from "./mailService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
   consumeOfflineCache,
+  createOfflineCacheContext,
   isOfflineRequestError,
   setOfflineCache,
   CACHE_TTL,
@@ -193,6 +194,7 @@ export const checklistsService = {
       limit: params?.limit ?? 20,
     };
     const cacheKey = `checklists.paginated.${JSON.stringify(query)}`;
+    const cacheContext = createOfflineCacheContext();
 
     try {
       const response = await api.get<PaginatedResponse<Checklist>>(
@@ -201,14 +203,14 @@ export const checklistsService = {
           params: query,
         },
       );
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
       const cached =
-        consumeOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
+        consumeOfflineCache<PaginatedResponse<Checklist>>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -226,6 +228,7 @@ export const checklistsService = {
       | "epis";
   }) => {
     const cacheKey = `checklists.all.${JSON.stringify(options || {})}`;
+    const cacheContext = createOfflineCacheContext();
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -237,13 +240,13 @@ export const checklistsService = {
         limit: 100,
         maxPages: 50,
       });
-      setOfflineCache(cacheKey, data, CACHE_TTL.LIST);
+      setOfflineCache(cacheKey, data, CACHE_TTL.LIST, cacheContext);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Checklist[]>(cacheKey);
+      const cached = consumeOfflineCache<Checklist[]>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }
@@ -259,15 +262,16 @@ export const checklistsService = {
 
   findOne: async (id: string) => {
     const cacheKey = `checklists.one.${id}`;
+    const cacheContext = createOfflineCacheContext();
     try {
       const response = await api.get<Checklist>(`/checklists/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD, cacheContext);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<Checklist>(cacheKey);
+      const cached = consumeOfflineCache<Checklist>(cacheKey, cacheContext);
       if (cached) return cached;
       throw error;
     }

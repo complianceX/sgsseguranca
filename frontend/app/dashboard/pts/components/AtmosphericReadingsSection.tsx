@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ptsService, type PtAtmosphericReading } from '@/services/ptsService';
 import type { PtFormData } from './pt-schema-and-data';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 
 type AtmosphericReadingsSectionProps = {
   /** PT persistida — habilita o modo append-only pós-aprovação. */
@@ -121,7 +122,12 @@ export const AtmosphericReadingsSection = ({
 
       {!readOnly ? (
         <div className="space-y-3">
-          <div className="overflow-x-auto">
+          <ResponsiveDataList
+            items={fields}
+            getKey={(field) => field.id}
+            mobileClassName="grid min-w-0 gap-3"
+            desktop={() => (
+          <div className="overflow-x-auto" aria-label="Medições atmosféricas em tabela">
             <table className="w-full min-w-[760px] text-left text-xs">
               <thead>
                 <tr className="text-[var(--ds-color-text-secondary)]">
@@ -178,6 +184,25 @@ export const AtmosphericReadingsSection = ({
               </tbody>
             </table>
           </div>
+            )}
+            mobile={(field, index) => (
+              <article className="min-w-0 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-3" aria-label={`Medição atmosférica ${index + 1}`}>
+                <div className="grid grid-cols-2 gap-3">
+                  {READING_COLUMNS.map((column) => {
+                    const isNumeric = column.key !== 'hora' && column.key !== 'instrumento' && column.key !== 'responsavel';
+                    return (
+                      <label key={`${field.id}-${column.key}`} className={cn('min-w-0 text-xs font-semibold text-[var(--ds-color-text-secondary)]', (column.key === 'instrumento' || column.key === 'responsavel') && 'col-span-2')}>
+                        {column.label}
+                        <input {...register(`medicoes_atmosfericas.${index}.${column.key}`, isNumeric ? { valueAsNumber: true } : undefined)} type={isNumeric ? 'number' : 'text'} step={isNumeric ? 'any' : undefined} placeholder={column.placeholder} className={cn(cellInputClass(Boolean(getCellError(index, column.key))), 'mt-1 min-h-11 text-base')} />
+                        {getCellError(index, column.key) ? <span className="mt-1 block text-[10px] text-[var(--ds-color-danger)]">{getCellError(index, column.key)}</span> : null}
+                      </label>
+                    );
+                  })}
+                </div>
+                <button type="button" onClick={() => remove(index)} className="mt-3 min-h-11 w-full rounded-md border border-[color:var(--ds-color-danger)]/30 px-3 text-sm font-semibold text-[var(--ds-color-danger)]">Remover medição</button>
+              </article>
+            )}
+          />
           {fields.length === 0 && (
             <p className="text-xs text-[var(--ds-color-text-muted)]">
               Nenhuma medição registrada até o momento.

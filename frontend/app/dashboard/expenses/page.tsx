@@ -8,9 +8,12 @@ import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PaginationControls } from '@/components/PaginationControls';
+import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import { ListPageLayout, type MetricItem } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { sitesService, type Site } from '@/services/sitesService';
@@ -23,7 +26,7 @@ import {
 } from '@/services/expensesService';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'min-h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 function formatMoney(value: string | number | undefined) {
   return new Intl.NumberFormat('pt-BR', {
@@ -44,6 +47,9 @@ function monthStartIso() {
 }
 
 export default function ExpensesPage() {
+  const { hasPermission } = useAuth();
+  const canViewExpenses = hasPermission(Permission.CAN_VIEW_EXPENSES);
+  const canManageExpenses = hasPermission(Permission.CAN_MANAGE_EXPENSES);
   const [reports, setReports] = useState<ExpenseReport[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -247,6 +253,10 @@ export default function ExpensesPage() {
     }
   }, [activeCompanyId, ensureUsersLoaded, showCreate]);
 
+  if (!canViewExpenses && !canManageExpenses) {
+    return <ErrorState title="Acesso restrito" description="Você não possui permissão para visualizar despesas." />;
+  }
+
   if (loadError) {
     return (
       <ErrorState
@@ -264,11 +274,11 @@ export default function ExpensesPage() {
       description="Controle adiantamentos, comprovantes e fechamento financeiro por obra."
       icon={<WalletCards className="h-5 w-5" />}
       metrics={reportsLoading && reports.length === 0 ? [] : metrics}
-        actions={
+        actions={canManageExpenses ?
           <Button type="button" onClick={() => void handleToggleCreate()}>
             <Plus className="mr-2 h-4 w-4" />
             Nova prestação
-          </Button>
+          </Button> : null
         }
       toolbarContent={
         <div className="grid gap-3 md:grid-cols-4">
@@ -340,11 +350,6 @@ export default function ExpensesPage() {
         ) : null
       }
     >
-      {reportsLoading && reports.length === 0 ? (
-        <div className="p-6">
-          <InlineLoadingState label="Carregando despesas..." />
-        </div>
-      ) : null}
 
       {showCreate ? (
         <form
@@ -410,14 +415,29 @@ export default function ExpensesPage() {
         </form>
       ) : null}
 
-      {reports.length === 0 ? (
-        <div className="p-6">
+      <ResponsiveDataList
+        items={reports}
+        getKey={(report) => report.id}
+        mobileClassName="space-y-3 p-3"
+        loading={reportsLoading && reports.length === 0 ? <div className="p-6"><InlineLoadingState label="Carregando despesas..." /></div> : undefined}
+        empty={<div className="p-6">
           <EmptyState
             title="Nenhuma prestação encontrada"
             description="Crie a primeira prestação para controlar adiantamentos e despesas por obra."
           />
-        </div>
-      ) : (
+        </div>}
+        mobile={(report) => (
+          <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0"><h3 className="font-semibold text-[var(--ds-color-text-primary)]">{report.site?.nome || report.site_id}</h3><p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{report.responsible?.nome || report.responsible_id}</p></div>
+              <span className="rounded-full bg-[var(--ds-color-surface-muted)] px-2.5 py-1 text-xs font-semibold">{EXPENSE_STATUS_LABEL[report.status]}</span>
+            </div>
+            <p className="mt-3 flex items-center gap-1 text-sm text-[var(--ds-color-text-secondary)]"><CalendarDays className="h-4 w-4" />{report.period_start} a {report.period_end}</p>
+            <dl className="mt-3 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Adiantado</dt><dd className="font-medium">{formatMoney(report.totals?.totalAdvances)}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Despesas</dt><dd className="font-medium">{formatMoney(report.totals?.totalExpenses)}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Saldo</dt><dd className="font-medium">{formatMoney(report.totals?.balance)}</dd></div></dl>
+            <Link href={`/dashboard/expenses/${report.id}`} className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 flex min-h-11 w-full items-center justify-center')}><Receipt className="mr-2 h-4 w-4" />Abrir prestação</Link>
+          </article>
+        )}
+        desktop={() => (
         <Table>
           <TableHeader>
             <TableRow>
@@ -459,7 +479,8 @@ export default function ExpensesPage() {
             ))}
           </TableBody>
         </Table>
-      )}
+        )}
+      />
     </ListPageLayout>
   );
 }

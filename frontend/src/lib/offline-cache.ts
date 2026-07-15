@@ -1,24 +1,20 @@
 import { sanitizeSensitiveDraftValue } from "./sensitive-draft-sanitizer";
 import { secureOfflineDB } from "./offline-db-secure";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type CacheEnvelope<T> = {
   value: T;
   createdAt: string;
   maxAgeMs?: number;
 };
 
-/** Returned by getOfflineCache when the entry exists but is past its TTL
- *  and the device is currently offline. The data is still usable as a
- *  fallback — callers should surface a "stale data" warning to the user. */
+export type OfflineCacheContext = Readonly<{
+  generation: number;
+  tenantId: string;
+}>;
+
 export type StaleResult<T> = { stale: true; data: T };
 
-export function isStaleResult<T>(
-  result: T | StaleResult<T>,
-): result is StaleResult<T> {
+export function isStaleResult<T>(result: T | StaleResult<T>): result is StaleResult<T> {
   return (
     typeof result === "object" &&
     result !== null &&
@@ -27,63 +23,73 @@ export function isStaleResult<T>(
   );
 }
 
-// ---------------------------------------------------------------------------
-// TTL presets
-// ---------------------------------------------------------------------------
-
-/** Pre-defined TTL values to be passed to setOfflineCache(). */
 export const CACHE_TTL = {
-  /** 2 min — dados críticos de segurança (APRs ativas). */
-  CACHE_TTL_CRITICAL: 120_000, // keep generic name mapping
+  CACHE_TTL_CRITICAL: 120_000,
   CRITICAL: 120_000,
-  /** 5 min — listas paginadas (findAll / findPaginated). */
   LIST: 300_000,
-  /** 30 min — registros individuais (findOne). */
   RECORD: 1_800_000,
-  /** 60 min — dados de referência (sites, users). */
   REFERENCE: 3_600_000,
 } as const;
-
-// ---------------------------------------------------------------------------
-// Internals
-// ---------------------------------------------------------------------------
 
 const PREFIX = "gst.cache";
 const LEGACY_PREFIX = "compliancex.cache";
 const CACHE_PREFIXES = [`${PREFIX}.`, `${LEGACY_PREFIX}.`];
-
-const buildKey = (key: string, prefix = PREFIX) => `${prefix}.${key}`;
-
+const TENANT_STORAGE_KEY = "cx_selected_tenant";
+const NO_TENANT = "no-tenant";
 const isBrowser = () => typeof window !== "undefined";
-
-const isOnline = () =>
-  typeof navigator !== "undefined" ? navigator.onLine : true;
-
+const isOnline = () => typeof navigator !== "undefined" ? navigator.onLine : true;
 const isManagedCacheKey = (key: string) =>
   CACHE_PREFIXES.some((prefix) => key.startsWith(prefix));
 
-// Espelho em memória para suportar chamadas síncronas rápidas (getOfflineCache)
+const currentTenantId = (): string => {
+  if (!isBrowser()) return NO_TENANT;
+  try {
+    const raw = window.sessionStorage.getItem(TENANT_STORAGE_KEY);
+    const value = raw ? (JSON.parse(raw) as { companyId?: unknown }) : null;
+    return typeof value?.companyId === "string" && value.companyId
+      ? value.companyId
+      : NO_TENANT;
+  } catch {
+    return NO_TENANT;
+  }
+};
+
+let cacheGeneration = 0;
+const pendingWrites = new Map<Promise<void>, number>();
 const _memoryCache = new Map<string, CacheEnvelope<unknown>>();
 
-// Inicialização assíncrona: carrega chaves do IndexedDB para a memória no boot
+export const createOfflineCacheContext = (): OfflineCacheContext => ({
+  generation: cacheGeneration,
+  tenantId: currentTenantId(),
+});
+
+const buildKey = (
+  key: string,
+  context: OfflineCacheContext = createOfflineCacheContext(),
+  prefix = PREFIX,
+) => `${prefix}.tenant.${encodeURIComponent(context.tenantId)}.${key}`;
+
+// IndexedDB hydration is epoch guarded: a tenant cleanup that happens while
+// keys/get are pending invalidates this hydration and prevents memory leaks.
 if (isBrowser()) {
+  const initializationGeneration = cacheGeneration;
   secureOfflineDB.keys("sgs-cache")
     .then(async (keys) => {
       for (const dbKey of keys) {
-        const envelope = await secureOfflineDB.get<CacheEnvelope<unknown>>("sgs-cache", dbKey);
-        if (envelope) {
+        const envelope = await secureOfflineDB.get<CacheEnvelope<unknown>>(
+          "sgs-cache",
+          dbKey,
+        );
+        if (envelope && initializationGeneration === cacheGeneration) {
           _memoryCache.set(dbKey, envelope);
         }
       }
-      // Limpeza de cache legado no localStorage para liberar espaço
       try {
         for (const rawKey of Object.keys(window.localStorage)) {
-          if (isManagedCacheKey(rawKey)) {
-            window.localStorage.removeItem(rawKey);
-          }
+          if (isManagedCacheKey(rawKey)) window.localStorage.removeItem(rawKey);
         }
       } catch {
-        /* ignore */
+        // best effort legacy cleanup
       }
     })
     .catch((err) => {
@@ -93,64 +99,51 @@ if (isBrowser()) {
 
 const removeCacheKey = (key: string) => {
   _memoryCache.delete(key);
-  if (isBrowser()) {
-    void secureOfflineDB.del("sgs-cache", key);
-  }
+  if (isBrowser()) void secureOfflineDB.del("sgs-cache", key);
 };
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Persists a value in the offline cache with an optional TTL.
- *
- * @param key      Cache key (without prefix).
- * @param value    Serialisable value to cache.
- * @param maxAgeMs Maximum age in milliseconds. Use CACHE_TTL constants.
- *                 Omit to cache indefinitely (legacy behaviour).
- */
 export const setOfflineCache = <T>(
   key: string,
   value: T,
-  maxAgeMs?: number,
-) => {
+  maxAgeMs: number | undefined,
+  context: OfflineCacheContext,
+): void => {
   if (!isBrowser()) return;
+  // A response started before a tenant/cache epoch transition cannot write
+  // into the current tenant namespace.
+  if (
+    context.generation !== cacheGeneration ||
+    context.tenantId !== currentTenantId()
+  ) return;
 
   const payload: CacheEnvelope<unknown> = {
     value: sanitizeSensitiveDraftValue(value),
     createdAt: new Date().toISOString(),
     ...(maxAgeMs !== undefined ? { maxAgeMs } : {}),
   };
-  const primaryKey = buildKey(key);
-
-  // Atualiza síncronamente na memória
+  const primaryKey = buildKey(key, context);
   _memoryCache.set(primaryKey, payload);
 
-  // Persiste assíncronamente no IndexedDB criptografado
-  void secureOfflineDB.set("sgs-cache", primaryKey, payload);
+  const write = secureOfflineDB
+    .set("sgs-cache", primaryKey, payload)
+    .then(() => undefined);
+  pendingWrites.set(write, context.generation);
+  void write.finally(() => pendingWrites.delete(write));
 };
 
-/**
- * Reads a cached value and enforces TTL rules:
- *
- * - **Online + expired** → removes the entry and returns `null`
- *   (caller must fetch fresh data).
- * - **Offline + expired** → returns `{ stale: true; data: T }` so the UI
- *   can display a "dados podem estar desatualizados" warning.
- * - **Valid (not expired)** → returns the cached value directly.
- * - **No TTL stored** → returns the value (legacy behaviour, never expires).
- *
- * Use `isStaleResult()` to distinguish fresh from stale returns.
- */
-export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
+export const getOfflineCache = <T>(
+  key: string,
+  context: OfflineCacheContext = createOfflineCacheContext(),
+): T | StaleResult<T> | null => {
   if (!isBrowser()) return null;
-  const primaryKey = buildKey(key);
+  if (
+    context.generation !== cacheGeneration ||
+    context.tenantId !== currentTenantId()
+  ) return null;
 
-  // Leitura síncrona super rápida da memória
+  const primaryKey = buildKey(key, context);
   const parsed = _memoryCache.get(primaryKey) as CacheEnvelope<T> | undefined;
   if (!parsed) return null;
-
   if (!parsed.createdAt) {
     removeCacheKey(primaryKey);
     return null;
@@ -160,55 +153,57 @@ export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
     const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
     if (ageMs > parsed.maxAgeMs) {
       if (isOnline()) {
-        // Online: remover entrada expirada e forçar fetch
         removeCacheKey(primaryKey);
         return null;
       }
-      // Offline: dado expirado é melhor que nenhum dado — retorna com flag stale
       return { stale: true, data: parsed.value };
     }
   }
-
-  return parsed.value as T;
+  return parsed.value;
 };
 
-/**
- * Convenience wrapper around getOfflineCache for use in service catch blocks.
- *
- * - Returns the cached `T` (fresh or stale) or `null` if nothing is cached.
- * - When serving stale data, dispatches a `app:stale-cache` custom event so
- *   the UI layer (e.g. useApiStatus) can surface a warning banner.
- */
-export const consumeOfflineCache = <T>(key: string): T | null => {
-  const result = getOfflineCache<T>(key);
+export const consumeOfflineCache = <T>(
+  key: string,
+  context: OfflineCacheContext = createOfflineCacheContext(),
+): T | null => {
+  const result = getOfflineCache<T>(key, context);
   if (result === null) return null;
   if (isStaleResult(result)) {
     if (isBrowser()) {
-      window.dispatchEvent(
-        new CustomEvent("app:stale-cache", { detail: { key } }),
-      );
+      window.dispatchEvent(new CustomEvent("app:stale-cache", { detail: { key } }));
     }
     return result.data;
   }
   return result;
 };
 
-/**
- * Removes all managed cache entries whose TTL has expired.
- * Call this on reconnection to ensure the next fetch gets fresh data.
- * Entries without a stored maxAgeMs are never evicted by this function.
- */
 export const clearExpiredCache = (): void => {
   if (!isBrowser()) return;
-
-  for (const [rawKey, parsed] of _memoryCache.entries()) {
+  for (const [rawKey, parsed] of Array.from(_memoryCache.entries())) {
     if (!isManagedCacheKey(rawKey) || !parsed?.createdAt || !parsed?.maxAgeMs) continue;
-
     const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
-    if (ageMs > parsed.maxAgeMs) {
-      removeCacheKey(rawKey);
-    }
+    if (ageMs > parsed.maxAgeMs) removeCacheKey(rawKey);
   }
+};
+
+/** Clears the synchronous mirror and invalidates every captured request context. */
+export const clearOfflineMemoryCache = (): void => {
+  cacheGeneration += 1;
+  _memoryCache.clear();
+};
+
+/**
+ * Invalidates memory immediately, drains old-epoch writes, then clears the
+ * persistent store. This prevents an old async write from surviving cleanup.
+ */
+export const clearOfflineCache = async (): Promise<void> => {
+  const oldGeneration = cacheGeneration;
+  clearOfflineMemoryCache();
+  const oldWrites = Array.from(pendingWrites.entries())
+    .filter(([, generation]) => generation <= oldGeneration)
+    .map(([write]) => write.catch(() => undefined));
+  await Promise.all(oldWrites);
+  if (isBrowser()) await secureOfflineDB.clear("sgs-cache");
 };
 
 export const isOfflineRequestError = (error: unknown) => {
@@ -220,4 +215,3 @@ export const isOfflineRequestError = (error: unknown) => {
     code === "ETIMEDOUT"
   );
 };
-

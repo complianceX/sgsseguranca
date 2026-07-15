@@ -23,6 +23,7 @@ export const RisksFilters = React.memo(({
         <input
           type="text"
           placeholder="Pesquisar riscos..."
+          aria-label="Pesquisar riscos por nome ou descrição"
           className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] py-2 pl-10 pr-4 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -31,7 +32,7 @@ export const RisksFilters = React.memo(({
 
       <button
         type="button"
-        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'inline-flex items-center')}
+        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'inline-flex w-full items-center justify-center md:w-auto')}
       >
         <Download className="h-4 w-4" />
         Exportar

@@ -53,6 +53,10 @@ import {
   isDdsUserVisibleForSite,
 } from "@/lib/dds-user-scope";
 import { ddsSchema, type DdsFormData } from "@/lib/validation/ddsForm.schema";
+import {
+  blobToBoundedDataUrl,
+  processMobileImages,
+} from "@/lib/images/process-mobile-image";
 
 // Importação dinâmica do gerador de PDF — evita incluir jsPDF no bundle inicial
 const loadDdsPdfGenerator = () => import("@/lib/pdf/ddsGenerator");
@@ -404,6 +408,7 @@ export function DdsForm({ id }: DdsFormProps) {
   const documentVideos = useDocumentVideos({
     documentId: id,
     enabled: Boolean(id),
+    operationKey: `${currentDds?.company_id || selectedCompanyId || "none"}:${id || "new"}`,
     loadVideos: ddsService.listVideoAttachments,
     uploadVideo: ddsService.uploadVideoAttachment,
     removeVideo: ddsService.removeVideoAttachment,
@@ -834,45 +839,6 @@ export function DdsForm({ id }: DdsFormProps) {
       .join("");
   };
 
-  const fileToDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () =>
-        reject(new Error("Falha ao ler arquivo de imagem."));
-      reader.readAsDataURL(file);
-    });
-
-  const resizeImageFile = async (file: File): Promise<string> => {
-    const imageDataUrl = await fileToDataUrl(file);
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () =>
-        reject(new Error("Não foi possível processar a imagem."));
-      image.src = imageDataUrl;
-    });
-
-    const maxWidth = 1600;
-    const maxHeight = 1200;
-    let { width, height } = img;
-
-    if (width > maxWidth || height > maxHeight) {
-      const ratio = Math.min(maxWidth / width, maxHeight / height);
-      width = Math.round(width * ratio);
-      height = Math.round(height * ratio);
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      throw new Error("Não foi possível otimizar a imagem.");
-    }
-    ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL("image/jpeg", 0.8);
-  };
 
   const handleTeamPhotoChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -883,13 +849,16 @@ export function DdsForm({ id }: DdsFormProps) {
     }
 
     try {
-      // Geolocation e redimensionamento correm em paralelo (tipos separados para segurança de tipo)
-      const [geoMetadata, resizedImages] = await Promise.all([
+      // Geolocalização e pipeline compartilhado correm em paralelo.
+      const [geoMetadata, imageBatch] = await Promise.all([
         getGeoMetadata(),
-        Promise.all(Array.from(files).map((file) => resizeImageFile(file))),
+        processMobileImages(Array.from(files), {
+          maxFiles: Math.max(0, 6 - teamPhotos.length),
+        }),
       ]);
       const processedPhotos = await Promise.all(
-        resizedImages.map(async (imageData) => {
+        imageBatch.processed.map(async (processed) => {
+          const imageData = await blobToBoundedDataUrl(processed.file);
           const hash = await sha256(imageData);
           return {
             imageData,
@@ -908,9 +877,14 @@ export function DdsForm({ id }: DdsFormProps) {
         );
       }
       setTeamPhotos((prev) => [...prev, ...processedPhotos].slice(0, 6));
-      toast.success(
-        `${processedPhotos.length} foto(s) auditável(is) adicionada(s) ao DDS.`,
-      );
+      if (processedPhotos.length) {
+        toast.success(`${processedPhotos.length} foto(s) auditável(is) adicionada(s) ao DDS.`);
+      }
+      if (imageBatch.rejected.length) {
+        toast.warning(
+          `${imageBatch.rejected.length} foto(s) não foram adicionadas: ${imageBatch.rejected[0]?.message}`,
+        );
+      }
     } catch (error) {
       console.error("Erro ao processar fotos da equipe:", error);
       toast.error("Não foi possível processar uma ou mais fotos.");
@@ -1673,7 +1647,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 Adicionar Foto
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   aria-label="Selecionar fotos da equipe para o DDS"
                   multiple
                   disabled={ddsReadOnly}

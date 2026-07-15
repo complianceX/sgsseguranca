@@ -17,6 +17,7 @@ import {
   Save,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -26,6 +27,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { Permission } from "@/lib/permissions";
 import { openSafeExternalUrlInNewTab, safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
+import {
+  processMobileImage,
+  processMobileImages,
+  type ProcessedMobileImage,
+} from "@/lib/images/process-mobile-image";
 import {
   photographicReportsService,
   type CreatePhotographicReportDto,
@@ -65,6 +71,15 @@ type ReportFormState = {
   ai_summary: string;
   final_conclusion: string;
   status: PhotographicReportStatus;
+};
+
+type PendingPhoto = {
+  id: string;
+  original: File;
+  processed?: ProcessedMobileImage;
+  previewUrl?: string;
+  status: "processing" | "ready" | "error" | "cancelled";
+  error?: string;
 };
 
 const PHOTO_CLASSIFICATIONS = [
@@ -256,6 +271,14 @@ export function PhotographicReportWorkspace({
   const [uploadActivityDate, setUploadActivityDate] = useState("");
   const [uploadManualCaption, setUploadManualCaption] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [processingProgress, setProcessingProgress] = useState({ completed: 0, total: 0 });
+  const processingControllerRef = useRef<AbortController | null>(null);
+  const processingGenerationRef = useRef(0);
+  const activePendingIdsRef = useRef<Set<string>>(new Set());
+  const retryGenerationRef = useRef<Map<string, number>>(new Map());
+  const mountedRef = useRef(true);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -305,6 +328,112 @@ export function PhotographicReportWorkspace({
       mounted = false;
     };
   }, [mode, reportId]);
+
+  useEffect(() => {
+    const urls = previewUrlsRef.current;
+    return () => {
+      mountedRef.current = false;
+      processingGenerationRef.current += 1;
+      processingControllerRef.current?.abort();
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
+
+  const revokePendingPreviews = () => {
+    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrlsRef.current.clear();
+  };
+
+  const handleSelectedImages = async (files: File[]) => {
+    processingControllerRef.current?.abort();
+    const generation = ++processingGenerationRef.current;
+    revokePendingPreviews();
+    const controller = new AbortController();
+    processingControllerRef.current = controller;
+    const entries: PendingPhoto[] = files.map((original, index) => ({
+      id: `photo-${generation}-${index}`,
+      original,
+      status: "processing",
+    }));
+    activePendingIdsRef.current = new Set(entries.map((entry) => entry.id));
+    setPendingPhotos(entries);
+    setSelectedFiles([]);
+    setProcessingProgress({ completed: 0, total: files.length });
+    if (!files.length) return;
+
+    const result = await processMobileImages(files, {
+      signal: controller.signal,
+      onProgress: (completed, total) => {
+        if (mountedRef.current && processingGenerationRef.current === generation) {
+          setProcessingProgress({ completed, total });
+        }
+      },
+    });
+    if (!mountedRef.current || processingGenerationRef.current !== generation) return;
+
+    const successes = new Map(result.processed.map((item) => [item.sourceFile, item]));
+    const failures = new Map(result.rejected.map((item) => [item.file, item]));
+    const next = entries.flatMap((entry): PendingPhoto[] => {
+      // A remoção durante o decode é definitiva: não cria URL nem ressurge.
+      if (!activePendingIdsRef.current.has(entry.id)) return [];
+      const processed = successes.get(entry.original);
+      if (processed) {
+        const previewUrl = URL.createObjectURL(processed.file);
+        previewUrlsRef.current.add(previewUrl);
+        return [{ ...entry, processed, previewUrl, status: "ready" }];
+      }
+      const failure = failures.get(entry.original);
+      return [{
+        ...entry,
+        status: failure?.code === "cancelled" ? "cancelled" : "error",
+        error: failure?.message || "Imagem não processada.",
+      }];
+    });
+    setPendingPhotos(next);
+    setSelectedFiles(next.flatMap((entry) => entry.processed ? [entry.processed.file] : []));
+    if (result.rejected.length) toast.warning(`${result.rejected.length} foto(s) rejeitada(s); as demais continuam disponíveis.`);
+  };
+
+  const retryPendingPhoto = async (id: string) => {
+    const entry = pendingPhotos.find((item) => item.id === id);
+    if (!entry || !activePendingIdsRef.current.has(id)) return;
+    const retryGeneration = (retryGenerationRef.current.get(id) || 0) + 1;
+    retryGenerationRef.current.set(id, retryGeneration);
+    setPendingPhotos((current) => current.map((item) => item.id === id && item.original === entry.original ? { ...item, status: "processing", error: undefined } : item));
+    try {
+      const processed = await processMobileImage(entry.original);
+      if (!mountedRef.current || !activePendingIdsRef.current.has(id) || retryGenerationRef.current.get(id) !== retryGeneration) return;
+      const previewUrl = URL.createObjectURL(processed.file);
+      previewUrlsRef.current.add(previewUrl);
+      setPendingPhotos((current) => current.map((item) => item.id === id && item.original === entry.original ? { ...item, processed, previewUrl, status: "ready" } : item));
+      setSelectedFiles((current) => {
+        const withoutPreviousIdentity = entry.processed
+          ? current.filter((file) => file !== entry.processed?.file)
+          : current;
+        return [...withoutPreviousIdentity, processed.file];
+      });
+    } catch (retryError) {
+      if (!mountedRef.current || !activePendingIdsRef.current.has(id) || retryGenerationRef.current.get(id) !== retryGeneration) return;
+      setPendingPhotos((current) => current.map((item) => item.id === id && item.original === entry.original ? {
+        ...item,
+        status: "error",
+        error: retryError instanceof Error ? retryError.message : "Falha ao processar imagem.",
+      } : item));
+    }
+  };
+
+  const removePendingPhoto = (id: string) => {
+    activePendingIdsRef.current.delete(id);
+    retryGenerationRef.current.set(id, (retryGenerationRef.current.get(id) || 0) + 1);
+    const entry = pendingPhotos.find((item) => item.id === id);
+    if (entry?.previewUrl) {
+      URL.revokeObjectURL(entry.previewUrl);
+      previewUrlsRef.current.delete(entry.previewUrl);
+    }
+    setPendingPhotos((current) => current.filter((item) => item.id !== id));
+    if (entry?.processed) setSelectedFiles((current) => current.filter((file) => file !== entry.processed?.file));
+  };
 
   const sortedDays = useMemo(
     () =>
@@ -499,7 +628,14 @@ export function PhotographicReportWorkspace({
 
   async function handleUploadImages() {
     if (!report) return;
-    if (!selectedFiles.length) {
+    const readyFiles = pendingPhotos.flatMap((entry) =>
+      entry.status === "ready" && entry.processed ? [entry.processed.file] : [],
+    );
+    if (pendingPhotos.some((entry) => entry.status === "processing")) {
+      toast.error("Aguarde o processamento das fotos.");
+      return;
+    }
+    if (!readyFiles.length) {
       toast.error("Selecione ao menos uma foto.");
       return;
     }
@@ -508,7 +644,7 @@ export function PhotographicReportWorkspace({
       setUploading(true);
       const updated = await photographicReportsService.uploadImages(
         report.id,
-        selectedFiles,
+        readyFiles,
         {
           report_day_id: uploadDayId || null,
           activity_date: uploadDayId ? null : toNullableString(uploadActivityDate),
@@ -517,6 +653,9 @@ export function PhotographicReportWorkspace({
       );
       setReport(updated);
       setSelectedFiles([]);
+      setPendingPhotos([]);
+      revokePendingPreviews();
+      setProcessingProgress({ completed: 0, total: 0 });
       setUploadManualCaption("");
       toast.success("Fotos enviadas com sucesso.");
     } catch (err) {
@@ -1148,7 +1287,7 @@ export function PhotographicReportWorkspace({
                     file.type.startsWith("image/"),
                   );
                   if (files.length > 0) {
-                    setSelectedFiles(files);
+                    void handleSelectedImages(files);
                   }
                 }}
               >
@@ -1173,12 +1312,13 @@ export function PhotographicReportWorkspace({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     multiple
                     className="hidden"
                     onChange={(event) => {
                       const files = Array.from(event.target.files || []);
-                      setSelectedFiles(files);
+                      void handleSelectedImages(files);
+                      event.target.value = "";
                     }}
                   />
                 </div>
@@ -1214,14 +1354,44 @@ export function PhotographicReportWorkspace({
                 />
               </div>
 
-              {selectedFiles.length > 0 ? (
-                <div className="space-y-2 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/70 p-3 text-sm">
-                  <p className="font-semibold text-[var(--color-text)]">
-                    {selectedFiles.length} arquivo(s) selecionado(s)
-                  </p>
-                  <ul className="space-y-1 text-[var(--color-text-secondary)]">
-                    {selectedFiles.map((file) => (
-                      <li key={`${file.name}-${file.size}`}>{file.name}</li>
+              {pendingPhotos.length > 0 ? (
+                <div className="space-y-3 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/70 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-[var(--color-text)]">
+                      {selectedFiles.length} pronta(s) de {pendingPhotos.length}
+                    </p>
+                    {pendingPhotos.some((photo) => photo.status === "processing") ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => processingControllerRef.current?.abort()} leftIcon={<X className="h-3.5 w-3.5" />}>
+                        Cancelar
+                      </Button>
+                    ) : null}
+                  </div>
+                  {processingProgress.total > 0 ? (
+                    <div aria-label="Progresso do processamento" role="progressbar" aria-valuemin={0} aria-valuemax={processingProgress.total} aria-valuenow={processingProgress.completed} className="h-2 overflow-hidden rounded-full bg-[var(--color-border-subtle)]">
+                      <div className="h-full bg-[var(--color-primary)] transition-all" style={{ width: `${Math.round((processingProgress.completed / processingProgress.total) * 100)}%` }} />
+                    </div>
+                  ) : null}
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {pendingPhotos.map((photo) => (
+                      <li key={photo.id} className="flex gap-3 rounded-lg border border-[var(--color-border-subtle)] p-2">
+                        {photo.previewUrl ? (
+                          // URL local temporária, liberada ao trocar seleção/desmontar.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photo.previewUrl} alt={`Prévia de ${photo.original.name}`} className="h-16 w-16 rounded object-cover" />
+                        ) : (
+                          <div className="flex h-16 w-16 items-center justify-center rounded bg-[var(--color-surface-elevated)]"><ImageIcon className="h-5 w-5" /></div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{photo.original.name}</p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            {photo.status === "processing" ? "Otimizando…" : photo.status === "ready" ? `${Math.round((photo.processed?.outputBytes || 0) / 1024)} KB · pronta` : photo.error}
+                          </p>
+                          {(photo.status === "error" || photo.status === "cancelled") ? (
+                            <button type="button" className="mt-1 text-xs font-semibold text-[var(--color-primary)]" onClick={() => void retryPendingPhoto(photo.id)}>Tentar novamente</button>
+                          ) : null}
+                        </div>
+                        <button type="button" aria-label={`Remover ${photo.original.name}`} onClick={() => removePendingPhoto(photo.id)}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -1232,7 +1402,7 @@ export function PhotographicReportWorkspace({
                 onClick={() => void handleUploadImages()}
                 loading={uploading}
                 leftIcon={<Upload className="h-4 w-4" />}
-                disabled={!canManage}
+                disabled={!canManage || selectedFiles.length === 0 || pendingPhotos.some((photo) => photo.status === "processing")}
               >
                 Enviar fotos
               </Button>
@@ -1302,10 +1472,11 @@ export function PhotographicReportWorkspace({
                             </div>
                             <button
                               type="button"
+                              aria-label={`Excluir foto ${String(image.image_order).padStart(2, "0")}`}
                               onClick={() => void handleDeleteImage(image.id)}
                               className="text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </button>
                           </div>
 
