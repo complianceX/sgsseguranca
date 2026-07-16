@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SignaturesService } from './signatures.service';
 import { SignaturesController } from './signatures.controller';
@@ -14,7 +14,7 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
     TypeOrmModule.forFeature([Signature]),
     CommonModule,
     DocumentRegistryModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     ForensicTrailModule,
   ],
   controllers: [SignaturesController, PublicSignaturesController],

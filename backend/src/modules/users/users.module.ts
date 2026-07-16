@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
@@ -14,11 +14,13 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
 import { SecurityAuditModule } from '../../shared/security/security-audit.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { PwnedPasswordService } from '../auth/services/pwned-password.service';
+import { MailModule } from '../../infra/mail/mail.module';
 
 @Module({
   imports: [
     SecurityAuditModule,
     ConsentsModule,
+    forwardRef(() => MailModule),
     TypeOrmModule.forFeature([
       User,
       UserSite,

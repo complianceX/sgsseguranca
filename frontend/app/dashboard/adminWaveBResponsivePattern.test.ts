@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const pages = [
   'cats/page.tsx',
@@ -9,13 +9,26 @@ const pages = [
   'epi-fichas/page.tsx',
 ];
 
+// A marcação de mobile-card pode estar inline em page.tsx ou extraída para um
+// componente irmão co-localizado (ex.: CatMobileCard.tsx, TrainingMobileCard.tsx).
+function pageAndSiblingSources(relativePath: string): string {
+  const absolutePath = join(__dirname, relativePath);
+  const dir = dirname(absolutePath);
+  const pageSource = readFileSync(absolutePath, 'utf8');
+  const siblingSources = readdirSync(dir)
+    .filter((name) => /MobileCard\.tsx$/.test(name))
+    .map((name) => readFileSync(join(dir, name), 'utf8'));
+  return [pageSource, ...siblingSources].join('\n');
+}
+
 describe('administrative wave B responsive and accessible pattern', () => {
   it.each(pages)('%s uses one responsive desktop-table/mobile-card list', (relativePath) => {
     const source = readFileSync(join(__dirname, relativePath), 'utf8');
+    const combinedSource = pageAndSiblingSources(relativePath);
 
     expect(source).toContain('ResponsiveDataList');
     expect(source).toContain('mobileClassName="space-y-3 p-3"');
-    expect(source).toContain('<article');
+    expect(combinedSource).toContain('<article');
     expect(source).toContain('<Table>');
   });
 

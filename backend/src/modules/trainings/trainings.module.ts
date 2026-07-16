@@ -15,7 +15,7 @@ import { UsersModule } from '../users/users.module';
     TypeOrmModule.forFeature([Training, User, Notification]),
     CommonModule,
     DocumentRegistryModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     forwardRef(() => NotificationsModule),
   ],
   controllers: [TrainingsController],

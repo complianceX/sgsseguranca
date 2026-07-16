@@ -1,6 +1,8 @@
 ﻿import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -153,6 +155,7 @@ export class SignaturesService {
     private readonly tenantService: TenantService,
     private readonly signatureTimestampService: SignatureTimestampService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly forensicTrailService: ForensicTrailService,
     private readonly storageService: StorageService,

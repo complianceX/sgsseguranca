@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit-trail/audit.module';
 import { CommonModule } from '../../shared/common.module';
@@ -15,7 +15,7 @@ import { EpiAssignment } from './entities/epi-assignment.entity';
     TypeOrmModule.forFeature([EpiAssignment, Epi, User]),
     CommonModule,
     AuditModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     EpisModule,
   ],
   controllers: [EpiAssignmentsController],
