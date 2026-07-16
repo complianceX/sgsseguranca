@@ -54,4 +54,37 @@ describe('MetricCard', () => {
     );
     expect(container.firstChild).toHaveClass('extra-classe');
   });
+
+  describe('variant="strip" (modo de compatibilidade do ListPageLayout)', () => {
+    it('renderiza a classe base ds-metric-item sem classe de tone para neutral', () => {
+      const { container } = render(
+        <MetricCard variant="strip" label="Total" value={42} tone="neutral" />,
+      );
+      expect(container.firstChild).toHaveClass('ds-metric-item');
+      expect(container.firstChild).not.toHaveClass('ds-metric-item--neutral');
+    });
+
+    it('aplica classe de tone dedicada para primary/success/warning/danger', () => {
+      for (const tone of ['primary', 'success', 'warning', 'danger'] as const) {
+        const { container, unmount } = render(
+          <MetricCard variant="strip" label="Total" value={42} tone={tone} />,
+        );
+        expect(container.firstChild).toHaveClass(`ds-metric-item--${tone}`);
+        unmount();
+      }
+    });
+
+    it('nao aplica classe de tone para info (sem CSS dedicado no strip)', () => {
+      const { container } = render(
+        <MetricCard variant="strip" label="Total" value={42} tone="info" />,
+      );
+      expect(container.firstChild).not.toHaveClass('ds-metric-item--info');
+    });
+
+    it('usa as classes __label/__value/__note em vez do estilo de card rico', () => {
+      render(<MetricCard variant="strip" label="Total" value={42} note="nota" />);
+      expect(screen.getByText('Total')).toHaveClass('ds-metric-item__label');
+      expect(screen.getByText('nota')).toHaveClass('ds-metric-item__note');
+    });
+  });
 });

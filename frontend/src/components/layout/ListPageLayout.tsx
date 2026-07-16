@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { PageHeader } from './PageHeader';
+import { MetricCard } from '@/components/ui/metric-card';
 
 /**
  * MetricItem — uma celula compacta na faixa de metricas.
@@ -119,19 +120,14 @@ export function ListPageLayout({
           className="ds-metric-strip"
         >
           {metrics.map((item) => (
-            <article
+            <MetricCard
               key={item.label}
-              className={cn(
-                'ds-metric-item',
-                item.tone && item.tone !== 'neutral' ? `ds-metric-item--${item.tone}` : null,
-              )}
-            >
-              <p className="ds-metric-item__label">{item.label}</p>
-              <div className="ds-metric-item__value" aria-label={`${item.label}: ${item.value}`}>
-                {item.value}
-              </div>
-              {item.note ? <p className="ds-metric-item__note">{item.note}</p> : null}
-            </article>
+              variant="strip"
+              label={item.label}
+              value={item.value}
+              note={item.note}
+              tone={item.tone}
+            />
           ))}
         </section>
       ) : null}
