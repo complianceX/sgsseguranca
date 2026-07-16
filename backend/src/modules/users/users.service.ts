@@ -485,7 +485,10 @@ export class UsersService {
     pass += rand(digits);
     pass += rand(specials);
     while (pass.length < 12) pass += rand(all);
-    return pass.split('').sort(() => 0.5 - Math.random()).join('');
+    return pass
+      .split('')
+      .sort(() => 0.5 - Math.random())
+      .join('');
   }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
@@ -612,7 +615,9 @@ export class UsersService {
       if (plainTempPassword) {
         hashedPassword = await this.passwordService.hash(plainTempPassword);
       } else {
-        throw new BadRequestException('Não foi possível gerar senha temporária segura para o usuário. Tente novamente.');
+        throw new BadRequestException(
+          'Não foi possível gerar senha temporária segura para o usuário. Tente novamente.',
+        );
       }
     }
     const userId =
@@ -651,7 +656,8 @@ export class UsersService {
       access_status: accessStatus,
       module_access_keys: [],
       password: hashedPassword || undefined,
-      must_change_password: typeof plainTempPassword === 'string' ? true : false,
+      must_change_password:
+        typeof plainTempPassword === 'string' ? true : false,
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
     await this.syncUserSites(saved.id, companyId, requestedSiteIds);
@@ -662,10 +668,17 @@ export class UsersService {
     );
     this.attachUserSiteSummary(saved, requestedSiteIds);
     // Envia e-mail com CPF e senha temporária se foi gerada
-    if (typeof plainTempPassword === 'string' && plainTempPassword && typeof rest.email === 'string' && rest.email.trim()) {
+    if (
+      typeof plainTempPassword === 'string' &&
+      plainTempPassword &&
+      typeof rest.email === 'string' &&
+      rest.email.trim()
+    ) {
       try {
         const subject = 'Bem-vindo ao SGS — suas credenciais de acesso';
-        const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const frontendBase = (
+          process.env.FRONTEND_URL || 'http://localhost:3000'
+        ).replace(/\/$/, '');
 
         // Gera token de redefinição de senha e persiste no Redis para o link
         const LOCAL_RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
@@ -677,7 +690,13 @@ export class UsersService {
           await this.redisService.getClient().setex(
             redisKey,
             LOCAL_RESET_TOKEN_TTL_SECONDS,
-            JSON.stringify({ userId: saved.id, issuedAtMs, expiresAtMs, v: 1, suppressed: 0 }),
+            JSON.stringify({
+              userId: saved.id,
+              issuedAtMs,
+              expiresAtMs,
+              v: 1,
+              suppressed: 0,
+            }),
           );
         } catch (err) {
           this.logger.warn({

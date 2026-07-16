@@ -11,10 +11,22 @@ const customJestConfig = {
   restoreMocks: true,
   detectOpenHandles: true,
   testTimeout: 15000,
-  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+  testPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/e2e/",
+  ],
   modulePathIgnorePatterns: ["<rootDir>/.next/"],
-  coveragePathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
-  watchPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+  coveragePathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/e2e/",
+  ],
+  watchPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/e2e/",
+  ],
   moduleNameMapper: {
     "^@/context/(.*)$": "<rootDir>/src/state/$1",
     "^@/(.*)$": ["<rootDir>/src/$1", "<rootDir>/$1"],

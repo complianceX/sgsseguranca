@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  forwardRef,
   GoneException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -59,6 +61,7 @@ export class AprsPdfService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly pdfService: PdfService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    @Inject(forwardRef(() => SignaturesService))
     private readonly signaturesService: SignaturesService,
     private readonly publicValidationGrantService: PublicValidationGrantService,
     private readonly storageService: StorageService,

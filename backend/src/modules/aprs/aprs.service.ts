@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -163,6 +165,7 @@ export class AprsService {
     private readonly pdfService: PdfService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentBundleService: DocumentBundleService,
+    @Inject(forwardRef(() => SignaturesService))
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
     private readonly aprsPdfService: AprsPdfService,
