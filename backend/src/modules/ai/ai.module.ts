@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { AiController } from './ai.controller';
@@ -54,7 +54,7 @@ import { shouldUseRedisQueueInfra } from '../../infra/queue/redis-queue-infra.ut
     RisksModule,
     TrainingsModule,
     ChecklistsModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     MedicalExamsModule,
     CatsModule,
     NonConformitiesModule,

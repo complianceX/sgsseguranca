@@ -263,9 +263,7 @@ export class AuthService {
       : row.cpf;
     // ensure boolean
     if (row && 'must_change_password' in row) {
-      (row as AuthLoginUserRow).must_change_password = Boolean(
-        (row as any).must_change_password,
-      );
+      row.must_change_password = Boolean(row.must_change_password);
     }
     return row;
   }
@@ -1084,6 +1082,7 @@ export class AuthService {
       | 'site_id'
       | 'profile'
       | 'email'
+      | 'must_change_password'
     > & { auth_user_id?: string | null },
     ctx?: { userAgent?: string; ip?: string },
     options?: { isAdminGeral?: boolean },
@@ -1116,8 +1115,9 @@ export class AuthService {
     // If the user must change password, emit a short-lived limited access token
     // that can only be used to call the password-change/reset endpoints. No
     // refresh token or persisted session is created in this case.
-    if ((user as any).must_change_password) {
-      const forcedTtlSeconds = Number(process.env.FORCE_PASSWORD_CHANGE_TOKEN_TTL_SECONDS) || 600; // 10 minutes
+    if (user.must_change_password) {
+      const forcedTtlSeconds =
+        Number(process.env.FORCE_PASSWORD_CHANGE_TOKEN_TTL_SECONDS) || 600; // 10 minutes
       const limitedPayload = {
         ...payload,
         force_password_change: true,
@@ -1125,7 +1125,10 @@ export class AuthService {
       };
       const accessToken = isInfiniteTtl(forcedTtlSeconds)
         ? this.jwtService.sign(limitedPayload, { ...localOpts })
-        : this.jwtService.sign(limitedPayload, { expiresIn: forcedTtlSeconds, ...localOpts });
+        : this.jwtService.sign(limitedPayload, {
+            expiresIn: forcedTtlSeconds,
+            ...localOpts,
+          });
 
       return {
         accessToken,
@@ -1215,7 +1218,7 @@ export class AuthService {
         company_id: companyId,
         site_id: user.site_id ?? null,
         profile: user.profile,
-        must_change_password: (user as any).must_change_password ? true : false,
+        must_change_password: user.must_change_password ? true : false,
       },
     };
   }
@@ -1417,7 +1420,10 @@ export class AuthService {
       throw new UnauthorizedException('Senha atual inválida');
     }
 
-    await this.usersService.update(userId, { password: newPassword, must_change_password: false });
+    await this.usersService.update(userId, {
+      password: newPassword,
+      must_change_password: false,
+    });
 
     // Rotation: ao trocar a senha, todos os refresh tokens do usuário são
     // invalidados. O usuário precisará fazer login novamente em todos os
@@ -1698,7 +1704,11 @@ export class AuthService {
           [userId],
         )) ?? [];
       resetUserCompanyId = rows[0]?.company_id ?? null;
-      await manager.update(User, { id: userId }, { password: hashedPassword, must_change_password: false });
+      await manager.update(
+        User,
+        { id: userId },
+        { password: hashedPassword, must_change_password: false },
+      );
     });
 
     // Token invalidado com marcação NX + timestamp de consumo para bloquear replay concorrente.

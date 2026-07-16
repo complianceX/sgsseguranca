@@ -34,7 +34,7 @@ import type { SignOptions } from 'jsonwebtoken';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     FileInspectionModule,
     forwardRef(() => MailModule),
     PassportModule,

@@ -605,6 +605,7 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: 'Senha atualizada com sucesso' });
       expect(usersService.update).toHaveBeenCalledWith('user-1', {
         password: 'NovaSenha@123',
+        must_change_password: false,
       });
       expect(redisService.clearAllRefreshTokens.mock.calls[0]).toEqual([
         'user-1',
@@ -946,7 +947,7 @@ describe('AuthService', () => {
       expect(manager.update).toHaveBeenCalledWith(
         User,
         { id: 'user-1' },
-        { password: expect.any(String) },
+        { password: expect.any(String), must_change_password: false },
       );
       expect(userSessionRepository.update).toHaveBeenCalledWith(
         { user_id: 'user-1', is_active: true },

@@ -1,5 +1,7 @@
 import {
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -86,6 +88,7 @@ export class MfaService {
     private readonly passwordService: PasswordService,
     private readonly securityAudit: SecurityAuditService,
     private readonly redisService: AuthRedisService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly authService: AuthService,
     private readonly tenantService: TenantService,
