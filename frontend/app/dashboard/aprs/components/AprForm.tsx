@@ -3349,8 +3349,8 @@ export function AprForm({ id }: AprFormProps) {
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-bold",
                     aprDocumentRiskSummary.criticalCount > 0
-                      ? "bg-red-50 text-red-700"
-                      : "bg-emerald-50 text-emerald-700",
+                      ? "bg-ds-danger-subtle text-[var(--ds-color-danger-fg)]"
+                      : "bg-ds-success-subtle text-[var(--ds-color-success-fg)]",
                   )}
                 >
                   {aprDocumentRiskSummary.total} mapeado(s)
@@ -4975,7 +4975,7 @@ export function AprForm({ id }: AprFormProps) {
                             {item.ok ? (
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--color-success)]" />
                             ) : (
-                              <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--color-warning,#ca8a04)]" />
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--color-warning)]" />
                             )}
                             <span className={item.ok ? "text-[var(--ds-color-text-primary)]" : "text-[var(--ds-color-text-secondary)]"}>
                               {item.label}

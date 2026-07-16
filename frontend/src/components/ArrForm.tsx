@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { StatusPill } from '@/components/ui/status-pill';
 import { InlineLoadingState } from '@/components/ui/state';
 import { InlineCallout } from '@/components/ui/inline-callout';
@@ -670,23 +670,23 @@ export function ArrForm({ id }: ArrFormProps) {
               </div>
             ) : null}
             <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryMetricCard
+              <MetricCard
                 label="Status visual"
                 value={currentArr ? ARR_STATUS_LABEL[currentArr.status] : 'Rascunho'}
                 tone="primary"
               />
-              <SummaryMetricCard
+              <MetricCard
                 label="Risco"
                 value={ARR_RISK_LEVEL_LABEL[selectedRiskLevel]}
                 note={`${ARR_PROBABILITY_LABEL[selectedProbability]} / ${ARR_SEVERITY_LABEL[selectedSeverity]}`}
                 tone="warning"
               />
-              <SummaryMetricCard
+              <MetricCard
                 label="Equipe"
                 value={selectedParticipantIds.length}
                 tone="success"
               />
-              <SummaryMetricCard
+              <MetricCard
                 label="Local / atividade"
                 value={selectedSite?.nome || currentArr?.site?.nome || 'Local pendente'}
                 note={selectedMainActivity || currentArr?.atividade_principal || selectedTitle || 'Defina o foco da ARR'}

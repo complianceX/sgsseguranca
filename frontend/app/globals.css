@@ -2226,15 +2226,13 @@ body {
     gap: 0.65rem;
   }
 
-  .ds-metric-strip,
-  .ds-crud-stats {
+  .ds-metric-strip {
     display: grid;
     gap: 0.85rem;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
-  .ds-metric-item,
-  .ds-crud-stat {
+  .ds-metric-item {
     position: relative;
     overflow: hidden;
     min-height: 0;
@@ -2245,7 +2243,6 @@ body {
     box-shadow: var(--component-card-shadow);
   }
 
-  .ds-crud-stat--primary,
   .ds-metric-item--primary {
     background: color-mix(
       in srgb,
@@ -2259,7 +2256,6 @@ body {
     );
   }
 
-  .ds-crud-stat--success,
   .ds-metric-item--success {
     background: color-mix(
       in srgb,
@@ -2273,7 +2269,6 @@ body {
     );
   }
 
-  .ds-crud-stat--warning,
   .ds-metric-item--warning {
     background: color-mix(
       in srgb,
@@ -2287,7 +2282,6 @@ body {
     );
   }
 
-  .ds-crud-stat--danger,
   .ds-metric-item--danger {
     background: color-mix(
       in srgb,
@@ -2301,8 +2295,7 @@ body {
     );
   }
 
-  .ds-metric-item__label,
-  .ds-crud-stat__label {
+  .ds-metric-item__label {
     font-size: var(--ds-text-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -2310,8 +2303,7 @@ body {
     color: var(--ds-color-text-muted);
   }
 
-  .ds-metric-item__value,
-  .ds-crud-stat__value {
+  .ds-metric-item__value {
     margin-top: 0.45rem;
     font-size: clamp(1.55rem, 1.2rem + 0.55vw, 2rem);
     line-height: 1.05;
@@ -2319,8 +2311,7 @@ body {
     color: var(--ds-color-text-primary);
   }
 
-  .ds-metric-item__note,
-  .ds-crud-stat__note {
+  .ds-metric-item__note {
     margin-top: 0.35rem;
     font-size: var(--ds-text-sm);
     line-height: 1.4;

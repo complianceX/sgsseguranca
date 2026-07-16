@@ -12,7 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { StatusPill } from '@/components/ui/status-pill';
 import {
   FormFieldGroup,
@@ -135,13 +135,13 @@ export function DidFormPageShell({
             </div>
           ) : null}
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryMetricCard
+            <MetricCard
               label="Status visual"
               value={currentStatus ? DID_STATUS_LABEL[currentStatus] : 'Rascunho'}
               note={isReadOnly ? 'Registro finalizado.' : 'Registro pronto para edição.'}
               tone="primary"
             />
-            <SummaryMetricCard
+            <MetricCard
               label="Turno"
               value={
                 selectedTurno
@@ -151,13 +151,13 @@ export function DidFormPageShell({
               note={selectedCompanyName || 'Selecione a empresa'}
               tone="info"
             />
-            <SummaryMetricCard
+            <MetricCard
               label="Equipe"
               value={participantCount}
               note="participante(s) marcados"
               tone="success"
             />
-            <SummaryMetricCard
+            <MetricCard
               label="Frente / atividade"
               value={selectedSiteName || 'Local pendente'}
               note={selectedMainActivity || selectedTitle || 'Defina o foco do alinhamento'}
