@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-type SummaryMetricTone = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'danger';
+export type MetricTone =
+  | 'neutral'
+  | 'primary'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger';
 
 const toneMap: Record<
-  SummaryMetricTone,
+  MetricTone,
   { container: string; dot: string; label: string; value: string; note: string }
 > = {
   neutral: {
@@ -57,19 +63,25 @@ const toneMap: Record<
   },
 };
 
-export function SummaryMetricCard({
+export interface MetricCardProps {
+  label: string;
+  value: ReactNode;
+  note?: ReactNode;
+  tone?: MetricTone;
+  className?: string;
+}
+
+/**
+ * Card compacto de métrica/resumo do design system — label + valor + nota
+ * opcional, com indicador de cor por tone semântico.
+ */
+export function MetricCard({
   label,
   value,
   note,
   tone = 'neutral',
   className,
-}: {
-  label: string;
-  value: ReactNode;
-  note?: ReactNode;
-  tone?: SummaryMetricTone;
-  className?: string;
-}) {
+}: MetricCardProps) {
   const styles = toneMap[tone];
 
   return (
