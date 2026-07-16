@@ -10,117 +10,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MetricCard } from "@/components/ui/metric-card";
 import type { AprFormData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
 
 export type AprExecutiveSummaryVariant = "panel" | "badges" | "breakdown";
-
-type Tone =
-  | "neutral"
-  | "success"
-  | "info"
-  | "warning"
-  | "elevated"
-  | "danger"
-  | "ready"
-  | "incomplete";
-
-const summaryToneMap: Record<
-  Tone,
-  { container: string; label: string; value: string }
-> = {
-  neutral: {
-    container:
-      "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22",
-    label: "text-[var(--ds-color-text-muted)]",
-    value: "text-[var(--ds-color-text-primary)]",
-  },
-  success: {
-    container:
-      "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/72",
-    label: "text-[var(--color-success)]",
-    value: "text-[var(--color-success)]",
-  },
-  info: {
-    container:
-      "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)]/72",
-    label: "text-[var(--color-info)]",
-    value: "text-[var(--color-info)]",
-  },
-  warning: {
-    container:
-      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]/72",
-    label: "text-[var(--color-warning)]",
-    value: "text-[var(--color-warning)]",
-  },
-  elevated: {
-    container:
-      "border-[var(--ds-color-elevated-border)] bg-[color:var(--ds-color-elevated-subtle)]/72",
-    label: "text-[var(--ds-color-elevated-fg)]",
-    value: "text-[var(--ds-color-elevated-fg)]",
-  },
-  danger: {
-    container:
-      "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/72",
-    label: "text-[var(--color-danger)]",
-    value: "text-[var(--color-danger)]",
-  },
-  ready: {
-    container:
-      "border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)]",
-    label: "text-[var(--apr-ready-fg)]",
-    value: "text-[var(--apr-ready-fg)]",
-  },
-  incomplete: {
-    container:
-      "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)]",
-    label: "text-[var(--apr-incomplete-fg)]",
-    value: "text-[var(--apr-incomplete-fg)]",
-  },
-};
-
-function SummaryMetricCard({
-  label,
-  value,
-  tone,
-  delta,
-}: {
-  label: string;
-  value: number;
-  tone: Tone;
-  delta: number | null;
-}) {
-  const styles = summaryToneMap[tone];
-  const trendLabel =
-    delta === null || delta === 0
-      ? "= sem alteração"
-      : delta > 0
-        ? `↑ ${delta} vs. período anterior`
-        : `↓ ${Math.abs(delta)} vs. período anterior`;
-  return (
-    <div
-      className={cn(
-        "rounded-[var(--ds-radius-md)] border px-2.5 py-2 shadow-[var(--ds-shadow-xs)]",
-        styles.container,
-      )}
-    >
-      <p
-        className={cn(
-          "text-xs font-semibold uppercase tracking-[0.16em]",
-          styles.label,
-        )}
-      >
-        {label}
-      </p>
-      <p className={cn("mt-1.5 text-lg font-black leading-none", styles.value)}>
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
-        {trendLabel}
-      </p>
-    </div>
-  );
-}
 
 export function AprExecutiveSummary({
   control,
@@ -227,47 +121,54 @@ export function AprExecutiveSummary({
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-7">
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Total"
             value={riskSummary.total}
             tone="neutral"
-            delta={deltaMap.total}
+            delta={{ value: deltaMap.total }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Aceitável"
             value={riskSummary.aceitavel}
             tone="success"
-            delta={deltaMap.aceitavel}
+            delta={{ value: deltaMap.aceitavel }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Atenção"
             value={riskSummary.atencao}
             tone="warning"
-            delta={deltaMap.atencao}
+            delta={{ value: deltaMap.atencao }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Substancial"
             value={riskSummary.substancial}
-            tone="elevated"
-            delta={deltaMap.substancial}
+            tone="orange"
+            delta={{ value: deltaMap.substancial }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Crítico"
             value={riskSummary.critico}
             tone="danger"
-            delta={deltaMap.critico}
+            delta={{ value: deltaMap.critico }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Incompletas"
             value={riskSummary.incompletas}
-            tone="incomplete"
-            delta={deltaMap.incompletas}
+            tone="muted"
+            delta={{ value: deltaMap.incompletas }}
           />
-          <SummaryMetricCard
+          <MetricCard
+            density="compact"
             label="Sem medidas"
             value={riskSummary.semMedidasPreventivas}
             tone="info"
-            delta={deltaMap.semMedidasPreventivas}
+            delta={{ value: deltaMap.semMedidasPreventivas }}
           />
         </div>
       </div>
@@ -351,47 +252,54 @@ export function AprExecutiveSummary({
           hasPriorityAlerts ? "border-t border-[var(--ds-color-border-subtle)]" : "",
         )}
       >
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Críticos"
           value={riskSummary.critico}
           tone="danger"
-          delta={deltaMap.critico}
+          delta={{ value: deltaMap.critico }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Incompletas"
           value={riskSummary.incompletas}
-          tone="incomplete"
-          delta={deltaMap.incompletas}
+          tone="muted"
+          delta={{ value: deltaMap.incompletas }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Sem medidas"
           value={riskSummary.semMedidasPreventivas}
           tone="info"
-          delta={deltaMap.semMedidasPreventivas}
+          delta={{ value: deltaMap.semMedidasPreventivas }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Aceitáveis"
           value={riskSummary.aceitavel}
           tone="success"
-          delta={deltaMap.aceitavel}
+          delta={{ value: deltaMap.aceitavel }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Atenção"
           value={riskSummary.atencao}
           tone="warning"
-          delta={deltaMap.atencao}
+          delta={{ value: deltaMap.atencao }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Substanciais"
           value={riskSummary.substancial}
-          tone="elevated"
-          delta={deltaMap.substancial}
+          tone="orange"
+          delta={{ value: deltaMap.substancial }}
         />
-        <SummaryMetricCard
+        <MetricCard
+          density="compact"
           label="Prontas"
           value={riskSummary.prontas}
-          tone="ready"
-          delta={deltaMap.prontas}
+          tone="primary"
+          delta={{ value: deltaMap.prontas }}
         />
       </div>
     </div>
