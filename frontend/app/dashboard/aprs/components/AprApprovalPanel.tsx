@@ -263,7 +263,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
               <p
                 className={cn(
                   "mt-1 text-xs text-right",
-                  rejectReason.length < 10 ? "text-red-500" : "text-green-600",
+                  rejectReason.length < 10 ? "text-ds-danger" : "text-ds-success",
                 )}
               >
                 {rejectReason.length} / mín. 10 caracteres
