@@ -2303,6 +2303,27 @@ body {
     color: var(--ds-color-text-muted);
   }
 
+  /* O rótulo carrega a cor do tone. Os fundos do strip são tingidos a ~6% e
+     ficam indistinguíveis entre si (danger vs warning: distância RGB 4.4), e o
+     valor é sempre text-primary — sem isto, o tone não chega ao usuário.
+     Mesmo princípio do MetricCard variant="card", que já colore o label.
+     Contraste sobre o respectivo fundo: 5.27 a 6.98 (AA exige 4.5). */
+  .ds-metric-item--primary .ds-metric-item__label {
+    color: var(--ds-color-action-primary);
+  }
+
+  .ds-metric-item--success .ds-metric-item__label {
+    color: var(--ds-color-success-fg);
+  }
+
+  .ds-metric-item--warning .ds-metric-item__label {
+    color: var(--ds-color-warning-fg);
+  }
+
+  .ds-metric-item--danger .ds-metric-item__label {
+    color: var(--ds-color-danger-fg);
+  }
+
   .ds-metric-item__value {
     margin-top: 0.45rem;
     font-size: clamp(1.55rem, 1.2rem + 0.55vw, 2rem);
