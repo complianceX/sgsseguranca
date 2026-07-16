@@ -8,6 +8,8 @@ import {
   BadRequestException,
   ServiceUnavailableException,
   BadGatewayException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -286,6 +288,7 @@ export class AiService {
     private readonly activitiesService: ActivitiesService,
     private readonly toolsService: ToolsService,
     private readonly machinesService: MachinesService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly checklistsService: ChecklistsService,
     private readonly trainingsService: TrainingsService,

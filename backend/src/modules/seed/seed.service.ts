@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ProfilesService } from '../profiles/profiles.service';
 import { CompaniesService } from '../companies/companies.service';
@@ -35,6 +41,7 @@ export class SeedService implements OnApplicationBootstrap {
     private profilesService: ProfilesService,
     private companiesService: CompaniesService,
     private sitesService: SitesService,
+    @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
     private tenantService: TenantService,
     private passwordService: PasswordService,

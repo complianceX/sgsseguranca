@@ -386,6 +386,7 @@ export class ChecklistsService {
     private signaturesService: SignaturesService,
     private notificationsGateway: NotificationsGateway,
     private readonly documentStorageService: DocumentStorageService,
+    @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
     private sitesService: SitesService,
     private readonly documentGovernanceService: DocumentGovernanceService,
