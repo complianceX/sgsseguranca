@@ -55,6 +55,75 @@ describe('MetricCard', () => {
     expect(container.firstChild).toHaveClass('extra-classe');
   });
 
+  it('aplica tone orange', () => {
+    render(<MetricCard label="Substancial" value={2} tone="orange" />);
+    expect(screen.getByText('Substancial')).toHaveClass('text-[var(--ds-color-elevated-fg)]');
+  });
+
+  it('aplica tone muted', () => {
+    render(<MetricCard label="Incompletas" value={1} tone="muted" />);
+    expect(screen.getByText('Incompletas')).toHaveClass('text-[var(--apr-incomplete-fg)]');
+  });
+
+  describe('delta', () => {
+    it('formata alta como "vs. periodo anterior"', () => {
+      render(<MetricCard label="Total" value={5} delta={{ value: 3 }} />);
+      expect(screen.getByText('↑ 3 vs. período anterior')).toBeInTheDocument();
+    });
+
+    it('formata baixa com valor absoluto', () => {
+      render(<MetricCard label="Total" value={5} delta={{ value: -2 }} />);
+      expect(screen.getByText('↓ 2 vs. período anterior')).toBeInTheDocument();
+    });
+
+    it('formata zero como sem alteracao', () => {
+      render(<MetricCard label="Total" value={5} delta={{ value: 0 }} />);
+      expect(screen.getByText('= sem alteração')).toBeInTheDocument();
+    });
+
+    it('aceita formatter customizado', () => {
+      render(
+        <MetricCard
+          label="Total"
+          value={5}
+          delta={{ value: 3, format: (d) => `+${d} novos` }}
+        />,
+      );
+      expect(screen.getByText('+3 novos')).toBeInTheDocument();
+    });
+
+    it('note explicito tem precedencia sobre delta', () => {
+      render(
+        <MetricCard label="Total" value={5} note="nota manual" delta={{ value: 3 }} />,
+      );
+      expect(screen.getByText('nota manual')).toBeInTheDocument();
+      expect(screen.queryByText('↑ 3 vs. período anterior')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('density="compact"', () => {
+    it('renderiza label e valor sem o indicador de ponto', () => {
+      const { container } = render(
+        <MetricCard density="compact" label="Total" value={7} />,
+      );
+      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getByText('7')).toBeInTheDocument();
+      expect(container.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
+    });
+
+    it('aplica tone compacto', () => {
+      render(<MetricCard density="compact" label="Criticos" value={2} tone="danger" />);
+      expect(screen.getByText('Criticos')).toHaveClass('text-[var(--color-danger)]');
+    });
+
+    it('renderiza delta como nota', () => {
+      render(
+        <MetricCard density="compact" label="Total" value={5} delta={{ value: 1 }} />,
+      );
+      expect(screen.getByText('↑ 1 vs. período anterior')).toBeInTheDocument();
+    });
+  });
+
   describe('variant="strip" (modo de compatibilidade do ListPageLayout)', () => {
     it('renderiza a classe base ds-metric-item sem classe de tone para neutral', () => {
       const { container } = render(
