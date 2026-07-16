@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root{
+    --bg:#070d18;
+    --panel:#0d1626;
+    --panel2:#111c30;
+    --line:#1e3252;
+    --line-soft:#182a45;
+    --txt:#e8f0fb;
+    --txt2:#9db2cf;
+    --txt3:#6b83a3;
+    --blue:#3b82f6;
+    --cyan:#22d3ee;
+    --green:#22c55e;
+    --amber:#f59e0b;
+    --orange:#f97316;
+    --red:#ef4444;
+    --violet:#a78bfa;
+    --teal:#2dd4bf;
+  }
+  body{
+    width:2000px; background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI","Inter",system-ui,sans-serif;
+    padding:38px 40px 30px;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 50% -8%, rgba(59,130,246,.13), transparent 62%),
+      radial-gradient(ellipse 700px 400px at 100% 100%, rgba(167,139,250,.07), transparent 60%);
+  }
+
+  /* ---------- header ---------- */
+  .hd{ text-align:center; margin-bottom:26px; }
+  .hd h1{ font-size:41px; font-weight:800; letter-spacing:.055em; }
+  .hd .sub{ color:var(--cyan); font-size:15.5px; font-weight:600; letter-spacing:.24em; margin-top:7px; }
+  .hd .meta{ color:var(--txt3); font-size:12px; margin-top:11px; letter-spacing:.03em; }
+  .hd .meta b{ color:var(--txt2); font-weight:600; }
+
+  /* ---------- grid ---------- */
+  .grid{ display:grid; grid-template-columns:264px 1fr 264px; gap:20px; align-items:start; }
+  .col{ display:flex; flex-direction:column; gap:16px; }
+
+  /* ---------- card ---------- */
+  .c{ background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line); border-radius:13px; padding:13px 14px; }
+  .c > h3, .core > h3{ font-size:11.5px; font-weight:700; letter-spacing:.13em; color:var(--cyan);
+           margin-bottom:9px; display:flex; align-items:center; gap:7px; }
+  .n{ background:var(--blue); color:#fff; width:17px; height:17px; border-radius:5px;
+      font-size:10px; display:inline-flex; align-items:center; justify-content:center;
+      flex:none; font-weight:800; letter-spacing:0; }
+  ul{ list-style:none; display:flex; flex-direction:column; gap:5px; }
+  li{ font-size:11.5px; color:var(--txt2); padding-left:11px; position:relative; line-height:1.45; }
+  li::before{ content:''; position:absolute; left:0; top:6.5px; width:4px; height:4px;
+              border-radius:50%; background:var(--txt3); }
+  li b{ color:var(--txt); font-weight:600; }
+  .hint{ font-size:10px; color:var(--txt3); line-height:1.45; margin-top:8px;
+         border-top:1px dashed var(--line-soft); padding-top:7px; }
+
+  /* ---------- modules ---------- */
+  .mods{ background:rgba(13,22,38,.55); border:1px solid var(--line);
+         border-radius:14px; padding:14px; }
+  .mods > h3{ font-size:12px; font-weight:700; letter-spacing:.15em; color:var(--cyan);
+              text-align:center; margin-bottom:12px; }
+  .mgrid{ display:grid; grid-template-columns:repeat(4,1fr); gap:11px; }
+  .m{ background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line); border-radius:11px; padding:11px; border-top-width:2.5px; }
+  .m h4{ font-size:12px; font-weight:700; margin-bottom:2px; letter-spacing:.02em; }
+  .m .d{ font-size:9.5px; color:var(--txt3); margin-bottom:7px; line-height:1.3; }
+  .m ul li{ font-size:10.5px; padding-left:9px; }
+  .m ul li::before{ width:3px; height:3px; top:6px; }
+
+  .t-blue{ border-top-color:var(--blue); } .t-blue h4{ color:#93c5fd; }
+  .t-cyan{ border-top-color:var(--cyan); } .t-cyan h4{ color:#67e8f9; }
+  .t-green{ border-top-color:var(--green); } .t-green h4{ color:#86efac; }
+  .t-amber{ border-top-color:var(--amber); } .t-amber h4{ color:#fcd34d; }
+  .t-orange{ border-top-color:var(--orange); } .t-orange h4{ color:#fdba74; }
+  .t-red{ border-top-color:var(--red); } .t-red h4{ color:#fca5a5; }
+  .t-violet{ border-top-color:var(--violet); } .t-violet h4{ color:#c4b5fd; }
+  .t-teal{ border-top-color:var(--teal); } .t-teal h4{ color:#5eead4; }
+
+  /* ---------- core / pipeline ---------- */
+  .core{ background:linear-gradient(180deg,rgba(59,130,246,.16),rgba(13,22,38,.9));
+         border:1.5px solid #2563eb; border-radius:13px; padding:13px 15px; }
+  .core h3{ color:#93c5fd; }
+  .pipe{ display:flex; align-items:center; gap:7px; flex-wrap:nowrap; }
+  .step{ flex:1; background:var(--panel); border:1px solid var(--line);
+         border-radius:8px; padding:8px 6px; text-align:center; }
+  .step .t{ font-size:10.5px; font-weight:700; color:var(--txt); }
+  .step .s{ font-size:8.5px; color:var(--txt3); margin-top:2px; line-height:1.25; }
+  .arw{ color:var(--blue); font-size:14px; flex:none; font-weight:700; }
+  .lock{ border-color:#eab308; background:rgba(234,179,8,.09); }
+  .lock .t{ color:#fde047; }
+
+  /* ---------- rows ---------- */
+  .r4{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .r5{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+
+  /* ---------- badges ---------- */
+  .badge{ display:inline-block; font-size:9px; font-weight:700; padding:1.5px 6px;
+          border-radius:4px; letter-spacing:.05em; }
+  .b-warn{ background:rgba(234,179,8,.16); color:#fde047; border:1px solid rgba(234,179,8,.32); }
+  .b-ok{ background:rgba(34,197,94,.14); color:#86efac; border:1px solid rgba(34,197,94,.3); }
+  .b-red{ background:rgba(239,68,68,.14); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+
+  /* ---------- footer ---------- */
+  .ft{ margin-top:18px; display:grid; grid-template-columns:1fr 300px; gap:18px; align-items:start; }
+  .legend{ background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 14px; }
+  .legend h4{ font-size:10.5px; letter-spacing:.13em; color:var(--txt2); margin-bottom:9px; font-weight:700; }
+  .lg{ display:flex; flex-direction:column; gap:6px; }
+  .lg div{ font-size:10px; color:var(--txt3); display:flex; align-items:center; gap:7px; }
+  .sw{ width:22px; height:3px; border-radius:2px; flex:none; }
+  .note{ background:rgba(34,197,94,.05); border:1px solid rgba(34,197,94,.22);
+         border-radius:11px; padding:12px 14px; }
+  .note h4{ font-size:10.5px; letter-spacing:.1em; color:#86efac; margin-bottom:7px; font-weight:700; }
+  .note p{ font-size:10.5px; color:var(--txt2); line-height:1.55; }
+  .note b{ color:var(--txt); }
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <h1>SISTEMA DE GESTÃO DE SEGURANÇA — SGS</h1>
+  <div class="sub">ARQUITETURA E FLUXO OPERACIONAL</div>
+  <div class="meta">SaaS multi-tenant de SST &nbsp;·&nbsp; <b>54 módulos</b> &nbsp;·&nbsp; NestJS 11 + Next.js 16 + PostgreSQL/RLS &nbsp;·&nbsp; Diagrama conferido contra o código-fonte</div>
+</div>
+
+<div class="grid">
+
+  <!-- ============ ESQUERDA ============ -->
+  <div class="col">
+
+    <div class="c">
+      <h3><span class="n">1</span>ACESSO</h3>
+      <ul>
+        <li><b>Web</b> — Next.js 16 / Vercel</li>
+        <li><b>Mobile</b> — responsivo, campo</li>
+        <li><b>PWA</b> — offline-first, service worker</li>
+        <li><b>Público</b> — QR, sem login</li>
+      </ul>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">2</span>AUTENTICAÇÃO</h3>
+      <ul>
+        <li><b>CPF + senha</b> — Argon2id</li>
+        <li><b>MFA/TOTP</b> <span class="badge b-warn">OBRIGATÓRIO</span><br>para ADMIN em produção</li>
+        <li><b>JWT</b> 15min + refresh 30d httpOnly</li>
+        <li>Anti-brute force por IP e conta</li>
+        <li>Pwned Password + Turnstile</li>
+      </ul>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">3</span>AUTORIZAÇÃO</h3>
+      <ul>
+        <li><b>RBAC</b> — permissões granulares</li>
+        <li>Perfis e templates de papel</li>
+        <li>Escopo por obra/site</li>
+        <li>Cache de permissões (Redis)</li>
+      </ul>
+    </div>
+
+    <div class="c" style="border-color:#2563eb;">
+      <h3><span class="n">4</span>ISOLAMENTO MULTI-TENANT</h3>
+      <ul>
+        <li><b>Camada 1</b> — app filtra por empresa</li>
+        <li><b>Camada 2</b> — <b>RLS no PostgreSQL</b></li>
+        <li>Header <code style="color:#93c5fd">x-company-id</code> + AsyncLocalStorage</li>
+        <li><code style="color:#93c5fd">SET LOCAL app.current_company_id</code></li>
+      </ul>
+      <div class="hint"><b style="color:#fca5a5">Fail-closed:</b> sem contexto de empresa a consulta retorna <b>zero</b> linhas — nunca “todas”. Falha na aplicação não vaza dados: o banco barra.</div>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">5</span>CADASTRO BASE</h3>
+      <ul>
+        <li>Empresas (tenants) e Obras/Sites</li>
+        <li>Colaboradores · Perfis · Funções</li>
+        <li>Máquinas · Ferramentas · EPIs</li>
+        <li>Contratos · Políticas do tenant</li>
+      </ul>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">16</span>DADOS E STORAGE</h3>
+      <ul>
+        <li><b>Neon PostgreSQL</b> — RLS, TypeORM<br>particionamento por data</li>
+        <li><b>Redis (Upstash)</b> — 3 conexões:<br>auth · cache · queue</li>
+        <li><b>Backblaze B2</b> — PDFs, anexos, vídeos</li>
+        <li>Réplica de leitura</li>
+      </ul>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">18</span>CONTINUIDADE</h3>
+      <ul>
+        <li>Backup DR diário por tenant</li>
+        <li>Storage DR secundário</li>
+        <li>Restore + scanner de integridade</li>
+        <li>Heartbeat do worker</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ============ CENTRO ============ -->
+  <div class="col">
+
+    <div class="mods">
+      <h3>6 · MÓDULOS DE SST — DOCUMENTOS GOVERNADOS</h3>
+      <div class="mgrid">
+
+        <div class="m t-amber">
+          <h4>APR</h4>
+          <div class="d">Análise Preliminar de Risco</div>
+          <ul>
+            <li>Matriz P × S (5×5)</li>
+            <li>Aprovação multinível</li>
+            <li>Evidências fotográficas</li>
+            <li>Versionamento</li>
+          </ul>
+        </div>
+
+        <div class="m t-red">
+          <h4>PT</h4>
+          <div class="d">Permissão de Trabalho</div>
+          <ul>
+            <li>NR-33 espaço confinado</li>
+            <li>NR-35 altura</li>
+            <li>Medições atmosféricas</li>
+            <li>Vigia · plano de resgate</li>
+          </ul>
+        </div>
+
+        <div class="m t-green">
+          <h4>DDS</h4>
+          <div class="d">Diálogo Diário de Segurança</div>
+          <ul>
+            <li>Temas e palestras</li>
+            <li>Assinatura por convite</li>
+            <li>Foto de equipe</li>
+          </ul>
+        </div>
+
+        <div class="m t-cyan">
+          <h4>RDO</h4>
+          <div class="d">Registro Diário de Obra</div>
+          <ul>
+            <li>Serviços executados</li>
+            <li>Efetivo e clima</li>
+            <li>Fotos por atividade</li>
+          </ul>
+        </div>
+
+        <div class="m t-violet">
+          <h4>ARR / DID</h4>
+          <div class="d">Risco de rotina · Identificação</div>
+          <ul>
+            <li>Análise de rotina</li>
+            <li>Alinhamento inicial</li>
+          </ul>
+        </div>
+
+        <div class="m t-orange">
+          <h4>CAT / NC</h4>
+          <div class="d">Acidente · Não Conformidade</div>
+          <ul>
+            <li>Comunicação de acidente</li>
+            <li>Investigação e causa</li>
+            <li>Ações corretivas</li>
+          </ul>
+        </div>
+
+        <div class="m t-blue">
+          <h4>CHECKLISTS</h4>
+          <div class="d">Inspeções e auditorias</div>
+          <ul>
+            <li>Modelos por categoria</li>
+            <li>Execução em campo</li>
+            <li>Auditorias + plano de ação</li>
+          </ul>
+        </div>
+
+        <div class="m t-teal">
+          <h4>PESSOAS</h4>
+          <div class="d">Saúde e capacitação</div>
+          <ul>
+            <li>Treinamentos + validade</li>
+            <li>Exames (ASO/PCMSO)</li>
+            <li>Entrega de EPI + CA</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="core">
+      <h3><span class="n">7</span>PIPELINE DE GOVERNANÇA DOCUMENTAL — o coração do produto</h3>
+      <div class="pipe">
+        <div class="step"><div class="t">Rascunho</div><div class="s">editável</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">Aprovação</div><div class="s">sequencial<br>por papel</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">Assinatura</div><div class="s">PIN · desenho<br>upload · aceite</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">PDF final</div><div class="s">Puppeteer<br>(worker)</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">ClamAV</div><div class="s">fail-closed</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">Registry</div><div class="s">código +<br>hash SHA-256</div></div>
+        <div class="arw">›</div>
+        <div class="step lock"><div class="t">🔒 Travado</div><div class="s">delete e edição<br>recusados</div></div>
+        <div class="arw">›</div>
+        <div class="step"><div class="t">QR público</div><div class="s">validável<br>sem login</div></div>
+      </div>
+      <div class="hint">
+        <b style="color:#fde047">Trava técnica, não convenção:</b> após o PDF final, a exclusão é recusada pelo sistema — não depende de disciplina do usuário nem de perfil. Correção exige nova versão; a anterior permanece registrada.
+        &nbsp;·&nbsp; <b style="color:#86efac">Soft delete sempre</b> (<code>deleted_at</code>), nunca hard delete.
+      </div>
+    </div>
+
+    <div class="r4">
+      <div class="c">
+        <h3><span class="n">8</span>PROVA DE ASSINATURA</h3>
+        <ul>
+          <li><b>PIN (hmac)</b> <span class="badge b-ok">VERIFICADO</span><br>PBKDF2/HMAC-SHA256 no servidor</li>
+          <li><b>Desenhada</b> — imagem</li>
+          <li><b>Upload</b> — imagem</li>
+          <li><b>Aceite</b> — registro de ato</li>
+        </ul>
+        <div class="hint"><b style="color:#fca5a5">Não é ICP-Brasil.</b> O sistema declara <code>not_legal_strong</code>. O rótulo impresso no PDF corresponde à prova real coletada — rótulos legados enganosos foram removidos.</div>
+      </div>
+
+      <div class="c">
+        <h3><span class="n">9</span>TRILHA E AUDITORIA</h3>
+        <ul>
+          <li><b>Trilha forense</b> — emissão, assinatura, cancelamento, expiração</li>
+          <li>Acesso a <b>vídeo</b> registrado</li>
+          <li><b>Audit log</b> particionado</li>
+          <li>Dossiê do trabalhador</li>
+        </ul>
+      </div>
+
+      <div class="c">
+        <h3><span class="n">10</span>SOPHIE — IA</h3>
+        <ul>
+          <li>Assistente SST + visão</li>
+          <li>Consulta APR/PT/riscos</li>
+          <li><b>Consentimento LGPD</b> versionado</li>
+          <li>Sanitização de PII</li>
+        </ul>
+        <div class="hint">Sem consentimento ativo, o acesso é <b>bloqueado</b> (fail-closed).</div>
+      </div>
+
+      <div class="c">
+        <h3><span class="n">11</span>DASHBOARD</h3>
+        <ul>
+          <li>KPIs e score SST</li>
+          <li>Fila de pendências</li>
+          <li>Mapa de risco</li>
+          <li>Cache Redis + snapshots</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">12</span>PROCESSAMENTO ASSÍNCRONO — 13 filas BullMQ · worker em processo separado (2ª VPS)</h3>
+      <div class="r5" style="gap:10px;">
+        <ul><li><b>mail</b> + DLQ</li><li><b>pdf-generation</b> + DLQ</li></ul>
+        <ul><li><b>document-import</b> + DLQ</li><li><b>document-retention</b></li></ul>
+        <ul><li><b>expiry-notifications</b></li><li><b>sla-escalation</b></li></ul>
+        <ul><li><b>tenant-backup</b></li><li><b>dashboard-revalidate</b></li></ul>
+        <ul><li><b>business-metrics-refresh</b></li><li><b>ai-recovery</b></li></ul>
+      </div>
+      <div class="hint">As 3 <b>DLQ</b> (dead-letter) recebem o que estourou retry — é onde olhar quando “o e-mail não chegou” ou “o PDF não gerou”. Bull Board em <code>/admin/queues</code>.</div>
+    </div>
+
+    <div class="r4">
+      <div class="c">
+        <h3><span class="n">19</span>RELATÓRIOS</h3>
+        <ul>
+          <li>Relatórios PDF (Puppeteer)</li>
+          <li>Relatório fotográfico</li>
+          <li>Bundle semanal por módulo</li>
+          <li>Exportação Excel</li>
+        </ul>
+      </div>
+      <div class="c">
+        <h3><span class="n">20</span>DOSSIÊS</h3>
+        <ul>
+          <li>Dossiê do trabalhador</li>
+          <li>Linha do tempo operacional</li>
+          <li>Status de conformidade</li>
+          <li>Código público de acesso</li>
+        </ul>
+      </div>
+      <div class="c">
+        <h3><span class="n">21</span>OPERAÇÃO</h3>
+        <ul>
+          <li>Atividades · Ordens de serviço</li>
+          <li>Riscos · Mapa de risco</li>
+          <li>Despesas e adiantamentos</li>
+          <li>Calendário <b>interno</b> · Tarefas</li>
+        </ul>
+      </div>
+      <div class="c">
+        <h3><span class="n">22</span>ENTRADA DE DADOS</h3>
+        <ul>
+          <li>Importação de documentos</li>
+          <li>Parser Word/Excel</li>
+          <li>Anexos de vídeo governados</li>
+          <li>Notificações + push</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ DIREITA ============ -->
+  <div class="col">
+
+    <div class="c" style="border-color:#22c55e;">
+      <h3><span class="n">13</span>VALIDAÇÃO PÚBLICA POR QR</h3>
+      <ul>
+        <li>Fiscal aponta a câmera no PDF</li>
+        <li>Token <b>HMAC assinado</b> na URL</li>
+        <li>Confere contra o registry</li>
+        <li>Retorna: autenticidade, emissor, data e <b>hash</b></li>
+      </ul>
+      <div class="hint"><b style="color:#86efac">Diferencial do produto:</b> qualquer pessoa valida um documento <b>sem login e sem conta</b>. Payload mínimo por design (LGPD) — confirma sem expor conteúdo.</div>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">14</span>LGPD</h3>
+      <ul>
+        <li><b>CPF e dados médicos</b> cifrados<br>AES-256-GCM · busca por hash</li>
+        <li>Consentimento event-sourced</li>
+        <li><b>Direito de exclusão</b> (Art. 18)</li>
+        <li>Retenção automatizada</li>
+        <li>Registro de subprocessadores</li>
+      </ul>
+      <div class="hint"><b style="color:#fde047">Tensão resolvida:</b> exclusão LGPD × obrigação de guardar documento de SST → o titular é <b>anonimizado</b>, o documento permanece.</div>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">15</span>SEGURANÇA</h3>
+      <ul>
+        <li><b>ClamAV</b> em todo upload <span class="badge b-red">FAIL-CLOSED</span></li>
+        <li>Rate limit distribuído (Redis)</li>
+        <li>CSRF · Helmet · CSP · HSTS</li>
+        <li>Admin com IP allowlist</li>
+        <li>Idempotency-key</li>
+      </ul>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">17</span>INTEGRAÇÕES REAIS</h3>
+      <ul>
+        <li><b>OpenAI / NVIDIA</b> — Sophie</li>
+        <li><b>Resend / SMTP</b> — e-mail</li>
+        <li><b>ClamAV</b> — antivírus</li>
+        <li><b>Sentry · OpenTelemetry</b></li>
+        <li><b>Cloudflare Turnstile</b></li>
+      </ul>
+      <div class="hint"><b style="color:#fca5a5">Não existem hoje:</b> eSocial, Power BI e assinatura ICP-Brasil. O calendário é <b>interno</b> (agrega eventos do próprio banco), sem API do Google.</div>
+    </div>
+
+    <div class="c">
+      <h3><span class="n">23</span>OBSERVABILIDADE</h3>
+      <ul>
+        <li>Winston · OpenTelemetry</li>
+        <li>Sentry · New Relic</li>
+        <li>Health checks e SLO</li>
+        <li>Auditoria de segurança</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<div class="ft">
+  <div class="note">
+    <h4>POR QUE ESTE DIAGRAMA É CONFIÁVEL</h4>
+    <p>Cada afirmação foi conferida <b>contra o código-fonte</b>, não contra material anterior. O diagrama antigo listava <b>eSocial</b>, <b>Power BI</b> e <b>“Assinatura Digital”</b> — nenhum existe no sistema — e omitia PT, RDO, CAT, NC, Sophie, o isolamento por RLS e a validação por QR. Aqui, integração declarada é integração que roda: <b>o que não existe está explicitamente marcado como inexistente</b> (bloco 17). Um fluxograma que promete o que o produto não entrega vira passivo em auditoria e em venda.</p>
+  </div>
+  <div class="legend">
+    <h4>LEGENDA</h4>
+    <div class="lg">
+      <div><span class="badge b-ok">VERIFICADO</span> prova checada pelo servidor</div>
+      <div><span class="badge b-warn">OBRIGATÓRIO</span> imposto em produção</div>
+      <div><span class="badge b-red">FAIL-CLOSED</span> na dúvida, bloqueia</div>
+      <div style="margin-top:4px;"><span class="sw" style="background:var(--amber)"></span> documento governado</div>
+      <div><span class="sw" style="background:var(--blue)"></span> plataforma / infraestrutura</div>
+      <div><span class="sw" style="background:var(--green)"></span> conformidade e validação</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

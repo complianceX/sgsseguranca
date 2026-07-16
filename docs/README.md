@@ -1,9 +1,27 @@
 # Compliance X Docs
 
+## Comece por aqui
+
+| Você é… | Leia |
+|---|---|
+| **Dev novo no projeto** | [consulta-rapida/visao-geral.md](./consulta-rapida/visao-geral.md) → [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md) → [consulta-rapida/onde-alterar-o-que.md](./consulta-rapida/onde-alterar-o-que.md) |
+| **Cliente, auditor ou certificadora** | [SGS-GOVERNANCA-DOCUMENTAL.md](./SGS-GOVERNANCA-DOCUMENTAL.md) — o que o sistema garante, e o que não garante |
+| **Quem vai colocar em produção** | [deploy/COMO-COLOCAR-EM-PRODUCAO.md](./deploy/COMO-COLOCAR-EM-PRODUCAO.md) — passo a passo e armadilhas |
+| **Quem está com um incidente** | [consulta-rapida/troubleshooting.md](./consulta-rapida/troubleshooting.md) · [../backend/docs/INCIDENT_PLAYBOOK.md](../backend/docs/INCIDENT_PLAYBOOK.md) |
+
 ## Architecture Baseline
+- [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md) — **painel visual do sistema** ([PNG](./assets/architecture/sgs-fluxograma-sistema.png) · [PDF](./assets/architecture/sgs-fluxograma-sistema.pdf)) + 5 fluxogramas Mermaid: topologia, ciclo do documento, request/tenant, filas, validação por QR
+- [architecture/SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md](./architecture/SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md) — visão executiva da arquitetura
 - [architecture/README.md](./architecture/README.md)
-- [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md)
 - [architecture/AUDIT-2026-03-remediation-roadmap.md](./architecture/AUDIT-2026-03-remediation-roadmap.md)
+
+## Governança e conformidade
+- [SGS-GOVERNANCA-DOCUMENTAL.md](./SGS-GOVERNANCA-DOCUMENTAL.md) — autenticidade, prova de assinatura, LGPD, isolamento (linguagem de processo, para auditoria)
+- [state-machines.md](./state-machines.md) — estados e transições de cada entidade
+
+## Deploy
+- [deploy/COMO-COLOCAR-EM-PRODUCAO.md](./deploy/COMO-COLOCAR-EM-PRODUCAO.md) — **nada sobe sozinho neste projeto**; checklist real
+- [deploy/coolify-vultr-backend-web-worker.md](./deploy/coolify-vultr-backend-web-worker.md) — configuração da infra (histórico da migração)
 
 ## Consulta Rapida
 - [consulta-rapida/README.md](./consulta-rapida/README.md)

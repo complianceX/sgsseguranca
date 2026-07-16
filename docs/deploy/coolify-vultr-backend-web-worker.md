@@ -1,6 +1,10 @@
 # Deploy SGS Backend no Vultr + Coolify (documento histórico)
 
 > *Nota: Infraestrutura atualizada. A migração foi concluída — Render foi desligado. Este documento documenta o processo de migração para referência futura.*
+>
+> **Para colocar uma versão em produção hoje** (frontend + backend + worker + migrations, com as
+> armadilhas conhecidas), use **[COMO-COLOCAR-EM-PRODUCAO.md](./COMO-COLOCAR-EM-PRODUCAO.md)**.
+> Este arquivo aqui cobre a configuração da infra (env vars, recursos, domínios).
 
 Este runbook cobre os dois serviços que foram migrados do Render:
 
