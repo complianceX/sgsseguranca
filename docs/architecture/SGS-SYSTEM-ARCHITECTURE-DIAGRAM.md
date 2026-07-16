@@ -52,8 +52,8 @@ flowchart LR
 
     subgraph EXTINT[Integracoes externas]
         OPENAI[OpenAI<br/>Sophie]
-        GCAL[Google Calendar API]
-        MAIL[Provedor de email]
+        MAIL[Resend / SMTP]
+        AV[ClamAV<br/>antivirus de upload]
         SENTRY[Sentry / Observabilidade]
     end
 
@@ -90,8 +90,8 @@ flowchart LR
     WORKER --> REDIS
 
     MODULES --> OPENAI
-    MODULES --> GCAL
-    MODULES --> MAIL
+    MODULES --> AV
+    JOBS --> MAIL
     API --> SENTRY
     WORKER --> SENTRY
     FE --> SENTRY
@@ -112,6 +112,12 @@ flowchart LR
 - `Redis`: cache, coordenacao operacional, throttling e filas BullMQ.
 - `Backblaze B2`: storage S3 compativel governado dos artefatos oficiais.
 - `OpenAI / Sophie`: sempre atras de consentimento e sanitizacao de PII.
+- `ClamAV`: varredura de todo upload, fail-closed (indisponivel = anexo recusado).
+
+> **Google Calendar nao e integracao ativa.** O modulo `calendar` e interno: agrega eventos
+> das proprias entidades (treinamentos, exames, DDS, RDO, CAT, ordens de servico) do proprio
+> banco, sem chamar API do Google. O registro em `subprocessors.registry.ts` esta como
+> `configured_if_enabled` — e uma possibilidade declarada para LGPD, nao um fluxo em uso.
 
 ## Notas arquiteturais criticas
 
