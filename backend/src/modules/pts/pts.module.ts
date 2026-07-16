@@ -21,7 +21,7 @@ import { PTS_DOMAIN_METRICS, PtsService } from './pts.service';
     CommonModule,
     forwardRef(() => AuthModule),
     AuditModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     DocumentRegistryModule,
     SignaturesModule,
     ForensicTrailModule,

@@ -25,7 +25,7 @@ import { AiConsentGuard } from '../../shared/guards/ai-consent.guard';
     SignaturesModule,
     NotificationsModule,
     CommonModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     SitesModule,
     DocumentRegistryModule,
     FileParserModule,
