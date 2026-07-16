@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-type SummaryMetricTone = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'danger';
+export type MetricTone =
+  | 'neutral'
+  | 'primary'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger';
 
 const toneMap: Record<
-  SummaryMetricTone,
+  MetricTone,
   { container: string; dot: string; label: string; value: string; note: string }
 > = {
   neutral: {
@@ -57,19 +63,54 @@ const toneMap: Record<
   },
 };
 
-export function SummaryMetricCard({
+/** Tones com classe CSS dedicada em .ds-metric-item (variant="strip"). */
+const STRIP_TONES = new Set<MetricTone>(['primary', 'success', 'warning', 'danger']);
+
+export interface MetricCardProps {
+  label: string;
+  value: ReactNode;
+  note?: ReactNode;
+  tone?: MetricTone;
+  className?: string;
+  /**
+   * 'card' (padrão) — visual rico do design system, use em código novo.
+   * 'strip' — modo de compatibilidade que emite as classes CSS legadas
+   * `.ds-metric-item*`, usado internamente pelo ListPageLayout. Não usar
+   * em código novo.
+   */
+  variant?: 'card' | 'strip';
+}
+
+/**
+ * Card compacto de métrica/resumo do design system — label + valor + nota
+ * opcional, com indicador de cor por tone semântico.
+ */
+export function MetricCard({
   label,
   value,
   note,
   tone = 'neutral',
   className,
-}: {
-  label: string;
-  value: ReactNode;
-  note?: ReactNode;
-  tone?: SummaryMetricTone;
-  className?: string;
-}) {
+  variant = 'card',
+}: MetricCardProps) {
+  if (variant === 'strip') {
+    return (
+      <article
+        className={cn(
+          'ds-metric-item',
+          STRIP_TONES.has(tone) ? `ds-metric-item--${tone}` : null,
+          className,
+        )}
+      >
+        <p className="ds-metric-item__label">{label}</p>
+        <div className="ds-metric-item__value" aria-label={`${label}: ${value}`}>
+          {value}
+        </div>
+        {note ? <p className="ds-metric-item__note">{note}</p> : null}
+      </article>
+    );
+  }
+
   const styles = toneMap[tone];
 
   return (

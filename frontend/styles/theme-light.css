@@ -106,7 +106,7 @@
   );
   --ds-color-success-fg: color-mix(in srgb, var(--ds-color-success) 90%, black 10%);
 
-  --ds-color-warning: #a96a00;
+  --ds-color-warning: #a16500;
   --ds-color-warning-hover: color-mix(in srgb, var(--ds-color-warning) 90%, black 10%);
   --ds-color-warning-subtle: color-mix(in srgb, var(--ds-color-warning) 10%, white 90%);
   --ds-color-warning-border: color-mix(
