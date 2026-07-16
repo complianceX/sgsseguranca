@@ -392,6 +392,7 @@ export default function ServiceOrdersPage() {
             label: 'Canceladas',
             value: summary.cancelado,
             note: 'Ordens encerradas sem execucao.',
+            tone: 'danger',
           },
             ]
         }

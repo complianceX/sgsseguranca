@@ -11,6 +11,12 @@ export interface MetricItem {
   label: string;
   value: ReactNode;
   note?: ReactNode;
+  /**
+   * Escolha o tone pelo significado da métrica, não por estética:
+   * `danger` (vencido/crítico), `warning` (pendente/vencendo),
+   * `success` (concluído/conforme), `primary` (destaque do recorte atual),
+   * `neutral` (contagem sem conotação).
+   */
   tone?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
 }
 

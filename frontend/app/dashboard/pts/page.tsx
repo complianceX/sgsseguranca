@@ -266,7 +266,7 @@ export default function PtsPage() {
                   label: 'Expiradas',
                   value: metrics.expiradas,
                   note: 'Validade operacional vencida.',
-                  tone: 'warning',
+                  tone: 'danger',
                 },
               ]
         }

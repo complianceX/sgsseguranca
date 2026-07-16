@@ -374,7 +374,7 @@ export default function DocumentPendenciesPage() {
         label: "Médias",
         value: data?.summary.byCriticality.medium ?? 0,
         note: "Precisam de acompanhamento antes do fechamento.",
-        tone: "primary" as const,
+        tone: "neutral" as const,
       },
     ];
   }, [data]);
