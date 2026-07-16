@@ -10,7 +10,7 @@
 | **Quem está com um incidente** | [consulta-rapida/troubleshooting.md](./consulta-rapida/troubleshooting.md) · [../backend/docs/INCIDENT_PLAYBOOK.md](../backend/docs/INCIDENT_PLAYBOOK.md) |
 
 ## Architecture Baseline
-- [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md) — 5 fluxogramas Mermaid: topologia, ciclo do documento, request/tenant, filas, validação por QR
+- [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md) — **painel visual do sistema** ([PNG](./assets/architecture/sgs-fluxograma-sistema.png) · [PDF](./assets/architecture/sgs-fluxograma-sistema.pdf)) + 5 fluxogramas Mermaid: topologia, ciclo do documento, request/tenant, filas, validação por QR
 - [architecture/SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md](./architecture/SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md) — visão executiva da arquitetura
 - [architecture/README.md](./architecture/README.md)
 - [architecture/AUDIT-2026-03-remediation-roadmap.md](./architecture/AUDIT-2026-03-remediation-roadmap.md)

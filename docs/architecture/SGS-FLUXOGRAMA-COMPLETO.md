@@ -1,5 +1,31 @@
 # SGS — Fluxograma Completo do Sistema
 
+## Visão geral em uma imagem
+
+Painel único com os 54 módulos, o pipeline de governança e os controles — para
+apresentação, auditoria e onboarding.
+
+![Fluxograma do sistema SGS](../assets/architecture/sgs-fluxograma-sistema.png)
+
+[PNG 4000×3184](../assets/architecture/sgs-fluxograma-sistema.png) ·
+[PDF vetorial](../assets/architecture/sgs-fluxograma-sistema.pdf) ·
+[fonte HTML](../assets/architecture/src/sgs-fluxograma-sistema.html)
+
+```bash
+# regerar após editar o HTML (roda da raiz do repositório)
+node docs/assets/architecture/src/render.js \
+  docs/assets/architecture/src/sgs-fluxograma-sistema.html \
+  docs/assets/architecture/sgs-fluxograma-sistema.png 2
+
+node docs/assets/architecture/src/render.js \
+  docs/assets/architecture/src/sgs-fluxograma-sistema.html \
+  docs/assets/architecture/sgs-fluxograma-sistema.pdf
+```
+
+---
+
+## Diagramas por recorte
+
 Fluxogramas do SGS em Mermaid (versionados, renderizam direto no GitHub).
 Cada diagrama cobre um recorte; comece pelo macro e desça conforme a dúvida.
 
