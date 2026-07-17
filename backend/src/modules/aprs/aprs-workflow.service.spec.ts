@@ -817,6 +817,127 @@ describe('AprWorkflowService', () => {
       expect(result.status).toBe(AprStatus.APROVADA);
     });
 
+    it('ADMIN via fallback roleNames (token sem profile.nome) é privilegiado', async () => {
+      const steps = [makeStep({ status: AprApprovalStepStatus.PENDING })];
+
+      jest
+        .spyOn(service, 'executeAprWorkflowTransition')
+        .mockImplementation(async (_id, fn) =>
+          fn(
+            makeApr() as never,
+            {
+              query: jest
+                .fn()
+                .mockResolvedValueOnce([{ count: '1' }])
+                .mockResolvedValueOnce([
+                  {
+                    count: '1',
+                    sem_atividade: '0',
+                    sem_agente: '0',
+                    sem_medidas: '0',
+                    sem_responsavel: '0',
+                  },
+                ]),
+              getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'AprApprovalStep') {
+                  return {
+                    find: jest
+                      .fn()
+                      .mockResolvedValueOnce(steps)
+                      .mockResolvedValueOnce([
+                        { ...steps[0], status: AprApprovalStepStatus.APPROVED },
+                      ]),
+                    save: jest.fn((i: unknown) => Promise.resolve(i)),
+                    create: jest.fn((i: unknown) => i),
+                  };
+                }
+                return {
+                  save: jest.fn((apr: unknown) =>
+                    Promise.resolve({
+                      ...(apr as object),
+                      status: AprStatus.APROVADA,
+                      aprovado_por_id: 'admin-2',
+                    }),
+                  ),
+                  create: jest.fn((i: unknown) => i),
+                };
+              }),
+            } as never,
+          ),
+        );
+
+      // Sem roleName, apenas o array roles do RBAC — antes do fix isso barrava
+      // o admin na verificação de etapa. Agora deve aprovar normalmente.
+      const result = await service.approve('apr-1', 'admin-2', 'ok', {
+        roleNames: ['Administrador da Empresa'],
+      });
+
+      expect(result.status).toBe(AprStatus.APROVADA);
+    });
+
+    it('ator não-privilegiado casa o papel da etapa via fallback roleNames', async () => {
+      const steps = [
+        makeStep({
+          id: 'step-1',
+          level_order: 1,
+          status: AprApprovalStepStatus.PENDING,
+          approver_role: 'Técnico de Segurança do Trabalho (TST)',
+        }),
+      ];
+
+      jest
+        .spyOn(service, 'executeAprWorkflowTransition')
+        .mockImplementation(async (_id, fn) =>
+          fn(
+            makeApr() as never,
+            {
+              query: jest
+                .fn()
+                .mockResolvedValueOnce([{ count: '1' }])
+                .mockResolvedValueOnce([
+                  {
+                    count: '1',
+                    sem_atividade: '0',
+                    sem_agente: '0',
+                    sem_medidas: '0',
+                    sem_responsavel: '0',
+                  },
+                ]),
+              getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'AprApprovalStep') {
+                  return {
+                    find: jest
+                      .fn()
+                      .mockResolvedValueOnce(steps)
+                      .mockResolvedValueOnce([
+                        { ...steps[0], status: AprApprovalStepStatus.APPROVED },
+                      ]),
+                    save: jest.fn((i: unknown) => Promise.resolve(i)),
+                    create: jest.fn((i: unknown) => i),
+                  };
+                }
+                return {
+                  save: jest.fn((apr: unknown) =>
+                    Promise.resolve({
+                      ...(apr as object),
+                      status: AprStatus.APROVADA,
+                      aprovado_por_id: 'user-tst',
+                    }),
+                  ),
+                  create: jest.fn((i: unknown) => i),
+                };
+              }),
+            } as never,
+          ),
+        );
+
+      const result = await service.approve('apr-1', 'user-tst', 'ok', {
+        roleNames: ['Técnico de Segurança do Trabalho (TST)'],
+      });
+
+      expect(result.status).toBe(AprStatus.APROVADA);
+    });
+
     it('cria etapas padrão quando APR não tem etapas configuradas', async () => {
       const createdSteps: unknown[] = [];
 
@@ -1163,7 +1284,7 @@ describe('AprWorkflowService', () => {
         service.processApproval(
           apr as never,
           'user-1',
-          null,
+          [],
           ApprovalRecordAction.APROVADO,
         ),
       ).rejects.toThrow('não possui workflow configurável');
@@ -1176,7 +1297,7 @@ describe('AprWorkflowService', () => {
         service.processApproval(
           apr as never,
           'user-1',
-          null,
+          [],
           ApprovalRecordAction.REPROVADO,
           '',
         ),
@@ -1319,7 +1440,7 @@ describe('AprWorkflowService', () => {
       await svc.processApproval(
         apr as never,
         'user-1',
-        'Técnico de Segurança do Trabalho (TST)',
+        ['Técnico de Segurança do Trabalho (TST)'],
         ApprovalRecordAction.REPROVADO,
         'Motivo de reprovação suficientemente longo',
       );
@@ -1346,7 +1467,7 @@ describe('AprWorkflowService', () => {
       await svc.processApproval(
         apr as never,
         'user-1',
-        'Técnico de Segurança do Trabalho (TST)',
+        ['Técnico de Segurança do Trabalho (TST)'],
         ApprovalRecordAction.REABERTO,
         'Motivo de reabertura suficientemente longo',
       );
@@ -1366,7 +1487,7 @@ describe('AprWorkflowService', () => {
       await svc.processApproval(
         apr as never,
         'user-1',
-        'Técnico de Segurança do Trabalho (TST)',
+        ['Técnico de Segurança do Trabalho (TST)'],
         ApprovalRecordAction.APROVADO,
       );
 
@@ -1392,7 +1513,7 @@ describe('AprWorkflowService', () => {
       await svc.processApproval(
         apr as never,
         'user-1',
-        null,
+        [],
         ApprovalRecordAction.REPROVADO,
         'Motivo de reprovação suficientemente longo',
       );
