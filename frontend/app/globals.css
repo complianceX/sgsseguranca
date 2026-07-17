@@ -1827,13 +1827,6 @@ body {
     color: var(--ds-kpi-red-fg);
   }
 
-  .ds-kpi-card--teal {
-    --ds-kpi-accent: var(--ds-color-info);
-    background: var(--ds-kpi-teal-bg);
-    border-color: var(--ds-kpi-teal-border);
-    color: var(--ds-kpi-teal-fg);
-  }
-
   .ds-kpi-card--neutral {
     --ds-kpi-accent: var(--component-card-border-strong);
     background: var(--component-card-bg-elevated);
