@@ -18,6 +18,7 @@ import type { PwnedPasswordService } from '../auth/services/pwned-password.servi
 import type { AuditService } from '../audit-trail/audit.service';
 import type { RbacService } from '../rbac/rbac.service';
 import type { AuthRedisService } from '../../shared/redis/redis.service';
+import type { ConfigService } from '@nestjs/config';
 import { UserIdentityType } from './constants/user-identity.constant';
 
 const COMPANY_ID = 'company-uuid-1';
@@ -105,6 +106,7 @@ function buildService(opts: {
     auditService as AuditService,
     rbacService as RbacService,
     redisService,
+    { get: jest.fn() } as unknown as ConfigService,
   );
 
   return { service, userRepo, profilesRepo };

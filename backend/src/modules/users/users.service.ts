@@ -9,6 +9,7 @@
 } from '@nestjs/common';
 import { randomBytes, pbkdf2Sync, createHmac, randomUUID } from 'crypto';
 import { Inject, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -37,6 +38,7 @@ import { Site } from '../sites/entities/site.entity';
 import { Role } from '../auth/enums/roles.enum';
 import { RbacService, type RoleScope } from '../rbac/rbac.service';
 import { AuthRedisService } from '../../shared/redis/redis.service';
+import { resolvePasswordResetBaseUrl } from '../../shared/utils/password-reset-url.util';
 import { escapeLikePattern } from '../../shared/utils/sql.util';
 import { normalizeOptionalSearchQuery } from '../../shared/utils/query-normalization.util';
 import {
@@ -127,6 +129,7 @@ export class UsersService {
     private auditService: AuditService,
     private rbacService: RbacService,
     private redisService: AuthRedisService,
+    private configService: ConfigService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService?: MailService,
   ) {}
@@ -676,9 +679,6 @@ export class UsersService {
     ) {
       try {
         const subject = 'Bem-vindo ao SGS — suas credenciais de acesso';
-        const frontendBase = (
-          process.env.FRONTEND_URL || 'http://localhost:3000'
-        ).replace(/\/$/, '');
 
         // Gera token de redefinição de senha e persiste no Redis para o link
         const LOCAL_RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
@@ -707,7 +707,9 @@ export class UsersService {
           });
         }
 
-        const resetHref = `${frontendBase}/auth/reset-password#token=${token}`;
+        // A página /auth/reset-password é servida pelo backend (API), não pelo
+        // frontend — token no hash fragment, nunca chega ao servidor em logs.
+        const resetHref = `${resolvePasswordResetBaseUrl(this.configService)}/auth/reset-password#token=${token}`;
 
         const escapeHtmlLocal = (s: string) =>
           String(s || '')
