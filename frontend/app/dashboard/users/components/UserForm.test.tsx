@@ -236,8 +236,10 @@ describe('UserForm', () => {
     await waitFor(() => {
       expect(usersService.create).toHaveBeenCalledTimes(1);
     });
-    const payload = jest.mocked(usersService.create).mock.calls[0][0];
-    expect(payload.password).toBeUndefined();
-    expect(payload.email).toBe('novo.usuario@example.com');
+    const payload = jest.mocked(usersService.create).mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(payload?.password).toBeUndefined();
+    expect(payload?.email).toBe('novo.usuario@example.com');
   });
 });
