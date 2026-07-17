@@ -525,6 +525,7 @@ export class AprsController {
         userId?: string;
         sub?: string;
         profile?: { nome?: string | null };
+        roles?: string[];
       };
     },
   ): Promise<AprResponseDto> {
@@ -532,6 +533,7 @@ export class AprsController {
     if (!userId) throw new UnauthorizedException('Usuário não identificado.');
     const apr = await this.aprsService.submit(id, userId, body.reason, {
       roleName: this.getRequestRoleName(req),
+      roleNames: this.getRequestRoleSignals(req),
       ipAddress: this.getRequestIp(req),
     });
     return toAprResponseDto(apr);
@@ -574,6 +576,7 @@ export class AprsController {
         userId?: string;
         sub?: string;
         profile?: { nome?: string | null };
+        roles?: string[];
       };
     },
   ) {
@@ -585,7 +588,7 @@ export class AprsController {
     await this.aprWorkflowService.processApproval(
       apr,
       userId,
-      this.getRequestRoleName(req) ?? null,
+      this.getRequestRoleSignals(req),
       ApprovalRecordAction.REABERTO,
       body.reason,
     );
@@ -924,6 +927,7 @@ export class AprsController {
     return toAprResponseDto(
       await this.aprsService.approve(id, userId, reason, {
         roleName: this.getRequestRoleName(req),
+        roleNames: this.getRequestRoleSignals(req),
         ipAddress: this.getRequestIp(req),
       }),
     );
@@ -948,6 +952,7 @@ export class AprsController {
     return toAprResponseDto(
       await this.aprsService.reject(id, userId, reason, {
         roleName: this.getRequestRoleName(req),
+        roleNames: this.getRequestRoleSignals(req),
         ipAddress: this.getRequestIp(req),
       }),
     );
@@ -969,6 +974,7 @@ export class AprsController {
     return toAprResponseDto(
       await this.aprsService.finalize(id, userId, {
         roleName: this.getRequestRoleName(req),
+        roleNames: this.getRequestRoleSignals(req),
         ipAddress: this.getRequestIp(req),
       }),
     );

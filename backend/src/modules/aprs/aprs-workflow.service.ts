@@ -40,7 +40,15 @@ const APR_ROW_LOCK_RETRY_DELAYS_MS = [50, 100, 200] as const;
 
 type AprLogAction = (typeof APR_LOG_ACTIONS)[keyof typeof APR_LOG_ACTIONS];
 type AprWorkflowActor = {
+  /** Sinal único de papel (ex.: `profile.nome` do token). */
   roleName?: string | null;
+  /**
+   * Todos os sinais de papel disponíveis — inclui o array `roles` que o
+   * RolesGuard popula via RBAC quando o token não carrega `profile.nome`.
+   * Sem isso, um ADMIN cujo token dependa desse fallback seria tratado como
+   * não privilegiado e barrado nas etapas de aprovação.
+   */
+  roleNames?: Array<string | null | undefined>;
   ipAddress?: string | null;
 };
 
@@ -155,7 +163,7 @@ export class AprWorkflowService {
 
         if (!actorContext.isPrivileged && currentPendingStep) {
           this.assertActorCanApproveCurrentStep(
-            actorContext.roleName,
+            actorContext.roleNames,
             currentPendingStep,
           );
 
@@ -251,7 +259,7 @@ export class AprWorkflowService {
 
         if (!actorContext.isPrivileged && currentPendingStep) {
           this.assertActorCanApproveCurrentStep(
-            actorContext.roleName,
+            actorContext.roleNames,
             currentPendingStep,
           );
         }
@@ -610,27 +618,43 @@ export class AprWorkflowService {
     return normalized === Role.ADMIN_GERAL || normalized === Role.ADMIN_EMPRESA;
   }
 
+  /**
+   * Normaliza e deduplica todos os sinais de papel de um ator (o `roleName`
+   * único e o array `roleNames` do fallback RBAC) em um conjunto canônico.
+   */
+  private normalizeActorRoles(actor?: AprWorkflowActor): Role[] {
+    const signals = [actor?.roleName, ...(actor?.roleNames ?? [])];
+    const normalized = new Set<Role>();
+    for (const signal of signals) {
+      const role = normalizeRoleName(signal);
+      if (role) {
+        normalized.add(role);
+      }
+    }
+    return [...normalized];
+  }
+
   private buildActorContext(actor?: AprWorkflowActor) {
+    const roleNames = this.normalizeActorRoles(actor);
     return {
-      roleName: actor?.roleName ?? null,
+      roleNames,
       ipAddress:
         typeof actor?.ipAddress === 'string' && actor.ipAddress.trim()
           ? actor.ipAddress
           : null,
-      isPrivileged: actor?.roleName
-        ? this.isPrivilegedApprovalRole(actor.roleName)
-        : false,
+      isPrivileged: roleNames.some((role) =>
+        this.isPrivilegedApprovalRole(role),
+      ),
     };
   }
 
   private assertActorCanApproveCurrentStep(
-    actorRoleName: string | null,
+    actorRoleNames: Role[],
     step: AprApprovalStep,
   ): void {
-    const actorRole = normalizeRoleName(actorRoleName);
     const expectedRole = normalizeRoleName(step.approver_role);
 
-    if (!actorRole || actorRole !== expectedRole) {
+    if (!expectedRole || !actorRoleNames.includes(expectedRole)) {
       throw new BadRequestException(
         `A próxima etapa de aprovação exige o perfil "${step.approver_role}".`,
       );
@@ -793,7 +817,7 @@ export class AprWorkflowService {
   async processApproval(
     apr: Apr,
     approverId: string,
-    approverRole: string | null,
+    approverRoles: Array<string | null | undefined>,
     action: ApprovalRecordAction,
     reason?: string,
   ): Promise<void> {
@@ -806,6 +830,10 @@ export class AprWorkflowService {
         'Motivo obrigatório para reprovar ou reabrir uma APR.',
       );
     }
+
+    // Conjunto canônico de papéis do ator (inclui o fallback RBAC `roles`).
+    const actorRoles = this.normalizeActorRoles({ roleNames: approverRoles });
+    const primaryRole = actorRoles[0] ?? 'unknown';
 
     if (!apr.workflowConfigId || !this.workflowResolver) {
       throw new BadRequestException(
@@ -840,12 +868,15 @@ export class AprWorkflowService {
         );
       }
 
-      const normalizedActor = normalizeRoleName(approverRole);
+      const isPrivileged = actorRoles.some((role) =>
+        this.isPrivilegedApprovalRole(role),
+      );
       const normalizedRequired = normalizeRoleName(currentStep.roleName);
       if (
-        normalizedActor &&
+        !isPrivileged &&
+        actorRoles.length > 0 &&
         normalizedRequired &&
-        normalizedActor !== normalizedRequired
+        !actorRoles.includes(normalizedRequired)
       ) {
         throw new ForbiddenException(
           `O passo atual exige o perfil "${currentStep.roleName}".`,
@@ -861,7 +892,7 @@ export class AprWorkflowService {
           approverId,
           action: ApprovalRecordAction.APROVADO,
           reason: reason ?? null,
-          metadata: { approverRole },
+          metadata: { approverRoles: actorRoles },
         }),
       );
 
@@ -889,11 +920,11 @@ export class AprWorkflowService {
           aprId: apr.id,
           workflowConfigId: apr.workflowConfigId,
           stepOrder: currentStep?.stepOrder ?? lastApproved?.stepOrder ?? 0,
-          roleName: approverRole ?? 'unknown',
+          roleName: primaryRole,
           approverId,
           action: ApprovalRecordAction.REPROVADO,
           reason: reason ?? null,
-          metadata: { approverRole },
+          metadata: { approverRoles: actorRoles },
         }),
       );
 
@@ -917,11 +948,14 @@ export class AprWorkflowService {
           aprId: apr.id,
           workflowConfigId: apr.workflowConfigId,
           stepOrder: lastApproved.stepOrder,
-          roleName: approverRole ?? 'unknown',
+          roleName: primaryRole,
           approverId,
           action: ApprovalRecordAction.REABERTO,
           reason: reason ?? null,
-          metadata: { approverRole, reopenedFromStep: lastApproved.stepOrder },
+          metadata: {
+            approverRoles: actorRoles,
+            reopenedFromStep: lastApproved.stepOrder,
+          },
         }),
       );
 

@@ -17,6 +17,7 @@ import {
   FindOptionsWhere,
   In,
   IsNull,
+  QueryFailedError,
   Repository,
 } from 'typeorm';
 import { jsonToExcelBuffer } from '../../shared/utils/excel.util';
@@ -222,6 +223,24 @@ export class AprsService {
         'APR assinada anexada. Edição bloqueada. Crie uma nova versão para alterar.',
       );
     }
+  }
+
+  /**
+   * Detecta violação do índice único de número da APR
+   * (UQ_aprs_company_numero_active) — código 23505 do Postgres — para
+   * traduzir uma corrida de criação no 409 amigável em vez de 500.
+   */
+  private isDuplicateAprNumeroError(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+    const driverError = error.driverError as
+      | { code?: string; constraint?: string }
+      | undefined;
+    return (
+      driverError?.code === '23505' &&
+      (driverError.constraint ?? '').includes('aprs_company_numero')
+    );
   }
 
   private assertAprEditableStatus(status: string) {
@@ -1264,83 +1283,101 @@ export class AprsService {
       this.assertCanManageCompanyTemplate(actor?.roleNames);
     }
 
-    const savedId = await this.aprsRepository.manager.transaction(
-      async (manager) => {
-        const duplicate = await manager.getRepository(Apr).findOne({
-          where: { numero: createAprDto.numero, company_id: companyId },
-          select: ['id'],
-        });
-        if (duplicate) {
-          throw new ConflictException(
-            `Já existe uma APR com o número "${createAprDto.numero}" nesta empresa.`,
+    let savedId: string;
+    try {
+      savedId = await this.aprsRepository.manager.transaction(
+        async (manager) => {
+          const duplicate = await manager.getRepository(Apr).findOne({
+            where: { numero: createAprDto.numero, company_id: companyId },
+            select: ['id'],
+          });
+          if (duplicate) {
+            throw new ConflictException(
+              `Já existe uma APR com o número "${createAprDto.numero}" nesta empresa.`,
+            );
+          }
+
+          await this.validateRelatedEntityScope({
+            manager,
+            companyId,
+            siteId: createAprDto.site_id,
+            elaboradorId: createAprDto.elaborador_id,
+            auditadoPorId: createAprDto.auditado_por_id ?? null,
+            activities,
+            risks,
+            epis,
+            tools,
+            machines,
+            participants,
+          });
+          const initialRisk = this.riskCalculationService.calculateScore(
+            rest.probability,
+            rest.severity,
+            rest.exposure,
           );
-        }
+          const residualRisk =
+            rest.residual_risk ||
+            this.riskCalculationService.classifyByScore(initialRisk) ||
+            null;
 
-        await this.validateRelatedEntityScope({
-          manager,
-          companyId,
-          siteId: createAprDto.site_id,
-          elaboradorId: createAprDto.elaborador_id,
-          auditadoPorId: createAprDto.auditado_por_id ?? null,
-          activities,
-          risks,
-          epis,
-          tools,
-          machines,
-          participants,
-        });
-        const initialRisk = this.riskCalculationService.calculateScore(
-          rest.probability,
-          rest.severity,
-          rest.exposure,
-        );
-        const residualRisk =
-          rest.residual_risk ||
-          this.riskCalculationService.classifyByScore(initialRisk) ||
-          null;
+          if (rest.is_modelo_padrao) {
+            rest.is_modelo = true;
+          }
 
-        if (rest.is_modelo_padrao) {
-          rest.is_modelo = true;
-        }
+          const aprRepository = manager.getRepository(Apr);
+          const apr = aprRepository.create({
+            ...rest,
+            status: AprStatus.PENDENTE,
+            initial_risk: initialRisk,
+            residual_risk: residualRisk,
+            control_evidence: Boolean(rest.control_evidence),
+            classificacao_resumo:
+              this.buildAprClassificationSummary(normalizedRiskItems),
+            company_id: companyId,
+            activities: activities?.map(
+              (id) => ({ id }) as unknown as Activity,
+            ),
+            risks: risks?.map((id) => ({ id }) as unknown as Risk),
+            epis: epis?.map((id) => ({ id }) as unknown as Epi),
+            tools: tools?.map((id) => ({ id }) as unknown as Tool),
+            machines: machines?.map((id) => ({ id }) as unknown as Machine),
+            participants: participants?.map(
+              (id) => ({ id }) as unknown as User,
+            ),
+          });
 
-        const aprRepository = manager.getRepository(Apr);
-        const apr = aprRepository.create({
-          ...rest,
-          status: AprStatus.PENDENTE,
-          initial_risk: initialRisk,
-          residual_risk: residualRisk,
-          control_evidence: Boolean(rest.control_evidence),
-          classificacao_resumo:
-            this.buildAprClassificationSummary(normalizedRiskItems),
-          company_id: companyId,
-          activities: activities?.map((id) => ({ id }) as unknown as Activity),
-          risks: risks?.map((id) => ({ id }) as unknown as Risk),
-          epis: epis?.map((id) => ({ id }) as unknown as Epi),
-          tools: tools?.map((id) => ({ id }) as unknown as Tool),
-          machines: machines?.map((id) => ({ id }) as unknown as Machine),
-          participants: participants?.map((id) => ({ id }) as unknown as User),
-        });
-
-        const saved = await aprRepository.save(apr);
-        await this.syncRiskItems(manager, saved.id, normalizedRiskItems);
-        await this.ensureDefaultApprovalSteps(manager, saved.id);
-        if (saved.is_modelo_padrao) {
-          // Operação atômica: desativa todos os modelos padrão da empresa
-          // e ativa apenas este, dentro da mesma transação.
-          // Isso elimina a race condition dos dois UPDATEs separados e
-          // é compatível com o índice parcial único UQ_aprs_modelo_padrao_per_company.
-          await manager.query(
-            `UPDATE aprs
+          const saved = await aprRepository.save(apr);
+          await this.syncRiskItems(manager, saved.id, normalizedRiskItems);
+          await this.ensureDefaultApprovalSteps(manager, saved.id);
+          if (saved.is_modelo_padrao) {
+            // Operação atômica: desativa todos os modelos padrão da empresa
+            // e ativa apenas este, dentro da mesma transação.
+            // Isso elimina a race condition dos dois UPDATEs separados e
+            // é compatível com o índice parcial único UQ_aprs_modelo_padrao_per_company.
+            await manager.query(
+              `UPDATE aprs
              SET is_modelo_padrao = CASE WHEN id = $1 THEN true ELSE false END,
                  is_modelo        = CASE WHEN id = $1 THEN true ELSE is_modelo END
              WHERE company_id = $2 AND deleted_at IS NULL AND (is_modelo_padrao = true OR id = $1)`,
-            [saved.id, saved.company_id],
-          );
-        }
+              [saved.id, saved.company_id],
+            );
+          }
 
-        return saved.id;
-      },
-    );
+          return saved.id;
+        },
+      );
+    } catch (error) {
+      // A checagem in-transaction cobre o caso comum, mas duas criações
+      // concorrentes com o mesmo número passam pela checagem e colidem no
+      // índice único UQ_aprs_company_numero_active. Traduz o 23505 cru do
+      // Postgres (que viraria 500) no mesmo 409 amigável.
+      if (this.isDuplicateAprNumeroError(error)) {
+        throw new ConflictException(
+          `Já existe uma APR com o número "${createAprDto.numero}" nesta empresa.`,
+        );
+      }
+      throw error;
+    }
 
     // Único findOne pós-transação: carrega todas as relações para o retorno HTTP
     // e reutiliza o mesmo objeto para logging/auditoria — elimina o double-fetch
@@ -1824,14 +1861,17 @@ export class AprsService {
     this.assertAprDocumentMutable(apr);
     this.assertAprFormMutable(apr);
 
-    // Detecção de conflito otimista: rejeita se o cliente enviou um timestamp
-    // desatualizado, indicando que outro usuário salvou a APR enquanto este estava offline.
+    // Detecção de conflito otimista: rejeita apenas se o registro no banco está
+    // MAIS NOVO que o snapshot que o cliente carregou — sinal de que outro
+    // usuário salvou nesse meio-tempo. A comparação é direcional: um guardTs
+    // adiantado (relógio do cliente à frente) não é conflito, evitando o
+    // falso-positivo do antigo Math.abs. Tolerância cobre rounding de ms.
     if (updateAprDto._conflict_guard_updated_at) {
       const guardTs = new Date(
         updateAprDto._conflict_guard_updated_at,
       ).getTime();
       const currentTs = new Date(apr.updated_at).getTime();
-      if (!Number.isNaN(guardTs) && Math.abs(currentTs - guardTs) > 1000) {
+      if (!Number.isNaN(guardTs) && currentTs - guardTs > 1000) {
         throw new ConflictException(
           'A APR foi modificada por outro usuário enquanto você estava offline. Recarregue e aplique suas alterações novamente.',
         );
@@ -2106,7 +2146,11 @@ export class AprsService {
     id: string,
     userId: string,
     reason?: string,
-    actor?: { roleName?: string | null; ipAddress?: string | null },
+    actor?: {
+      roleName?: string | null;
+      roleNames?: Array<string | null | undefined>;
+      ipAddress?: string | null;
+    },
   ): Promise<Apr> {
     const tenantId = this.tenantService.getTenantId();
     const engineEnabled =
@@ -2165,7 +2209,11 @@ export class AprsService {
     id: string,
     userId: string,
     reason?: string,
-    actor?: { roleName?: string | null; ipAddress?: string | null },
+    actor?: {
+      roleName?: string | null;
+      roleNames?: Array<string | null | undefined>;
+      ipAddress?: string | null;
+    },
   ): Promise<Apr> {
     const tenantId = this.tenantService.getTenantId();
     const engineEnabled =
@@ -2205,7 +2253,11 @@ export class AprsService {
     id: string,
     userId: string,
     reason: string,
-    actor?: { roleName?: string | null; ipAddress?: string | null },
+    actor?: {
+      roleName?: string | null;
+      roleNames?: Array<string | null | undefined>;
+      ipAddress?: string | null;
+    },
   ): Promise<Apr> {
     await this.aprWorkflowService.reject(id, userId, reason, actor);
     const apr = await this.findOne(id);
@@ -2222,7 +2274,11 @@ export class AprsService {
   async finalize(
     id: string,
     userId: string,
-    actor?: { roleName?: string | null; ipAddress?: string | null },
+    actor?: {
+      roleName?: string | null;
+      roleNames?: Array<string | null | undefined>;
+      ipAddress?: string | null;
+    },
   ): Promise<Apr> {
     await this.aprWorkflowService.finalize(id, userId, actor);
     const apr = await this.findOne(id);
