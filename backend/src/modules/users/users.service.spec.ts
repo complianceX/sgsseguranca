@@ -11,6 +11,7 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
 import { RbacService } from '../rbac/rbac.service';
 import { AuthRedisService } from '../../shared/redis/redis.service';
+import { ConfigService } from '@nestjs/config';
 import {
   UserAccessStatus,
   UserIdentityType,
@@ -150,6 +151,7 @@ describe('UsersService.gdprErasure', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -266,6 +268,7 @@ describe('UsersService.exportMyData', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -413,6 +416,7 @@ describe('UsersService.updateModuleAccess', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -534,6 +538,7 @@ describe('UsersService.findPaginated', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -828,6 +833,7 @@ describe('UsersService.create identity classification', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -998,6 +1004,7 @@ describe('UsersService.create role assignment hardening', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -1128,6 +1135,7 @@ describe('UsersService.update site binding', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
@@ -1282,6 +1290,7 @@ describe('UsersService.findAuthSessionUser', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
     );
   });
 
