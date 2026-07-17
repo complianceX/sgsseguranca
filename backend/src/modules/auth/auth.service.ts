@@ -35,6 +35,7 @@ import {
   getMaxActiveSessionsPerUser,
 } from './auth-security.config';
 import { resolveAccessTokenSecret } from './utils/access-token-claims.util';
+import { resolvePasswordResetBaseUrl } from '../../shared/utils/password-reset-url.util';
 import {
   decryptSensitiveValue,
   hashSensitiveValue,
@@ -182,25 +183,7 @@ export class AuthService {
   }
 
   private resolvePasswordResetBaseUrl(): string {
-    const explicitApiUrl = this.configService
-      .get<string>('API_PUBLIC_URL')
-      ?.trim();
-    if (explicitApiUrl) {
-      return explicitApiUrl.replace(/\/$/, '');
-    }
-
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL')?.trim();
-    if (frontendUrl) {
-      try {
-        const parsed = new URL(frontendUrl);
-        parsed.hostname = parsed.hostname.replace(/^app\./i, 'api.');
-        return parsed.toString().replace(/\/$/, '');
-      } catch {
-        return frontendUrl.replace(/\/$/, '');
-      }
-    }
-
-    return 'http://localhost:3001';
+    return resolvePasswordResetBaseUrl(this.configService);
   }
 
   private readonly logger = new Logger(AuthService.name);

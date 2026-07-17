@@ -1,20 +1,24 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   AuthProvider,
   DEFAULT_IDLE_LOGOUT_MINUTES,
   MAX_IDLE_LOGOUT_MINUTES,
   resolveIdleLogoutMs,
+  useAuth,
   useAuthState,
 } from "@/context/AuthContext";
 import { authService } from "@/services/authService";
 import { authRefreshHint } from "@/lib/authRefreshHint";
 import { sessionStore } from "@/lib/sessionStore";
 import { tokenStore } from "@/lib/tokenStore";
+import { forcePasswordChangeStore } from "@/lib/forcePasswordChangeStore";
 import type { User } from "@/services/usersService";
+
+const pushMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: pushMock,
   }),
 }));
 
@@ -67,9 +71,11 @@ function AuthProbe() {
 describe("AuthProvider bootstrap", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    pushMock.mockClear();
     authRefreshHint.clear();
     sessionStore.clear();
     tokenStore.clear();
+    forcePasswordChangeStore.clear();
     clearCookie("refresh_csrf");
 
     (authService.getCsrfToken as jest.Mock).mockResolvedValue(undefined);
@@ -122,6 +128,84 @@ describe("AuthProvider bootstrap", () => {
     expect(authService.refreshAccessToken).not.toHaveBeenCalled();
     expect(authService.getCurrentSession).not.toHaveBeenCalled();
     expect(screen.getByTestId("user")).toHaveTextContent("none");
+  });
+});
+
+function LoginProbe() {
+  const { login, user } = useAuth();
+
+  return (
+    <div>
+      <span data-testid="user">{user?.id ?? "none"}</span>
+      <button onClick={() => login("12345678900", "senha-temporaria")}>
+        entrar
+      </button>
+    </div>
+  );
+}
+
+describe("AuthProvider login com must_change_password", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    pushMock.mockClear();
+    authRefreshHint.clear();
+    sessionStore.clear();
+    tokenStore.clear();
+    forcePasswordChangeStore.clear();
+    clearCookie("refresh_csrf");
+
+    (authService.getCsrfToken as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it("não abre sessão normal e redireciona para troca de senha obrigatória", async () => {
+    (authService.login as jest.Mock).mockResolvedValue({
+      accessToken: "token-temporario",
+      user: { id: "user-novo", nome: "Novo Usuário", must_change_password: true },
+    });
+
+    render(
+      <AuthProvider>
+        <LoginProbe />
+      </AuthProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "entrar" }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/trocar-senha-inicial");
+    });
+
+    // Nenhuma sessão "normal" é aberta: sem roles/permissions, user do
+    // AuthState continua vazio — só o tokenStore guarda o token limitado
+    // (usado exclusivamente para chamar /auth/change-password).
+    expect(screen.getByTestId("user")).toHaveTextContent("none");
+    expect(tokenStore.get()).toBe("token-temporario");
+    expect(forcePasswordChangeStore.get()).toEqual({ nome: "Novo Usuário" });
+  });
+
+  it("abre sessão normal quando must_change_password é falso", async () => {
+    (authService.login as jest.Mock).mockResolvedValue({
+      accessToken: "token-normal",
+      user,
+      roles: ["operador"],
+      permissions: ["can_view_dashboard"],
+      isAdminGeral: false,
+    });
+
+    render(
+      <AuthProvider>
+        <LoginProbe />
+      </AuthProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "entrar" }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/dashboard");
+    });
+
+    expect(screen.getByTestId("user")).toHaveTextContent("user-1");
+    expect(forcePasswordChangeStore.get()).toBeNull();
   });
 });
 

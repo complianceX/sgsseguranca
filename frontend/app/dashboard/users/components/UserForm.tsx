@@ -63,7 +63,7 @@ const userSchema = z.object({
     .optional(),
   password: z
     .string()
-    .min(6, 'A senha deve ter pelo menos 6 caracteres')
+    .min(8, 'A senha deve ter pelo menos 8 caracteres')
     .optional()
     .or(z.literal('')),
 });
@@ -158,8 +158,10 @@ export function UserForm({ id }: UserFormProps) {
       if (id) {
         await usersService.update(id, payload);
       } else {
-        if (!isEmployeePath && !payload.password) {
-          throw new Error('Senha é obrigatória para novos usuários.');
+        if (!isEmployeePath && !payload.password && !payload.email) {
+          throw new Error(
+            'Informe um e-mail (para enviar as credenciais) ou defina uma senha.',
+          );
         }
         if (!isEmployeePath && !payload.profile_id) {
           throw new Error('Selecione um perfil de acesso.');
@@ -168,9 +170,14 @@ export function UserForm({ id }: UserFormProps) {
       }
     },
     {
-      successMessage: id
-        ? `${isEmployeePath ? 'Funcionário' : 'Usuário'} atualizado com sucesso!`
-        : `${isEmployeePath ? 'Funcionário' : 'Usuário'} cadastrado com sucesso!`,
+      successMessage: (result) => {
+        if (id) return `${isEmployeePath ? 'Funcionário' : 'Usuário'} atualizado com sucesso!`;
+        const created = result as { must_change_password?: boolean } | undefined;
+        if (!isEmployeePath && created?.must_change_password) {
+          return 'Usuário cadastrado! As credenciais de acesso foram enviadas por e-mail.';
+        }
+        return `${isEmployeePath ? 'Funcionário' : 'Usuário'} cadastrado com sucesso!`;
+      },
       redirectTo: backPath,
       context: isEmployeePath ? 'Funcionário' : 'Usuário',
     },
@@ -605,13 +612,14 @@ export function UserForm({ id }: UserFormProps) {
                     Credenciais
                   </p>
                   <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Defina a senha inicial no cadastro. Em edição, deixe vazio para preservar a
-                    senha atual.
+                    {id
+                      ? 'Em edição, deixe vazio para preservar a senha atual.'
+                      : 'Opcional: defina a senha inicial aqui, ou deixe em branco e informe um e-mail acima — o sistema gera uma senha temporária e envia por e-mail, com troca obrigatória no primeiro acesso.'}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="password" className={labelClassName}>
-                    Senha {id && '(deixe em branco para não alterar)'}
+                    Senha {id ? '(deixe em branco para não alterar)' : '(opcional)'}
                   </label>
                   <input
                     id="password"
@@ -625,7 +633,9 @@ export function UserForm({ id }: UserFormProps) {
                     <p className={errorClassName}>{errors.password.message}</p>
                   ) : (
                     <p className={helperClassName}>
-                      Use pelo menos 6 caracteres para garantir o acesso inicial.
+                      {id
+                        ? 'Use pelo menos 8 caracteres, com maiúsculas, minúsculas, números e símbolos.'
+                        : 'Deixe em branco para enviar as credenciais por e-mail. Se preenchida, use pelo menos 8 caracteres, com maiúsculas, minúsculas, números e símbolos.'}
                     </p>
                   )}
                 </div>

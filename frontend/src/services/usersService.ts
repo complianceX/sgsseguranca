@@ -82,6 +82,8 @@ export interface User {
   ai_processing_consent?: boolean;
   identity_type?: UserIdentityType;
   access_status?: UserAccessStatus;
+  /** true quando a senha foi gerada pelo sistema e precisa ser trocada no próximo login. */
+  must_change_password?: boolean;
   created_at: string;
   updated_at: string;
 }

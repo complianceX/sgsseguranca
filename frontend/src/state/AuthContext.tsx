@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { tokenStore } from '@/lib/tokenStore';
+import { forcePasswordChangeStore } from '@/lib/forcePasswordChangeStore';
 import { authRefreshHint } from '@/lib/authRefreshHint';
 import { User } from '@/services/usersService';
 import {
@@ -229,6 +230,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Resposta de login inválida do servidor.');
         }
 
+        if (data.user.must_change_password) {
+          tokenStore.set(data.accessToken);
+          forcePasswordChangeStore.set({ nome: data.user.nome ?? null });
+          router.push('/trocar-senha-inicial');
+          return data;
+        }
+
         applyAuthenticatedSession({
           user: data.user,
           roles: data.roles || [],
@@ -253,6 +261,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (data: AuthLoginResponse) => {
       if (!data.accessToken || !data.user) {
         throw new Error('Resposta de login inválida do servidor.');
+      }
+
+      if (data.user.must_change_password) {
+        tokenStore.set(data.accessToken);
+        forcePasswordChangeStore.set({ nome: data.user.nome ?? null });
+        router.push('/trocar-senha-inicial');
+        return;
       }
 
       applyAuthenticatedSession({

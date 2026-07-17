@@ -100,6 +100,35 @@ describe('JwtStrategy', () => {
     expect(verifyOptions?.algorithms).toEqual(['HS256']);
   });
 
+  it('bloqueia token force_change fora do endpoint de troca de senha', async () => {
+    const { strategy, authPrincipalService } = buildStrategy();
+
+    await expect(
+      strategy.validate({ path: '/aprs' } as never, {
+        sub: 'user-1',
+        jti: 'token-1',
+        scope: 'force_change',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(authPrincipalService.resolveAccessPrincipal).not.toHaveBeenCalled();
+  });
+
+  it('permite token force_change em /auth/change-password', async () => {
+    const { strategy, authPrincipalService } = buildStrategy();
+    authPrincipalService.resolveAccessPrincipal.mockResolvedValue({
+      id: 'user-1',
+    });
+
+    const result = await strategy.validate(
+      { path: '/auth/change-password' } as never,
+      { sub: 'user-1', jti: 'token-1', scope: 'force_change' },
+    );
+
+    expect(result).toEqual({ id: 'user-1' });
+    expect(authPrincipalService.resolveAccessPrincipal).toHaveBeenCalled();
+  });
+
   it('fail-open quando isRevoked retorna false durante outage do Redis', async () => {
     // TokenRevocationService ja implementa o fail-open internamente.
     // Aqui validamos que JwtStrategy nao precisa de protecao adicional:

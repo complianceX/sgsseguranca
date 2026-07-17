@@ -3,6 +3,8 @@ import { UserForm } from './UserForm';
 import { companiesService } from '@/services/companiesService';
 import { profilesService } from '@/services/profilesService';
 import { sitesService } from '@/services/sitesService';
+import { usersService } from '@/services/usersService';
+import { handleApiError } from '@/lib/error-handler';
 
 const pushMock = jest.fn();
 
@@ -170,5 +172,74 @@ describe('UserForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Email inválido')).toBeInTheDocument();
     });
+  });
+
+  it('bloqueia envio sem senha e sem e-mail (nenhum jeito de entregar credenciais)', async () => {
+    render(<UserForm />);
+
+    await screen.findByRole('checkbox', { name: /Obra Central/i });
+
+    fireEvent.change(screen.getByLabelText('Nome Completo'), {
+      target: { value: 'Funcionário Teste' },
+    });
+    fireEvent.change(screen.getByLabelText('Função'), {
+      target: { value: 'Técnico' },
+    });
+    fireEvent.change(screen.getByLabelText('CPF'), {
+      target: { value: '098.780.584-33' },
+    });
+    fireEvent.change(screen.getByLabelText(/Perfil de Acesso/i), {
+      target: { value: 'profile-tst' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Criar usuário/i }));
+
+    await waitFor(() => {
+      expect(handleApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Informe um e-mail (para enviar as credenciais) ou defina uma senha.',
+        }),
+        expect.any(String),
+      );
+    });
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
+  it('permite criar usuário sem senha quando há e-mail (credenciais vão por e-mail)', async () => {
+    jest.mocked(usersService.create).mockResolvedValue({
+      id: 'user-novo',
+      must_change_password: true,
+    } as never);
+
+    render(<UserForm />);
+
+    await screen.findByRole('checkbox', { name: /Obra Central/i });
+
+    fireEvent.change(screen.getByLabelText('Nome Completo'), {
+      target: { value: 'Funcionário Teste' },
+    });
+    fireEvent.change(screen.getByLabelText('Função'), {
+      target: { value: 'Técnico' },
+    });
+    fireEvent.change(screen.getByLabelText('CPF'), {
+      target: { value: '098.780.584-33' },
+    });
+    fireEvent.change(screen.getByLabelText('E-mail'), {
+      target: { value: 'novo.usuario@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/Perfil de Acesso/i), {
+      target: { value: 'profile-tst' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Criar usuário/i }));
+
+    await waitFor(() => {
+      expect(usersService.create).toHaveBeenCalledTimes(1);
+    });
+    const payload = jest.mocked(usersService.create).mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(payload?.password).toBeUndefined();
+    expect(payload?.email).toBe('novo.usuario@example.com');
   });
 });

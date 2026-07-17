@@ -12,6 +12,10 @@ type AuthenticatedHttpRequest = Request & {
   authPrincipal?: AuthenticatedPrincipal;
 };
 
+// Token emitido quando must_change_password=true (ver AuthService.login):
+// TTL curto, sem refresh token, e só pode chamar a troca de senha.
+const FORCE_PASSWORD_CHANGE_ALLOWED_PATHS = new Set(['/auth/change-password']);
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly jwtIssuer: string | undefined;
@@ -71,6 +75,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       (await this.tokenRevocationService.isRevoked(payload.jti))
     ) {
       throw new UnauthorizedException('Token revogado');
+    }
+
+    // Token de troca obrigatória de senha: só pode ser usado no endpoint de
+    // troca. Sem essa checagem, um token "limitado" resolveria o principal
+    // real (com as permissões reais do usuário) em qualquer outra rota.
+    if (
+      payload.scope === 'force_change' &&
+      !FORCE_PASSWORD_CHANGE_ALLOWED_PATHS.has(request.path)
+    ) {
+      throw new UnauthorizedException('Troque sua senha antes de continuar.');
     }
 
     const cachedPrincipal = request.authPrincipal;
