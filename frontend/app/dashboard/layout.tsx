@@ -162,7 +162,7 @@ function DashboardShell({
   }
 
   return (
-    <div className="ds-dashboard-shell ds-shell-backdrop ds-system-scope ds-density-compact flex">
+    <div className="ds-dashboard-shell ds-shell-backdrop ds-system-scope ds-density-compact flex xl:flex-row">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={closeSidebar}
