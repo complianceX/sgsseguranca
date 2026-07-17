@@ -820,6 +820,57 @@ describe('PtsService', () => {
     expect(ptsSaveMock).toHaveBeenCalled();
   });
 
+  it('create: traduz número duplicado (23505) em ConflictException, não 500', async () => {
+    // Foco no caminho de tradução do erro — o escopo de entidades relacionadas
+    // já tem cobertura própria e não é o objeto deste teste.
+    jest
+      .spyOn(
+        service as unknown as {
+          validateRelatedEntityScope: () => Promise<void>;
+        },
+        'validateRelatedEntityScope',
+      )
+      .mockResolvedValue(undefined);
+    ptsSaveMock.mockRejectedValueOnce(
+      new QueryFailedError('insert', [], {
+        code: '23505',
+        constraint: 'UQ_pts_company_numero',
+      } as unknown as Error),
+    );
+
+    await expect(
+      service.create({
+        numero: 'PT-DUP',
+        titulo: 'PT com número repetido',
+        data_hora_inicio: '2026-03-14T08:00:00.000Z',
+        data_hora_fim: '2026-03-14T18:00:00.000Z',
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('transição concorrente (lock NOWAIT 55P03) devolve 409, não erro cru', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-lock',
+      numero: 'PT-LOCK',
+      status: 'Pendente',
+      company_id: 'company-1',
+      site_id: 'site-1',
+    } as unknown as Pt);
+
+    // Todas as tentativas de transação falham com o código de lock indisponível.
+    (
+      ptsRepository as unknown as { manager: { transaction: jest.Mock } }
+    ).manager.transaction = jest
+      .fn()
+      .mockRejectedValue({ code: '55P03' } as never);
+
+    await expect(
+      service.approve('pt-lock', 'user-1', 'ok'),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
   it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
     const andWhereMock = jest.fn().mockReturnThis();
     const getManyAndCountMock = jest.fn().mockResolvedValue([[], 0]);

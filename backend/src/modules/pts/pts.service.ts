@@ -1,5 +1,6 @@
 ﻿import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -94,6 +95,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 
+// Coordenação de concorrência das transições de PT (espelha o módulo APR).
+// FOR UPDATE NOWAIT falha imediatamente com 55P03 quando a linha já está
+// travada; reprocessamos com backoff curto e, esgotadas as tentativas,
+// devolvemos um 409 amigável em vez do erro cru do Postgres (500).
+const POSTGRES_LOCK_NOT_AVAILABLE_CODE = '55P03';
+const PT_ROW_LOCK_RETRY_DELAYS_MS = [50, 100, 200] as const;
+
 const PT_FINAL_PDF_ALLOWED_STATUSES = new Set<PtStatus>([
   PtStatus.APROVADA,
   PtStatus.ENCERRADA,
@@ -185,6 +193,24 @@ export class PtsService {
         'PT com PDF final anexado. Edição bloqueada. Gere uma nova PT para alterar o documento.',
       );
     }
+  }
+
+  /**
+   * Detecta violação do índice único de número da PT (UQ_pts_company_numero)
+   * — código 23505 do Postgres — para devolver um 409 amigável em vez do erro
+   * cru (500). Cobre tanto reenvio simples do mesmo número quanto corrida.
+   */
+  private isDuplicatePtNumeroError(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+    const driverError = error.driverError as
+      | { code?: string; constraint?: string }
+      | undefined;
+    return (
+      driverError?.code === '23505' &&
+      (driverError.constraint ?? '').includes('pts_company_numero')
+    );
   }
 
   private assertPtEditableStatus(status: string) {
@@ -726,7 +752,17 @@ export class PtsService {
       executantes: executantes?.map((id) => ({ id }) as unknown as User),
     });
 
-    const saved = await this.ptsRepository.save(pt);
+    let saved: Pt;
+    try {
+      saved = await this.ptsRepository.save(pt);
+    } catch (error) {
+      if (this.isDuplicatePtNumeroError(error)) {
+        throw new ConflictException(
+          `Já existe uma PT com o número "${createPtDto.numero}" nesta empresa.`,
+        );
+      }
+      throw error;
+    }
     await this.logAudit({
       action: AuditAction.CREATE,
       entityId: saved.id,
@@ -1248,24 +1284,60 @@ export class PtsService {
     const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
-    return this.ptsRepository.manager.transaction(async (manager) => {
-      const siteClause =
-        !isSuperAdmin && siteScope !== 'all'
-          ? ' AND "site_id" = ANY($3::uuid[])'
-          : '';
-      const rows = await manager.query<Pt[]>(
-        `SELECT * FROM "pts" WHERE "id" = $1 AND "company_id" = $2${siteClause} FOR UPDATE NOWAIT`,
-        !isSuperAdmin && siteScope !== 'all'
-          ? [id, companyId, siteIds]
-          : [id, companyId],
-      );
+    const scoped = !isSuperAdmin && siteScope !== 'all';
+    const siteClause = scoped ? ' AND "site_id" = ANY($3::uuid[])' : '';
+    const params = scoped ? [id, companyId, siteIds] : [id, companyId];
 
-      if (!rows || rows.length === 0) {
-        throw new NotFoundException(`PT com ID ${id} não encontrada`);
+    for (
+      let attempt = 0;
+      attempt <= PT_ROW_LOCK_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      try {
+        return await this.ptsRepository.manager.transaction(async (manager) => {
+          const rows = await manager.query<Pt[]>(
+            `SELECT * FROM "pts" WHERE "id" = $1 AND "company_id" = $2${siteClause} FOR UPDATE NOWAIT`,
+            params,
+          );
+
+          if (!rows || rows.length === 0) {
+            throw new NotFoundException(`PT com ID ${id} não encontrada`);
+          }
+
+          const pt = manager.getRepository(Pt).create(rows[0]);
+          return fn(pt, manager);
+        });
+      } catch (error: unknown) {
+        if (!this.isPostgresLockNotAvailableError(error)) {
+          throw error;
+        }
+        const retryDelayMs = PT_ROW_LOCK_RETRY_DELAYS_MS[attempt];
+        if (retryDelayMs === undefined) {
+          throw new ConflictException(
+            'Outra operação está em andamento para esta PT. Tente novamente em instantes.',
+          );
+        }
+        await this.waitForRetry(retryDelayMs);
       }
+    }
 
-      const pt = manager.getRepository(Pt).create(rows[0]);
-      return fn(pt, manager);
+    throw new ConflictException(
+      'Outra operação está em andamento para esta PT. Tente novamente em instantes.',
+    );
+  }
+
+  private isPostgresLockNotAvailableError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === POSTGRES_LOCK_NOT_AVAILABLE_CODE
+    );
+  }
+
+  private waitForRetry(delayMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
     });
   }
 
