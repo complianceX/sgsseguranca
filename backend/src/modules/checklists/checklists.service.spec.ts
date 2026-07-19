@@ -36,6 +36,7 @@ type ChecklistCreatePayload = Partial<Checklist> & {
 
 describe('ChecklistsService', () => {
   let service: ChecklistsService;
+  let _lockedChecklistRow: Record<string, unknown> | null = null;
   let repository: {
     create: jest.Mock;
     save: jest.Mock;
@@ -94,6 +95,28 @@ describe('ChecklistsService', () => {
       findAndCount: jest.fn(),
       count: jest.fn(),
     };
+    _lockedChecklistRow = null;
+    (repository as unknown as { manager: { transaction: jest.Mock } }).manager =
+      {
+        transaction: jest.fn((fn: (m: unknown) => unknown) => {
+          const lockedRow = _lockedChecklistRow;
+          const innerRepo = {
+            create: jest.fn((data: unknown) => data as Checklist),
+            save: jest.fn((data: unknown) =>
+              Promise.resolve({
+                id: 'checklist-1',
+                company_id: 'company-1',
+                ...(data as object),
+              }),
+            ),
+          };
+          const innerManager = {
+            query: jest.fn().mockResolvedValue(lockedRow ? [lockedRow] : []),
+            getRepository: jest.fn().mockReturnValue(innerRepo),
+          };
+          return fn(innerManager);
+        }),
+      };
     documentStorageService = {
       uploadFile: jest.fn(),
       generateDocumentKey: jest.fn(
@@ -1890,7 +1913,7 @@ describe('ChecklistsService', () => {
   });
 
   it('anexa foto governada ao item do checklist', async () => {
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+    const checklistData = {
       id: 'checklist-1',
       company_id: 'company-1',
       titulo: 'Checklist base',
@@ -1904,7 +1927,12 @@ describe('ChecklistsService', () => {
       itens: [{ item: 'Verificar trava', status: 'ok', fotos: [] }],
       is_modelo: false,
       pdf_file_key: null,
-    } as unknown as Checklist);
+      deleted_at: null,
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(checklistData as unknown as Checklist);
+    _lockedChecklistRow = checklistData;
     (
       signaturesService.removeByDocumentSystem as jest.Mock
     ).mockResolvedValueOnce(1);
@@ -1931,12 +1959,17 @@ describe('ChecklistsService', () => {
   });
 
   it('retorna acesso governado para a foto do equipamento do checklist', async () => {
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+    const checklistData = {
       id: 'checklist-1',
       company_id: 'company-1',
       is_modelo: false,
       pdf_file_key: null,
-    } as unknown as Checklist);
+      deleted_at: null,
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(checklistData as unknown as Checklist);
+    _lockedChecklistRow = checklistData;
 
     const attached = await service.attachEquipmentPhoto(
       'checklist-1',
@@ -1988,18 +2021,23 @@ describe('ChecklistsService', () => {
   });
 
   it('retorna acesso governado para a foto do item do checklist', async () => {
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+    const checklistData = {
       id: 'checklist-1',
       company_id: 'company-1',
       is_modelo: false,
       pdf_file_key: null,
+      deleted_at: null,
       itens: [
         {
           item: 'Verificar trava',
           fotos: [],
         },
       ],
-    } as unknown as Checklist);
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(checklistData as unknown as Checklist);
+    _lockedChecklistRow = checklistData;
 
     const attached = await service.attachItemPhoto(
       'checklist-1',
