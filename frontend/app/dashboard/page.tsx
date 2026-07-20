@@ -22,6 +22,11 @@ import {
 } from "@/components/dashboard/PendingQueue";
 import { useDynamicGreeting } from "@/hooks/useDynamicGreeting";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import {
+  calcComplianceScore,
+  resolveComplianceLabel,
+} from "@/lib/dashboard/compliance";
+import { parseValidDate } from "@/lib/dashboard/utils";
 
 type PendingApprovals = DashboardSummaryResponse["pendingApprovals"];
 type RiskSummary = DashboardSummaryResponse["riskSummary"];
@@ -34,24 +39,6 @@ const EMPTY_APPROVALS: PendingApprovals = {
 };
 
 const EMPTY_RISK: RiskSummary = { alto: 0, medio: 0, baixo: 0 };
-
-function clampScore(v: number) {
-  return Math.max(0, Math.min(100, Math.round(v)));
-}
-
-function resolveComplianceLabel(score: number | null) {
-  if (score == null) return "Calculando";
-  if (score >= 85) return "Excelente";
-  if (score >= 70) return "Controlado";
-  if (score >= 50) return "Atenção";
-  return "Crítico";
-}
-
-function parseValidDate(value?: string | null): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -105,27 +92,18 @@ export default function DashboardPage() {
     }).length;
   }, [expiringTrainings]);
 
-  const complianceScore = useMemo(() => {
-    if (loading) return null;
-    const criticalPenalty = Math.min(40, pendingQueue.summary.critical * 8);
-    const highPenalty = Math.min(18, pendingQueue.summary.high * 2.5);
-    const totalPenalty = Math.min(14, Math.max(0, pendingQueue.summary.total - 5) * 1.2);
-    const epiPenalty = Math.min(14, expiredEpisCount * 3.5);
-    const trainingPenalty = Math.min(14, expiredTrainingsCount * 3.5);
-    return clampScore(
-      100 -
-        criticalPenalty -
-        highPenalty -
-        totalPenalty -
-        epiPenalty -
-        trainingPenalty,
-    );
-  }, [
-    loading,
-    pendingQueue.summary,
-    expiredEpisCount,
-    expiredTrainingsCount,
-  ]);
+  const complianceScore = useMemo(
+    () =>
+      calcComplianceScore({
+        loading,
+        pendingSummary: pendingQueue.summary,
+        expiredEpisCount,
+        expiredTrainingsCount,
+        includeEpiPenalty: true,
+        includeTrainingPenalty: true,
+      }),
+    [loading, pendingQueue.summary, expiredEpisCount, expiredTrainingsCount],
+  );
 
   const complianceTone: KpiTone =
     complianceScore == null
