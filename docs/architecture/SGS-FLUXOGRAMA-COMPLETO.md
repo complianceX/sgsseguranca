@@ -5,21 +5,21 @@
 Painel único com os 54 módulos, o pipeline de governança e os controles — para
 apresentação, auditoria e onboarding.
 
-![Fluxograma do sistema SGS](../assets/architecture/sgs-fluxograma-sistema.png)
+![Fluxograma do sistema SGS](./assets/sgs-fluxograma-sistema.png)
 
-[PNG 4000×3184](../assets/architecture/sgs-fluxograma-sistema.png) ·
-[PDF vetorial](../assets/architecture/sgs-fluxograma-sistema.pdf) ·
-[fonte HTML](../assets/architecture/src/sgs-fluxograma-sistema.html)
+[PNG 4000×3184](./assets/sgs-fluxograma-sistema.png) ·
+[PDF vetorial](./assets/sgs-fluxograma-sistema.pdf) ·
+[fonte HTML](./assets/src/sgs-fluxograma-sistema.html)
 
 ```bash
 # regerar após editar o HTML (roda da raiz do repositório)
-node docs/assets/architecture/src/render.js \
-  docs/assets/architecture/src/sgs-fluxograma-sistema.html \
-  docs/assets/architecture/sgs-fluxograma-sistema.png 2
+node docs/architecture/assets/src/render.js \
+  docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+  docs/architecture/assets/sgs-fluxograma-sistema.png 2
 
-node docs/assets/architecture/src/render.js \
-  docs/assets/architecture/src/sgs-fluxograma-sistema.html \
-  docs/assets/architecture/sgs-fluxograma-sistema.pdf
+node docs/architecture/assets/src/render.js \
+  docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+  docs/architecture/assets/sgs-fluxograma-sistema.pdf
 ```
 
 ---
@@ -35,11 +35,11 @@ Cada diagrama cobre um recorte; comece pelo macro e desça conforme a dúvida.
 - [4. Processamento assíncrono (filas)](#4-processamento-assíncrono-filas)
 - [5. Validação pública por QR](#5-validação-pública-por-qr)
 
-> **Export em imagem** (para apresentação/PDF): [`1-topologia`](../assets/architecture/sgs-fluxo-1-topologia.svg) ·
-> [`2-ciclo-documento`](../assets/architecture/sgs-fluxo-2-ciclo-documento.svg) ·
-> [`3-request-tenant`](../assets/architecture/sgs-fluxo-3-request-tenant.svg) ·
-> [`4-filas`](../assets/architecture/sgs-fluxo-4-filas.svg) ·
-> [`5-validacao-qr`](../assets/architecture/sgs-fluxo-5-validacao-qr.svg)
+> **Export em imagem** (para apresentação/PDF): [`1-topologia`](./assets/sgs-fluxo-1-topologia.svg) ·
+> [`2-ciclo-documento`](./assets/sgs-fluxo-2-ciclo-documento.svg) ·
+> [`3-request-tenant`](./assets/sgs-fluxo-3-request-tenant.svg) ·
+> [`4-filas`](./assets/sgs-fluxo-4-filas.svg) ·
+> [`5-validacao-qr`](./assets/sgs-fluxo-5-validacao-qr.svg)
 >
 > Os SVGs são **gerados a partir do Mermaid abaixo** (a fonte de verdade). Para regerar após
 > editar um diagrama, veja [Como regerar os SVGs](#como-regerar-os-svgs).
@@ -267,7 +267,7 @@ do documento nem PII além do necessário.
 | Dúvida | Documento |
 |---|---|
 | Estados e transições de cada entidade | [`../state-machines.md`](../state-machines.md) |
-| Tabelas, colunas e relacionamentos | [`../database-schema.md`](../database-schema.md) · [`../diagrama-banco-mermaid.md`](../diagrama-banco-mermaid.md) |
+| Tabelas, colunas e relacionamentos | [`../database-schema.md`](../database-schema.md) · [`./diagrama-banco.md`](./diagrama-banco.md) |
 | Endpoints REST | [`../api-reference.md`](../api-reference.md) |
 | Onde mexer no código | [`../consulta-rapida/onde-alterar-o-que.md`](../consulta-rapida/onde-alterar-o-que.md) |
 | Deploy backend/worker | [`../deploy/coolify-vultr-backend-web-worker.md`](../deploy/coolify-vultr-backend-web-worker.md) |
@@ -294,7 +294,7 @@ blocks.forEach((b,i)=>fs.writeFileSync('/tmp/d'+names[i]+'.mmd',b));
 for n in 1-topologia 2-ciclo-documento 3-request-tenant 4-filas 5-validacao-qr; do
   npx -y @mermaid-js/mermaid-cli@11 \
     -i "/tmp/d$n.mmd" \
-    -o "docs/assets/architecture/sgs-fluxo-$n.svg" \
+    -o "docs/architecture/assets/sgs-fluxo-$n.svg" \
     -p puppeteer-config.json -b white
 done
 ```

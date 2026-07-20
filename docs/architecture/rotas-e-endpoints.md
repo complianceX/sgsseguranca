@@ -732,7 +732,7 @@ Padrao principal:
 
 ## Consultas complementares
 
-- modulos e regras: [`mapa-de-modulos.md`](./mapa-de-modulos.md)
-- o que foi implementado recentemente: [`implementacoes-recentes.md`](./implementacoes-recentes.md)
-- PDFs finais e storage: [`pdfs-finais-e-storage.md`](./pdfs-finais-e-storage.md)
-- seguranca e governanca: [`seguranca-e-governanca.md`](./seguranca-e-governanca.md)
+- modulos e regras: [`mapa-de-modulos.md`](../consulta-rapida/mapa-de-modulos.md)
+- o que foi implementado recentemente: [`implementacoes-recentes.md`](../consulta-rapida/implementacoes-recentes.md)
+- PDFs finais e storage: [`pdfs-finais-e-storage.md`](../consulta-rapida/pdfs-finais-e-storage.md)
+- seguranca e governanca: [`seguranca-e-governanca.md`](../consulta-rapida/seguranca-e-governanca.md)

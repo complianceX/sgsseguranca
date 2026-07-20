@@ -1,73 +1,136 @@
-# Compliance X Architecture Baseline
+# SGS — Documentação de Arquitetura
 
-## Objetivo
-Estabelecer a base arquitetural do `Compliance X` antes de novas refatoracoes visuais e funcionais.
+Pasta única com toda a documentação arquitetural do SGS: diagramas, fluxogramas, ADRs, mapa de rotas, fluxos documentais e referências visuais.
 
-Este baseline define:
-- arquitetura alvo de frontend e backend
-- convencoes de organizacao por dominio
-- contratos de API, erro e estados visuais
-- checklists de multi-tenant, seguranca, observabilidade e design system
-- plano de migracao incremental sem `big bang`
+---
 
-## Diagnostico curto
-- O backend ja possui fundamentos fortes: multi-tenant, guards globais, middleware de tenant, cache, BullMQ, throttling e observabilidade inicial.
-- O frontend ainda esta muito `page-first`, com fetch, estado, composicao visual e regras de tela misturados nas `page.tsx`.
-- O design system existe apenas de forma parcial. Ha primitives isoladas, mas os tokens e contratos de uso ainda nao estao institucionalizados.
-- Os modulos backend ainda concentram regra, persistencia, exportacao e tenancy em services extensos.
+## Diagramas e Fluxogramas
 
-## Arquitetura alvo
+| Documento | Conteúdo |
+|---|---|
+| [SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md](./SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md) | Diagrama executivo Mermaid: frontend, backend web, worker, dados e integrações |
+| [SGS-FLUXOGRAMA-COMPLETO.md](./SGS-FLUXOGRAMA-COMPLETO.md) | 5 fluxogramas detalhados: topologia, ciclo documental, pipeline de middleware, filas, validação por QR |
+| [diagrama-banco.md](./diagrama-banco.md) | Diagrama ER completo do banco (Mermaid) — todas as tabelas, colunas e relacionamentos |
 
-### Frontend
-- `app/` deve ser fino: roteamento, composicao e guards de pagina.
-- `modules/` deve concentrar dominio, hooks, schemas, mappers, componentes e telas.
-- `components/ui/` deve ser o design system oficial.
-- `components/shared/` deve conter blocos cross-domain, nunca regras de negocio.
-- `lib/` deve concentrar infraestrutura cliente: `api`, `auth`, `tenant`, `query`, `format`, `telemetry`, `pdf`.
+---
 
-### Backend
-- Manter NestJS e modulos atuais.
-- Evoluir gradualmente para camadas explicitas:
-  - `api`
-  - `application`
-  - `domain`
-  - `infrastructure`
-- Controllers nao acessam repositorios diretamente.
-- Use cases concentram comandos de negocio.
-- Queries concentram leitura, exportacao e analytics.
-- Repositories encapsulam TypeORM e regras de acesso a dados.
+## Mapa do Sistema
 
-## Estruturas de pastas oficiais
-- Frontend: [frontend.md](../conventions/frontend.md)
-- Backend: [backend.md](../conventions/backend.md)
-- Convencoes de nomes: [naming.md](../conventions/naming.md)
+| Documento | Conteúdo |
+|---|---|
+| [stack-e-tecnologias.md](./stack-e-tecnologias.md) | Stack resumida: frontend, backend, worker, infra, temas e fluxos estruturais |
+| [rotas-e-endpoints.md](./rotas-e-endpoints.md) | Mapa completo de todas as rotas do frontend e todos os endpoints REST do backend |
+| [fluxos-documentais.md](./fluxos-documentais.md) | Fluxos de PDF final, read-only/lock, registry documental, importação, assinaturas, vídeos governados |
 
-## ADRs deste baseline
-- [SGS-FLUXOGRAMA-COMPLETO.md](./SGS-FLUXOGRAMA-COMPLETO.md)
-- [SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md](./SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md)
-- [ADR-001-frontend-modular-architecture.md](./ADR-001-frontend-modular-architecture.md)
-- [ADR-002-backend-layering.md](./ADR-002-backend-layering.md)
-- [ADR-003-api-result-error-contracts.md](./ADR-003-api-result-error-contracts.md)
-- [ADR-004-tenant-aware-module-contract.md](./ADR-004-tenant-aware-module-contract.md)
-- [ADR-005-design-system-ui-state-contracts.md](./ADR-005-design-system-ui-state-contracts.md)
-- [AUDIT-2026-03-remediation-roadmap.md](./AUDIT-2026-03-remediation-roadmap.md)
+---
 
-## Checklists operacionais
-- [module-tenant-aware.md](../checklists/module-tenant-aware.md)
-- [security-observability.md](../checklists/security-observability.md)
-- [design-system-component.md](../checklists/design-system-component.md)
+## ADRs — Decisões Arquiteturais
 
-## Regras de migracao
-- Sem reescrever tudo do zero.
-- Novos modulos ja nascem no padrao novo.
-- Modulos existentes migram apenas quando forem tocados.
-- Nenhuma renomeacao massiva antes da criacao do baseline e dos componentes base.
-- Prioridade inicial: design tokens, states padrao, shell da aplicacao, modulo piloto frontend e modulo piloto backend.
+Todos os ADRs estão em [`adr/`](./adr/README.md).
 
-## Ordem recomendada
-1. Formalizar contratos e checklists.
-2. Criar design tokens, `ui` base e estados visuais padrao.
-3. Migrar um modulo medio do frontend.
-4. Migrar um modulo medio do backend para `application/domain/infrastructure`.
-5. Refatorar dashboard e shell.
-6. Expandir por dominio.
+### Arquitetura de Aplicação (ADR-001 a ADR-005)
+
+| ADR | Título |
+|---|---|
+| [ADR-001](./adr/ADR-001-frontend-modular-architecture.md) | Arquitetura modular do frontend |
+| [ADR-002](./adr/ADR-002-backend-layering.md) | Camadas explícitas no backend (api / application / domain / infrastructure) |
+| [ADR-003](./adr/ADR-003-api-result-error-contracts.md) | Contratos de resultado e erro das APIs |
+| [ADR-004](./adr/ADR-004-tenant-aware-module-contract.md) | Contrato de módulo ciente de tenant |
+| [ADR-005](./adr/ADR-005-design-system-ui-state-contracts.md) | Contratos de UI state no design system |
+
+### Infraestrutura e Segurança (ADR-006 a ADR-012)
+
+| ADR | Título |
+|---|---|
+| [ADR-006](./adr/ADR-006-rls-async-local-storage.md) | Isolamento multi-tenant com RLS + AsyncLocalStorage |
+| [ADR-007](./adr/ADR-007-refresh-token-rotation.md) | Rotação de refresh tokens |
+| [ADR-008](./adr/ADR-008-fail-closed-multi-tenant.md) | Fail-closed em contexto multi-tenant |
+| [ADR-009](./adr/ADR-009-bullmq-job-architecture.md) | Arquitetura de jobs com BullMQ |
+| [ADR-010](./adr/ADR-010-ai-rate-limiting-consent.md) | Rate limiting e consentimento para IA |
+| [ADR-011](./adr/ADR-011-lgpd-remediation-decisions.md) | Decisões de remediação LGPD |
+| [ADR-012](./adr/ADR-012-expenses-data-encryption-phasing.md) | Faseamento de criptografia de dados de despesas |
+
+---
+
+## Roadmap e Auditoria
+
+| Documento | Conteúdo |
+|---|---|
+| [AUDIT-2026-03-remediation-roadmap.md](./AUDIT-2026-03-remediation-roadmap.md) | Roadmap de remediação pós-auditoria Mar/2026 |
+
+---
+
+## Assets Visuais
+
+Todos os arquivos visuais estão em [`assets/`](./assets/).
+
+### Fluxogramas exportados (SVG)
+
+| Arquivo | Conteúdo |
+|---|---|
+| [sgs-fluxo-1-topologia.svg](./assets/sgs-fluxo-1-topologia.svg) | Topologia macro do sistema |
+| [sgs-fluxo-2-ciclo-documento.svg](./assets/sgs-fluxo-2-ciclo-documento.svg) | Ciclo de vida de documento governado |
+| [sgs-fluxo-3-request-tenant.svg](./assets/sgs-fluxo-3-request-tenant.svg) | Pipeline de middleware e scoping de tenant |
+| [sgs-fluxo-4-filas.svg](./assets/sgs-fluxo-4-filas.svg) | Processamento assíncrono (13 filas BullMQ) |
+| [sgs-fluxo-5-validacao-qr.svg](./assets/sgs-fluxo-5-validacao-qr.svg) | Validação pública por QR |
+
+### Fluxograma completo do sistema
+
+| Arquivo | Conteúdo |
+|---|---|
+| [sgs-fluxograma-sistema.png](./assets/sgs-fluxograma-sistema.png) | Painel único com os 54 módulos (4000×3184 px) |
+| [sgs-fluxograma-sistema.pdf](./assets/sgs-fluxograma-sistema.pdf) | Versão vetorial para apresentação/impressão |
+| [assets/src/sgs-fluxograma-sistema.html](./assets/src/sgs-fluxograma-sistema.html) | Fonte HTML do fluxograma (editar aqui) |
+| [assets/src/render.js](./assets/src/render.js) | Script Puppeteer para regerar PNG e PDF |
+
+### Diagramas de governança
+
+| Arquivo | Conteúdo |
+|---|---|
+| [sgs-gov-1-ciclo.svg](./assets/sgs-gov-1-ciclo.svg) | Ciclo de governança documental |
+| [sgs-gov-2-validacao.svg](./assets/sgs-gov-2-validacao.svg) | Fluxo de validação |
+| [sgs-gov-3-isolamento.svg](./assets/sgs-gov-3-isolamento.svg) | Isolamento multi-tenant |
+
+---
+
+## Como regerar os assets visuais
+
+```bash
+# Regerar PNG e PDF do fluxograma completo (da raiz do repo)
+node docs/architecture/assets/src/render.js \
+  docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+  docs/architecture/assets/sgs-fluxograma-sistema.png 2
+
+node docs/architecture/assets/src/render.js \
+  docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+  docs/architecture/assets/sgs-fluxograma-sistema.pdf
+
+# Regerar SVGs dos fluxogramas Mermaid (ver SGS-FLUXOGRAMA-COMPLETO.md para o script completo)
+```
+
+---
+
+## O que está em outras pastas de docs
+
+Esta pasta contém **toda a documentação arquitetural**. Documentação operacional e de referência fica em:
+
+| Pasta / Arquivo | Conteúdo |
+|---|---|
+| `docs/database-schema.md` | Schema descritivo completo (colunas, tipos, índices) |
+| `docs/api-reference.md` | Referência completa de endpoints REST com exemplos |
+| `docs/state-machines.md` | Máquinas de estado de todas as entidades (APR, DDS, PT…) |
+| `docs/deploy/` | Runbooks de deploy (Coolify, Vercel, workers) |
+| `docs/consulta-rapida/` | Consultas rápidas operacionais (onde alterar X, disaster recovery…) |
+| `docs/troubleshooting.md` | Guia de problemas comuns e soluções |
+
+---
+
+## Fontes de verdade dos diagramas
+
+Diagramas conferidos contra o código, não contra documentação anterior:
+
+- `backend/src/app.module.ts` · `worker.module.ts` · `main.ts`
+- `backend/src/infra/config/modules.config.ts`
+- `backend/src/shared/tenant/` · `shared/guards/` · `shared/security/file-inspection.service.ts`
+- `backend/src/modules/document-registry/`
+- Filas: `grep -r "registerQueue" backend/src`
