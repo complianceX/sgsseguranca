@@ -100,7 +100,7 @@ describe("drawGovernanceClosingBlock", () => {
       expect.any(Number),
     );
     expect(doc.text).toHaveBeenCalledWith(
-      "Governanca, autenticidade e rastreabilidade",
+      "Governança, autenticidade e rastreabilidade",
       expect.any(Number),
       expect.any(Number),
     );
@@ -150,7 +150,7 @@ describe("drawGovernanceClosingBlock", () => {
 
     expect(doc.addPage).toHaveBeenCalled();
     expect(doc.text).toHaveBeenCalledWith(
-      "Governanca, autenticidade e rastreabilidade - assinaturas complementares",
+      "Governança, autenticidade e rastreabilidade - assinaturas complementares",
       expect.any(Number),
       expect.any(Number),
     );

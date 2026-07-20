@@ -43,7 +43,7 @@ export async function generateChecklistPdf(
   const logoUrl = await resolveCompanyLogoDataUrl(checklist.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "CHECKLIST DE INSPECAO",
+    title: "CHECKLIST DE INSPEÇÃO",
     subtitle:
       "Documento oficial de conformidade operacional e rastreabilidade de campo",
     code,

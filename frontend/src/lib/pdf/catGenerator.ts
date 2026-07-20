@@ -46,9 +46,9 @@ export async function generateCatPdf(
   const logoUrl = await resolveCompanyLogoDataUrl(cat.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "COMUNICACAO DE ACIDENTE DE TRABALHO",
+    title: "COMUNICAÇÃO DE ACIDENTE DE TRABALHO",
     subtitle:
-      "Documento institucional de registro, apuracao, fechamento e rastreabilidade de acidente ocupacional.",
+      "Documento institucional de registro, apuração, fechamento e rastreabilidade de acidente ocupacional.",
     code,
     date: formatDate(cat.data_ocorrencia),
     status: sanitize(cat.status),

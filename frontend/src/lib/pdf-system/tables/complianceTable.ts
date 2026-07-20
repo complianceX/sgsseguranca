@@ -22,7 +22,7 @@ export function drawComplianceTable(
     title,
     tone: "default",
     autoTable,
-    head: [["Item", "Requisito", "Evidencia", "Classificacao"]],
+    head: [["Item", "Requisito", "Evidência", "Classificação"]],
     body: rows.map((r) => [
       sanitize(r.item),
       sanitize(r.requirement),

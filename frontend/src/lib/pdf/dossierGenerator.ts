@@ -30,8 +30,8 @@ function buildDossierDocumentCode(context: DossierContext): string {
 
 function buildDossierTitle(context: DossierContext) {
   return context.kind === "employee"
-    ? "DOSSIE DE SST - COLABORADOR"
-    : "DOSSIE DE SST - OBRA/SETOR";
+    ? "DOSSIÊ DE SST - COLABORADOR"
+    : "DOSSIÊ DE SST - OBRA/SETOR";
 }
 
 function buildDossierSubtitle(context: DossierContext) {

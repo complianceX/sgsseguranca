@@ -240,7 +240,7 @@ function drawValidationPanel(
     doc.text(hashLines, textX, hashY);
   }
 
-  const badgeLabel = draft ? "RASCUNHO" : "VALIDO";
+  const badgeLabel = draft ? "RASCUNHO" : "VÁLIDO";
   const badgeColor = draft ? ([180, 83, 9] as [number, number, number]) : ([27, 94, 62] as [number, number, number]);
 
   doc.setFillColor(...badgeColor);
@@ -280,9 +280,9 @@ export async function drawGovernanceClosingBlock(
   const { doc, margin, contentWidth, theme } = ctx;
   currentAccent = options.accentColor ?? null;
   currentAccentSoft = options.accentSoftColor ?? null;
-  const title = options.title || "Governanca, autenticidade e rastreabilidade";
+  const title = options.title || "Governança, autenticidade e rastreabilidade";
   const subtitle =
-    options.subtitle || "Valide o documento por QR Code ou pelo identificador publico.";
+    options.subtitle || "Valide o documento por QR Code ou pelo identificador público.";
   const signatures = (options.signatures || []).filter(
     (signature) => signature.name || signature.role || signature.image,
   );

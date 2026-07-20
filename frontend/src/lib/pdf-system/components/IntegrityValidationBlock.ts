@@ -16,7 +16,7 @@ export async function drawIntegrityValidationBlock(
   options: IntegrityValidationBlockOptions,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
-  const title = options.title || "Governanca e Autenticidade";
+  const title = options.title || "Governança e Autenticidade";
   const subtitle = options.subtitle || "Valide o documento pelo QR Code ou pelo identificador.";
   const subtitleLines = doc.splitTextToSize(subtitle, 72);
   const urlLines = doc.splitTextToSize(options.url, 72);

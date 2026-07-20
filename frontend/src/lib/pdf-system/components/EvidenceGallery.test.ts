@@ -99,7 +99,7 @@ describe("drawEvidenceGallery", () => {
     });
 
     expect(doc.text).toHaveBeenCalledWith(
-      "FOTO INDISPONIVEL",
+      "FOTO INDISPONÍVEL",
       expect.any(Number),
       expect.any(Number),
       expect.objectContaining({ align: "center" }),

@@ -60,7 +60,7 @@ export async function generateTrainingPdf(
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMPROVANTE DE TREINAMENTO",
-    subtitle: "Documento oficial de qualificacao, validade e bloqueios operacionais",
+    subtitle: "Documento oficial de qualificação, validade e bloqueios operacionais",
     code,
     date: formatDate(training.data_conclusao),
     status: resolveTrainingHeaderStatus(training),

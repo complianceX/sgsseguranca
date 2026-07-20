@@ -88,14 +88,14 @@ function formatRiskEntries(values?: AuditRiskLike[]) {
 
 function formatChecklistAnswer(value?: string) {
   if (value === "sim") return "Sim";
-  if (value === "nao") return "Nao";
+  if (value === "nao") return "Não";
   return "N/A";
 }
 
 function formatChecklistCriticality(value?: string) {
-  if (value === "critica") return "Critica";
+  if (value === "critica") return "Crítica";
   if (value === "alta") return "Alta";
-  if (value === "media") return "Media";
+  if (value === "media") return "Média";
   if (value === "baixa") return "Baixa";
   return sanitize(value);
 }
@@ -108,7 +108,7 @@ function buildChecklistRows(values?: AuditChecklistAnswerLike[]) {
       requirement: answer.requirement,
       evidence: [
         `Resposta: ${formatChecklistAnswer(answer.answer)}`,
-        answer.observation ? `Observacao: ${answer.observation}` : undefined,
+        answer.observation ? `Observação: ${answer.observation}` : undefined,
         answer.evidences?.length ? `Fotos anexadas: ${answer.evidences.length}` : undefined,
       ]
         .filter(Boolean)
@@ -157,12 +157,12 @@ export async function drawAuditBlueprint(
 
   drawExecutiveSummaryStrip(ctx, {
     title: "Resumo executivo de auditoria",
-    summary: "Sintese de escopo, criterio, achados e plano de acao para suporte a decisao gerencial.",
+    summary: "Síntese de escopo, critério, achados e plano de ação para suporte à decisão gerencial.",
     metrics: [
       { label: "Tipo", value: sanitize(audit.tipo_auditoria), tone: "info" },
       { label: "Auditor", value: sanitize(audit.auditor?.nome), tone: "default" },
-      { label: "Nao conformidades", value: audit.resultados_nao_conformidades?.length || 0, tone: (audit.resultados_nao_conformidades?.length || 0) > 0 ? "warning" : "success" },
-      { label: "Plano de acao", value: audit.plano_acao?.length || 0, tone: "info" },
+      { label: "Não conformidades", value: audit.resultados_nao_conformidades?.length || 0, tone: (audit.resultados_nao_conformidades?.length || 0) > 0 ? "warning" : "success" },
+      { label: "Plano de ação", value: audit.plano_acao?.length || 0, tone: "info" },
       { label: "Site", value: sanitize(audit.site?.nome), tone: "info" },
       { label: "Data", value: formatDate(audit.data_auditoria), tone: "default" },
     ],
@@ -172,7 +172,7 @@ export async function drawAuditBlueprint(
     title: "Contexto da auditoria",
     columns: 2,
     fields: [
-      { label: "Titulo", value: audit.titulo },
+      { label: "Título", value: audit.titulo },
       { label: "Tipo", value: audit.tipo_auditoria },
       { label: "Data", value: formatDate(audit.data_auditoria) },
       { label: "Auditor", value: audit.auditor?.nome },
@@ -218,14 +218,14 @@ export async function drawAuditBlueprint(
     drawComplianceTable(
       ctx,
       autoTable,
-      "Checklist de auditoria (Sim/Nao/N/A)",
+      "Checklist de auditoria (Sim/Não/N/A)",
       checklistRows,
       { semanticRules: { profile: "audit", columns: [2, 3] } },
     );
   }
 
   await drawEvidenceGallery(ctx, {
-    title: "Evidencias fotograficas do checklist",
+    title: "Evidências fotográficas do checklist",
     items: buildChecklistEvidenceItems(
       audit.checklist_respostas as AuditChecklistAnswerLike[] | undefined,
     ).slice(0, 24),
@@ -240,7 +240,7 @@ export async function drawAuditBlueprint(
   drawComplianceTable(
     ctx,
     autoTable,
-    "Nao conformidades identificadas",
+    "Não conformidades identificadas",
     (audit.resultados_nao_conformidades || []).map(
       (item: AuditNonComplianceLike, index: number) => ({
       item: `NC ${index + 1}: ${item.descricao}`,
@@ -282,7 +282,7 @@ export async function drawAuditBlueprint(
   await drawGovernanceClosingBlock(ctx, {
     code,
     url: validationUrl,
-    title: "Governanca e autenticidade",
-    subtitle: "Valide por QR Code ou codigo no portal publico.",
+    title: "Governança e autenticidade",
+    subtitle: "Valide por QR Code ou código no portal público.",
   });
 }
