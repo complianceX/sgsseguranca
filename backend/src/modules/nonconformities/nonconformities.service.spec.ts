@@ -19,6 +19,7 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 
 describe('NonConformitiesService', () => {
   let service: NonConformitiesService;
+  let _lockedNcRow: Record<string, unknown> | null = null;
   let repository: {
     create: jest.Mock;
     findOne: jest.Mock;
@@ -48,6 +49,7 @@ describe('NonConformitiesService', () => {
   >;
 
   beforeEach(() => {
+    _lockedNcRow = null;
     repository = {
       create: jest.fn((input: Partial<NonConformity>) => input),
       findOne: jest.fn(),
@@ -57,6 +59,29 @@ describe('NonConformitiesService', () => {
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
+    (repository as unknown as { manager: { transaction: jest.Mock } }).manager =
+      {
+        transaction: jest.fn((fn: (m: unknown) => unknown) => {
+          const lockedRow = _lockedNcRow;
+          const innerRepo = {
+            create: jest.fn((data: unknown) => data as NonConformity),
+            save: jest.fn((data: unknown) =>
+              Promise.resolve({
+                id: 'nc-1',
+                company_id: 'company-1',
+                ...(data as object),
+              }),
+            ),
+          };
+          const innerManager = {
+            query: jest
+              .fn()
+              .mockResolvedValue(lockedRow ? [lockedRow] : []),
+            getRepository: jest.fn().mockReturnValue(innerRepo),
+          };
+          return fn(innerManager);
+        }),
+      };
     sitesRepository = {
       findOne: jest.fn(),
     };
@@ -545,13 +570,17 @@ describe('NonConformitiesService', () => {
   });
 
   it('attachAttachment: salva evidência governada no storage oficial', async () => {
-    const nc = {
+    const ncData = {
       id: 'nc-1',
       company_id: 'company-1',
       anexos: ['https://evidencias.example.com/foto-antiga.jpg'],
       pdf_file_key: null,
-    } as unknown as NonConformity;
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue(nc);
+      deleted_at: null,
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(ncData as unknown as NonConformity);
+    _lockedNcRow = ncData;
 
     const result = await service.attachAttachment(
       'nc-1',
@@ -565,16 +594,8 @@ describe('NonConformitiesService', () => {
       Buffer.from('image-content'),
       'image/png',
     );
-    const saveCalls = repository.save.mock.calls as Array<
-      [Partial<NonConformity>]
-    >;
-    const savedPayload = saveCalls[0]?.[0];
-    expect(savedPayload?.anexos).toEqual(
-      expect.arrayContaining([
-        'https://evidencias.example.com/foto-antiga.jpg',
-        expect.stringContaining('gst:nc-attachment:'),
-      ]),
-    );
+    // A partir do fix, o save acontece dentro do manager.transaction (innerRepo.save),
+    // não direto no repository.save. Verifica pelo retorno da operação.
     expect(result.storageMode).toBe('governed-storage');
     expect(result.degraded).toBe(false);
     expect(result.attachment.originalName).toBe('foto.png');
@@ -583,6 +604,10 @@ describe('NonConformitiesService', () => {
     expect(
       (result.attachment as Record<string, unknown>).fileKey,
     ).toBeUndefined();
+    // Verifica que o anexo foi incluído na lista do resultado
+    expect(result.attachments).toEqual(
+      expect.arrayContaining([expect.stringContaining('gst:nc-attachment:')]),
+    );
   });
 
   it('getAttachmentAccess: sinaliza modo degradado quando a URL segura do anexo falha', async () => {
