@@ -29,6 +29,7 @@ import { CACHE_KEYS, DASHBOARD_CACHE_TTL_MS } from "@/lib/cache/cacheKeys";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
 import { safeInternalHref } from "@/lib/security/safe-internal-href";
+import { parseValidDate } from "@/lib/dashboard/utils";
 
 type Period = "today" | "7d" | "30d";
 
@@ -48,12 +49,6 @@ function periodToDates(period: Period): { dateFrom: string; dateTo: string } {
         ? format(subDays(startOfDay(now), 6), "yyyy-MM-dd")
         : format(subDays(startOfDay(now), 29), "yyyy-MM-dd");
   return { dateFrom, dateTo };
-}
-
-function parseValidDate(value?: string | null): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function formatDueDate(dateStr: string | null): { label: string; overdue: boolean } {

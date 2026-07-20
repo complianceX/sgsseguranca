@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
 import { safeInternalHref } from "@/lib/security/safe-internal-href";
+import { parseValidDate } from "@/lib/dashboard/utils";
 
 const PRIORITY_CONFIG = {
   critical: {
@@ -85,6 +86,39 @@ function ActivityFeedComponent({
                 </div>
               </div>
             ))
+          ) : recentActivities.length > 0 ? (
+            recentActivities.slice(0, 6).map((activity) => {
+              const activityHref = safeInternalHref(activity.href) ?? "/dashboard";
+              return (
+                <Link
+                  key={activity.id}
+                  href={activityHref}
+                  aria-label={`${activity.title} — ${activity.description}`}
+                  className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
+                >
+                  <div className="flex w-12 shrink-0 flex-col items-end">
+                    <span className="text-[12px] font-semibold tabular-nums text-[var(--ds-color-text-secondary)]">
+                      {format(new Date(activity.date), "HH:mm")}
+                    </span>
+                  </div>
+                  <div className="relative flex flex-col items-center self-stretch" aria-hidden="true">
+                    <span
+                      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: activity.color }}
+                    />
+                    <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
+                  </div>
+                  <div className="min-w-0 flex-1 pb-1">
+                    <p className="line-clamp-1 text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
+                      {activity.title}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-[var(--ds-color-text-secondary)]">
+                      {activity.description}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })
           ) : priorityItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
               <CheckCircle2
@@ -92,48 +126,16 @@ function ActivityFeedComponent({
                 aria-hidden="true"
               />
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                Nenhuma atividade crítica hoje
+                Nenhuma atividade registrada
               </p>
               <p className="text-xs text-[var(--ds-color-text-secondary)]">
                 Operação dentro dos parâmetros.
               </p>
             </div>
-          ) : recentActivities.length > 0 ? (
-            recentActivities.slice(0, 6).map((activity) => {
-              const activityHref = safeInternalHref(activity.href) ?? "/dashboard";
-              return (
-              <Link
-                key={activity.id}
-                href={activityHref}
-                aria-label={`${activity.title} — ${activity.description}`}
-                className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
-              >
-                <div className="flex w-12 shrink-0 flex-col items-end">
-                  <span className="text-[12px] font-semibold tabular-nums text-[var(--ds-color-text-secondary)]">
-                    {format(new Date(activity.date), "HH:mm")}
-                  </span>
-                </div>
-                <div className="relative flex flex-col items-center self-stretch" aria-hidden="true">
-                  <span
-                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: activity.color }}
-                  />
-                  <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
-                </div>
-                <div className="min-w-0 flex-1 pb-1">
-                  <p className="line-clamp-1 text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
-                    {activity.title}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-[var(--ds-color-text-secondary)]">
-                    {activity.description}
-                  </p>
-                </div>
-              </Link>
-              );
-            })
           ) : (
             priorityItems.slice(0, 6).map((item) => {
               const pCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG.medium;
+              const dueDate = parseValidDate(item.dueDate);
               const itemHref = safeInternalHref(item.href) ?? "/dashboard";
               return (
                 <Link
@@ -144,7 +146,7 @@ function ActivityFeedComponent({
                 >
                   <div className="flex w-12 shrink-0 flex-col items-end">
                     <span className="text-[12px] font-semibold tabular-nums text-[var(--ds-color-text-secondary)]">
-                      {item.dueDate ? format(new Date(item.dueDate), "HH:mm") : "--:--"}
+                      {dueDate ? format(dueDate, "HH:mm") : "--:--"}
                     </span>
                   </div>
                   <div className="relative flex flex-col items-center self-stretch" aria-hidden="true">

@@ -5,32 +5,12 @@ import { cn } from "@/lib/utils";
 import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
-
-function clampScore(v: number) {
-  return Math.max(0, Math.min(100, Math.round(v)));
-}
-
-function resolveComplianceLabel(score: number | null) {
-  if (score == null) return "Calculando";
-  if (score >= 85) return "Excelente";
-  if (score >= 70) return "Controlado";
-  if (score >= 50) return "Atenção";
-  return "Crítico";
-}
-
-function resolveComplianceMessage(score: number | null) {
-  if (score == null) return "Consolidando dados de conformidade.";
-  if (score >= 85) return "Excelente aderência operacional. Mantenha o ritmo.";
-  if (score >= 70) return "Pequenos ajustes elevarão o desempenho.";
-  if (score >= 50) return "Priorize regularizações para reduzir exposição.";
-  return "Plano de ação imediato recomendado.";
-}
-
-function parseValidDate(value?: string | null): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+import {
+  calcComplianceScore,
+  resolveComplianceLabel,
+  resolveComplianceMessage,
+} from "@/lib/dashboard/compliance";
+import { parseValidDate } from "@/lib/dashboard/utils";
 
 const EMPTY_LIST: never[] = [];
 const EMPTY_RISK_SUMMARY = { alto: 0, medio: 0, baixo: 0 };
@@ -186,34 +166,18 @@ function SSTScoreRingsComponent({
     }).length;
   }, [expiringTrainings]);
 
-  const complianceScore = useMemo(() => {
-    if (loading) return null;
-    const criticalPenalty = Math.min(40, pendingQueue.summary.critical * 8);
-    const highPenalty = Math.min(18, pendingQueue.summary.high * 2.5);
-    const totalPenalty = Math.min(
-      14,
-      Math.max(0, pendingQueue.summary.total - 5) * 1.2,
-    );
-    const epiPenalty = showEpiModule ? Math.min(14, expiredEpisCount * 3.5) : 0;
-    const trainingPenalty = showTrainingModule
-      ? Math.min(14, expiredTrainingsCount * 3.5)
-      : 0;
-    return clampScore(
-      100 -
-        criticalPenalty -
-        highPenalty -
-        totalPenalty -
-        epiPenalty -
-        trainingPenalty,
-    );
-  }, [
-    loading,
-    pendingQueue.summary,
-    expiredEpisCount,
-    expiredTrainingsCount,
-    showEpiModule,
-    showTrainingModule,
-  ]);
+  const complianceScore = useMemo(
+    () =>
+      calcComplianceScore({
+        loading,
+        pendingSummary: pendingQueue.summary,
+        expiredEpisCount,
+        expiredTrainingsCount,
+        includeEpiPenalty: showEpiModule,
+        includeTrainingPenalty: showTrainingModule,
+      }),
+    [loading, pendingQueue.summary, expiredEpisCount, expiredTrainingsCount, showEpiModule, showTrainingModule],
+  );
 
   const complianceTone =
     complianceScore == null
