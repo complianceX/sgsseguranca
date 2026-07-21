@@ -104,16 +104,21 @@ export class AiInteractionsOperationalReadiness1709000000331 implements Migratio
     await queryRunner.query(
       `DROP POLICY IF EXISTS "tenant_isolation" ON "${partitionName}"`,
     );
+    // `ai_interactions` isola tenant por `company_id` (varchar) — não existe
+    // coluna `tenant_id`. Referenciá-la abortava a criação da policy com
+    // "não existe a coluna tenant_id", travando a cadeia de migrations num
+    // banco criado do zero. O predicado abaixo espelha o das policies já
+    // aplicadas à tabela pai e às partições anteriores.
     await queryRunner.query(`
       CREATE POLICY "tenant_isolation"
       ON "${partitionName}"
       FOR ALL
       USING (
-        ("tenant_id")::text = (current_company())::text
+        ("company_id")::text = (current_company())::text
         OR is_super_admin() = true
       )
       WITH CHECK (
-        ("tenant_id")::text = (current_company())::text
+        ("company_id")::text = (current_company())::text
         OR is_super_admin() = true
       )
     `);
