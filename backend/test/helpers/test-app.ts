@@ -168,7 +168,21 @@ export class TestApp {
       await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
-      await this.dataSource.synchronize(false);
+      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
+      // O schema de teste é construído pelas MIGRATIONS, não por synchronize().
+      //
+      // synchronize() deriva o schema apenas das entities, e portanto não cria
+      // nada que exista somente em migration — inclusive as policies de RLS.
+      // Os testes de isolamento multi-tenant rodavam contra um banco SEM RLS
+      // ativo, o que os fazia passar por ausência da barreira que deveriam
+      // estar exercitando. Além disso, defeitos que só aparecem ao aplicar a
+      // cadeia do zero (ALTER bloqueado por policy/view, FK com tipo
+      // incompatível, coluna inexistente em policy) nunca eram alcançados pelo
+      // CI — foram encontrados manualmente na auditoria de banco.
+      //
+      // runMigrations respeita a flag `transaction` de cada migration, então as
+      // que usam CREATE INDEX CONCURRENTLY continuam rodando fora de transação.
+      await this.dataSource.runMigrations({ transaction: 'each' });
     } else if (dbType === 'postgres') {
       await this.dataSource.query(`
         DO $$

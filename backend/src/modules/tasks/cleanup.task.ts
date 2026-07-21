@@ -49,12 +49,40 @@ export class CleanupTask {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - retentionDays);
 
-    const result = await this.auditLogRepo.delete({
-      timestamp: LessThan(cutoff),
-    });
+    // `audit_logs` tem RLS com FORCE. Este cron roda fora de requisição HTTP,
+    // então não existe contexto de tenant no AsyncLocalStorage e
+    // `app.current_company_id` fica vazio — o DELETE casava com zero linhas e o
+    // log anunciava "0 rows" como sucesso, enquanto a tabela crescia sem limite.
+    // A limpeza é intencionalmente global (todos os tenants), então roda dentro
+    // de uma transação com bypass explícito, no mesmo padrão já usado pela
+    // rotina de exclusão LGPD (`gdpr-deletion.service.ts`).
+    const { eligible, deleted } = await this.auditLogRepo.manager.transaction(
+      async (manager) => {
+        await manager.query(`SET LOCAL app.is_super_admin = 'true'`);
+
+        const repo = manager.getRepository(AuditLog);
+        const eligibleCount = await repo.count({
+          where: { timestamp: LessThan(cutoff) },
+        });
+        const result = await repo.delete({ timestamp: LessThan(cutoff) });
+
+        return { eligible: eligibleCount, deleted: result.affected ?? 0 };
+      },
+    );
+
+    // Divergência aqui significa que o bypass deixou de valer (ex.: papel do
+    // runtime perdeu `sgs_rls_bypass`). Sem este alerta a falha volta a ser
+    // silenciosa, que foi exatamente o defeito original.
+    if (eligible > 0 && deleted === 0) {
+      this.logger.error(
+        `Retenção de audit_logs não removeu nada apesar de ${eligible} registro(s) elegível(is) — ` +
+          'verifique se o papel de runtime ainda possui bypass de RLS (sgs_rls_bypass).',
+      );
+      return;
+    }
 
     this.logger.log(
-      `Old audit logs cleaned up: ${result.affected} rows (retention=${retentionDays}d)`,
+      `Old audit logs cleaned up: ${deleted} rows (retention=${retentionDays}d, elegíveis=${eligible})`,
     );
   }
 

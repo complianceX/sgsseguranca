@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -9,7 +10,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
 import * as path from 'path';
-import { FindOptionsWhere, In, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  EntityManager,
+  FindOptionsWhere,
+  In,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { AuditService } from '../audit-trail/audit.service';
 import { AuditAction } from '../audit-trail/enums/audit-action.enum';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
@@ -374,6 +381,61 @@ export class CatsService {
     return saved;
   }
 
+  /**
+   * Serializa mutações no array jsonb `attachments` da CAT.
+   *
+   * Sem isso, dois anexos enviados ao mesmo tempo para a mesma CAT fazem
+   * read-modify-write sobre o mesmo array: ambos leem `[A]`, um grava `[A,B]` e
+   * o outro `[A,C]` — a segunda escrita sobrescreve a primeira, e o anexo
+   * perdido deixa um arquivo órfão no storage (já cobrado, nunca referenciado).
+   *
+   * `FOR UPDATE NOWAIT` falha de imediato com 55P03 quando a linha já está
+   * travada; o retry com backoff cobre a concorrência normal e, esgotado,
+   * devolve 409 em vez de 500. Mesmo padrão de `mutateChecklistLocked`,
+   * `mutateNcAttachmentsLocked` e `mutateRdoContentLocked`.
+   */
+  private async mutateCatAttachmentsLocked<T>(
+    id: string,
+    companyId: string,
+    apply: (cat: Cat, manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    const retryDelaysMs = [50, 100, 200];
+
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+      try {
+        return await this.catsRepository.manager.transaction(
+          async (manager) => {
+            const rows = await manager.query<Cat[]>(
+              `SELECT * FROM "cats" WHERE "id" = $1 AND "company_id" = $2 AND "deleted_at" IS NULL FOR UPDATE NOWAIT`,
+              [id, companyId],
+            );
+            if (!rows || rows.length === 0) {
+              throw new NotFoundException('CAT não encontrada.');
+            }
+            const locked = manager.getRepository(Cat).create(rows[0]);
+            return apply(locked, manager);
+          },
+        );
+      } catch (error: unknown) {
+        const code = (error as { code?: string } | null)?.code;
+        if (code !== '55P03') {
+          throw error;
+        }
+        const delay = retryDelaysMs[attempt];
+        if (delay === undefined) {
+          throw new ConflictException(
+            'Outra operação está em andamento para esta CAT. Tente novamente em instantes.',
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw new ConflictException(
+      'Outra operação está em andamento para esta CAT. Tente novamente em instantes.',
+    );
+  }
+
   async addAttachment(
     id: string,
     input: {
@@ -425,8 +487,16 @@ export class CatsService {
     };
 
     try {
-      cat.attachments = [...(cat.attachments || []), attachment];
-      await this.catsRepository.save(cat);
+      // A leitura de `attachments` precisa acontecer sob lock: reaproveitar o
+      // `cat` carregado antes do upload reintroduziria a corrida.
+      await this.mutateCatAttachmentsLocked(
+        cat.id,
+        cat.company_id,
+        async (locked, manager) => {
+          locked.attachments = [...(locked.attachments || []), attachment];
+          await manager.getRepository(Cat).save(locked);
+        },
+      );
       await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
         event: 'cat_attachment_added',
         companyId: cat.company_id,
@@ -454,14 +524,25 @@ export class CatsService {
     actorId?: string,
   ): Promise<void> {
     const cat = await this.findOne(id);
-    const current = cat.attachments || [];
-    const attachment = current.find((item) => item.id === attachmentId);
-    if (!attachment) {
-      throw new NotFoundException('Anexo não encontrado para esta CAT.');
-    }
 
-    cat.attachments = current.filter((item) => item.id !== attachmentId);
-    await this.catsRepository.save(cat);
+    // A remoção também é read-modify-write sobre o mesmo jsonb: sem lock, um
+    // anexo adicionado em paralelo seria descartado junto com o removido.
+    const attachment = await this.mutateCatAttachmentsLocked(
+      cat.id,
+      cat.company_id,
+      async (locked, manager) => {
+        const current = locked.attachments || [];
+        const target = current.find((item) => item.id === attachmentId);
+        if (!target) {
+          throw new NotFoundException('Anexo não encontrado para esta CAT.');
+        }
+
+        locked.attachments = current.filter((item) => item.id !== attachmentId);
+        await manager.getRepository(Cat).save(locked);
+        return target;
+      },
+    );
+
     let storageCleanup: 'deleted' | 'pending_manual_cleanup' = 'deleted';
     try {
       await this.storageService.deleteFile(attachment.file_key);

@@ -24,6 +24,9 @@ import * as crypto from 'crypto';
 import type {
   Application as ExpressApplication,
   RequestHandler,
+  Request,
+  Response,
+  NextFunction,
 } from 'express';
 import type { Queue } from 'bullmq';
 import { buildStructuredLoggerOptions } from './shared/logging/structured-winston';
@@ -260,6 +263,16 @@ async function bootstrap() {
   app.use(compression({ threshold: 1024, level: 6 }));
   httpAdapterInstance.disable?.('x-powered-by');
 
+  // Nonce por requisição para o HTML servido pelo próprio backend (hoje apenas
+  // a página de redefinição de senha). Sem ele, o CSP abaixo — que não inclui
+  // 'unsafe-inline' — bloqueia o <style> e o <script> inline dessa página em
+  // produção, deixando o fluxo de recuperação de senha inutilizável. Em
+  // desenvolvimento o CSP roda em reportOnly, o que mascarava a falha.
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+    next();
+  });
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -267,8 +280,16 @@ async function bootstrap() {
         useDefaults: false,
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            (_req, res) =>
+              `'nonce-${(res as Response).locals.cspNonce as string}'`,
+          ],
+          styleSrc: [
+            "'self'",
+            (_req, res) =>
+              `'nonce-${(res as Response).locals.cspNonce as string}'`,
+          ],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],

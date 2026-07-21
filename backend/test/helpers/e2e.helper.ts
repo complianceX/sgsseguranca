@@ -114,9 +114,37 @@ export class E2EHelper {
 
   static async cleanDatabase(app: INestApplication) {
     const connection = app.get(Connection);
-    if (connection.isInitialized) {
-      // Using synchronize(true) drops schema and recreates it
-      await connection.synchronize(true);
+    if (!connection.isInitialized) {
+      return;
     }
+
+    // Limpa os DADOS preservando o schema.
+    //
+    // A versão anterior chamava `synchronize(true)`, que derruba e recria o
+    // schema a partir das entities — descartando tudo que só existe em
+    // migration, com destaque para as policies de RLS. Depois dessa chamada os
+    // testes seguiam rodando contra um banco sem isolamento multi-tenant,
+    // justamente o que boa parte deles deveria verificar.
+    if (connection.options.type === 'postgres') {
+      await connection.query(`
+        DO $$
+        DECLARE
+          table_names TEXT;
+        BEGIN
+          SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
+          INTO table_names
+          FROM pg_tables
+          WHERE schemaname = 'public'
+            AND tablename <> 'migrations';
+
+          IF table_names IS NOT NULL THEN
+            EXECUTE 'TRUNCATE TABLE ' || table_names || ' RESTART IDENTITY CASCADE';
+          END IF;
+        END $$;
+      `);
+      return;
+    }
+
+    await connection.synchronize(true);
   }
 }
