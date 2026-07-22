@@ -23,6 +23,24 @@ export interface UseRealtimeNotificationsResult {
 function wsBaseUrl(): string | null {
   const apiUrl = getApiBaseUrl();
   if (!apiUrl) return null;
+
+  // Em produção o app conversa com o backend via proxy same-origin
+  // (NEXT_PUBLIC_API_URL = a própria origem do app na Vercel). Essa origem NÃO
+  // roda servidor socket.io, então uma conexão WebSocket para ela sempre falha e
+  // só cai em polling depois de esgotar o timeout — poluindo o console e
+  // atrasando as notificações. Se o WebSocket apontaria para a mesma origem da
+  // página, pulamos o WS e usamos polling direto. Em dev a API fica em outra
+  // porta (localhost:3011 ≠ 3000), então o WS continua sendo tentado normalmente.
+  if (typeof window !== 'undefined') {
+    try {
+      if (new URL(apiUrl).host === window.location.host) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
   return apiUrl.replace(/^http/i, 'ws');
 }
 
