@@ -43,7 +43,7 @@ export async function generateNonConformityPdf(
   const logoUrl = await resolveCompanyLogoDataUrl(company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "RELATORIO DE NAO CONFORMIDADE",
+    title: "RELATÓRIO DE NÃO CONFORMIDADE",
     subtitle:
       "Documento oficial de registro, tratativa e encerramento de desvio",
     code,

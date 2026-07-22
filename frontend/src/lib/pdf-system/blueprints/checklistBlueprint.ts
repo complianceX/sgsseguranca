@@ -98,7 +98,7 @@ function statusLabel(status: boolean | string | undefined): string {
   )
     return "Conforme";
   if (status === false || status === "nok" || status === "nao")
-    return "Nao Conforme";
+    return "Não Conforme";
   if (status === "na") return "N/A";
   return sanitize(status as string);
 }
@@ -135,7 +135,7 @@ export async function drawChecklistBlueprint(
   drawExecutiveSummaryStrip(ctx, {
     title: "Resumo executivo de conformidade",
     summary:
-      "Leitura rapida para operacao e gestao, com destaque para score, pendencias e nao conformidades.",
+      "Leitura rápida para operação e gestão, com destaque para score, pendências e não conformidades.",
     metrics: [
       {
         label: "Status",
@@ -150,7 +150,7 @@ export async function drawChecklistBlueprint(
       { label: "Itens", value: totalItems, tone: "info" },
       { label: "Conformes", value: conformes, tone: "success" },
       {
-        label: "Nao conformes",
+        label: "Não conformes",
         value: naoConformes,
         tone: naoConformes > 0 ? "danger" : "success",
       },
@@ -166,7 +166,7 @@ export async function drawChecklistBlueprint(
     title: "Contexto do checklist",
     columns: 2,
     fields: [
-      { label: "Titulo", value: checklist.titulo },
+      { label: "Título", value: checklist.titulo },
       { label: "Categoria", value: checklist.categoria },
       { label: "Data", value: formatDate(checklist.data) },
       { label: "Inspetor", value: checklist.inspetor?.nome },
@@ -176,13 +176,13 @@ export async function drawChecklistBlueprint(
         value: checklist.equipamento || checklist.maquina,
       },
       { label: "Periodicidade", value: checklist.periodicidade },
-      { label: "Topicos", value: groupedItems.length || 1 },
+      { label: "Tópicos", value: groupedItems.length || 1 },
       { label: "Indicadores", value: `${conformes}/${totalItems} conformes` },
     ],
   });
 
   drawNarrativeSection(ctx, {
-    title: "Escopo e observacoes gerais",
+    title: "Escopo e observações gerais",
     content: checklist.descricao,
   });
 
@@ -201,10 +201,10 @@ export async function drawChecklistBlueprint(
       ).length;
 
       drawSemanticTable(ctx, {
-        title: `${group.titulo || `Topico ${groupIndex + 1}`} (${groupConformes}/${groupItems.length} conformes)`,
+        title: `${group.titulo || `Tópico ${groupIndex + 1}`} (${groupConformes}/${groupItems.length} conformes)`,
         tone: groupNaoConformes > 0 ? "risk" : "default",
         autoTable,
-        head: [["Item avaliado", "Tipo", "Status", "Observacao"]],
+        head: [["Item avaliado", "Tipo", "Status", "Observação"]],
         body: groupItems.map((item: ChecklistItemLike, index: number) => {
           const subitems = Array.isArray(item.subitens) ? item.subitens : [];
           const itemLabel = [
@@ -219,7 +219,7 @@ export async function drawChecklistBlueprint(
 
           return [
             itemLabel,
-            sanitize(item.tipo_resposta?.replace(/_/g, " / ") ?? "Sim / Nao"),
+            sanitize(item.tipo_resposta?.replace(/_/g, " / ") ?? "Sim / Não"),
             statusLabel(item.status),
             sanitize(item.observacao),
           ];
@@ -251,7 +251,7 @@ export async function drawChecklistBlueprint(
     })),
     code,
     url: validationUrl,
-    title: "Governanca e autenticidade",
-    subtitle: "Valide por QR Code ou codigo no portal publico.",
+    title: "Governança e autenticidade",
+    subtitle: "Valide por QR Code ou código no portal público.",
   });
 }

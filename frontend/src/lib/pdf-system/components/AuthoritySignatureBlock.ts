@@ -22,7 +22,7 @@ export function drawAuthoritySignatureBlock(
 ) {
   if (!options.signatures.length) return;
   const { doc, margin, contentWidth, theme } = ctx;
-  const title = options.title || "Responsabilidade Tecnica e Assinaturas";
+  const title = options.title || "Responsabilidade Técnica e Assinaturas";
 
   const columns = 2;
   const cardW = (contentWidth - 6) / columns;

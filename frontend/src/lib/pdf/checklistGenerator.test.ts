@@ -85,7 +85,7 @@ describe("generateChecklistPdf", () => {
     expect(mockApplyInstitutionalDocumentHeader).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        title: "CHECKLIST DE INSPECAO",
+        title: "CHECKLIST DE INSPEÇÃO",
         code: "CHK-2026-TESTE0001",
         status: "Conforme",
       }),

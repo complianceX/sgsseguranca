@@ -62,11 +62,11 @@ function resolveStatusSignal(report: MonthlyReportPdfSource) {
 
   if (expiredEpis > 0) {
     return {
-      label: "Atencao",
+      label: "Atenção",
       tone: "danger" as MetricTone,
       criticality: "moderate",
       message:
-        "Ha itens vencidos que exigem tratamento prioritario e acompanhamento executivo.",
+        "Há itens vencidos que exigem tratamento prioritário e acompanhamento executivo.",
     };
   }
 
@@ -76,16 +76,16 @@ function resolveStatusSignal(report: MonthlyReportPdfSource) {
       tone: "success" as MetricTone,
       criticality: "controlled",
       message:
-        "O periodo registrou boa tracao operacional e volume consistente de evidencias.",
+        "O período registrou boa tração operacional e volume consistente de evidências.",
     };
   }
 
   return {
-    label: "Estavel",
+    label: "Estável",
     tone: "info" as MetricTone,
     criticality: "monitorado",
     message:
-      "O periodo manteve operacao regular, com volume controlado e sem alertas criticos.",
+      "O período manteve operação regular, com volume controlado e sem alertas críticos.",
   };
 }
 
@@ -113,16 +113,16 @@ function buildIndicatorRows(report: MonthlyReportPdfSource) {
       quantidade: report.estatisticas.aprs_count,
       leitura:
         report.estatisticas.aprs_count > 0
-          ? "Operacao com analise preventiva registrada"
-          : "Sem emissao no periodo",
+          ? "Operação com análise preventiva registrada"
+          : "Sem emissão no período",
     },
     {
       indicador: "PTs emitidas",
       quantidade: report.estatisticas.pts_count,
       leitura:
         report.estatisticas.pts_count > 0
-          ? "Liberacoes criticas registradas"
-          : "Sem liberacoes criticas no periodo",
+          ? "Liberações críticas registradas"
+          : "Sem liberações críticas no período",
     },
     {
       indicador: "DDS realizados",
@@ -130,30 +130,30 @@ function buildIndicatorRows(report: MonthlyReportPdfSource) {
       leitura:
         report.estatisticas.dds_count > 0
           ? "Alinhamentos preventivos executados"
-          : "Sem DDS no periodo",
+          : "Sem DDS no período",
     },
     {
       indicador: "Checklists executados",
       quantidade: report.estatisticas.checklists_count,
       leitura:
         report.estatisticas.checklists_count > 0
-          ? "Inspecoes e verificacoes registradas"
-          : "Sem checklists no periodo",
+          ? "Inspeções e verificações registradas"
+          : "Sem checklists no período",
     },
     {
       indicador: "Treinamentos",
       quantidade: report.estatisticas.trainings_count,
       leitura:
         report.estatisticas.trainings_count > 0
-          ? "Capacitacao com evidencias ativas"
-          : "Sem novos treinamentos no periodo",
+          ? "Capacitação com evidências ativas"
+          : "Sem novos treinamentos no período",
     },
     {
       indicador: "EPIs vencidos",
       quantidade: expiredEpis,
       leitura:
         expiredEpis > 0
-          ? "Ha bloqueio potencial por vencimento"
+          ? "Há bloqueio potencial por vencimento"
           : "Sem alertas de vencimento",
     },
   ];
@@ -166,14 +166,14 @@ export function buildMonthlyReportMetadata(
   return [
     {
       label: "Empresa",
-      value: report.companyName?.trim() || "Empresa nao informada",
+      value: report.companyName?.trim() || "Empresa não informada",
     },
     {
       label: "Documento",
       value: report.titulo || "Fechamento mensal de conformidade",
     },
-    { label: "Periodo", value: buildReportPeriod(report) },
-    { label: "Emissao", value: generatedAt },
+    { label: "Período", value: buildReportPeriod(report) },
+    { label: "Emissão", value: generatedAt },
   ];
 }
 
@@ -217,7 +217,7 @@ export function generateMonthlyReportPdf(
     `${report.ano}-${String(report.mes).padStart(2, "0")}-01`,
   );
   const generatedAt = buildGeneratedAt(report.created_at);
-  const companyName = report.companyName?.trim() || "Empresa nao informada";
+  const companyName = report.companyName?.trim() || "Empresa não informada";
   const statusSignal = resolveStatusSignal(report);
   const totalRecords =
     report.estatisticas.aprs_count +
@@ -226,9 +226,9 @@ export function generateMonthlyReportPdf(
     report.estatisticas.checklists_count;
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "RELATORIO EXECUTIVO MENSAL",
+    title: "RELATÓRIO EXECUTIVO MENSAL",
     subtitle:
-      "Documento institucional de desempenho documental, conformidade e leitura gerencial do periodo.",
+      "Documento institucional de desempenho documental, conformidade e leitura gerencial do período.",
     code,
     date: buildReportPeriod(report),
     status: statusSignal.label,
@@ -238,17 +238,17 @@ export function generateMonthlyReportPdf(
   });
 
   drawDocumentIdentityRail(ctx, {
-    documentType: "Relatorio Executivo",
+    documentType: "Relatório Executivo",
     criticality: statusSignal.criticality,
     validity: buildReportPeriod(report),
     documentClass: "executive",
   });
 
   drawExecutiveSummaryStrip(ctx, {
-    title: "Leitura executiva do periodo",
+    title: "Leitura executiva do período",
     summary: statusSignal.message,
     metrics: [
-      { label: "Periodo", value: buildReportPeriod(report), tone: "info" },
+      { label: "Período", value: buildReportPeriod(report), tone: "info" },
       { label: "Status", value: statusSignal.label, tone: statusSignal.tone },
       {
         label: "Registros",
@@ -274,7 +274,7 @@ export function generateMonthlyReportPdf(
   });
 
   drawMetadataGrid(ctx, {
-    title: "Contexto do relatorio",
+    title: "Contexto do relatório",
     columns: 2,
     fields: buildMonthlyReportMetadata(report, generatedAt).map((item) => ({
       label: item.label,
@@ -283,7 +283,7 @@ export function generateMonthlyReportPdf(
   });
 
   drawSemanticTable(ctx, {
-    title: "Indicadores consolidados do periodo",
+    title: "Indicadores consolidados do período",
     tone: "action",
     autoTable,
     head: [["Indicador", "Quantidade", "Leitura executiva"]],
@@ -303,13 +303,13 @@ export function generateMonthlyReportPdf(
   });
 
   drawNarrativeSection(ctx, {
-    title: "Analise executiva",
+    title: "Análise executiva",
     content: report.analise_gandra,
   });
 
   drawNarrativeSection(ctx, {
-    title: "Governanca documental",
-    content: `Documento ${code} emitido pelo sistema SGS para ${companyName}, consolidando o periodo ${buildReportPeriod(report)} com leitura executiva e rastreabilidade institucional.`,
+    title: "Governança documental",
+    content: `Documento ${code} emitido pelo sistema SGS para ${companyName}, consolidando o período ${buildReportPeriod(report)} com leitura executiva e rastreabilidade institucional.`,
   });
 
   applyFooterGovernance(ctx, {

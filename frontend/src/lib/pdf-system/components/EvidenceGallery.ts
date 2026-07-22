@@ -94,7 +94,7 @@ async function drawOneEvidence(
     : Math.max(14, Math.round(36 * scale));
   const detailsW = cardW - imageWrapW - 16;
   const titleLines = doc.splitTextToSize(
-    sanitize(item.title || "Registro fotografico"),
+    sanitize(item.title || "Registro fotográfico"),
     detailsW,
   );
   const descLines = doc.splitTextToSize(sanitize(item.description), detailsW);
@@ -181,7 +181,7 @@ async function drawOneEvidence(
     doc.setFontSize(theme.typography.caption);
     doc.setTextColor(...theme.tone.textMuted);
     doc.text(
-      imageState === "error" ? "FOTO INDISPONIVEL" : "SEM FOTO",
+      imageState === "error" ? "FOTO INDISPONÍVEL" : "SEM FOTO",
       cardX + 5 + imageWrapW / 2,
       ctx.y + 20,
       { align: "center" },
@@ -196,8 +196,8 @@ async function drawOneEvidence(
     }
     doc.text(
       imageState === "error"
-        ? "Registro visual nao pode ser carregado."
-        : "Evidencia textual preservada no documento.",
+        ? "Registro visual não pôde ser carregado."
+        : "Evidência textual preservada no documento.",
       cardX + 5 + imageWrapW / 2,
       ctx.y + 25.5,
       { align: "center", maxWidth: imageWrapW - 6 },

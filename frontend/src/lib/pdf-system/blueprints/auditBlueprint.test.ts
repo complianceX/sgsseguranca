@@ -140,7 +140,7 @@ describe("drawAuditBlueprint", () => {
     expect(drawComplianceTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      "Checklist de auditoria (Sim/Nao/N/A)",
+      "Checklist de auditoria (Sim/Não/N/A)",
       expect.arrayContaining([
         expect.objectContaining({
           requirement: "NR-01 / Procedimento APR",
@@ -152,7 +152,7 @@ describe("drawAuditBlueprint", () => {
     expect(drawEvidenceGallery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        title: "Evidencias fotograficas do checklist",
+        title: "Evidências fotográficas do checklist",
         items: expect.arrayContaining([
           expect.objectContaining({
             source: "data:image/jpeg;base64,AAA",
