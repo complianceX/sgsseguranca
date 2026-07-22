@@ -5,16 +5,16 @@
  * navegador nem adiciona dependência nova ao projeto.
  *
  * Uso (a partir da raiz do repositório):
- *   node docs/assets/architecture/src/render.js <entrada.html> <saida.png|pdf> [escala]
+ *   node docs/architecture/assets/src/render.js <entrada.html> <saida.png|pdf> [escala]
  *
  * Exemplos:
- *   node docs/assets/architecture/src/render.js \
- *     docs/assets/architecture/src/sgs-fluxograma-sistema.html \
- *     docs/assets/architecture/sgs-fluxograma-sistema.png 2
+ *   node docs/architecture/assets/src/render.js \
+ *     docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+ *     docs/architecture/assets/sgs-fluxograma-sistema.png 2
  *
- *   node docs/assets/architecture/src/render.js \
- *     docs/assets/architecture/src/sgs-fluxograma-sistema.html \
- *     docs/assets/architecture/sgs-fluxograma-sistema.pdf
+ *   node docs/architecture/assets/src/render.js \
+ *     docs/architecture/assets/src/sgs-fluxograma-sistema.html \
+ *     docs/architecture/assets/sgs-fluxograma-sistema.pdf
  */
 const path = require('path');
 const { createRequire } = require('module');

@@ -13,9 +13,8 @@ Os resumos, historicos e passo a passo atualizados do sistema agora ficam em:
 
 - [`../docs/consulta-rapida/README.md`](../docs/consulta-rapida/README.md)
 - [`../docs/consulta-rapida/implementacoes-recentes.md`](../docs/consulta-rapida/implementacoes-recentes.md)
-- [`../docs/consulta-rapida/fluxos-documentais.md`](../docs/consulta-rapida/fluxos-documentais.md)
+- [`../docs/architecture/fluxos-documentais.md`](../docs/architecture/fluxos-documentais.md)
 - [`../docs/consulta-rapida/pdfs-finais-e-storage.md`](../docs/consulta-rapida/pdfs-finais-e-storage.md)
-- [`../docs/consulta-rapida/variaveis-ambiente-railway.md`](../docs/consulta-rapida/variaveis-ambiente-railway.md)
 
 Se a duvida for "o que foi implementado?", "como funciona hoje?" ou "onde eu mexo?", consulte `docs/consulta-rapida`.
 

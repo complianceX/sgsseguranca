@@ -275,7 +275,7 @@ do documento nem PII além do necessário.
 
 ## Como regerar os SVGs
 
-Os SVGs em `docs/assets/architecture/sgs-fluxo-*.svg` são gerados a partir dos blocos Mermaid
+Os SVGs em `docs/architecture/assets/sgs-fluxo-*.svg` são gerados a partir dos blocos Mermaid
 deste arquivo. Depois de editar um diagrama, regere para não deixar imagem e fonte
 dessincronizadas.
 
