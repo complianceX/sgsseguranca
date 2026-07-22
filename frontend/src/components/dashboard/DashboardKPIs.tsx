@@ -12,6 +12,15 @@ import {
 import { cn } from '@/lib/utils';
 import { DashboardSectionBoundary } from './DashboardSectionBoundary';
 
+function Skeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn('rounded-lg bg-[var(--ds-color-border-subtle)]', className)}
+      aria-hidden="true"
+    />
+  );
+}
+
 export type KpiTone = 'danger' | 'warning' | 'success' | 'info' | 'neutral';
 
 const KPI_TONE: Record<
@@ -96,7 +105,7 @@ export const KpiCard = memo(function KpiCard({
       <div className="relative z-[1] flex items-end gap-2">
         <p className={cn('text-[26px] font-extrabold leading-none tabular-nums', t.value)}>
           {value == null ? (
-            <span className="inline-block h-8 w-20 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]" aria-label="Carregando" />
+            <Skeleton className="h-8 w-20" />
           ) : (
             <span className="inline-block">{value}</span>
           )}

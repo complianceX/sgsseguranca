@@ -12,7 +12,7 @@ export function DashboardWorkArea({
   dashboardData: UseDashboardDataResult;
 }) {
   return (
-    <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
         <PendingQueue />
         <ActivityFeed dashboardData={dashboardData} />
