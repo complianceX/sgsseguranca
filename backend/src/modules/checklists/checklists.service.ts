@@ -5,6 +5,7 @@ import {
   forwardRef,
   Logger,
   BadRequestException,
+  ConflictException,
   GoneException,
   HttpException,
   InternalServerErrorException,
@@ -14,6 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
   DataSource,
+  EntityManager,
   FindOptionsSelect,
   FindOptionsWhere,
   DeepPartial,
@@ -219,6 +221,12 @@ const CHECKLIST_SEGMENT_KEYWORDS = {
     'respirador',
   ],
 } satisfies Record<ChecklistSegment, string[]>;
+
+// Coordenação de concorrência das mutações de checklist (espelha APR/PT).
+// FOR UPDATE NOWAIT falha com 55P03 quando a linha já está travada; então
+// reprocessamos com backoff curto e, esgotadas as tentativas, devolvemos 409.
+const CHECKLIST_POSTGRES_LOCK_NOT_AVAILABLE_CODE = '55P03';
+const CHECKLIST_ROW_LOCK_RETRY_DELAYS_MS = [50, 100, 200] as const;
 
 @Injectable()
 export class ChecklistsService {
@@ -480,6 +488,76 @@ export class ChecklistsService {
       siteScope: scope.siteScope,
       isSuperAdmin: scope.isSuperAdmin,
     };
+  }
+
+  /**
+   * Aplica uma mutação em um checklist sob SELECT FOR UPDATE, tornando o
+   * read-modify-write atômico. Sem isso, dois anexos de foto concorrentes na
+   * mesma checklist (ex.: burst/retry do app mobile) fazem `save()` da linha
+   * inteira e a segunda escrita sobrescreve a primeira — foto perdida do
+   * documento + arquivo órfão no storage. Espelha executePtWorkflowTransition.
+   *
+   * A autorização/escopo já foi validada pelo findOneEntity que precede a
+   * chamada; o lock apenas serializa escritores concorrentes na mesma linha.
+   */
+  private async mutateChecklistLocked<T>(
+    id: string,
+    apply: (checklist: Checklist, manager: EntityManager) => T | Promise<T>,
+  ): Promise<{ saved: Checklist; result: T }> {
+    const { companyId } = this.getTenantContextOrThrow();
+
+    for (
+      let attempt = 0;
+      attempt <= CHECKLIST_ROW_LOCK_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      try {
+        return await this.checklistsRepository.manager.transaction(
+          async (manager) => {
+            const rows = await manager.query<Checklist[]>(
+              `SELECT * FROM "checklists" WHERE "id" = $1 AND "company_id" = $2 AND "deleted_at" IS NULL FOR UPDATE NOWAIT`,
+              [id, companyId],
+            );
+            if (!rows || rows.length === 0) {
+              throw new NotFoundException(
+                `Checklist com ID ${id} não encontrado`,
+              );
+            }
+            const checklist = manager.getRepository(Checklist).create(rows[0]);
+            const result = await apply(checklist, manager);
+            const saved = await manager
+              .getRepository(Checklist)
+              .save(checklist);
+            return { saved, result };
+          },
+        );
+      } catch (error: unknown) {
+        if (!this.isPostgresLockNotAvailableError(error)) {
+          throw error;
+        }
+        const retryDelayMs = CHECKLIST_ROW_LOCK_RETRY_DELAYS_MS[attempt];
+        if (retryDelayMs === undefined) {
+          throw new ConflictException(
+            'Outra operação está em andamento para este checklist. Tente novamente em instantes.',
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    throw new ConflictException(
+      'Outra operação está em andamento para este checklist. Tente novamente em instantes.',
+    );
+  }
+
+  private isPostgresLockNotAvailableError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code ===
+        CHECKLIST_POSTGRES_LOCK_NOT_AVAILABLE_CODE
+    );
   }
 
   private async getAllowedChecklistIdsForCurrentScope(): Promise<Set<string> | null> {
@@ -1774,7 +1852,45 @@ export class ChecklistsService {
     items: Checklist['itens'] | undefined,
     options?: { resetExecutionState?: boolean },
   ) {
-    return this.normalizeChecklistItems(items, options);
+    // Itens clonados aqui vem SEMPRE de fonte confiavel ja persistida (a linha do
+    // banco travada em attachItemPhoto, ou a entidade em buildChecklistMaterialSnapshot).
+    // As referencias governadas presentes neles sao legitimas por definicao, entao
+    // liberamos exatamente essas referencias ao normalizar. Sem isso,
+    // normalizeChecklistPhotoReference rejeitaria uma foto governada JA EXISTENTE
+    // (ex.: 2o upload no mesmo item apos o 1o), derrubando o append com 400. Entrada
+    // de usuario NAO passa por aqui: create/update chamam normalizeChecklistItems
+    // diretamente, mantendo a rejeicao de referencias governadas arbitrarias.
+    const allowedGovernedReferences =
+      this.collectGovernedItemPhotoReferences(items);
+    return this.normalizeChecklistItems(items, {
+      ...options,
+      allowedGovernedReferences,
+    });
+  }
+
+  private collectGovernedItemPhotoReferences(
+    items: Checklist['itens'] | undefined,
+  ): Set<string> {
+    const references = new Set<string>();
+    if (!Array.isArray(items)) {
+      return references;
+    }
+    for (const item of items) {
+      const fotos = (item as { fotos?: unknown } | null)?.fotos;
+      if (!Array.isArray(fotos)) {
+        continue;
+      }
+      for (const foto of fotos) {
+        if (typeof foto !== 'string') {
+          continue;
+        }
+        const trimmed = foto.trim();
+        if (trimmed && this.parseGovernedChecklistPhotoReference(trimmed)) {
+          references.add(trimmed);
+        }
+      }
+    }
+    return references;
   }
 
   private buildChecklistFromTemplate(
@@ -2507,13 +2623,6 @@ export class ChecklistsService {
     const checklist = await this.findOneEntity(id);
     this.assertChecklistDocumentMutable(checklist);
 
-    const currentEquipmentPhoto =
-      typeof checklist.foto_equipamento === 'string'
-        ? checklist.foto_equipamento
-        : null;
-    const previousGovernedPhoto = currentEquipmentPhoto
-      ? this.parseGovernedChecklistPhotoReference(currentEquipmentPhoto)
-      : null;
     const sanitizedOriginalName = originalName?.trim() || 'foto-equipamento';
     const fileKey = this.documentStorageService.generateDocumentKey(
       checklist.company_id,
@@ -2536,18 +2645,27 @@ export class ChecklistsService {
         sizeBytes: buffer.byteLength,
       });
 
-      checklist.foto_equipamento = photoReference;
-      const saved = await this.checklistsRepository.save(checklist);
+      // Substituição atômica: a foto anterior é lida da linha travada, evitando
+      // que uma escrita concorrente (ex.: foto de item) seja perdida no save.
+      const { saved, result: previousGovernedPhoto } =
+        await this.mutateChecklistLocked(id, (locked) => {
+          this.assertChecklistDocumentMutable(locked);
+          const currentEquipmentPhoto =
+            typeof locked.foto_equipamento === 'string'
+              ? locked.foto_equipamento
+              : null;
+          const previous = currentEquipmentPhoto
+            ? this.parseGovernedChecklistPhotoReference(currentEquipmentPhoto)
+            : null;
+          locked.foto_equipamento = photoReference;
+          return previous;
+        });
       const signaturesReset = await this.resetChecklistSignatures(
         saved,
         'equipment_photo_updated',
       );
 
-      if (
-        previousGovernedPhoto &&
-        previousGovernedPhoto.fileKey !== fileKey &&
-        currentEquipmentPhoto
-      ) {
+      if (previousGovernedPhoto && previousGovernedPhoto.fileKey !== fileKey) {
         await this.cleanupGovernedChecklistPhotoFiles(saved.id, [
           {
             payload: previousGovernedPhoto,
@@ -2617,11 +2735,6 @@ export class ChecklistsService {
     await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
 
     try {
-      const items = this.cloneChecklistItems(checklist.itens);
-      const targetItem = items[itemIndex];
-      const nextPhotos = Array.isArray(targetItem.fotos)
-        ? [...targetItem.fotos]
-        : [];
       const photoReference = this.buildGovernedChecklistPhotoReference({
         v: 1,
         kind: 'governed-storage',
@@ -2633,15 +2746,30 @@ export class ChecklistsService {
         sizeBytes: buffer.byteLength,
       });
 
-      nextPhotos.push(photoReference);
-      targetItem.fotos = nextPhotos;
-      checklist.itens = items;
-      const saved = await this.checklistsRepository.save(checklist);
+      // Append atômico: re-lê a linha sob lock para não perder fotos anexadas
+      // concorrentemente na mesma checklist (read-modify-write do jsonb).
+      const { saved, result: photoIndex } = await this.mutateChecklistLocked(
+        id,
+        (locked) => {
+          this.assertChecklistDocumentMutable(locked);
+          if (!Array.isArray(locked.itens) || !locked.itens[itemIndex]) {
+            throw new BadRequestException('Item do checklist não encontrado.');
+          }
+          const items = this.cloneChecklistItems(locked.itens);
+          const targetItem = items[itemIndex];
+          const nextPhotos = Array.isArray(targetItem.fotos)
+            ? [...targetItem.fotos]
+            : [];
+          nextPhotos.push(photoReference);
+          targetItem.fotos = nextPhotos;
+          locked.itens = items;
+          return nextPhotos.length - 1;
+        },
+      );
       const signaturesReset = await this.resetChecklistSignatures(
         saved,
         'item_photo_added',
       );
-      const photoIndex = nextPhotos.length - 1;
 
       this.logChecklistEvent('checklist_item_photo_uploaded', saved, {
         itemIndex,

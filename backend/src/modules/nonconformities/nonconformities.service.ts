@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  EntityManager,
   FindManyOptions,
   In,
   IsNull,
@@ -110,6 +112,12 @@ export type NonConformityAttachmentAttachResponse = {
 
 const MAX_INLINE_ATTACHMENT_BYTES = 1 * 1024 * 1024;
 const GOVERNED_ATTACHMENT_REF_PREFIX = 'gst:nc-attachment:';
+
+// Coordenação de concorrência para append de anexos (espelha APR/PT/Checklist).
+// FOR UPDATE NOWAIT falha com 55P03 quando a linha já está travada; reprocessamos
+// com backoff curto e, esgotadas as tentativas, devolvemos 409.
+const NC_POSTGRES_LOCK_NOT_AVAILABLE_CODE = '55P03';
+const NC_ROW_LOCK_RETRY_DELAYS_MS = [50, 100, 200] as const;
 
 type GovernedAttachmentReferencePayload = {
   v: 1;
@@ -220,6 +228,73 @@ export class NonConformitiesService {
         'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
       );
     }
+  }
+
+  /**
+   * Executa uma mutação no JSONB de anexos da NC sob SELECT FOR UPDATE NOWAIT,
+   * tornando o read-modify-write atômico. Sem isso, dois uploads concorrentes
+   * de anexo na mesma NC (ex.: burst/retry do app mobile) fazem `.save()` da
+   * linha inteira e a segunda escrita sobrescreve o append da primeira —
+   * referência de anexo perdida do documento + arquivo órfão no storage.
+   * Espelha mutateChecklistLocked do ChecklistsService.
+   *
+   * A autorização e o scope já foram validados por findOneEntity antes da
+   * chamada; o lock apenas serializa escritores concorrentes na mesma linha.
+   */
+  private async mutateNcAttachmentsLocked<T>(
+    id: string,
+    companyId: string,
+    apply: (nc: NonConformity, manager: EntityManager) => T | Promise<T>,
+  ): Promise<{ saved: NonConformity; result: T }> {
+    for (
+      let attempt = 0;
+      attempt <= NC_ROW_LOCK_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      try {
+        return await this.nonConformitiesRepository.manager.transaction(
+          async (manager) => {
+            const rows = await manager.query<NonConformity[]>(
+              `SELECT * FROM "nonconformities" WHERE "id" = $1 AND "company_id" = $2 AND "deleted_at" IS NULL FOR UPDATE NOWAIT`,
+              [id, companyId],
+            );
+            if (!rows || rows.length === 0) {
+              throw new NotFoundException(
+                `Não conformidade com ID ${id} não encontrada`,
+              );
+            }
+            const nc = manager.getRepository(NonConformity).create(rows[0]);
+            const result = await apply(nc, manager);
+            const saved = await manager.getRepository(NonConformity).save(nc);
+            return { saved, result };
+          },
+        );
+      } catch (error: unknown) {
+        if (!this.isNcLockNotAvailableError(error)) {
+          throw error;
+        }
+        const retryDelayMs = NC_ROW_LOCK_RETRY_DELAYS_MS[attempt];
+        if (retryDelayMs === undefined) {
+          throw new ConflictException(
+            'Outra operação está em andamento para esta não conformidade. Tente novamente em instantes.',
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    throw new ConflictException(
+      'Outra operação está em andamento para esta não conformidade. Tente novamente em instantes.',
+    );
+  }
+
+  private isNcLockNotAvailableError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === NC_POSTGRES_LOCK_NOT_AVAILABLE_CODE
+    );
   }
 
   private normalizeOptionalText(value?: string | null): string | undefined {
@@ -1396,12 +1471,22 @@ export class NonConformitiesService {
       sizeBytes: buffer.byteLength,
     });
 
-    const before = { ...nc };
-    nc.anexos = Array.from(new Set([...(nc.anexos ?? []), reference]));
-
+    // Append atômico: re-lê a linha sob lock para não perder referências de
+    // anexos gravadas por uploads concorrentes na mesma NC (read-modify-write).
     let saved: NonConformity;
+    let beforeSnapshot: NonConformity;
     try {
-      saved = await this.nonConformitiesRepository.save(nc);
+      const { saved: lockedSaved, result: snapshot } =
+        await this.mutateNcAttachmentsLocked(id, nc.company_id, (locked) => {
+          this.assertNcDocumentMutable(locked);
+          const snap = { ...locked } as NonConformity;
+          locked.anexos = Array.from(
+            new Set([...(locked.anexos ?? []), reference]),
+          );
+          return snap;
+        });
+      saved = lockedSaved;
+      beforeSnapshot = snapshot;
     } catch (error) {
       await cleanupUploadedFile(
         this.logger,
@@ -1419,7 +1504,7 @@ export class NonConformitiesService {
       throw error;
     }
 
-    await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
+    await this.logAudit(AuditAction.UPDATE, saved.id, beforeSnapshot, saved);
     this.logNcEvent('log', 'nc_attachment_uploaded', {
       entityId: saved.id,
       fileKey,
