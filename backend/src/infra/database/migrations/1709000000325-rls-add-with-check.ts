@@ -49,15 +49,20 @@ export class RlsAddWithCheck1709000000325 implements MigrationInterface {
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "${table_name}"`,
       );
 
+      // A comparação é feita em texto porque nem toda tabela declara
+      // `company_id` como uuid (ex.: `ai_interactions` e suas partições usam
+      // varchar). Sem o cast, o PostgreSQL aborta com "operador não existe:
+      // character varying = uuid" e a cadeia de migrations trava num banco
+      // criado do zero.
       await queryRunner.query(`
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
         WITH CHECK (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
       `);
@@ -89,7 +94,7 @@ export class RlsAddWithCheck1709000000325 implements MigrationInterface {
         CREATE POLICY "tenant_isolation_policy"
         ON "${table_name}"
         USING (
-          company_id = current_company()
+          company_id::text = current_company()::text
           OR is_super_admin() = true
         )
       `);
