@@ -22,6 +22,10 @@ import { authService } from '@/services/authService';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 
+// Versão do app, injetada no build a partir de frontend/package.json
+// (env NEXT_PUBLIC_APP_VERSION definido em next.config.mjs).
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '';
+
 declare global {
   interface Window {
     turnstile?: {
@@ -474,6 +478,9 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
               Política de Privacidade
             </Link>
           </div>
+          {APP_VERSION ? (
+            <p className={styles.version}>versão {APP_VERSION}</p>
+          ) : null}
         </section>
         </div>
       </main>

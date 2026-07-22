@@ -354,6 +354,14 @@
   border-radius: 2px;
 }
 
+.version {
+  margin-top: 0.75rem;
+  text-align: center;
+  color: var(--login-text-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
 .fallback {
   min-height: 100vh;
   background: var(--component-shell-backdrop);
