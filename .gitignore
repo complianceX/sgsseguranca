@@ -127,6 +127,24 @@ mcps/
 
 # Relatórios de auditoria gerados por agentes (artefatos temporários)
 AUDITORIA*.md
+AUDITORIA*.txt
 RELATORIO*.md
 RESUMO-AUDITORIA*.md
 docs/site/AUDITORIA*.md
+
+# Relatórios e changelogs de auditoria avulsos (não pertencem ao repositório)
+CHANGELOG-*.md
+SECURITY_TEST_REPORT.md
+RATE_LIMITS.md
+vulnerability-report.md
+security-audit-report.md
+reports/
+
+# SQL legados/depreciados e artefatos de diagnóstico pontuais
+scripts/deprecated-sql/
+temp-semgrep-scan.json
+.tmp_pr_body.md
+
+# Worktrees e artefatos de ferramentas de IA
+.hermes/
+tests/
