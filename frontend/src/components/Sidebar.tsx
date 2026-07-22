@@ -17,6 +17,10 @@ import { cn } from '@/lib/utils';
 
 const DESKTOP_QUERY = '(min-width: 1280px)';
 
+// Versão semântica do app, injetada no build a partir de frontend/package.json
+// (ver env NEXT_PUBLIC_APP_VERSION em next.config.mjs).
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '';
+
 function useDesktopSidebar() {
   const [isDesktop, setIsDesktop] = useState(true);
 
@@ -166,6 +170,11 @@ export function Sidebar({
             </div>
             <button type="button" onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)]"><LogOut aria-hidden="true" className="h-4 w-4" />Sair</button>
           </div>
+          {APP_VERSION ? (
+            <p className="mt-2.5 text-center text-[11px] text-[var(--ds-color-sidebar-muted)]">
+              versão {APP_VERSION}
+            </p>
+          ) : null}
         </div>
       </aside>
     </>
