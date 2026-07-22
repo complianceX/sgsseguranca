@@ -2,7 +2,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, DataSourceOptions, Repository } from 'typeorm';
+import * as path from 'path';
+import * as fs from 'fs';
 import * as cookieParserModule from 'cookie-parser';
 import { AllExceptionsFilter } from '../../src/shared/filters/http-exception.filter';
 import { bootstrapBackendTestEnvironment } from '../setup/test-env';
@@ -93,6 +95,13 @@ function resolveCookieParser(): CookieParserFactory | null {
 }
 
 export class TestApp {
+  /**
+   * O schema é montado pelas migrations uma única vez por processo de teste;
+   * os resets seguintes apenas truncam os dados. Sem isso, cada
+   * `resetDatabase()` reaplicaria a cadeia inteira de migrations.
+   */
+  private static schemaBuilt = false;
+
   app: INestApplication;
   dataSource: DataSource;
   private companiesRepo: Repository<Company>;
@@ -163,26 +172,33 @@ export class TestApp {
 
     const dbType = this.dataSource.options.type;
     if (dbType === 'postgres' && this.isLocalTestDatabase()) {
-      await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
-      await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
-      await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
-      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
-      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
       // O schema de teste é construído pelas MIGRATIONS, não por synchronize().
       //
       // synchronize() deriva o schema apenas das entities, e portanto não cria
       // nada que exista somente em migration — inclusive as policies de RLS.
       // Os testes de isolamento multi-tenant rodavam contra um banco SEM RLS
       // ativo, o que os fazia passar por ausência da barreira que deveriam
-      // estar exercitando. Além disso, defeitos que só aparecem ao aplicar a
-      // cadeia do zero (ALTER bloqueado por policy/view, FK com tipo
-      // incompatível, coluna inexistente em policy) nunca eram alcançados pelo
-      // CI — foram encontrados manualmente na auditoria de banco.
+      // estar exercitando.
       //
-      // runMigrations respeita a flag `transaction` de cada migration, então as
-      // que usam CREATE INDEX CONCURRENTLY continuam rodando fora de transação.
-      await this.dataSource.runMigrations({ transaction: 'each' });
+      // A construção acontece UMA VEZ por processo de teste: recriar o schema a
+      // cada `resetDatabase()` significaria reaplicar centenas de migrations por
+      // teste. Nos resets seguintes basta truncar os dados.
+      if (!TestApp.schemaBuilt) {
+        await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
+        await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
+        await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
+        await this.dataSource.query(
+          `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`,
+        );
+        await this.dataSource.query(
+          `CREATE EXTENSION IF NOT EXISTS "pgcrypto"`,
+        );
+        await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
+        await this.runSchemaMigrations();
+        TestApp.schemaBuilt = true;
+      } else {
+        await this.truncateAllTables();
+      }
     } else if (dbType === 'postgres') {
       await this.dataSource.query(`
         DO $$
@@ -204,6 +220,84 @@ export class TestApp {
       await this.dataSource.synchronize(true);
     }
     await this.seedBaseData();
+  }
+
+  /**
+   * Aplica a cadeia de migrations no banco de teste.
+   *
+   * O DataSource da aplicação registra migrations por glob apontando para
+   * `dist/**\/*.js`, porque em produção o processo roda compilado. A suíte E2E
+   * roda via ts-jest, sem passo de build — nesse contexto o glob não casa com
+   * nada e `runMigrations()` retornaria sem criar tabela alguma, deixando o
+   * banco vazio (o sintoma era `relation "profiles" does not exist`).
+   *
+   * Aqui as migrations são carregadas de onde estiverem disponíveis: do código
+   * compilado quando existe, senão direto dos fontes `.ts`. Um DataSource
+   * dedicado é usado para não alterar a configuração do que a aplicação injeta
+   * nos testes.
+   */
+  private async runSchemaMigrations(): Promise<void> {
+    const compiledGlob = path.join(
+      process.cwd(),
+      'dist',
+      'infra',
+      'database',
+      'migrations',
+      '*.js',
+    );
+    const hasCompiled = fs.existsSync(path.dirname(compiledGlob));
+    const migrationsGlob = hasCompiled
+      ? compiledGlob
+      : path.join(
+          process.cwd(),
+          'src',
+          'infra',
+          'database',
+          'migrations',
+          '*.ts',
+        );
+
+    const migrationDataSource = new DataSource({
+      ...this.dataSource.options,
+      entities: [],
+      migrations: [migrationsGlob],
+      migrationsRun: false,
+      synchronize: false,
+    } as DataSourceOptions);
+
+    await migrationDataSource.initialize();
+    try {
+      const applied = await migrationDataSource.runMigrations({
+        transaction: 'each',
+      });
+      if (applied.length === 0) {
+        throw new Error(
+          `Nenhuma migration encontrada em "${migrationsGlob}" — o schema de teste ficaria vazio.`,
+        );
+      }
+    } finally {
+      await migrationDataSource.destroy();
+    }
+  }
+
+  /** Limpa os dados preservando schema, policies e migrations aplicadas. */
+  private async truncateAllTables(): Promise<void> {
+    await this.dataSource.query(`
+      DO $$
+      DECLARE
+        table_names TEXT;
+      BEGIN
+        SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
+        INTO table_names
+        FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename <> 'migrations';
+
+        IF table_names IS NOT NULL THEN
+          EXECUTE 'TRUNCATE TABLE ' || table_names || ' RESTART IDENTITY CASCADE';
+        END IF;
+      END $$;
+    `);
   }
 
   private async resetRedisEphemeralState(): Promise<void> {
