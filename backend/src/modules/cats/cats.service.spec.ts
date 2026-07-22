@@ -118,7 +118,10 @@ describe('CatsService', () => {
           query: jest.fn().mockResolvedValue(lockedRow ? [lockedRow] : []),
           getRepository: jest.fn().mockReturnValue({
             create: jest.fn((data: unknown) => data as Cat),
-            save: jest.fn((data: Cat) => catsRepository.save(data)),
+            save: jest.fn(
+              (data: Cat): Promise<Cat> =>
+                catsRepository.save(data) as Promise<Cat>,
+            ),
           }),
         };
         return fn(innerManager);

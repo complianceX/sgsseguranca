@@ -35,23 +35,91 @@ export class AddMissingFkIndexes1709000000349 implements MigrationInterface {
     column: string;
     indexName: string;
   }> = [
-    { table: 'arrs', column: 'emitted_by_user_id', indexName: 'IDX_fk_arrs_emitted_by_user_id' },
-    { table: 'audit_logs', column: 'user_id', indexName: 'IDX_fk_audit_logs_user_id' },
-    { table: 'dds_signature_invites', column: 'created_by_user_id', indexName: 'IDX_fk_dds_invites_created_by_user_id' },
-    { table: 'dds_signature_invites', column: 'participant_user_id', indexName: 'IDX_fk_dds_invites_participant_user_id' },
-    { table: 'dds_signature_invites', column: 'signed_signature_id', indexName: 'IDX_fk_dds_invites_signed_signature_id' },
-    { table: 'document_registry_versions', column: 'created_by', indexName: 'IDX_fk_doc_registry_versions_created_by' },
-    { table: 'document_registry_versions', column: 'supersedes_id', indexName: 'IDX_fk_doc_registry_versions_supersedes_id' },
-    { table: 'photographic_report_days', column: 'company_id', indexName: 'IDX_fk_photo_report_days_company_id' },
-    { table: 'photographic_report_exports', column: 'company_id', indexName: 'IDX_fk_photo_report_exports_company_id' },
-    { table: 'photographic_report_exports', column: 'generated_by', indexName: 'IDX_fk_photo_report_exports_generated_by' },
-    { table: 'photographic_report_images', column: 'company_id', indexName: 'IDX_fk_photo_report_images_company_id' },
-    { table: 'photographic_report_images', column: 'report_day_id', indexName: 'IDX_fk_photo_report_images_report_day_id' },
-    { table: 'photographic_reports', column: 'created_by', indexName: 'IDX_fk_photographic_reports_created_by' },
-    { table: 'pts', column: 'encerrado_por_id', indexName: 'IDX_fk_pts_encerrado_por_id' },
-    { table: 'pts', column: 'vigia_user_id', indexName: 'IDX_fk_pts_vigia_user_id' },
-    { table: 'signatures', column: 'site_id', indexName: 'IDX_fk_signatures_site_id' },
-    { table: 'tenant_onboarding_invites', column: 'created_user_id', indexName: 'IDX_fk_tenant_onboarding_invites_created_user_id' },
+    {
+      table: 'arrs',
+      column: 'emitted_by_user_id',
+      indexName: 'IDX_fk_arrs_emitted_by_user_id',
+    },
+    {
+      table: 'audit_logs',
+      column: 'user_id',
+      indexName: 'IDX_fk_audit_logs_user_id',
+    },
+    {
+      table: 'dds_signature_invites',
+      column: 'created_by_user_id',
+      indexName: 'IDX_fk_dds_invites_created_by_user_id',
+    },
+    {
+      table: 'dds_signature_invites',
+      column: 'participant_user_id',
+      indexName: 'IDX_fk_dds_invites_participant_user_id',
+    },
+    {
+      table: 'dds_signature_invites',
+      column: 'signed_signature_id',
+      indexName: 'IDX_fk_dds_invites_signed_signature_id',
+    },
+    {
+      table: 'document_registry_versions',
+      column: 'created_by',
+      indexName: 'IDX_fk_doc_registry_versions_created_by',
+    },
+    {
+      table: 'document_registry_versions',
+      column: 'supersedes_id',
+      indexName: 'IDX_fk_doc_registry_versions_supersedes_id',
+    },
+    {
+      table: 'photographic_report_days',
+      column: 'company_id',
+      indexName: 'IDX_fk_photo_report_days_company_id',
+    },
+    {
+      table: 'photographic_report_exports',
+      column: 'company_id',
+      indexName: 'IDX_fk_photo_report_exports_company_id',
+    },
+    {
+      table: 'photographic_report_exports',
+      column: 'generated_by',
+      indexName: 'IDX_fk_photo_report_exports_generated_by',
+    },
+    {
+      table: 'photographic_report_images',
+      column: 'company_id',
+      indexName: 'IDX_fk_photo_report_images_company_id',
+    },
+    {
+      table: 'photographic_report_images',
+      column: 'report_day_id',
+      indexName: 'IDX_fk_photo_report_images_report_day_id',
+    },
+    {
+      table: 'photographic_reports',
+      column: 'created_by',
+      indexName: 'IDX_fk_photographic_reports_created_by',
+    },
+    {
+      table: 'pts',
+      column: 'encerrado_por_id',
+      indexName: 'IDX_fk_pts_encerrado_por_id',
+    },
+    {
+      table: 'pts',
+      column: 'vigia_user_id',
+      indexName: 'IDX_fk_pts_vigia_user_id',
+    },
+    {
+      table: 'signatures',
+      column: 'site_id',
+      indexName: 'IDX_fk_signatures_site_id',
+    },
+    {
+      table: 'tenant_onboarding_invites',
+      column: 'created_user_id',
+      indexName: 'IDX_fk_tenant_onboarding_invites_created_user_id',
+    },
   ];
 
   public async up(queryRunner: QueryRunner): Promise<void> {

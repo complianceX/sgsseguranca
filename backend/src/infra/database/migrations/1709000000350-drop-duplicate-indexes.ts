@@ -43,33 +43,78 @@ export class DropDuplicateIndexes1709000000350 implements MigrationInterface {
 
   /** duplicate: índice removido. keep: cópia idêntica preservada. */
   private readonly pairs: Array<{ duplicate: string; keep: string }> = [
-    { duplicate: 'idx_activities_company_active', keep: 'IDX_activities_company_active' },
-    { duplicate: 'idx_activities_company_created', keep: 'IDX_activities_company_created' },
+    {
+      duplicate: 'idx_activities_company_active',
+      keep: 'IDX_activities_company_active',
+    },
+    {
+      duplicate: 'idx_activities_company_created',
+      keep: 'IDX_activities_company_created',
+    },
     { duplicate: 'idx_activities_company_id', keep: 'IDX_activity_company_id' },
-    { duplicate: 'IDX_fk_apr_activities_activity_id', keep: 'IDX_apr_activities_activity_id' },
+    {
+      duplicate: 'IDX_fk_apr_activities_activity_id',
+      keep: 'IDX_apr_activities_activity_id',
+    },
     { duplicate: 'IDX_fk_apr_epis_epi_id', keep: 'IDX_apr_epis_epi_id' },
-    { duplicate: 'IDX_fk_apr_machines_machine_id', keep: 'IDX_apr_machines_machine_id' },
-    { duplicate: 'IDX_fk_apr_participants_user_id', keep: 'IDX_apr_participants_user_id' },
+    {
+      duplicate: 'IDX_fk_apr_machines_machine_id',
+      keep: 'IDX_apr_machines_machine_id',
+    },
+    {
+      duplicate: 'IDX_fk_apr_participants_user_id',
+      keep: 'IDX_apr_participants_user_id',
+    },
     { duplicate: 'IDX_fk_apr_risks_risk_id', keep: 'IDX_apr_risks_risk_id' },
     { duplicate: 'IDX_fk_apr_tools_tool_id', keep: 'IDX_apr_tools_tool_id' },
     { duplicate: 'IDX_aprs_aprovado_por_id', keep: 'IDX_apr_aprovado_por_id' },
-    { duplicate: 'IDX_fk_aprs_auditado_por_id', keep: 'IDX_apr_auditado_por_id' },
+    {
+      duplicate: 'IDX_fk_aprs_auditado_por_id',
+      keep: 'IDX_apr_auditado_por_id',
+    },
     { duplicate: 'idx_aprs_company_id', keep: 'IDX_apr_company_id' },
     { duplicate: 'idx_aprs_elaborador_id', keep: 'IDX_apr_elaborador_id' },
     { duplicate: 'IDX_aprs_parent_apr_id', keep: 'IDX_apr_parent_apr_id' },
-    { duplicate: 'IDX_fk_aprs_reprovado_por_id', keep: 'IDX_apr_reprovado_por_id' },
+    {
+      duplicate: 'IDX_fk_aprs_reprovado_por_id',
+      keep: 'IDX_apr_reprovado_por_id',
+    },
     { duplicate: 'idx_aprs_site_id', keep: 'IDX_apr_site_id' },
-    { duplicate: 'IDX_aprs_company_created_at', keep: 'IDX_aprs_company_active' },
-    { duplicate: 'IDX_audit_logs_tenant_timestamp', keep: 'IDX_audit_logs_company_timestamp' },
-    { duplicate: 'idx_audits_company_created', keep: 'IDX_audits_company_created' },
-    { duplicate: 'idx_checklists_company_id', keep: 'IDX_checklist_company_id' },
-    { duplicate: 'idx_checklists_inspetor_id', keep: 'IDX_checklist_inspetor_id' },
+    {
+      duplicate: 'IDX_aprs_company_created_at',
+      keep: 'IDX_aprs_company_active',
+    },
+    {
+      duplicate: 'IDX_audit_logs_tenant_timestamp',
+      keep: 'IDX_audit_logs_company_timestamp',
+    },
+    {
+      duplicate: 'idx_audits_company_created',
+      keep: 'IDX_audits_company_created',
+    },
+    {
+      duplicate: 'idx_checklists_company_id',
+      keep: 'IDX_checklist_company_id',
+    },
+    {
+      duplicate: 'idx_checklists_inspetor_id',
+      keep: 'IDX_checklist_inspetor_id',
+    },
     { duplicate: 'idx_checklists_site_id', keep: 'IDX_checklist_site_id' },
-    { duplicate: 'idx_checklists_company_created', keep: 'IDX_checklists_company_created' },
+    {
+      duplicate: 'idx_checklists_company_created',
+      keep: 'IDX_checklists_company_created',
+    },
     { duplicate: 'idx_dds_company_data_monthly', keep: 'IDX_dds_company_data' },
-    { duplicate: 'IDX_fk_dds_approval_records_actor_user_id', keep: 'IDX_dds_approval_records_actor_user_id' },
+    {
+      duplicate: 'IDX_fk_dds_approval_records_actor_user_id',
+      keep: 'IDX_dds_approval_records_actor_user_id',
+    },
     { duplicate: 'idx_epis_company_active', keep: 'IDX_epis_company_active' },
-    { duplicate: 'UQ_pts_company_numero_active', keep: 'UQ_pts_company_numero' },
+    {
+      duplicate: 'UQ_pts_company_numero_active',
+      keep: 'UQ_pts_company_numero',
+    },
     { duplicate: 'idx_risks_company_id', keep: 'IDX_risk_company_id' },
     { duplicate: 'idx_risks_company_active', keep: 'IDX_risks_company_active' },
     { duplicate: 'idx_sites_company_id', keep: 'IDX_site_company_id' },

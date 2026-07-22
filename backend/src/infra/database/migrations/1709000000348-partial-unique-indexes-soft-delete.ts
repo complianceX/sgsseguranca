@@ -42,9 +42,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   colidem com registros excluídos — situação esperada, já que é exatamente o
  *   que a versão global proíbe.
  */
-export class PartialUniqueIndexesSoftDelete1709000000348
-  implements MigrationInterface
-{
+export class PartialUniqueIndexesSoftDelete1709000000348 implements MigrationInterface {
   name = 'PartialUniqueIndexesSoftDelete1709000000348';
   transaction = false;
 

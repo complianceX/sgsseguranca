@@ -137,9 +137,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   tipo de origem — seguro para re-executar e seguro em ambientes onde o
  *   schema não bate 100% com o esperado.
  */
-export class ConvertDeletedAtToTimestamptz1709000000351
-  implements MigrationInterface
-{
+export class ConvertDeletedAtToTimestamptz1709000000351 implements MigrationInterface {
   name = 'ConvertDeletedAtToTimestamptz1709000000351';
 
   /**

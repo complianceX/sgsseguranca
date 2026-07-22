@@ -21,9 +21,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   (filtro por empresa + `is_modelo`, ordenado por criação). Sem ele, essas
  *   listagens recorrem a varredura sequencial em `checklists`.
  */
-export class CreateMissingChecklistsModelosIndex1709000000347
-  implements MigrationInterface
-{
+export class CreateMissingChecklistsModelosIndex1709000000347 implements MigrationInterface {
   name = 'CreateMissingChecklistsModelosIndex1709000000347';
   transaction = false;
 
@@ -33,7 +31,12 @@ export class CreateMissingChecklistsModelosIndex1709000000347
       return;
     }
 
-    for (const column of ['company_id', 'is_modelo', 'created_at', 'deleted_at']) {
+    for (const column of [
+      'company_id',
+      'is_modelo',
+      'created_at',
+      'deleted_at',
+    ]) {
       if (!(await queryRunner.hasColumn('checklists', column))) {
         return;
       }

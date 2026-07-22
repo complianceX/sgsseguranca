@@ -31,9 +31,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   Só cria policy em partição que ainda não tem nenhuma; nada é alterado nas
  *   partições que já estavam corretas.
  */
-export class FixNewPartitionsMissingRlsPolicies1709000000355
-  implements MigrationInterface
-{
+export class FixNewPartitionsMissingRlsPolicies1709000000355 implements MigrationInterface {
   name = 'FixNewPartitionsMissingRlsPolicies1709000000355';
 
   private readonly parents = ['mail_logs', 'ai_interactions'];

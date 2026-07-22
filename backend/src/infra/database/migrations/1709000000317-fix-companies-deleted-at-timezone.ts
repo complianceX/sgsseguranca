@@ -18,9 +18,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   que passe a depender da coluna no futuro é tratada automaticamente, sem
  *   hardcode de nomes.
  */
-export class FixCompaniesDeletedAtTimezone1709000000317
-  implements MigrationInterface
-{
+export class FixCompaniesDeletedAtTimezone1709000000317 implements MigrationInterface {
   name = 'FixCompaniesDeletedAtTimezone1709000000317';
 
   async up(queryRunner: QueryRunner): Promise<void> {

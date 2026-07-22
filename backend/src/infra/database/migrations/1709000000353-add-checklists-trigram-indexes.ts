@@ -45,9 +45,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   reexecução. Índices GIN encarecem escrita — aceitável aqui, já que
  *   checklists têm volume de escrita baixo comparado à frequência de listagem.
  */
-export class AddChecklistsTrigramIndexes1709000000353
-  implements MigrationInterface
-{
+export class AddChecklistsTrigramIndexes1709000000353 implements MigrationInterface {
   name = 'AddChecklistsTrigramIndexes1709000000353';
   transaction = false;
 

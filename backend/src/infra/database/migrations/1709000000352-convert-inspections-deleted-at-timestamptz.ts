@@ -30,9 +30,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   tipo alvo. Preserva policies de RLS em torno do ALTER, pois o PostgreSQL
  *   recusa alterar o tipo de coluna referenciada por policy.
  */
-export class ConvertInspectionsDeletedAtTimestamptz1709000000352
-  implements MigrationInterface
-{
+export class ConvertInspectionsDeletedAtTimestamptz1709000000352 implements MigrationInterface {
   name = 'ConvertInspectionsDeletedAtTimestamptz1709000000352';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
