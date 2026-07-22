@@ -97,8 +97,15 @@ export class AddChecklistsCompositeIndexes1709000000322 implements MigrationInte
       }
 
       const colList = idx.columns.map((c) => this.formatColumn(c)).join(', ');
-      const filter =
-        idx.where || (idx.partial ? ' WHERE "deleted_at" IS NULL' : '');
+      // `idx.where` guarda apenas o predicado; o prefixo WHERE precisa ser
+      // adicionado aqui. Sem isso o SQL saía como `(...colunas...)"is_modelo" = true`,
+      // falhando com erro de sintaxe — e como a falha era engolida pelo catch
+      // abaixo, o índice simplesmente não era criado.
+      const filter = idx.where
+        ? ` WHERE ${idx.where}`
+        : idx.partial
+          ? ' WHERE "deleted_at" IS NULL'
+          : '';
 
       const sql = `
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "${idx.name}"
