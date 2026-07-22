@@ -23,10 +23,10 @@ type PdfOptions = {
 };
 
 function resolveTrainingHeaderStatus(training: Training) {
-  if (!training.data_vencimento) return "Valido";
+  if (!training.data_vencimento) return "Válido";
 
   const expiryDate = new Date(training.data_vencimento);
-  if (Number.isNaN(expiryDate.getTime())) return "Valido";
+  if (Number.isNaN(expiryDate.getTime())) return "Válido";
 
   const remainingDays = Math.ceil(
     (expiryDate.getTime() - Date.now()) / 86400000,
@@ -34,7 +34,7 @@ function resolveTrainingHeaderStatus(training: Training) {
 
   if (remainingDays < 0) return "Vencido";
   if (remainingDays <= 30) return `Vence em ${remainingDays} dias`;
-  return "Valido";
+  return "Válido";
 }
 
 export async function generateTrainingPdf(
@@ -60,7 +60,7 @@ export async function generateTrainingPdf(
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMPROVANTE DE TREINAMENTO",
-    subtitle: "Documento oficial de qualificacao, validade e bloqueios operacionais",
+    subtitle: "Documento oficial de qualificação, validade e bloqueios operacionais",
     code,
     date: formatDate(training.data_conclusao),
     status: resolveTrainingHeaderStatus(training),

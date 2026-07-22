@@ -27,10 +27,10 @@ export function drawActionPlanTable(
     ownerColumnWidth -
     dueDateColumnWidth;
   drawSemanticTable(ctx, {
-    title: "Plano de acao",
+    title: "Plano de ação",
     tone: "action",
     autoTable,
-    head: [["Acao", "Responsavel", "Prazo", "Status"]],
+    head: [["Ação", "Responsável", "Prazo", "Status"]],
     body: rows.map((r) => [
       sanitize(r.action),
       sanitize(r.owner),

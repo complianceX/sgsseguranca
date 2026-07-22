@@ -38,7 +38,7 @@ export async function drawTrainingBlueprint(
     ? "Vencido"
     : isExpiringSoon
       ? `Vence em ${remainingDays} dias`
-      : "Valido";
+      : "Válido";
 
   drawDocumentIdentityRail(ctx, {
     documentType: "Treinamento",
@@ -62,44 +62,44 @@ export async function drawTrainingBlueprint(
         value: sanitize(training.user?.nome),
         tone: "default",
       },
-      { label: "NR/Codigo", value: sanitize(training.nr_codigo), tone: "info" },
+      { label: "NR/Código", value: sanitize(training.nr_codigo), tone: "info" },
       {
-        label: "Carga horaria",
+        label: "Carga horária",
         value: training.carga_horaria ? `${training.carga_horaria}h` : "-",
         tone: "default",
       },
       {
-        label: "Obrigatorio",
-        value: training.obrigatorio_para_funcao ? "Sim" : "Nao",
+        label: "Obrigatório",
+        value: training.obrigatorio_para_funcao ? "Sim" : "Não",
         tone: training.obrigatorio_para_funcao ? "warning" : "default",
       },
       {
-        label: "Bloqueia operacao",
-        value: training.bloqueia_operacao_quando_vencido ? "Sim" : "Nao",
+        label: "Bloqueia operação",
+        value: training.bloqueia_operacao_quando_vencido ? "Sim" : "Não",
         tone: training.bloqueia_operacao_quando_vencido ? "danger" : "default",
       },
     ],
   });
 
   drawMetadataGrid(ctx, {
-    title: "Identificacao do treinamento",
+    title: "Identificação do treinamento",
     columns: 2,
     fields: [
       { label: "Treinamento", value: training.nome },
       { label: "Colaborador", value: training.user?.nome },
-      { label: "NR/Codigo", value: training.nr_codigo },
+      { label: "NR/Código", value: training.nr_codigo },
       { label: "Empresa", value: training.company_id },
-      { label: "Conclusao", value: formatDate(training.data_conclusao) },
+      { label: "Conclusão", value: formatDate(training.data_conclusao) },
       { label: "Vencimento", value: formatDate(training.data_vencimento) },
       {
-        label: "Carga horaria",
+        label: "Carga horária",
         value: training.carga_horaria ? `${training.carga_horaria}h` : "-",
       },
       { label: "Auditor", value: training.auditado_por?.nome || "-" },
       { label: "Data auditoria", value: formatDate(training.data_auditoria) },
       {
-        label: "Obrigatorio para funcao",
-        value: training.obrigatorio_para_funcao ? "Sim" : "Nao",
+        label: "Obrigatório para função",
+        value: training.obrigatorio_para_funcao ? "Sim" : "Não",
       },
     ],
   });
@@ -109,14 +109,14 @@ export async function drawTrainingBlueprint(
     tone: "attendance",
     autoTable,
     head: [
-      ["Status", "Conclusao", "Vencimento", "Bloqueio operacional", "Restante"],
+      ["Status", "Conclusão", "Vencimento", "Bloqueio operacional", "Restante"],
     ],
     body: [
       [
         statusLabel,
         formatDate(training.data_conclusao),
         formatDate(training.data_vencimento),
-        training.bloqueia_operacao_quando_vencido ? "Sim" : "Nao",
+        training.bloqueia_operacao_quando_vencido ? "Sim" : "Não",
         remainingDays === null ? "-" : `${remainingDays} dias`,
       ],
     ],
@@ -124,8 +124,8 @@ export async function drawTrainingBlueprint(
   });
 
   drawNarrativeSection(ctx, {
-    title: "Certificado / referencia",
-    content: training.certificado_url || "Nao informado.",
+    title: "Certificado / referência",
+    content: training.certificado_url || "Não informado.",
   });
 
   if (training.notas_auditoria) {
@@ -145,7 +145,7 @@ export async function drawTrainingBlueprint(
     })),
     code,
     url: validationUrl,
-    title: "Governanca e comprovacao documental",
-    subtitle: "Valide a autenticidade por QR Code ou codigo no portal publico.",
+    title: "Governança e comprovação documental",
+    subtitle: "Valide a autenticidade por QR Code ou código no portal público.",
   });
 }

@@ -104,8 +104,8 @@ export async function generateDailyReportPdf(
   });
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "RELATORIO DIARIO DE OPERACAO",
-    subtitle: "Consolidado operacional do dia com pendencias, conformidade e atividade registrada.",
+    title: "RELATÓRIO DIÁRIO DE OPERAÇÃO",
+    subtitle: "Consolidado operacional do dia com pendências, conformidade e atividade registrada.",
     code,
     date: today,
     status: statusSignal.label,

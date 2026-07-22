@@ -38,8 +38,8 @@ export async function generateAuditPdf(
   const logoUrl = await resolveCompanyLogoDataUrl(audit.company);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "RELATORIO DE AUDITORIA",
-    subtitle: "Documento oficial de conformidade, achados e parecer tecnico",
+    title: "RELATÓRIO DE AUDITORIA",
+    subtitle: "Documento oficial de conformidade, achados e parecer técnico",
     code,
     date: audit.data_auditoria,
     status: "Emitido",

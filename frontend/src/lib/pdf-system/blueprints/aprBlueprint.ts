@@ -98,7 +98,7 @@ function drawAprOperationalHeader(
   const { doc, margin, contentWidth } = ctx;
   const titleHeight = 18;
   const tableWidth = contentWidth - 4;
-  const title = "APR - ANÁLISE PRELIMINAR DE RISCOS";
+  const title = "APR - ANÁLISE PRELIMINAR DE RISCO";
   const responsible =
     apr.aprovado_por?.nome || apr.elaborador?.nome || apr.elaborador_id || "-";
   const activityDescription = [
