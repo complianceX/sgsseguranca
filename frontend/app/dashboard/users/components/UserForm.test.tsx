@@ -242,4 +242,47 @@ describe('UserForm', () => {
     expect(payload?.password).toBeUndefined();
     expect(payload?.email).toBe('novo.usuario@example.com');
   });
+
+  it('ao editar, NAO envia profile_id (evita 400 dados invalidos) e persiste as obras', async () => {
+    jest.mocked(usersService.findOne).mockResolvedValue({
+      id: 'user-1',
+      nome: 'Tecnico Existente',
+      email: 'tec@example.com',
+      cpf: '098.780.584-33',
+      funcao: 'Técnico',
+      role: 'TST',
+      company_id: 'company-tst-1',
+      site_id: '',
+      site_ids: [],
+      profile_id: 'profile-tst',
+      identity_type: 'system_user',
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    } as never);
+    jest.mocked(usersService.update).mockResolvedValue({ id: 'user-1' } as never);
+
+    render(<UserForm id="user-1" />);
+
+    // aguarda o form carregar e adiciona a obra
+    const siteCheckbox = await screen.findByRole('checkbox', {
+      name: /Obra Central/i,
+    });
+    fireEvent.click(siteCheckbox);
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar alterações/i }));
+
+    await waitFor(() => {
+      expect(usersService.update).toHaveBeenCalledTimes(1);
+    });
+
+    const [calledId, payload] = jest.mocked(usersService.update).mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(calledId).toBe('user-1');
+    // profile_id NUNCA vai no PATCH de detalhes — o endpoint o rejeita (forbidNonWhitelisted)
+    expect(payload).not.toHaveProperty('profile_id');
+    // a obra selecionada é persistida
+    expect(payload.site_ids).toContain('site-obra-1');
+  });
 });
