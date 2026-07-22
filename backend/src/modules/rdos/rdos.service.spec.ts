@@ -71,6 +71,7 @@ const getFirstCreateArg = (
 
 describe('RdosService', () => {
   let service: RdosService;
+  let _lockedRdoRow: Record<string, unknown> | null = null;
   let repository: {
     findOne: jest.Mock;
     find: jest.Mock;
@@ -132,6 +133,7 @@ describe('RdosService', () => {
   let userScopedRepository: { exist: jest.Mock };
 
   beforeEach(() => {
+    _lockedRdoRow = null;
     const defaultQb = {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -168,31 +170,32 @@ describe('RdosService', () => {
 
           throw new Error(`Repository não mapeado no teste: ${String(entity)}`);
         }),
-        transaction: jest.fn((callback: (manager: unknown) => unknown) =>
-          Promise.resolve(
-            callback({
-              getRepository: jest.fn((entity: unknown) => {
-                if (entity === Rdo) {
-                  return {
-                    save: jest.fn((input: Rdo) => Promise.resolve(input)),
-                  };
-                }
-
-                if (entity === Site) {
-                  return siteScopedRepository;
-                }
-
-                if (entity === User) {
-                  return userScopedRepository;
-                }
-
-                throw new Error(
-                  `Repository transacional não mapeado no teste: ${String(entity)}`,
-                );
-              }),
+        transaction: jest.fn((fn: (m: unknown) => unknown) => {
+          const lockedRow = _lockedRdoRow;
+          const innerRepo = {
+            create: jest.fn((data: unknown) => data as Rdo),
+            save: jest.fn((data: unknown) =>
+              Promise.resolve({
+                id: RDO_ID,
+                company_id: COMPANY_ID,
+                ...(data as object),
+              } as Rdo),
+            ),
+            update: jest.fn().mockResolvedValue(undefined),
+          };
+          const innerManager = {
+            query: jest.fn().mockResolvedValue(lockedRow ? [lockedRow] : []),
+            getRepository: jest.fn((entity: unknown) => {
+              if (entity === Rdo) return innerRepo;
+              if (entity === Site) return siteScopedRepository;
+              if (entity === User) return userScopedRepository;
+              throw new Error(
+                `Repository transacional não mapeado no teste: ${String(entity)}`,
+              );
             }),
-          ),
-        ),
+          };
+          return fn(innerManager);
+        }),
       },
     };
     siteScopedRepository = {
@@ -698,7 +701,7 @@ describe('RdosService', () => {
   // ─── activity photos ────────────────────────────────────────────────────────
 
   it('anexa foto governada a uma atividade do RDO', async () => {
-    const rdo = makeRdo({
+    const rdoData = makeRdo({
       status: 'enviado',
       servicos_executados: [
         { descricao: 'Concretagem', percentual_concluido: 50, fotos: [] },
@@ -706,7 +709,8 @@ describe('RdosService', () => {
       assinatura_responsavel:
         '{"nome":"Resp","cpf":"123","signed_at":"2026-03-16T12:00:00.000Z"}',
     });
-    repository.findOne.mockResolvedValue(rdo);
+    repository.findOne.mockResolvedValue(rdoData);
+    _lockedRdoRow = rdoData as unknown as Record<string, unknown>;
 
     const result = await service.attachActivityPhoto(
       RDO_ID,
@@ -757,22 +761,22 @@ describe('RdosService', () => {
   });
 
   it('remove foto governada da atividade e limpa o storage', async () => {
-    repository.findOne.mockResolvedValue(
-      makeRdo({
-        status: 'enviado',
-        servicos_executados: [
-          {
-            descricao: 'Concretagem',
-            percentual_concluido: 50,
-            fotos: [
-              buildActivityPhotoReference(
-                'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
-              ),
-            ],
-          },
-        ],
-      }),
-    );
+    const rdoData = makeRdo({
+      status: 'enviado',
+      servicos_executados: [
+        {
+          descricao: 'Concretagem',
+          percentual_concluido: 50,
+          fotos: [
+            buildActivityPhotoReference(
+              'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+            ),
+          ],
+        },
+      ],
+    });
+    repository.findOne.mockResolvedValue(rdoData);
+    _lockedRdoRow = rdoData as unknown as Record<string, unknown>;
 
     const result = await service.removeActivityPhoto(RDO_ID, 0, 0);
 
