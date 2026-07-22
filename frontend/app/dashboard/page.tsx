@@ -27,6 +27,7 @@ import {
   resolveComplianceLabel,
 } from "@/lib/dashboard/compliance";
 import { parseValidDate } from "@/lib/dashboard/utils";
+import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 
 type PendingApprovals = DashboardSummaryResponse["pendingApprovals"];
 type RiskSummary = DashboardSummaryResponse["riskSummary"];
@@ -92,6 +93,14 @@ export default function DashboardPage() {
     }).length;
   }, [expiringTrainings]);
 
+  // Mesmas checagens de visibilidade usadas em SSTScoreRings, para que o score
+  // do card e o do anel de conformidade permanecam unificados mesmo se um modulo
+  // for ocultado via temporarilyHiddenModules (evita divergencia de dados).
+  const showEpiModule = isTemporarilyVisibleDashboardRoute("/dashboard/epis");
+  const showTrainingModule = isTemporarilyVisibleDashboardRoute(
+    "/dashboard/trainings",
+  );
+
   const complianceScore = useMemo(
     () =>
       calcComplianceScore({
@@ -99,10 +108,17 @@ export default function DashboardPage() {
         pendingSummary: pendingQueue.summary,
         expiredEpisCount,
         expiredTrainingsCount,
-        includeEpiPenalty: true,
-        includeTrainingPenalty: true,
+        includeEpiPenalty: showEpiModule,
+        includeTrainingPenalty: showTrainingModule,
       }),
-    [loading, pendingQueue.summary, expiredEpisCount, expiredTrainingsCount],
+    [
+      loading,
+      pendingQueue.summary,
+      expiredEpisCount,
+      expiredTrainingsCount,
+      showEpiModule,
+      showTrainingModule,
+    ],
   );
 
   const complianceTone: KpiTone =
