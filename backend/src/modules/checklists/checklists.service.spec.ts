@@ -1958,6 +1958,98 @@ describe('ChecklistsService', () => {
     );
   });
 
+  it('permite segundo upload de foto no mesmo item (nao rejeita a foto governada ja existente)', async () => {
+    const checklistData = {
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist base',
+      foto_equipamento: null,
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      itens: [{ item: 'Verificar trava', status: 'ok', fotos: [] }],
+      is_modelo: false,
+      pdf_file_key: null,
+      deleted_at: null,
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(checklistData as unknown as Checklist);
+    _lockedChecklistRow = checklistData;
+    (signaturesService.removeByDocumentSystem as jest.Mock).mockResolvedValue(
+      1,
+    );
+
+    const first = await service.attachItemPhoto(
+      'checklist-1',
+      0,
+      Buffer.from('png'),
+      'foto-1.png',
+      'image/png',
+    );
+    expect(first.photoIndex).toBe(0);
+
+    // A linha travada agora reflete a 1a foto governada. O 2o upload no mesmo
+    // item NAO pode ser rejeitado pela validacao de referencia governada.
+    const second = await service.attachItemPhoto(
+      'checklist-1',
+      0,
+      Buffer.from('png'),
+      'foto-2.png',
+      'image/png',
+    );
+    expect(second.photoIndex).toBe(1);
+    expect(second.storageMode).toBe('governed-storage');
+  });
+
+  it('upload de foto em item diferente preserva as fotos ja anexadas em outros itens', async () => {
+    const checklistData = {
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist base',
+      foto_equipamento: null,
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      itens: [
+        { item: 'Item A', status: 'ok', fotos: [] },
+        { item: 'Item B', status: 'ok', fotos: [] },
+      ],
+      is_modelo: false,
+      pdf_file_key: null,
+      deleted_at: null,
+    };
+    jest
+      .spyOn(service, 'findOneEntity')
+      .mockResolvedValue(checklistData as unknown as Checklist);
+    _lockedChecklistRow = checklistData;
+    (signaturesService.removeByDocumentSystem as jest.Mock).mockResolvedValue(
+      1,
+    );
+
+    await service.attachItemPhoto(
+      'checklist-1',
+      0,
+      Buffer.from('png'),
+      'a.png',
+      'image/png',
+    );
+    const second = await service.attachItemPhoto(
+      'checklist-1',
+      1,
+      Buffer.from('png'),
+      'b.png',
+      'image/png',
+    );
+
+    expect(second.itemIndex).toBe(1);
+    const itens = (_lockedChecklistRow as { itens: Array<{ fotos: string[] }> })
+      .itens;
+    expect(itens[0].fotos).toHaveLength(1);
+    expect(itens[1].fotos).toHaveLength(1);
+    expect(itens[0].fotos[0]).not.toBe(itens[1].fotos[0]);
+  });
+
   it('retorna acesso governado para a foto do equipamento do checklist', async () => {
     const checklistData = {
       id: 'checklist-1',
@@ -2671,6 +2763,53 @@ describe('ChecklistsService', () => {
       });
 
       expect(signaturesService.removeByDocumentSystem).not.toHaveBeenCalled();
+    });
+
+    it('rejeita referencia governada arbitraria enviada fora do endpoint governado (update)', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+        id: 'checklist-1',
+        company_id: 'company-1',
+        titulo: 'Checklist base',
+        descricao: null,
+        equipamento: null,
+        maquina: null,
+        foto_equipamento: null,
+        data: new Date('2026-03-14T12:00:00.000Z'),
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [{ item: 'Item 1', status: 'ok', fotos: [] }],
+        is_modelo: false,
+        pdf_file_key: null,
+        categoria: null,
+        periodicidade: null,
+        nivel_risco_padrao: null,
+        auditado_por_id: null,
+        data_auditoria: null,
+        resultado_auditoria: null,
+        notas_auditoria: null,
+      } as unknown as Checklist);
+
+      const forgedReference =
+        'gst:checklist-photo:' +
+        Buffer.from(
+          JSON.stringify({
+            v: 1,
+            kind: 'governed-storage',
+            scope: 'item',
+            fileKey: 'documents/outra-empresa/forjada.png',
+            originalName: 'forjada.png',
+            mimeType: 'image/png',
+            uploadedAt: '2026-03-14T12:00:00.000Z',
+          }),
+        ).toString('base64url');
+
+      await expect(
+        service.update('checklist-1', {
+          itens: [
+            { item: 'Item 1', status: 'ok', fotos: [forgedReference] },
+          ] as unknown as import('./dto/checklist-item.dto').ChecklistItemDto[],
+        }),
+      ).rejects.toThrow('endpoint governado');
     });
 
     it('recalcula status ao atualizar itens via update', async () => {

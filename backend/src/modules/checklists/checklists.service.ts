@@ -1852,7 +1852,45 @@ export class ChecklistsService {
     items: Checklist['itens'] | undefined,
     options?: { resetExecutionState?: boolean },
   ) {
-    return this.normalizeChecklistItems(items, options);
+    // Itens clonados aqui vem SEMPRE de fonte confiavel ja persistida (a linha do
+    // banco travada em attachItemPhoto, ou a entidade em buildChecklistMaterialSnapshot).
+    // As referencias governadas presentes neles sao legitimas por definicao, entao
+    // liberamos exatamente essas referencias ao normalizar. Sem isso,
+    // normalizeChecklistPhotoReference rejeitaria uma foto governada JA EXISTENTE
+    // (ex.: 2o upload no mesmo item apos o 1o), derrubando o append com 400. Entrada
+    // de usuario NAO passa por aqui: create/update chamam normalizeChecklistItems
+    // diretamente, mantendo a rejeicao de referencias governadas arbitrarias.
+    const allowedGovernedReferences =
+      this.collectGovernedItemPhotoReferences(items);
+    return this.normalizeChecklistItems(items, {
+      ...options,
+      allowedGovernedReferences,
+    });
+  }
+
+  private collectGovernedItemPhotoReferences(
+    items: Checklist['itens'] | undefined,
+  ): Set<string> {
+    const references = new Set<string>();
+    if (!Array.isArray(items)) {
+      return references;
+    }
+    for (const item of items) {
+      const fotos = (item as { fotos?: unknown } | null)?.fotos;
+      if (!Array.isArray(fotos)) {
+        continue;
+      }
+      for (const foto of fotos) {
+        if (typeof foto !== 'string') {
+          continue;
+        }
+        const trimmed = foto.trim();
+        if (trimmed && this.parseGovernedChecklistPhotoReference(trimmed)) {
+          references.add(trimmed);
+        }
+      }
+    }
+    return references;
   }
 
   private buildChecklistFromTemplate(
