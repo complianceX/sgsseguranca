@@ -1,13 +1,65 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { AuthRedisService } from '../../shared/redis/redis.service';
 import { CpfUtil } from '../../shared/utils/cpf.util';
 import { hashSensitiveValue } from '../../shared/security/field-encryption.util';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 
 @Injectable()
 export class BruteForceService {
   private readonly logger = new Logger(BruteForceService.name);
 
-  constructor(private readonly redisService: AuthRedisService) {}
+  constructor(
+    private readonly redisService: AuthRedisService,
+    // Opcional para não quebrar contextos que instanciam o serviço isolado
+    // (testes unitários e utilitários de linha de comando).
+    @Optional() private readonly forensicTrail?: ForensicTrailService,
+  ) {}
+
+  /**
+   * Registra bloqueio de força bruta na trilha forense.
+   *
+   * Antes disso, um bloqueio só existia como `logger.warn` — log de aplicação é
+   * volátil e rotacionado, então não havia registro consultável de que uma conta
+   * ou origem foi bloqueada, justamente o tipo de evento que se precisa provar
+   * depois de um incidente.
+   *
+   * O bloqueio acontece antes da autenticação, então não há tenant no contexto.
+   * A trilha já contempla esse caso: a policy de `forensic_trail_events` permite
+   * eventos com `company_id` nulo quando `module = 'security'`.
+   *
+   * Nunca propaga erro: falha ao registrar não pode transformar um bloqueio de
+   * segurança bem-sucedido em erro de login.
+   */
+  private async recordBlockEvent(
+    eventType: string,
+    entityId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.forensicTrail) {
+      return;
+    }
+
+    try {
+      await this.forensicTrail.append({
+        eventType,
+        module: 'security',
+        entityId,
+        companyId: null,
+        metadata,
+      });
+    } catch (err) {
+      this.logger.error(
+        'Falha ao registrar bloqueio de força bruta na trilha forense',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
 
   private getMaxAttempts(): number {
     const v = Number(process.env.LOGIN_FAIL_MAX || 10);
@@ -249,6 +301,18 @@ export class BruteForceService {
           threshold: max,
           blockSeconds,
         });
+        // O identificador gravado é o hash do CPF: permite correlacionar
+        // tentativas da mesma conta sem persistir o documento na trilha.
+        await this.recordBlockEvent(
+          'AUTH_BRUTE_FORCE_ACCOUNT_BLOCKED',
+          hashSensitiveValue(cpf),
+          {
+            subject: 'cpf',
+            cpfMasked: CpfUtil.mask(cpf),
+            threshold: max,
+            blockSeconds,
+          },
+        );
       }
     } catch (err) {
       this.logger.error(

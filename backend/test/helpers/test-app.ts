@@ -163,11 +163,36 @@ export class TestApp {
 
     const dbType = this.dataSource.options.type;
     if (dbType === 'postgres' && this.isLocalTestDatabase()) {
+      // LIMITAÇÃO CONHECIDA — o schema de teste vem de synchronize(), não das
+      // migrations.
+      //
+      // synchronize() deriva o schema apenas das entities, então nada que exista
+      // somente em migration é criado aqui — em especial as POLICIES DE RLS. Na
+      // prática, os testes de isolamento multi-tenant deste projeto rodam contra
+      // um banco sem a barreira de RLS ativa: eles verificam o bloqueio feito
+      // pela camada de aplicação (guards, escopo por tenant nas queries), não o
+      // do banco.
+      //
+      // A troca por `runMigrations()` foi tentada e revertida: aplicar a cadeia
+      // completa a partir dos fontes falha em `1709000000113`
+      // ("column deleted_at does not exist" ao indexar `sites`), derrubando 125
+      // testes. A cadeia aplica bem quando executada pelo runner oficial
+      // (`npm run migration:run`, a partir de `dist/`), e `src` e `dist` contêm
+      // exatamente as mesmas 277 migrations — a divergência está na ordem de
+      // execução resolvida em cada caminho, e corrigi-la é trabalho próprio, com
+      // risco alto para ser feito junto de outras mudanças.
+      //
+      // Enquanto isso não for resolvido, vale registrar: defeitos que só
+      // aparecem ao aplicar a cadeia do zero (ALTER bloqueado por policy ou por
+      // view materializada, FK com tipo incompatível, policy referenciando
+      // coluna inexistente) NÃO são detectados por este CI. Todos os encontrados
+      // nesta auditoria vieram de execução manual contra um PostgreSQL real.
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
       await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
+      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
       await this.dataSource.synchronize(false);
     } else if (dbType === 'postgres') {
       await this.dataSource.query(`
