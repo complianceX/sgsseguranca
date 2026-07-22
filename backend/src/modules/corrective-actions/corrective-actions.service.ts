@@ -141,7 +141,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     source_type?: CorrectiveActionSource;
     due?: 'overdue' | 'soon';
   }) {
-    await this.refreshOverdueActions();
+    await this.markOverdueStatus();
     const scope = this.getSiteAccessScopeOrThrow();
     const where = this.scopedWhere(scope, {
       ...(filters?.status ? { status: filters.status } : {}),
@@ -177,7 +177,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     source_type?: CorrectiveActionSource;
     due?: 'overdue' | 'soon';
   }): Promise<OffsetPage<CorrectiveAction>> {
-    await this.refreshOverdueActions();
+    await this.markOverdueStatus();
     const scope = this.getSiteAccessScopeOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
@@ -523,7 +523,15 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     await this.correctiveActionsRepository.softDelete(id);
   }
 
-  private async refreshOverdueActions() {
+  /**
+   * Marca como `overdue` as ações abertas cujo prazo venceu.
+   *
+   * É a única parte do antigo `refreshOverdueActions` que faz sentido no
+   * caminho de leitura: um UPDATE escopado por tenant/obra, sem varredura nem
+   * N+1. Mantém a listagem coerente com o prazo sem arrastar o escalonamento
+   * junto.
+   */
+  private async markOverdueStatus(): Promise<void> {
     const scope = this.getSiteAccessScopeOrThrow();
     const where = this.scopedWhere(scope, {
       status: 'open',
@@ -531,6 +539,22 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       deleted_at: IsNull(),
     });
     await this.correctiveActionsRepository.update(where, { status: 'overdue' });
+  }
+
+  /**
+   * Varredura de SLA: além de marcar vencidas, escala nível e notifica gestores.
+   *
+   * Roda no worker, acionada pela fila `sla-escalation` (o cron horário
+   * `runCorrectiveActionsSlaEscalation` enfileira uma execução por tenant) ou
+   * pelo endpoint explícito de sweep. NÃO deve ser chamada em rota de leitura:
+   * ela carrega todas as ações vencidas do tenant sem limite e, para cada uma,
+   * resolve destinatários e grava notificações — escritas disparadas por um GET,
+   * multiplicadas por cada atualização de tela, que ainda impediam rotear a
+   * listagem para a réplica de leitura.
+   */
+  private async refreshOverdueActions() {
+    const scope = this.getSiteAccessScopeOrThrow();
+    await this.markOverdueStatus();
 
     const overdueActions = await this.correctiveActionsRepository.find({
       where: this.scopedWhere(scope, {
