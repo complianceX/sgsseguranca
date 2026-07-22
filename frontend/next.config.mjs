@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 
@@ -57,6 +58,23 @@ const resolvedBuildId = [
   .replace(/[^a-zA-Z0-9._-]/g, "-")
   .slice(0, 32);
 const serviceWorkerBuildId = resolvedBuildId || "local-dev";
+
+// Versão semântica exibida na UI (rodapé da sidebar). Fonte única da verdade:
+// o campo "version" do package.json. Para trocar, use `npm version <patch|minor|major>`
+// dentro de frontend/ — ele atualiza o package.json e cria a tag no git.
+const appVersion = (() => {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+    );
+    return typeof pkg.version === "string" && pkg.version.trim()
+      ? pkg.version.trim()
+      : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
+
 const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
 const nextConfig = {
   // trim-canvas é CJS puro; sem transpilePackages o Next.js não consegue resolver
@@ -66,6 +84,7 @@ const nextConfig = {
   generateBuildId: async () => serviceWorkerBuildId,
   env: {
     NEXT_PUBLIC_BUILD_ID: serviceWorkerBuildId,
+    NEXT_PUBLIC_APP_VERSION: appVersion,
   },
 
   // Não expõe o header "X-Powered-By: Next.js" (fingerprinting)
