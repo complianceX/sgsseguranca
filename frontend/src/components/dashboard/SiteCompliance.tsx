@@ -8,12 +8,7 @@ import { cn } from "@/lib/utils";
 import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
 import { safeInternalHref } from "@/lib/security/safe-internal-href";
-
-function parseValidDate(value?: string | null): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+import { parseValidDate } from "@/lib/dashboard/utils";
 
 const EMPTY_LIST: never[] = [];
 
@@ -143,11 +138,11 @@ function SiteComplianceComponent({
             <h2 className="text-[14px] font-bold text-[var(--title)]">Próximos eventos</h2>
           </div>
           <Link
-            href="/dashboard/calendar"
-            aria-label="Abrir calendário completo"
+            href="/dashboard/kpis"
+            aria-label="Ver KPIs de desempenho"
             className="text-xs font-semibold text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
           >
-            Calendário →
+            Ver KPIs →
           </Link>
         </div>
         <div className="space-y-px p-3">
