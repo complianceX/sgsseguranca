@@ -481,7 +481,11 @@ export class AuthController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store, max-age=0')
   @Header('X-Robots-Tag', 'noindex, nofollow')
-  resetPasswordPage(): string {
+  resetPasswordPage(@Res({ passthrough: true }) response: Response): string {
+    // O CSP de produção não permite 'unsafe-inline'; o nonce gerado por
+    // requisição em main.ts é o que autoriza o <style> e o <script> abaixo.
+    // Sem ele a página era servida mas não executava nada em produção.
+    const nonce = String(response.locals?.cspNonce ?? '');
     // Token lido do hash fragment no cliente — nunca enviado ao servidor na URL.
     return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -490,7 +494,7 @@ export class AuthController {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="referrer" content="no-referrer" />
   <title>Redefinir senha</title>
-  <style>
+  <style nonce="${nonce}">
     :root { color-scheme: light; }
     body { margin: 0; font-family: Arial, sans-serif; background: #f4f1eb; color: #26231f; }
     .wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
@@ -521,7 +525,7 @@ export class AuthController {
       </form>
     </div>
   </div>
-  <script>
+  <script nonce="${nonce}">
     // Token lido do hash fragment — nunca viaja no path/query, não aparece em logs de acesso.
     const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
     if (!token) {
@@ -545,9 +549,34 @@ export class AuthController {
       }
       submitButton.disabled = true;
       try {
+        // O CsrfMiddleware exige x-csrf-token em toda requisição mutável. Esta
+        // página é HTML servido pelo backend e não usa o cliente Next.js, que é
+        // quem normalmente cuida disso — por isso o token é obtido aqui, em
+        // /auth/csrf (rota isenta de CSRF justamente para permitir o handshake).
+        // credentials:'include' é obrigatório: o middleware compara o header
+        // com o cookie csrf-token emitido nessa mesma chamada.
+        let csrfToken = '';
+        try {
+          const csrfResponse = await fetch('/auth/csrf', {
+            method: 'GET',
+            credentials: 'include',
+            headers: { Accept: 'application/json' }
+          });
+          if (csrfResponse.ok) {
+            const csrfPayload = await csrfResponse.json().catch(() => ({}));
+            csrfToken = csrfPayload?.csrfToken || '';
+          }
+        } catch {
+          // Segue sem token: o backend responde 403 e a mensagem abaixo informa.
+        }
+
         const response = await fetch('/auth/reset-password', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken
+          },
           body: JSON.stringify({ token, newPassword })
         });
         const payload = await response.json().catch(() => ({}));

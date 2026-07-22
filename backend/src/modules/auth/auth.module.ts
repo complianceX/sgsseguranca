@@ -15,6 +15,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PdfRateLimitService } from './services/pdf-rate-limit.service';
 import { SessionsService } from './services/sessions.service';
 import { BruteForceService } from './brute-force.service';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { TokenRevocationService } from './token-revocation.service';
 import { TurnstileService } from './turnstile.service';
 import { UserSession } from './entities/user-session.entity';
@@ -38,6 +39,9 @@ import type { SignOptions } from 'jsonwebtoken';
     FileInspectionModule,
     forwardRef(() => MailModule),
     PassportModule,
+    // Permite que bloqueios de força bruta sejam gravados na trilha forense,
+    // que é persistente e encadeada — antes o único registro era log volátil.
+    ForensicTrailModule,
     TypeOrmModule.forFeature([
       UserSession,
       UserMfaCredential,
