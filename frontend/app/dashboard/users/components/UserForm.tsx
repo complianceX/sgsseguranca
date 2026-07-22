@@ -156,6 +156,13 @@ export function UserForm({ id }: UserFormProps) {
       if (!payload.password) delete payload.password;
 
       if (id) {
+        // O endpoint de detalhes (PATCH /users/:id) usa UpdateUserDetailsDto, que NÃO
+        // aceita profile_id — a troca de perfil tem fluxo próprio protegido por MFA em
+        // PATCH /users/:id/role. Como o ValidationPipe global roda com
+        // forbidNonWhitelisted, enviar profile_id aqui derruba o save inteiro com
+        // 400 "dados inválidos" (inclusive ao apenas adicionar/remover uma obra).
+        // profile_id só é enviado na criação.
+        delete payload.profile_id;
         await usersService.update(id, payload);
       } else {
         if (!isEmployeePath && !payload.password && !payload.email) {
