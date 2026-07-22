@@ -1699,82 +1699,91 @@ export class RdosService {
 
       // Append atômico: re-lê a linha sob lock para não perder fotos gravadas
       // por uploads concorrentes na mesma atividade (read-modify-write do jsonb).
-      const { saved, signaturesReset, approvalReset, photoIndex, previousStatus } =
-        await this.mutateRdoContentLocked(
-          id,
-          rdo.company_id,
-          async (lockedRdo, manager) => {
-            if (lockedRdo.pdf_file_key) {
-              throw new BadRequestException(
-                'RDO com PDF final emitido está bloqueado para edição.',
-              );
-            }
-            if (
-              lockedRdo.status === 'aprovado' ||
-              lockedRdo.status === 'cancelado'
-            ) {
-              throw new BadRequestException(
-                'RDO aprovado ou cancelado não aceita novas fotos nas atividades pelo fluxo comum.',
-              );
-            }
-
-            const activities = this.cloneServicos(lockedRdo.servicos_executados);
-            const targetActivity = this.getActivityOrThrow(
-              { servicos_executados: activities },
-              activityIndex,
-            );
-            const currentPhotos = [...(targetActivity.fotos ?? [])];
-
-            if (currentPhotos.length >= RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY) {
-              throw new BadRequestException(
-                `Cada atividade aceita no máximo ${RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY} fotos.`,
-              );
-            }
-
-            currentPhotos.push(photoReference);
-            targetActivity.fotos = currentPhotos;
-
-            const previousSnapshot = this.buildSnapshotHash(lockedRdo);
-            const prevStatus = lockedRdo.status;
-            const hadSignaturesBeforeChange = Boolean(
-              lockedRdo.assinatura_responsavel || lockedRdo.assinatura_engenheiro,
-            );
-            lockedRdo.servicos_executados = activities;
-
-            this.assertRdoBusinessRules(lockedRdo);
-            const nextSnapshot = this.buildSnapshotHash(lockedRdo);
-            const contentChanged = previousSnapshot !== nextSnapshot;
-            const signaturesReset =
-              hadSignaturesBeforeChange && contentChanged
-                ? this.resetSignatures(lockedRdo, 'content_changed')
-                : false;
-            const approvalReset = contentChanged && prevStatus === 'aprovado';
-            if (approvalReset) {
-              lockedRdo.status = 'enviado';
-            }
-
-            const saved = await manager.getRepository(Rdo).save(lockedRdo);
-            return {
-              saved,
-              signaturesReset,
-              approvalReset,
-              photoIndex: currentPhotos.length - 1,
-              previousStatus: prevStatus,
-            };
-          },
-        );
-
-      await this.rdoAuditService.recordEvent(saved.id, 'ACTIVITY_PHOTO_UPLOADED', {
+      const {
+        saved,
         signaturesReset,
-        previousStatus,
-        currentStatus: saved.status,
         approvalReset,
-        activityIndex,
         photoIndex,
-        fileKey,
-        originalName: sanitizedOriginalName,
-        mimeType,
-      });
+        previousStatus,
+      } = await this.mutateRdoContentLocked(
+        id,
+        rdo.company_id,
+        async (lockedRdo, manager) => {
+          if (lockedRdo.pdf_file_key) {
+            throw new BadRequestException(
+              'RDO com PDF final emitido está bloqueado para edição.',
+            );
+          }
+          if (
+            lockedRdo.status === 'aprovado' ||
+            lockedRdo.status === 'cancelado'
+          ) {
+            throw new BadRequestException(
+              'RDO aprovado ou cancelado não aceita novas fotos nas atividades pelo fluxo comum.',
+            );
+          }
+
+          const activities = this.cloneServicos(lockedRdo.servicos_executados);
+          const targetActivity = this.getActivityOrThrow(
+            { servicos_executados: activities },
+            activityIndex,
+          );
+          const currentPhotos = [...(targetActivity.fotos ?? [])];
+
+          if (currentPhotos.length >= RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY) {
+            throw new BadRequestException(
+              `Cada atividade aceita no máximo ${RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY} fotos.`,
+            );
+          }
+
+          currentPhotos.push(photoReference);
+          targetActivity.fotos = currentPhotos;
+
+          const previousSnapshot = this.buildSnapshotHash(lockedRdo);
+          const prevStatus = lockedRdo.status;
+          const hadSignaturesBeforeChange = Boolean(
+            lockedRdo.assinatura_responsavel || lockedRdo.assinatura_engenheiro,
+          );
+          lockedRdo.servicos_executados = activities;
+
+          this.assertRdoBusinessRules(lockedRdo);
+          const nextSnapshot = this.buildSnapshotHash(lockedRdo);
+          const contentChanged = previousSnapshot !== nextSnapshot;
+          const signaturesReset =
+            hadSignaturesBeforeChange && contentChanged
+              ? this.resetSignatures(lockedRdo, 'content_changed')
+              : false;
+          const approvalReset = contentChanged && prevStatus === 'aprovado';
+          if (approvalReset) {
+            lockedRdo.status = 'enviado';
+          }
+
+          const saved = await manager.getRepository(Rdo).save(lockedRdo);
+          return {
+            saved,
+            signaturesReset,
+            approvalReset,
+            photoIndex: currentPhotos.length - 1,
+            previousStatus: prevStatus,
+          };
+        },
+      );
+
+      await this.rdoAuditService.recordEvent(
+        saved.id,
+        'ACTIVITY_PHOTO_UPLOADED',
+        {
+          signaturesReset,
+          previousStatus,
+          currentStatus: saved.status,
+          approvalReset,
+          activityIndex,
+          photoIndex,
+          fileKey,
+          originalName: sanitizedOriginalName,
+          mimeType,
+        },
+      );
 
       if (signaturesReset) {
         await this.rdoAuditService.recordEvent(saved.id, 'SIGNATURES_RESET', {
@@ -1878,73 +1887,78 @@ export class RdosService {
 
     // Remoção atômica: re-lê a linha sob lock para não perder fotos gravadas
     // por uploads concorrentes desde a leitura inicial (read-modify-write do jsonb).
-    const { saved, signaturesReset, approvalReset, removedPayload, previousStatus } =
-      await this.mutateRdoContentLocked(
-        id,
-        rdo.company_id,
-        async (lockedRdo, manager) => {
-          if (lockedRdo.pdf_file_key) {
-            throw new BadRequestException(
-              'RDO com PDF final emitido está bloqueado para edição.',
-            );
-          }
-          if (
-            lockedRdo.status === 'aprovado' ||
-            lockedRdo.status === 'cancelado'
-          ) {
-            throw new BadRequestException(
-              'RDO aprovado ou cancelado não aceita remoção de fotos pelo fluxo comum.',
-            );
-          }
-
-          const activities = this.cloneServicos(lockedRdo.servicos_executados);
-          const targetActivity = this.getActivityOrThrow(
-            { servicos_executados: activities },
-            activityIndex,
+    const {
+      saved,
+      signaturesReset,
+      approvalReset,
+      removedPayload,
+      previousStatus,
+    } = await this.mutateRdoContentLocked(
+      id,
+      rdo.company_id,
+      async (lockedRdo, manager) => {
+        if (lockedRdo.pdf_file_key) {
+          throw new BadRequestException(
+            'RDO com PDF final emitido está bloqueado para edição.',
           );
-          const currentPhotos = [...(targetActivity.fotos ?? [])];
-          const removedReference = currentPhotos[photoIndex];
-          const payload =
-            this.parseGovernedActivityPhotoReference(removedReference);
-
-          if (!payload) {
-            throw new NotFoundException(
-              'A foto da atividade não está em armazenamento governado.',
-            );
-          }
-
-          currentPhotos.splice(photoIndex, 1);
-          targetActivity.fotos = currentPhotos;
-
-          const previousSnapshot = this.buildSnapshotHash(lockedRdo);
-          const prevStatus = lockedRdo.status;
-          const hadSignaturesBeforeChange = Boolean(
-            lockedRdo.assinatura_responsavel || lockedRdo.assinatura_engenheiro,
+        }
+        if (
+          lockedRdo.status === 'aprovado' ||
+          lockedRdo.status === 'cancelado'
+        ) {
+          throw new BadRequestException(
+            'RDO aprovado ou cancelado não aceita remoção de fotos pelo fluxo comum.',
           );
-          lockedRdo.servicos_executados = activities;
+        }
 
-          this.assertRdoBusinessRules(lockedRdo);
-          const nextSnapshot = this.buildSnapshotHash(lockedRdo);
-          const contentChanged = previousSnapshot !== nextSnapshot;
-          const signaturesReset =
-            hadSignaturesBeforeChange && contentChanged
-              ? this.resetSignatures(lockedRdo, 'content_changed')
-              : false;
-          const approvalReset = contentChanged && prevStatus === 'aprovado';
-          if (approvalReset) {
-            lockedRdo.status = 'enviado';
-          }
+        const activities = this.cloneServicos(lockedRdo.servicos_executados);
+        const targetActivity = this.getActivityOrThrow(
+          { servicos_executados: activities },
+          activityIndex,
+        );
+        const currentPhotos = [...(targetActivity.fotos ?? [])];
+        const removedReference = currentPhotos[photoIndex];
+        const payload =
+          this.parseGovernedActivityPhotoReference(removedReference);
 
-          const saved = await manager.getRepository(Rdo).save(lockedRdo);
-          return {
-            saved,
-            signaturesReset,
-            approvalReset,
-            removedPayload: payload,
-            previousStatus: prevStatus,
-          };
-        },
-      );
+        if (!payload) {
+          throw new NotFoundException(
+            'A foto da atividade não está em armazenamento governado.',
+          );
+        }
+
+        currentPhotos.splice(photoIndex, 1);
+        targetActivity.fotos = currentPhotos;
+
+        const previousSnapshot = this.buildSnapshotHash(lockedRdo);
+        const prevStatus = lockedRdo.status;
+        const hadSignaturesBeforeChange = Boolean(
+          lockedRdo.assinatura_responsavel || lockedRdo.assinatura_engenheiro,
+        );
+        lockedRdo.servicos_executados = activities;
+
+        this.assertRdoBusinessRules(lockedRdo);
+        const nextSnapshot = this.buildSnapshotHash(lockedRdo);
+        const contentChanged = previousSnapshot !== nextSnapshot;
+        const signaturesReset =
+          hadSignaturesBeforeChange && contentChanged
+            ? this.resetSignatures(lockedRdo, 'content_changed')
+            : false;
+        const approvalReset = contentChanged && prevStatus === 'aprovado';
+        if (approvalReset) {
+          lockedRdo.status = 'enviado';
+        }
+
+        const saved = await manager.getRepository(Rdo).save(lockedRdo);
+        return {
+          saved,
+          signaturesReset,
+          approvalReset,
+          removedPayload: payload,
+          previousStatus: prevStatus,
+        };
+      },
+    );
 
     await this.documentStorageService
       .deleteFile(removedPayload.fileKey)

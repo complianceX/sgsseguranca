@@ -74,9 +74,7 @@ describe('NonConformitiesService', () => {
             ),
           };
           const innerManager = {
-            query: jest
-              .fn()
-              .mockResolvedValue(lockedRow ? [lockedRow] : []),
+            query: jest.fn().mockResolvedValue(lockedRow ? [lockedRow] : []),
             getRepository: jest.fn().mockReturnValue(innerRepo),
           };
           return fn(innerManager);
