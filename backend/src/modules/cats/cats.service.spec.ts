@@ -63,6 +63,8 @@ describe('CatsService', () => {
   };
   let usersRepository: { exist: jest.Mock };
   let sitesRepository: { exist: jest.Mock };
+  /** Linha devolvida pelo SELECT ... FOR UPDATE NOWAIT em cada teste. */
+  let _lockedCatRow: Record<string, unknown> | null = null;
   let tenantService: Pick<TenantService, 'getContext' | 'getTenantId'>;
   let storageService: Pick<
     StorageService,
@@ -99,6 +101,31 @@ describe('CatsService', () => {
       findOne: jest.fn(),
       save: jest.fn((input: Cat) => Promise.resolve(input)),
       count: jest.fn().mockResolvedValue(0),
+    };
+    // `addAttachment`/`removeAttachment` passaram a mutar o jsonb `attachments`
+    // sob SELECT ... FOR UPDATE NOWAIT dentro de uma transação, para impedir que
+    // dois uploads concorrentes sobrescrevam um ao outro. O mock reproduz esse
+    // caminho: `query` devolve a linha travada e `getRepository` devolve um repo
+    // que delega ao mock principal, de modo que as asserções sobre `save`
+    // continuem valendo.
+    _lockedCatRow = null;
+    (
+      catsRepository as unknown as { manager: { transaction: jest.Mock } }
+    ).manager = {
+      transaction: jest.fn((fn: (m: unknown) => unknown) => {
+        const lockedRow = _lockedCatRow;
+        const innerManager = {
+          query: jest.fn().mockResolvedValue(lockedRow ? [lockedRow] : []),
+          getRepository: jest.fn().mockReturnValue({
+            create: jest.fn((data: unknown) => data as Cat),
+            save: jest.fn(
+              (data: Cat): Promise<Cat> =>
+                catsRepository.save(data) as Promise<Cat>,
+            ),
+          }),
+        };
+        return fn(innerManager);
+      }),
     };
     usersRepository = {
       exist: jest.fn().mockResolvedValue(true),
@@ -247,7 +274,10 @@ describe('CatsService', () => {
   });
 
   it('limpa o arquivo do storage quando o save do anexo falha', async () => {
-    catsRepository.findOne.mockResolvedValue(makeCat());
+    const cat = makeCat();
+    catsRepository.findOne.mockResolvedValue(cat);
+    // Linha devolvida pelo SELECT ... FOR UPDATE NOWAIT do lock de anexos.
+    _lockedCatRow = cat as unknown as Record<string, unknown>;
     catsRepository.save.mockRejectedValueOnce(new Error('db-failure'));
 
     await expect(
@@ -277,11 +307,11 @@ describe('CatsService', () => {
       uploaded_at: new Date('2026-03-19T10:00:00Z'),
       uploaded_by_id: 'user-1',
     };
-    catsRepository.findOne.mockResolvedValue(
-      makeCat({
-        attachments: [attachment],
-      }),
-    );
+    const cat = makeCat({ attachments: [attachment] });
+    catsRepository.findOne.mockResolvedValue(cat);
+    // A remoção também roda sob lock: o SELECT ... FOR UPDATE NOWAIT devolve a
+    // mesma CAT, de onde o anexo alvo é filtrado.
+    _lockedCatRow = cat as unknown as Record<string, unknown>;
 
     await service.removeAttachment(CAT_ID, attachment.id, 'user-1');
 

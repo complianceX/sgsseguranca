@@ -467,6 +467,54 @@ export class RLSValidationService {
   }
 
   /**
+   * Mede o isolamento entre tenants executando o teste real de cross-tenant.
+   *
+   * Escolhe duas empresas distintas e verifica se o contexto de uma consegue
+   * enxergar linhas da outra. Sem duas empresas cadastradas não há o que
+   * comparar: nesse caso o componente é reportado como não verificado (score
+   * parcial) em vez de assumir sucesso.
+   */
+  private async scoreTenantIsolation(): Promise<{
+    score: number;
+    verified: boolean;
+    recommendation?: string;
+  }> {
+    try {
+      const companies = await this.queryRows<{ id?: string }>(
+        `SELECT id FROM companies WHERE deleted_at IS NULL ORDER BY created_at LIMIT 2`,
+      );
+
+      const [first, second] = companies;
+      if (!first?.id || !second?.id) {
+        return {
+          score: 15,
+          verified: false,
+          recommendation:
+            'Isolamento cross-tenant não verificado: são necessárias ao menos duas empresas ativas para o teste.',
+        };
+      }
+
+      const result = await this.testCrossTenantIsolation(first.id, second.id);
+      if (result.status === 'secure') {
+        return { score: 30, verified: true };
+      }
+
+      return {
+        score: 0,
+        verified: true,
+        recommendation:
+          'FALHA CRÍTICA: uma empresa conseguiu enxergar dados de outra. Verifique FORCE RLS e as policies de tenant.',
+      };
+    } catch (error) {
+      return {
+        score: 0,
+        verified: false,
+        recommendation: `Não foi possível medir o isolamento cross-tenant: ${this.getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
    * Gera score de segurança RLS
    */
   async getSecurityScore(): Promise<{
@@ -508,13 +556,22 @@ export class RLSValidationService {
     });
     totalScore += bypassScore;
 
-    // Component 3: Company Isolation
+    // Component 3: isolamento multi-tenant — verificado de fato.
+    //
+    // Antes este componente somava 30/30 fixos ("assuming good if RLS passes"),
+    // sem executar teste algum: o score exibia isolamento saudável mesmo que a
+    // separação entre tenants estivesse quebrada. Agora o teste real roda contra
+    // duas empresas distintas; quando não há dados suficientes para comparar, o
+    // resultado é declarado como não verificado em vez de pontuar por suposição.
+    const isolation = await this.scoreTenantIsolation();
     components.push({
-      name: 'Multi-Tenant Isolation',
-      score: 30,
+      name: isolation.verified
+        ? 'Multi-Tenant Isolation'
+        : 'Multi-Tenant Isolation (não verificado)',
+      score: isolation.score,
       max: 30,
     });
-    totalScore += 30; // Assuming good if RLS passes
+    totalScore += isolation.score;
 
     const percentage = (totalScore / maxScore) * 100;
     const status =
@@ -525,6 +582,9 @@ export class RLSValidationService {
       recommendations.push('Review RLS policy configurations');
       recommendations.push('Ensure FORCE RLS is enabled');
       recommendations.push('Test cross-tenant isolation in staging');
+    }
+    if (isolation.recommendation) {
+      recommendations.push(isolation.recommendation);
     }
 
     return {
