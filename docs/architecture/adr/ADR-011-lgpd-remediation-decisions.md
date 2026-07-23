@@ -1,4 +1,4 @@
-# ADR-006: Decisões de Remediação LGPD — Fase 1 a Fase 3
+# ADR-011: Decisões de Remediação LGPD — Fase 1 a Fase 3
 Status: Accepted | Date: 2026-04-23
 
 ## Contexto
@@ -98,14 +98,16 @@ Auditoria completa de privacidade identificou 25 achados (A1–A25) cobrindo aus
 
 **Nota sobre AiConsentModal:** o modal de IA específico (`AiConsentModal` + `useAiConsent`) continua operando para o fluxo pontual de habilitação da Sophie, pois é exibido no momento de uso do AIButton, não no login.
 
+> **Estado atual (código real, revisado em 2026-07):** o `FirstAccessConsentModal` / `useRequiredConsents` descritos acima **não estão presentes no frontend atual** — não há, hoje, modal bloqueante de primeiro acesso para `privacy`/`terms`, e portanto **não existe o comportamento fail-open descrito**. O status de consentimentos é exposto via `consentsService.getStatus()` (`GET /users/me/consents` — modelo versionado, com `needsReacceptance` e labels de versão aceita vs vigente) e gerido nas telas de Configurações/Privacidade. O único gate de consentimento **efetivamente aplicado em runtime** é o backend `AiConsentGuard`, que é **fail-CLOSED** (403 quando não há consentimento ativo de `ai_processing` na versão vigente). A decisão bloqueante de primeiro acesso para `privacy`/`terms` permanece como intenção de design, ainda não materializada — deve ser reimplementada fail-closed (retry/bloqueio), nunca fail-open, para consentimentos obrigatórios.
+
 ---
 
 ## Decisão 9 — Páginas legais com conteúdo LGPD-compliant (A15–A20)
 
 > **Nota histórica:** O Supabase foi substituído pelo Neon como provedor de banco de dados PostgreSQL. Esta decisão reflete o estado anterior com Supabase.
 
-- **Política de Privacidade** (`/privacidade`): adicionados suboperadores nomeados (OpenAI, Supabase, Cloudflare, Sentry, New Relic), tabela de transferências internacionais com salvaguardas, seção de dados sensíveis de saúde (Art. 11), tabela de retenção, tabela de cookies, DPO com telefone/e-mail, links para /termos e /cookies.
-- **Termos de Uso** (`/termos`): adicionadas cláusula de responsabilidade de IA (lista explícita de não-substituição), notificação de incidentes em 48h (Art. 48 LGPD), janela de exportação de 30 dias pós-rescisão, teto de responsabilidade de 12 meses.
+- **Política de Privacidade** (`/privacidade`): adicionados suboperadores nomeados (OpenAI, Neon [à época, Supabase], Cloudflare, Sentry, New Relic), tabela de transferências internacionais com salvaguardas, seção de dados sensíveis de saúde (Art. 11), tabela de retenção, tabela de cookies, DPO com telefone/e-mail, links para /termos e /cookies.
+- **Termos de Uso** (`/termos`): adicionadas cláusula de responsabilidade de IA (lista explícita de não-substituição), compromisso contratual de notificação de incidentes em até 48h (nota: o Art. 48 da LGPD exige comunicação à ANPD e aos titulares em "prazo razoável" — o prazo específico é fixado em regulamentação da ANPD, não pelo próprio artigo), janela de exportação de 30 dias pós-rescisão, teto de responsabilidade de 12 meses.
 - **Política de Cookies** (`/cookies`): página nova com tabela de 7 cookies (name, category, purpose, duration, third-party, HttpOnly, Secure), seção sobre localStorage/sessionStorage, instrução de configuração por browser.
 
 ---

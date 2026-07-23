@@ -147,4 +147,3 @@ temp-semgrep-scan.json
 
 # Worktrees e artefatos de ferramentas de IA
 .hermes/
-tests/

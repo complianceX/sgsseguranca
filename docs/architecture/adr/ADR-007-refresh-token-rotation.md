@@ -1,4 +1,4 @@
-# ADR-002: Refresh Token Rotation com Reuse Detection Atômico
+# ADR-007: Refresh Token Rotation com Reuse Detection Atômico
 Status: Accepted | Date: 2026-03-24
 
 ## Contexto

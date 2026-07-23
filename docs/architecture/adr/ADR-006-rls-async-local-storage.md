@@ -1,4 +1,4 @@
-# ADR-001: Isolamento Multi-Tenant com RLS + AsyncLocalStorage
+# ADR-006: Isolamento Multi-Tenant com RLS + AsyncLocalStorage
 Status: Accepted | Date: 2026-03-24
 
 ## Contexto
