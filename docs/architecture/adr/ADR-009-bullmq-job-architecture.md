@@ -1,4 +1,4 @@
-# ADR-004: Arquitetura de Jobs com BullMQ, Retentativa e DLQ
+# ADR-009: Arquitetura de Jobs com BullMQ, Retentativa e DLQ
 Status: Accepted | Date: 2026-03-24
 
 ## Contexto
@@ -7,13 +7,22 @@ O sistema executa processamento assíncrono crítico (PDF, importação document
 ## Decisão
 Padronizamos BullMQ com módulos dedicados de worker e filas nomeadas:
 
-- `mail`
-- `pdf-generation`
-- `document-import`
-- `document-import-dlq`
+Filas de negócio:
+- `mail` (+ DLQ `mail-dlq`)
+- `pdf-generation` (+ DLQ `pdf-generation-dlq`)
+- `document-import` / `process-document-import` (+ DLQ `document-import-dlq`)
+- `document-retention`
 - `sla-escalation`
 - `expiry-notifications`
-- `document-retention`
+- `trial-expiry-warning`
+- `tenant-backup` (disaster recovery)
+
+Filas operacionais / infraestrutura:
+- `ai-recovery` (recuperação do circuit breaker da IA)
+- `business-metrics-refresh` (agregação de métricas)
+- `dashboard-revalidate` (warming / invalidação de cache do dashboard)
+
+Dead-letter queues (DLQ) dedicadas — `mail-dlq`, `pdf-generation-dlq`, `document-import-dlq` — recebem jobs que esgotaram o retry, para análise e reprocesso controlado.
 
 Princípios aplicados:
 - retry com backoff exponencial em jobs críticos
