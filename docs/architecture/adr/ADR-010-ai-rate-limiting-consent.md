@@ -1,4 +1,4 @@
-# ADR-005: Consentimento LGPD e Rate Limiting para IA (Sophie)
+# ADR-010: Consentimento LGPD e Rate Limiting para IA (Sophie)
 Status: Accepted | Date: 2026-03-24
 
 ## Contexto
@@ -7,7 +7,7 @@ O módulo de IA processa texto operacional que pode conter dados sensíveis do c
 ## Decisão
 Aplicamos dupla barreira em endpoints de IA:
 
-- `AiConsentGuard`: bloqueia acesso quando `users.ai_processing_consent = false`
+- `AiConsentGuard`: delega ao `ConsentsService.hasActiveConsent(userId, 'ai_processing')` — bloqueia (403) quando não há consentimento ativo **na versão vigente** do texto. Modelo versionado e event-sourced (`user_consents` + `consent_versions`), que substitui a leitura direta do boolean legado `users.ai_processing_consent`. Ver ADR-011 (Decisões 1 e 2).
 - Rate limiting por usuário/rota com Redis (`UserRateLimitService` + `@UserThrottle`)
 
 Fluxo de proteção:
