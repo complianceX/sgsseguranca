@@ -283,7 +283,17 @@ describe('DidsService', () => {
     );
   });
 
-  it('listPeople: rejeita obra fora do escopo do usuario atual', async () => {
+  it('listPeople: TST pode listar funcionarios de obra fora do proprio siteIds (selecao de participantes)', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    usersRepository.createQueryBuilder.mockReturnValue(queryBuilder as never);
     tenantService.getContext = jest.fn(() => ({
       companyId: 'company-1',
       userId: 'user-tst',
@@ -294,9 +304,13 @@ describe('DidsService', () => {
 
     await expect(
       service.listPeople({ page: 1, limit: 20, siteId: 'site-2' }),
-    ).rejects.toThrow('Obra fora do escopo do usuário atual.');
+    ).resolves.toMatchObject({ total: 0, data: [] });
 
-    expect(usersRepository.createQueryBuilder).not.toHaveBeenCalled();
+    expect(usersRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('user.site_id IN (:...siteIds)'),
+      { siteIds: ['site-2'] },
+    );
   });
 
   it('emite 20 PDFs finais de DID simultaneamente sem degradar o fluxo governado', async () => {

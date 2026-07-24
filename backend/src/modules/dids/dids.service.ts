@@ -169,15 +169,6 @@ export class DidsService {
     });
     const tenantId = scope.companyId;
     const requestedSiteId = opts?.siteId?.trim() || undefined;
-
-    if (
-      requestedSiteId &&
-      !scope.hasCompanyWideAccess &&
-      !scope.siteIds.includes(requestedSiteId)
-    ) {
-      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
-    }
-
     const effectiveSiteIds = requestedSiteId
       ? [requestedSiteId]
       : scope.hasCompanyWideAccess
