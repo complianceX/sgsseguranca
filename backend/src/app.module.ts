@@ -251,7 +251,7 @@ export const validationSchema = Joi.object({
     .default('postgres'),
   SQLITE_DB_PATH: Joi.string().default('dev.sqlite'),
   DATABASE_URL: Joi.string().optional().allow(''),
-    DATABASE_ADMIN_URL: Joi.string().optional().allow(''),
+  DATABASE_ADMIN_URL: Joi.string().optional().allow(''),
   DATABASE_PRIVATE_URL: Joi.string().optional().allow(''),
   DATABASE_REPLICA_URL: Joi.string().optional().allow(''),
   DATABASE_PUBLIC_URL: Joi.string().optional().allow(''),
