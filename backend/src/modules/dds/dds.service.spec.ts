@@ -298,7 +298,7 @@ describe('DdsService', () => {
     expect(repository.create).not.toHaveBeenCalled();
   });
 
-  it('lista pessoas do DDS com escopo de tenant sem exigir catalogo global de usuarios nem login para funcionario operacional — inclui todos da empresa independente de obra', async () => {
+  it('lista pessoas do DDS filtrando por obra selecionada — apenas funcionarios vinculados a essa obra ou sem obra aparecem para selecao de participantes', async () => {
     const getManyAndCount = jest.fn().mockResolvedValue([
       [
         makeUser({
@@ -355,10 +355,10 @@ describe('DdsService', () => {
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       "(user.status = true OR user.password IS NULL OR btrim(user.password) = '')",
     );
-    // siteId passado como param mas NAO gera filtro de WHERE — todos os ativos da empresa sao elegíveis como participantes de DDS
-    expect(queryBuilder.andWhere).not.toHaveBeenCalledWith(
-      expect.stringContaining('siteIds'),
-      expect.anything(),
+    // siteId da obra selecionada gera filtro WHERE — apenas vinculados a essa obra (ou sem obra) aparecem
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('site_id IN (:...siteIds)'),
+      { siteIds: ['site-1'] },
     );
     expect(result.data).toEqual([
       {

@@ -340,6 +340,14 @@ export class DdsService {
       maxLimit: 100,
     });
 
+    // Prioridade: obra explicitamente selecionada no formulário (opts.siteId).
+    // Fallback para scope do usuário quando não há obra selecionada.
+    const siteIds = opts?.siteId
+      ? [opts.siteId]
+      : scope.hasCompanyWideAccess
+        ? []
+        : scope.siteIds;
+
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .select([
@@ -358,6 +366,17 @@ export class DdsService {
       .skip(skip)
       .take(limit)
       .orderBy('user.nome', 'ASC');
+
+    if (siteIds.length > 0) {
+      qb.andWhere(
+        `(user.site_id IN (:...siteIds) OR user.site_id IS NULL OR EXISTS (
+          SELECT 1 FROM user_sites us WHERE us.user_id = user.id AND us.site_id IN (:...siteIds)
+        ))`,
+        { siteIds },
+      );
+    } else if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('1 = 0');
+    }
 
     const [users, total] = await qb.getManyAndCount();
     const data = users.map((user) => ({
