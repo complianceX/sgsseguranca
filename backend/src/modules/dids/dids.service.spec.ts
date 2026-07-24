@@ -226,7 +226,7 @@ describe('DidsService', () => {
     expect(didRepository.save).toHaveBeenCalled();
   });
 
-  it('listPeople: usa ACL do modulo DID e inclui usuarios company-scoped', async () => {
+  it('listPeople: retorna todos os funcionarios ativos da empresa sem filtro por obra — qualquer participante elegivel para DID', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -275,15 +275,14 @@ describe('DidsService', () => {
       ],
     });
 
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      `(user.site_id IN (:...siteIds) OR user.site_id IS NULL OR EXISTS (
-          SELECT 1 FROM user_sites us WHERE us.user_id = user.id AND us.site_id IN (:...siteIds)
-        ))`,
-      { siteIds: ['site-1'] },
+    // siteId ignorado como filtro — todos os ativos da empresa aparecem para selecao de participantes
+    expect(queryBuilder.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('siteIds'),
+      expect.anything(),
     );
   });
 
-  it('listPeople: TST pode listar funcionarios de obra fora do proprio siteIds (selecao de participantes)', async () => {
+  it('listPeople: TST vê funcionarios de qualquer obra ao selecionar participantes de DID', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -307,9 +306,10 @@ describe('DidsService', () => {
     ).resolves.toMatchObject({ total: 0, data: [] });
 
     expect(usersRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('user.site_id IN (:...siteIds)'),
-      { siteIds: ['site-2'] },
+    // sem filtro de siteIds — backend nao restringe por obra na selecao de participantes
+    expect(queryBuilder.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('siteIds'),
+      expect.anything(),
     );
   });
 
