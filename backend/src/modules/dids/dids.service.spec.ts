@@ -276,7 +276,9 @@ describe('DidsService', () => {
     });
 
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      '(user.site_id IN (:...siteIds) OR user.site_id IS NULL)',
+      `(user.site_id IN (:...siteIds) OR user.site_id IS NULL OR EXISTS (
+          SELECT 1 FROM user_sites us WHERE us.user_id = user.id AND us.site_id IN (:...siteIds)
+        ))`,
       { siteIds: ['site-1'] },
     );
   });
