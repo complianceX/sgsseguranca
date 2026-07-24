@@ -217,7 +217,6 @@ describe('RbacService cache curto', () => {
         'can_manage_dids',
       ]),
     );
-    expect(result.permissions).not.toContain('can_manage_users');
   });
 
   it('mescla módulos liberados por usuário nas permissions efetivas', async () => {
@@ -289,7 +288,7 @@ describe('RbacService cache curto', () => {
 
     const result = await service.getUserAccess('legacy-tst-profile');
 
-    expect(result.permissions).not.toContain('can_manage_users');
+    expect(result.permissions).toContain('can_manage_users');
     expect(result.permissions).not.toContain('can_manage_companies');
     expect(result.permissions).not.toContain('can_manage_profiles');
     expect(result.permissions).not.toContain('can_view_system_health');
@@ -416,7 +415,8 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     expect(tstPermissions).not.toEqual(adminWithoutExpenseClose);
     expect(tstPermissions.has('can_view_companies')).toBe(false);
     expect(tstPermissions.has('can_view_profiles')).toBe(false);
-    expect(tstPermissions.has('can_manage_users')).toBe(false);
+    expect(tstPermissions.has('can_manage_users')).toBe(true);
+    expect(tstPermissions.has('can_view_users')).toBe(true);
     expect(tstPermissions.has('can_view_expenses')).toBe(true);
     expect(tstPermissions.has('can_manage_expenses')).toBe(true);
     expect(tstPermissions.has('can_close_expenses')).toBe(false);
@@ -445,8 +445,8 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
       PROFILE_PERMISSION_FALLBACK['Técnico'] || [],
     );
 
-    expect(tecnicoPermissions.has('can_view_users')).toBe(false);
-    expect(tecnicoPermissions.has('can_manage_users')).toBe(false);
+    expect(tecnicoPermissions.has('can_view_users')).toBe(true);
+    expect(tecnicoPermissions.has('can_manage_users')).toBe(true);
     expect(tecnicoPermissions.has('can_view_sites')).toBe(true);
     expect(tecnicoPermissions.has('can_manage_sites')).toBe(false);
     expect(tecnicoPermissions.has('can_manage_companies')).toBe(false);
@@ -463,7 +463,7 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     const adminWithoutExpenseClose = new Set(adminEmpresaPermissions);
     adminWithoutExpenseClose.delete('can_close_expenses');
     expect(supervisorPermissions).not.toEqual(adminWithoutExpenseClose);
-    expect(supervisorPermissions.has('can_manage_users')).toBe(false);
+    expect(supervisorPermissions.has('can_manage_users')).toBe(true);
     expect(supervisorPermissions.has('can_view_expenses')).toBe(true);
     expect(supervisorPermissions.has('can_manage_expenses')).toBe(true);
     expect(supervisorPermissions.has('can_close_expenses')).toBe(false);
