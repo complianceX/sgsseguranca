@@ -335,12 +335,6 @@ export class DdsService {
       allowMissingSiteScope: true,
     });
     const tenantId = scope.companyId;
-    const requestedSiteId = opts?.siteId?.trim() || undefined;
-    const effectiveSiteIds = requestedSiteId
-      ? [requestedSiteId]
-      : scope.hasCompanyWideAccess
-        ? []
-        : scope.siteIds;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -364,17 +358,6 @@ export class DdsService {
       .skip(skip)
       .take(limit)
       .orderBy('user.nome', 'ASC');
-
-    if (effectiveSiteIds.length > 0) {
-      qb.andWhere(
-        `(user.site_id IN (:...siteIds) OR user.site_id IS NULL OR EXISTS (
-          SELECT 1 FROM user_sites us WHERE us.user_id = user.id AND us.site_id IN (:...siteIds)
-        ))`,
-        { siteIds: effectiveSiteIds },
-      );
-    } else if (!scope.hasCompanyWideAccess) {
-      qb.andWhere('1 = 0');
-    }
 
     const [users, total] = await qb.getManyAndCount();
     const data = users.map((user) => ({

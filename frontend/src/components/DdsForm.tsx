@@ -318,9 +318,9 @@ export function DdsForm({ id }: DdsFormProps) {
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
-  const filteredUsers = users.filter((user) =>
-    isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
-  );
+  const filteredUsers = selectedCompanyId
+    ? users.filter((user) => user.company_id === selectedCompanyId)
+    : [];
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly =
     !canManageDds ||
@@ -718,14 +718,7 @@ export function DdsForm({ id }: DdsFormProps) {
 
       if (cancelled || !userResult) return;
 
-      setUsers((currentUsers) =>
-        dedupeDdsUsersById([
-          ...currentUsers.filter((user) =>
-            isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
-          ),
-          ...userResult,
-        ]),
-      );
+      setUsers(dedupeDdsUsersById(userResult));
     }
 
     reloadUsersForSite();
