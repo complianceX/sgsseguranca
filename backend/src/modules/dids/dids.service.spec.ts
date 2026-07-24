@@ -226,7 +226,7 @@ describe('DidsService', () => {
     expect(didRepository.save).toHaveBeenCalled();
   });
 
-  it('listPeople: retorna todos os funcionarios ativos da empresa sem filtro por obra — qualquer participante elegivel para DID', async () => {
+  it('listPeople: retorna funcionarios ativos vinculados a obra selecionada ou sem obra — regra de negocio: obra X exibe apenas seus funcionarios', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -275,14 +275,14 @@ describe('DidsService', () => {
       ],
     });
 
-    // siteId ignorado como filtro — todos os ativos da empresa aparecem para selecao de participantes
-    expect(queryBuilder.andWhere).not.toHaveBeenCalledWith(
-      expect.stringContaining('siteIds'),
-      expect.anything(),
+    // siteId da obra selecionada gera filtro WHERE — apenas vinculados a essa obra (ou sem obra) aparecem
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('site_id IN (:...siteIds)'),
+      { siteIds: ['site-1'] },
     );
   });
 
-  it('listPeople: TST vê funcionarios de qualquer obra ao selecionar participantes de DID', async () => {
+  it('listPeople: TST ve lista vazia ao selecionar obra sem funcionarios vinculados', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -306,10 +306,10 @@ describe('DidsService', () => {
     ).resolves.toMatchObject({ total: 0, data: [] });
 
     expect(usersRepository.createQueryBuilder).toHaveBeenCalled();
-    // sem filtro de siteIds — backend nao restringe por obra na selecao de participantes
-    expect(queryBuilder.andWhere).not.toHaveBeenCalledWith(
-      expect.stringContaining('siteIds'),
-      expect.anything(),
+    // filtro de obra aplicado mesmo para TST — obra selecionada delimita os participantes
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('site_id IN (:...siteIds)'),
+      { siteIds: ['site-2'] },
     );
   });
 
