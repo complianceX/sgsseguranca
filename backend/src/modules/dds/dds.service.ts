@@ -373,9 +373,12 @@ export class DdsService {
       .orderBy('user.nome', 'ASC');
 
     if (effectiveSiteIds.length > 0) {
-      qb.andWhere('(user.site_id IN (:...siteIds) OR user.site_id IS NULL)', {
-        siteIds: effectiveSiteIds,
-      });
+      qb.andWhere(
+        `(user.site_id IN (:...siteIds) OR user.site_id IS NULL OR EXISTS (
+          SELECT 1 FROM user_sites us WHERE us.user_id = user.id AND us.site_id IN (:...siteIds)
+        ))`,
+        { siteIds: effectiveSiteIds },
+      );
     } else if (!scope.hasCompanyWideAccess) {
       qb.andWhere('1 = 0');
     }
