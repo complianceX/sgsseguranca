@@ -196,6 +196,7 @@ const validationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
   DATABASE_URL: Joi.string().optional(),
+  DATABASE_ADMIN_URL: Joi.string().optional(),
   DATABASE_HOST: Joi.string().optional(),
   DATABASE_PORT: Joi.number().default(5432),
   DATABASE_USER: Joi.string().optional(),
