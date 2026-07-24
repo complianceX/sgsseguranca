@@ -84,6 +84,9 @@ const TECNICO_FALLBACK_PERMISSIONS = [
   'can_export_photographic_report_pdf',
   'can_export_photographic_report_word',
   'can_finalize_photographic_report',
+  // TST precisa cadastrar e visualizar funcionários das obras que gerencia.
+  'can_view_users',
+  'can_manage_users',
 ] as const;
 
 const SUPERVISOR_FALLBACK_PERMISSIONS = [
