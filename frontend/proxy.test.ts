@@ -18,7 +18,7 @@ jest.mock("@/lib/route-config", () => ({
   isHiddenRoute: jest.fn(() => false),
 }));
 
-import { proxy } from "./proxy";
+import { proxy, buildCsp } from "./proxy";
 
 type ProxyResult = ReturnType<typeof proxy> & {
   kind?: "redirect" | "next";
@@ -36,6 +36,25 @@ function makeRequest(pathname: string, cookieNames: string[] = []) {
     headers: new Headers(),
   } as unknown as Parameters<typeof proxy>[0];
 }
+
+describe("buildCsp", () => {
+  it("mantem unsafe-inline em style-src-elem no CSP de producao", () => {
+    const csp = buildCsp("abc123", { isProduction: true });
+    expect(csp).toContain("style-src-elem 'self' 'unsafe-inline'");
+  });
+
+  it("nao inclui nonce em style-src-elem para nao bloquear bibliotecas de UI", () => {
+    const csp = buildCsp("abc123", { isProduction: true });
+    expect(csp).not.toContain("style-src-elem 'self' 'nonce-abc123'");
+  });
+
+  it("inclui nonce apenas em script-src", () => {
+    const csp = buildCsp("abc123", { isProduction: false });
+    expect(csp).toContain("'nonce-abc123'");
+    const scriptSrcMatch = csp.match(/script-src ([^;]+)/);
+    expect(scriptSrcMatch?.[1]).toContain("'nonce-abc123'");
+  });
+});
 
 describe("proxy auth routing", () => {
   it("redireciona dashboard sem refresh_csrf para /login com redirect param", () => {
