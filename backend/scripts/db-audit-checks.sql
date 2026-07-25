@@ -204,6 +204,7 @@ FROM information_schema.tables t
 JOIN pg_class c ON c.relname = t.table_name
 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname='public'
 WHERE t.table_schema='public' AND t.table_type='BASE TABLE'
+  AND c.relispartition = false
   AND EXISTS (SELECT 1 FROM information_schema.columns col
               WHERE col.table_schema='public' AND col.table_name=t.table_name
                 AND col.column_name IN ('company_id','empresa_id'))

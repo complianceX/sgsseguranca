@@ -201,7 +201,7 @@ export class FixCriticalMissingFks1709000000307 implements MigrationInterface {
         ) THEN
           PERFORM public.__mig307_with_policies_dropped(
             'audit_logs',
-            'ALTER TABLE public.audit_logs ALTER COLUMN "user_id" TYPE uuid USING NULLIF("user_id"::text, '''')::uuid'
+            'ALTER TABLE public.audit_logs ALTER COLUMN "user_id" TYPE uuid USING CASE WHEN "user_id"::text ~* ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'' THEN "user_id"::text::uuid ELSE NULL END'
           );
         END IF;
 
@@ -212,7 +212,7 @@ export class FixCriticalMissingFks1709000000307 implements MigrationInterface {
         ) THEN
           PERFORM public.__mig307_with_policies_dropped(
             'audit_logs',
-            'ALTER TABLE public.audit_logs ALTER COLUMN "company_id" TYPE uuid USING NULLIF("company_id"::text, '''')::uuid'
+            'ALTER TABLE public.audit_logs ALTER COLUMN "company_id" TYPE uuid USING CASE WHEN "company_id"::text ~* ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'' THEN "company_id"::text::uuid ELSE NULL END'
           );
         END IF;
 
