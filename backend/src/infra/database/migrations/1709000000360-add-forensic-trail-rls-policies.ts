@@ -70,6 +70,12 @@ export class AddForensicTrailRlsPolicies1709000000360
     await queryRunner.query(`
       DROP POLICY IF EXISTS "forensic_trail_events_insert" ON "forensic_trail_events"
     `);
+    // up() setou FORCE além de ENABLE. DISABLE sozinho apaga o flag ENABLE mas
+    // deixa FORCE ativo — com zero policies restantes isso resulta em deny-all
+    // mesmo para o dono da tabela. É preciso desfazer FORCE antes de DISABLE.
+    await queryRunner.query(
+      `ALTER TABLE "forensic_trail_events" NO FORCE ROW LEVEL SECURITY`,
+    );
     await queryRunner.query(
       `ALTER TABLE "forensic_trail_events" DISABLE ROW LEVEL SECURITY`,
     );
