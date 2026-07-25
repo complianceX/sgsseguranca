@@ -141,28 +141,29 @@ export class DropDuplicateIndexes1709000000350 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const pair of this.pairs) {
-      await queryRunner.query(`
-        DO $$
-        DECLARE
-          def text;
-        BEGIN
-          IF EXISTS (SELECT 1 FROM pg_indexes
-                     WHERE schemaname='public' AND indexname='${pair.duplicate}') THEN
-            RETURN;
-          END IF;
+      const dupExists = await this.indexExists(queryRunner, pair.duplicate);
+      if (dupExists) {
+        continue;
+      }
 
-          SELECT indexdef INTO def
-          FROM pg_indexes
-          WHERE schemaname='public' AND indexname='${pair.keep}';
+      const rows = (await queryRunner.query(
+        `SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname=$1`,
+        [pair.keep],
+      )) as Array<{ indexdef: string }>;
 
-          IF def IS NULL THEN
-            RETURN;
-          END IF;
+      const def = rows?.[0]?.indexdef;
+      if (!def || !def.includes(`"${pair.keep}"`)) {
+        continue;
+      }
 
-          -- Recria a cópia trocando apenas o nome do índice.
-          EXECUTE replace(def, '"${pair.keep}"', '"${pair.duplicate}"');
-        END $$;
-      `);
+      // pg_indexes.indexdef não inclui CONCURRENTLY; inserimos para evitar
+      // lock de tabela — transaction=false permite CONCURRENTLY fora de bloco DO.
+      const concurrentDef = def
+        .replace(/^CREATE INDEX /, 'CREATE INDEX CONCURRENTLY IF NOT EXISTS ')
+        .replace(/^CREATE UNIQUE INDEX /, 'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ')
+        .replace(`"${pair.keep}"`, `"${pair.duplicate}"`);
+
+      await queryRunner.query(concurrentDef);
     }
   }
 
