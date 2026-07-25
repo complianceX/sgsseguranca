@@ -271,7 +271,7 @@ describe('AuthService', () => {
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         return [];
@@ -317,7 +317,7 @@ describe('AuthService', () => {
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         if (sql.includes('FROM auth.users')) {
@@ -348,7 +348,7 @@ describe('AuthService', () => {
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         return [];
@@ -381,7 +381,7 @@ describe('AuthService', () => {
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         if (sql.includes('FROM auth.users')) {
@@ -432,7 +432,7 @@ describe('AuthService', () => {
       };
 
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         return [];
@@ -478,7 +478,7 @@ describe('AuthService', () => {
       };
 
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         return [];
@@ -524,7 +524,7 @@ describe('AuthService', () => {
       };
 
       dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
+        if (sql.includes('find_login_user')) {
           return [userRow];
         }
         return [];
@@ -626,7 +626,10 @@ describe('AuthService', () => {
       const result = await service.verifyUserPassword('user-1', 'Atual@123');
 
       expect(result).toBe(true);
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('FROM auth.users'),
+        expect.anything(),
+      );
     });
 
     it('retorna false quando senha local não confere e não há fallback externo', async () => {

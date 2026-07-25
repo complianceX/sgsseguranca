@@ -13,9 +13,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * SELECT cross-tenant (ex.: admin realizando exclusão LGPD) retorna previousEvent=null,
  * iniciando uma nova cadeia — comportamento seguro e aceito para eventos globais raros.
  */
-export class AddForensicTrailRlsPolicies1709000000360
-  implements MigrationInterface
-{
+export class AddForensicTrailRlsPolicies1709000000360 implements MigrationInterface {
   name = 'AddForensicTrailRlsPolicies1709000000360';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1061,21 +1061,23 @@ export class MailService {
 
     let companyId: unknown;
     if (this.privilegedDb.isEnabled()) {
-      companyId = await this.privilegedDb.withPrivilegedClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          await client.query("SET LOCAL app.is_super_admin = 'true'");
-          const result = await client.query<{ company_id?: string }>(
-            `SELECT u.company_id FROM users u WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1`,
-            [userId],
-          );
-          await client.query('COMMIT');
-          return result.rows[0]?.company_id;
-        } catch (err) {
-          await client.query('ROLLBACK');
-          throw err;
-        }
-      });
+      companyId = await this.privilegedDb.withPrivilegedClient(
+        async (client) => {
+          await client.query('BEGIN');
+          try {
+            await client.query("SET LOCAL app.is_super_admin = 'true'");
+            const result = await client.query<{ company_id?: string }>(
+              `SELECT u.company_id FROM users u WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1`,
+              [userId],
+            );
+            await client.query('COMMIT');
+            return result.rows[0]?.company_id;
+          } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+          }
+        },
+      );
     } else {
       const rows = await this.mailLogRepository.manager.query<
         Array<{ company_id?: unknown }>
