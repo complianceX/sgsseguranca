@@ -107,20 +107,11 @@ export class ForensicTrailService {
       return execute(options.manager);
     }
 
+    // Migration 360 adicionou INSERT policy permissiva em forensic_trail_events
+    // para sgs_app — não é mais necessário SET LOCAL is_super_admin = 'true'.
     return this.dataSource.transaction(async (manager) => {
-      await this.prepareInternalAppendContext(manager);
       return execute(manager);
     });
-  }
-
-  private async prepareInternalAppendContext(
-    manager: EntityManager,
-  ): Promise<void> {
-    if (this.dataSource.options.type !== 'postgres') {
-      return;
-    }
-
-    await manager.query("SET LOCAL app.is_super_admin = 'true'");
   }
 
   private buildStreamKey(

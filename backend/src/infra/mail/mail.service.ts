@@ -48,6 +48,7 @@ import {
   maskSensitiveText,
 } from '../../shared/logging/log-sanitizer.util';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
+import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
 
 type MailContext = { companyId?: string; userId?: string };
 
@@ -195,6 +196,7 @@ export class MailService {
     private reportsService: ReportsService,
     private readonly integration: IntegrationResilienceService,
     private readonly distributedLock: DistributedLockService,
+    private readonly privilegedDb: PrivilegedDbService,
   ) {
     this.mailDeliveryEnabled = !isExplicitlyDisabled(
       this.configService.get<string | boolean>('MAIL_ENABLED'),
@@ -1057,22 +1059,33 @@ export class MailService {
       return undefined;
     }
 
-    const rows = await this.mailLogRepository.manager.query<
-      Array<{ company_id?: unknown }>
-    >(
-      `
-        WITH _ctx AS (
-          SELECT set_config('app.is_super_admin', 'true', true)
-        )
-        SELECT u.company_id
-        FROM _ctx, users u
-        WHERE u.id = $1
-          AND u.deleted_at IS NULL
-        LIMIT 1
-      `,
-      [userId],
-    );
-    const companyId = rows[0]?.company_id;
+    let companyId: unknown;
+    if (this.privilegedDb.isEnabled()) {
+      companyId = await this.privilegedDb.withPrivilegedClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+          const result = await client.query<{ company_id?: string }>(
+            `SELECT u.company_id FROM users u WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1`,
+            [userId],
+          );
+          await client.query('COMMIT');
+          return result.rows[0]?.company_id;
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        }
+      });
+    } else {
+      const rows = await this.mailLogRepository.manager.query<
+        Array<{ company_id?: unknown }>
+      >(
+        `WITH _ctx AS (SELECT set_config('app.is_super_admin', 'true', true))
+         SELECT u.company_id FROM _ctx, users u WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1`,
+        [userId],
+      );
+      companyId = rows[0]?.company_id;
+    }
 
     return typeof companyId === 'string' && companyId.trim()
       ? companyId

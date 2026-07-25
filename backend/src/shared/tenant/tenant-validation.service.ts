@@ -11,6 +11,7 @@ import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Company } from '../../modules/companies/entities/company.entity';
+import { PrivilegedDbService } from '../database/privileged-db.service';
 
 const DEFAULT_TENANT_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_TENANT_VALIDATION_WARMUP_DELAY_MS = 5000;
@@ -31,6 +32,7 @@ export class TenantValidationService
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly dataSource: DataSource,
+    private readonly privilegedDb: PrivilegedDbService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -158,26 +160,42 @@ export class TenantValidationService
   }
 
   private async loadActiveTenant(companyId: string): Promise<string | null> {
+    const sql = `SELECT id
+       FROM companies
+      WHERE id = $1
+        AND status = true
+        AND (
+          account_status = 'active'
+          OR (
+            account_status = 'trialing'
+            AND (trial_ends_at IS NULL OR trial_ends_at > now())
+          )
+        )
+      LIMIT 1`;
+
+    if (this.privilegedDb.isEnabled()) {
+      return this.privilegedDb.withPrivilegedClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+          const result = await client.query<{ id: string }>(sql, [companyId]);
+          await client.query('COMMIT');
+          return result.rows[0]?.id ?? null;
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      });
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
-      const rows = (await queryRunner.query(
-        `SELECT id
-           FROM companies
-          WHERE id = $1
-            AND status = true
-            AND (
-              account_status = 'active'
-              OR (
-                account_status = 'trialing'
-                AND (trial_ends_at IS NULL OR trial_ends_at > now())
-              )
-            )
-          LIMIT 1`,
-        [companyId],
-      )) as Array<{ id: string }>;
+      const rows = (await queryRunner.query(sql, [companyId])) as Array<{
+        id: string;
+      }>;
       await queryRunner.commitTransaction();
       return rows[0]?.id ?? null;
     } catch (error) {
@@ -189,26 +207,42 @@ export class TenantValidationService
   }
 
   private async loadActiveTenantIds(limit: number): Promise<string[]> {
+    const sql = `SELECT id
+       FROM companies
+      WHERE status = true
+        AND (
+          account_status = 'active'
+          OR (
+            account_status = 'trialing'
+            AND (trial_ends_at IS NULL OR trial_ends_at > now())
+          )
+        )
+      ORDER BY created_at DESC
+      LIMIT $1`;
+
+    if (this.privilegedDb.isEnabled()) {
+      return this.privilegedDb.withPrivilegedClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+          const result = await client.query<{ id: string }>(sql, [limit]);
+          await client.query('COMMIT');
+          return result.rows.map((row) => row.id);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      });
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
-      const rows = (await queryRunner.query(
-        `SELECT id
-           FROM companies
-          WHERE status = true
-            AND (
-              account_status = 'active'
-              OR (
-                account_status = 'trialing'
-                AND (trial_ends_at IS NULL OR trial_ends_at > now())
-              )
-            )
-          ORDER BY created_at DESC
-          LIMIT $1`,
-        [limit],
-      )) as Array<{ id: string }>;
+      const rows = (await queryRunner.query(sql, [limit])) as Array<{
+        id: string;
+      }>;
       await queryRunner.commitTransaction();
       return rows.map((row) => row.id);
     } catch (error) {
