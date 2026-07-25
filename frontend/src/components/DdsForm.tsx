@@ -48,10 +48,7 @@ import {
   safeToLocaleDateString,
   toInputDateValue,
 } from "@/lib/date/safeFormat";
-import {
-  dedupeDdsUsersById,
-  isDdsUserVisibleForSite,
-} from "@/lib/dds-user-scope";
+import { dedupeDdsUsersById } from "@/lib/dds-user-scope";
 import { ddsSchema, type DdsFormData } from "@/lib/validation/ddsForm.schema";
 import {
   blobToBoundedDataUrl,

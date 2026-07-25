@@ -14,9 +14,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   1. OR site_id IS NULL   — usuários sem obra fixa são visíveis para todos da empresa
  *   2. OR EXISTS user_sites — usuário logado com acesso à obra Y pode ver funcionários de Y
  */
-export class FixUsersRlsSiteIsolationJunctionAccess1709000000358
-  implements MigrationInterface
-{
+export class FixUsersRlsSiteIsolationJunctionAccess1709000000358 implements MigrationInterface {
   name = 'FixUsersRlsSiteIsolationJunctionAccess1709000000358';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
