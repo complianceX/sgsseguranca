@@ -309,43 +309,8 @@ export class AuthPrincipalService {
     appUserId?: string;
   }): Promise<UserBridgeRecord | null> {
     const rows = (await this.dataSource.query(
-      `
-        WITH _ctx AS (
-          SELECT set_config('app.is_super_admin', 'true', true)
-        )
-        SELECT
-          u.id,
-          u.auth_user_id,
-          u.cpf,
-          u.cpf_ciphertext,
-          u.company_id,
-          u.site_id,
-          COALESCE(
-            ARRAY_AGG(us.site_id ORDER BY us.created_at) FILTER (WHERE us.site_id IS NOT NULL),
-            ARRAY[]::uuid[]
-          ) AS site_ids,
-          p.nome AS profile_nome
-        FROM _ctx, users u
-        LEFT JOIN profiles p
-          ON p.id = u.profile_id
-        LEFT JOIN user_sites us
-          ON us.user_id = u.id
-         AND us.company_id = u.company_id
-        WHERE u.status = true
-          AND u.deleted_at IS NULL
-          AND (
-            ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid)
-            OR ($2::uuid IS NOT NULL AND u.id = $2::uuid)
-          )
-        GROUP BY u.id, u.auth_user_id, u.cpf, u.cpf_ciphertext, u.company_id, u.site_id, p.nome
-        ORDER BY
-          CASE
-            WHEN ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid) THEN 0
-            ELSE 1
-          END
-        LIMIT 1
-      `,
-      [params.authUserId || null, params.appUserId || null],
+      `SELECT * FROM find_user_bridge($1::uuid, $2::uuid)`,
+      [params.appUserId || null, params.authUserId || null],
     )) as unknown;
 
     if (!Array.isArray(rows) || rows.length === 0) {
