@@ -6,8 +6,13 @@ import type { AuthRedisService } from '../../shared/redis/redis.service';
 describe('BruteForceService', () => {
   const originalEnv = { ...process.env };
 
-  const createSut = () => {
-    const multiExec = jest.fn().mockResolvedValue([]);
+  const createSut = (
+    setNxResult: 'OK' | null = 'OK',
+  ) => {
+    // Simula resultado do MULTI exec: [[null, del_count], [null, set_nx_result]]
+    const multiExec = jest
+      .fn()
+      .mockResolvedValue([[null, 1], [null, setNxResult]]);
     const multiSet = jest.fn().mockReturnValue({ exec: multiExec });
     const multiDel = jest
       .fn()
@@ -55,7 +60,7 @@ describe('BruteForceService', () => {
   });
 
   it('bloqueia conta (CPF) após N tentativas inválidas', async () => {
-    const { service, client, multiSet, multiDel } = createSut();
+    const { service, client, multiSet, multiDel } = createSut('OK');
     client.eval.mockResolvedValueOnce(3);
 
     await service.registerCpfFailure('12345678900');
@@ -68,7 +73,23 @@ describe('BruteForceService', () => {
       '1',
       'EX',
       1200,
+      'NX',
     );
+  });
+
+  it('não emite evento forense duplicado quando chave de bloqueio já existe (request concorrente)', async () => {
+    // SET NX retorna null quando a chave já existia — outro request concorrente
+    // já bloqueou a conta; este não deve emitir o evento de bloqueio novamente.
+    const { service, client } = createSut(null);
+    client.eval.mockResolvedValueOnce(4); // count > max
+
+    const forensicSpy = jest
+      .spyOn(service as unknown as { recordBlockEvent: jest.Mock }, 'recordBlockEvent')
+      .mockResolvedValue(undefined);
+
+    await service.registerCpfFailure('12345678900');
+
+    expect(forensicSpy).not.toHaveBeenCalled();
   });
 
   it('rejeita login quando conta já está bloqueada', async () => {

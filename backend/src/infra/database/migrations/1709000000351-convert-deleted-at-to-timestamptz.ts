@@ -270,16 +270,20 @@ export class ConvertDeletedAtToTimestamptz1709000000351 implements MigrationInte
           );
           mv_defs := mv_defs || (
             SELECT coalesce(
-              array_agg(DISTINCT format(
-                'GRANT %s ON public.%I TO %I',
-                g.privilege_type, mv.relname, g.grantee
-              )),
+              array_agg(DISTINCT
+                CASE WHEN a.grantee = 0
+                  THEN format('GRANT %s ON public.%I TO PUBLIC', a.privilege_type, mv.relname)
+                  ELSE format('GRANT %s ON public.%I TO %I', a.privilege_type, mv.relname,
+                              (SELECT rolname FROM pg_roles WHERE oid = a.grantee))
+                END
+              ),
               ARRAY[]::text[]
             )
-            FROM information_schema.role_table_grants g
-            WHERE g.table_schema = 'public'
-              AND g.table_name   = mv.relname
-              AND g.grantee <> current_user
+            FROM pg_class c,
+                 aclexplode(c.relacl) a
+            WHERE c.relnamespace = 'public'::regnamespace
+              AND c.relname = mv.relname
+              AND a.grantee <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
           );
           EXECUTE format('DROP MATERIALIZED VIEW public.%I', mv.relname);
         END LOOP;
