@@ -278,6 +278,37 @@ psql ... -c "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_checklists_
 
 ---
 
+### 4.5 Janela de Produção — Hardening RLS (migration 361)
+
+Data: 2026-07-25 | Operador: complianceX via Claude Code
+
+#### Ações executadas
+
+1. PRs #157 e #158 mergeados e deployados (web + worker)
+2. Role `sgs_admin` criada no Neon com `GRANT sgs_rls_bypass TO sgs_admin`
+3. `DATABASE_ADMIN_URL` configurada no Coolify para web e worker
+4. Migration 361 (`REVOKE sgs_rls_bypass FROM sgs_app`) aplicada via `npm run migration:run`
+
+#### Evidências
+
+| Critério | Resultado |
+| --- | --- |
+| `pg_has_role('sgs_app', 'sgs_rls_bypass', 'member')` | **f** — sgs_app não tem mais bypass |
+| `pg_has_role('sgs_admin', 'sgs_rls_bypass', 'member')` | **t** — conexão privilegiada operacional |
+| `GET /health/public` pós-REVOKE | **200 ok** |
+| Worker processando filas após deploy | **Sim** — QueueMonitorService ativo |
+| `GET /health/detailed` (requer auth) | **401** — correto, guard ativo |
+
+#### Plano de rollback (< 1 min)
+
+```bash
+# Rodar como neondb_owner via DATABASE_MIGRATION_URL:
+psql "$DATABASE_MIGRATION_URL" -c "GRANT sgs_rls_bypass TO sgs_app;"
+# Conexões existentes precisam de novo connect() para efetivar — reiniciar os containers.
+```
+
+---
+
 ## 5. DEPLOYMENT
 
 ### 5.1 Deploy de Nova Versão
