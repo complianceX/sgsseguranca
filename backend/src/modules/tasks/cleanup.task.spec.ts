@@ -26,6 +26,7 @@ describe('CleanupTask', () => {
       expiryQueue as never,
       pdfDlq as never,
       companiesService as never,
+      { isEnabled: () => false } as never,
     );
 
     await task.runExpiryNotifications();
@@ -52,6 +53,7 @@ describe('CleanupTask', () => {
       expiryQueue as never,
       pdfDlq as never,
       companiesService as never,
+      { isEnabled: () => false } as never,
     );
 
     await task.cleanupStaleTempUploads();
@@ -77,6 +79,7 @@ describe('CleanupTask', () => {
       expiryQueue as never,
       pdfDlq as never,
       companiesService as never,
+      { isEnabled: () => false } as never,
     );
 
     await task.cleanupOldLogs();
@@ -107,6 +110,7 @@ describe('CleanupTask', () => {
       expiryQueue as never,
       pdfDlq as never,
       companiesService as never,
+      { isEnabled: () => false } as never,
     );
 
     await task.runExpiryNotifications();

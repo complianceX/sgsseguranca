@@ -8,6 +8,7 @@ import {
   GdprRetentionCleanupTrigger,
 } from '../entities/gdpr-retention-cleanup-run.entity';
 import { TenantService } from '../../../shared/tenant/tenant.service';
+import { PrivilegedDbService } from '../../../shared/database/privileged-db.service';
 
 export type { GdprDeletionRequest as GDPRDeleteRequest };
 
@@ -58,6 +59,7 @@ export class GDPRDeletionService {
     @InjectRepository(GdprRetentionCleanupRun)
     private retentionCleanupRunRepo: Repository<GdprRetentionCleanupRun>,
     private readonly tenantService: TenantService,
+    private readonly privilegedDb: PrivilegedDbService,
   ) {}
 
   private async queryRows<T>(
@@ -329,23 +331,44 @@ export class GDPRDeletionService {
     let failedTable = '<unknown>';
 
     try {
-      await this.dataSource.transaction(async (manager: EntityManager) => {
-        // Garante bypass de RLS para o offboarding cross-tenant, independentemente
-        // do tenant que o ADMIN_GERAL chamador tenha selecionado (x-company-id).
-        // Sem isto, as UPDATEs seriam filtradas pela RLS → 0 linhas afetadas
-        // silenciosamente, deixando a exclusão LGPD da empresa sem efeito.
-        await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        for (const table of tables) {
-          failedTable = table;
-          const result: unknown = await manager.query(
-            `UPDATE "${table}" SET deleted_at = $1 WHERE company_id = $2 AND deleted_at IS NULL`,
-            [now, companyId],
-          );
-          const affectedRows = this.getAffectedRowCount(result);
-          totalRows += affectedRows;
-          this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
-        }
-      });
+      if (this.privilegedDb.isEnabled()) {
+        await this.privilegedDb.withPrivilegedClient(async (client) => {
+          await client.query('BEGIN');
+          try {
+            await client.query("SET LOCAL app.is_super_admin = 'true'");
+            for (const table of tables) {
+              failedTable = table;
+              const result = await client.query(
+                `UPDATE "${table}" SET deleted_at = $1 WHERE company_id = $2 AND deleted_at IS NULL`,
+                [now, companyId],
+              );
+              const affectedRows = result.rowCount ?? 0;
+              totalRows += affectedRows;
+              this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
+            }
+            await client.query('COMMIT');
+          } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+          }
+        });
+      } else {
+        await this.dataSource.transaction(async (manager: EntityManager) => {
+          // Garante bypass de RLS para o offboarding cross-tenant, independentemente
+          // do tenant que o ADMIN_GERAL chamador tenha selecionado (x-company-id).
+          await manager.query("SET LOCAL app.is_super_admin = 'true'");
+          for (const table of tables) {
+            failedTable = table;
+            const result: unknown = await manager.query(
+              `UPDATE "${table}" SET deleted_at = $1 WHERE company_id = $2 AND deleted_at IS NULL`,
+              [now, companyId],
+            );
+            const affectedRows = this.getAffectedRowCount(result);
+            totalRows += affectedRows;
+            this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
+          }
+        });
+      }
 
       this.logger.warn(
         `[GDPR] ENTERPRISE: Company ${companyId} soft-deleted — ${tables.length} tables, ${totalRows} rows affected`,

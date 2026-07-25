@@ -13,6 +13,7 @@ import {
   getUtcDateJobKey,
   getUtcHourJobKey,
 } from '../../infra/queue/default-job-options';
+import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
 
 const DLQ_ALERT_THRESHOLD =
   parseInt(process.env.DLQ_MAX_WAITING || '2000', 10) * 0.75;
@@ -31,6 +32,7 @@ export class CleanupTask {
     @InjectQueue('expiry-notifications') private readonly expiryQueue: Queue,
     @InjectQueue('pdf-generation-dlq') private readonly pdfDlq: Queue,
     private readonly companiesService: CompaniesService,
+    private readonly privilegedDb: PrivilegedDbService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -49,26 +51,51 @@ export class CleanupTask {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - retentionDays);
 
-    // `audit_logs` tem RLS com FORCE. Este cron roda fora de requisição HTTP,
-    // então não existe contexto de tenant no AsyncLocalStorage e
-    // `app.current_company_id` fica vazio — o DELETE casava com zero linhas e o
-    // log anunciava "0 rows" como sucesso, enquanto a tabela crescia sem limite.
-    // A limpeza é intencionalmente global (todos os tenants), então roda dentro
-    // de uma transação com bypass explícito, no mesmo padrão já usado pela
-    // rotina de exclusão LGPD (`gdpr-deletion.service.ts`).
-    const { eligible, deleted } = await this.auditLogRepo.manager.transaction(
-      async (manager) => {
-        await manager.query(`SET LOCAL app.is_super_admin = 'true'`);
+    // `audit_logs` tem RLS com FORCE. Este cron roda fora de requisição HTTP
+    // sem contexto de tenant — a limpeza é intencionalmente global (todos os
+    // tenants), então exige bypass de RLS.
+    let eligible = 0;
+    let deleted = 0;
 
-        const repo = manager.getRepository(AuditLog);
-        const eligibleCount = await repo.count({
-          where: { timestamp: LessThan(cutoff) },
-        });
-        const result = await repo.delete({ timestamp: LessThan(cutoff) });
-
-        return { eligible: eligibleCount, deleted: result.affected ?? 0 };
-      },
-    );
+    if (this.privilegedDb.isEnabled()) {
+      ({ eligible, deleted } = await this.privilegedDb.withPrivilegedClient(
+        async (client) => {
+          await client.query('BEGIN');
+          try {
+            await client.query("SET LOCAL app.is_super_admin = 'true'");
+            const countResult = await client.query<{ cnt: number }>(
+              `SELECT count(*)::int AS cnt FROM audit_logs WHERE timestamp < $1`,
+              [cutoff],
+            );
+            const eligibleCount = countResult.rows[0]?.cnt ?? 0;
+            const deleteResult = await client.query(
+              `DELETE FROM audit_logs WHERE timestamp < $1`,
+              [cutoff],
+            );
+            await client.query('COMMIT');
+            return {
+              eligible: eligibleCount,
+              deleted: deleteResult.rowCount ?? 0,
+            };
+          } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+          }
+        },
+      ));
+    } else {
+      ({ eligible, deleted } = await this.auditLogRepo.manager.transaction(
+        async (manager) => {
+          await manager.query(`SET LOCAL app.is_super_admin = 'true'`);
+          const repo = manager.getRepository(AuditLog);
+          const eligibleCount = await repo.count({
+            where: { timestamp: LessThan(cutoff) },
+          });
+          const result = await repo.delete({ timestamp: LessThan(cutoff) });
+          return { eligible: eligibleCount, deleted: result.affected ?? 0 };
+        },
+      ));
+    }
 
     // Divergência aqui significa que o bypass deixou de valer (ex.: papel do
     // runtime perdeu `sgs_rls_bypass`). Sem este alerta a falha volta a ser

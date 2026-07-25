@@ -202,38 +202,11 @@ export class AuthService {
   ): Promise<AuthLoginUserRow | null> {
     const cpfHash = hashSensitiveValue(normalizedCpf);
     const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
+    // Usa função SECURITY DEFINER (migration 359) — roda como owner (BYPASSRLS)
+    // sem depender de membership sgs_rls_bypass na conexão runtime.
     const rows = (await this.dataSource.query(
-      `
-        WITH _ctx AS (
-          SELECT set_config('app.is_super_admin', 'true', true)
-        )
-        SELECT
-          u.id,
-          u.nome,
-          u.cpf,
-          u.cpf_ciphertext,
-          u.email,
-          u.funcao,
-          u.password,
-          u.auth_user_id,
-          u.company_id,
-          u.site_id,
-          u.profile_id,
-          u.status,
-          u.must_change_password,
-          p.nome AS profile_nome
-        FROM _ctx, users u
-        LEFT JOIN profiles p
-          ON p.id = u.profile_id
-        WHERE ${
-          legacyPlaintextLookupEnabled
-            ? '(u.cpf_hash = $1 OR u.cpf = $2)'
-            : 'u.cpf_hash = $1'
-        }
-          AND u.deleted_at IS NULL
-        LIMIT 1
-      `,
-      legacyPlaintextLookupEnabled ? [cpfHash, normalizedCpf] : [cpfHash],
+      `SELECT * FROM find_login_user($1, $2)`,
+      [cpfHash, legacyPlaintextLookupEnabled ? normalizedCpf : null],
     )) as unknown;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -297,10 +270,10 @@ export class AuthService {
     if (local.isMatch) {
       if (local.needsRehash) {
         const newHash = await this.passwordService.hash(password);
-        await this.dataSource.transaction(async (manager) => {
-          await manager.query("SET LOCAL app.is_super_admin = 'true'");
-          await manager.update(User, { id: userId }, { password: newHash });
-        });
+        await this.dataSource.query(
+          `SELECT update_login_user_password_hash($1, $2)`,
+          [userId, newHash],
+        );
       }
       return true;
     }
@@ -394,14 +367,10 @@ export class AuthService {
             void this.passwordService
               .hash(pass)
               .then(async (newHash) => {
-                await this.dataSource.transaction(async (manager) => {
-                  await manager.query("SET LOCAL app.is_super_admin = 'true'");
-                  await manager.update(
-                    User,
-                    { id: userId },
-                    { password: newHash },
-                  );
-                });
+                await this.dataSource.query(
+                  `SELECT update_login_user_password_hash($1, $2)`,
+                  [userId, newHash],
+                );
                 this.logger.warn({
                   event: 'password_rehashed_to_argon2id',
                   userId,
