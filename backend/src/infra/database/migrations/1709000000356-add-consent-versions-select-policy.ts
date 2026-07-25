@@ -49,6 +49,9 @@ export class AddConsentVersionsSelectPolicy1709000000356 implements MigrationInt
     // Reverte o ENABLE RLS adicionado por up() para que o rollback deixe
     // a tabela acessível sem depender do bypass de RLS (sgs_rls_bypass).
     await queryRunner.query(
+      `ALTER TABLE "consent_versions" NO FORCE ROW LEVEL SECURITY`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "consent_versions" DISABLE ROW LEVEL SECURITY`,
     );
   }

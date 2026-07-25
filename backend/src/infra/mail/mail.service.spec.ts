@@ -188,7 +188,10 @@ describe('MailService', () => {
         },
         {
           provide: PrivilegedDbService,
-          useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -272,7 +275,10 @@ describe('MailService', () => {
         },
         {
           provide: PrivilegedDbService,
-          useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -547,7 +553,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -657,7 +666,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -767,7 +779,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -869,7 +884,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -992,7 +1010,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -1394,7 +1415,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -1475,7 +1499,10 @@ describe('MailService', () => {
           },
           {
             provide: PrivilegedDbService,
-            useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();

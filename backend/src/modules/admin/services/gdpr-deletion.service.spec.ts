@@ -82,7 +82,10 @@ describe('GDPRDeletionService', () => {
         },
         {
           provide: PrivilegedDbService,
-          useValue: { isEnabled: jest.fn(() => false), withPrivilegedClient: jest.fn() },
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
         },
       ],
     }).compile();

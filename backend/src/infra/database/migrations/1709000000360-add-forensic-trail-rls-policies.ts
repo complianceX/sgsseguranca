@@ -69,6 +69,9 @@ export class AddForensicTrailRlsPolicies1709000000360 implements MigrationInterf
       DROP POLICY IF EXISTS "forensic_trail_events_insert" ON "forensic_trail_events"
     `);
     await queryRunner.query(
+      `ALTER TABLE "forensic_trail_events" NO FORCE ROW LEVEL SECURITY`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "forensic_trail_events" DISABLE ROW LEVEL SECURITY`,
     );
   }

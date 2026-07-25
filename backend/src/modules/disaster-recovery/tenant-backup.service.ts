@@ -20,6 +20,7 @@ import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { captureException } from '../../shared/monitoring/sentry';
 import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
+import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
 import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from './disaster-recovery.constants';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
 import type {
@@ -140,6 +141,7 @@ export class TenantBackupService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly executionService: DisasterRecoveryExecutionService,
+    private readonly privilegedDb: PrivilegedDbService,
   ) {}
 
   getQueueName(): string {
@@ -429,9 +431,39 @@ export class TenantBackupService {
   async backupAllActiveTenants(
     requestedByUserId?: string,
   ): Promise<{ queued: string[] }> {
-    const rows = (await this.dataSource.query(
-      `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
-    )) as unknown as Array<{ id?: string }>;
+    let rows: Array<{ id?: string }>;
+    if (this.privilegedDb.isEnabled()) {
+      rows = await this.privilegedDb.withPrivilegedClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+          const result = await client.query<{ id: string }>(
+            `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
+          );
+          await client.query('COMMIT');
+          return result.rows;
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        }
+      });
+    } else {
+      const qr = this.dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.query("SET LOCAL app.is_super_admin = 'true'");
+        rows = (await qr.query(
+          `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
+        )) as Array<{ id?: string }>;
+        await qr.commitTransaction();
+      } catch (err) {
+        await qr.rollbackTransaction();
+        throw err;
+      } finally {
+        await qr.release();
+      }
+    }
     const ids = rows
       .map((row) => row.id)
       .filter((id: string | undefined): id is string => Boolean(id));

@@ -71,6 +71,8 @@ Variáveis obrigatórias:
 - `NODE_ENV=production`
 - `DATABASE_URL`
 - `DATABASE_REPLICA_URL`
+- `DATABASE_ADMIN_URL` — role `sgs_admin` (membro de `sgs_rls_bypass`), endpoint direto sem pooler; habilita `PrivilegedDbService` para backup DR e GDPR cross-tenant. Se ausente, cai no fallback `sgs_app` com `SET LOCAL`.
+- `DATABASE_ADMIN_POOL_MAX=3`
 - `REDIS_URL`
 - `REDIS_AUTH_URL`
 - `REDIS_CACHE_URL`
@@ -126,6 +128,8 @@ Variáveis obrigatórias:
 
 - `NODE_ENV=production`
 - `DATABASE_URL`
+- `DATABASE_ADMIN_URL` — mesmo valor do Web service; necessário para `backupAllActiveTenants` via `PrivilegedDbService`.
+- `DATABASE_ADMIN_POOL_MAX=3`
 - `REDIS_URL`
 - `REDIS_AUTH_URL`
 - `REDIS_CACHE_URL`
