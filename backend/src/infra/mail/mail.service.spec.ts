@@ -28,6 +28,7 @@ import { IntegrationResilienceService } from '../../shared/resilience/integratio
 import { DistributedLockService } from '../../shared/redis/distributed-lock.service';
 import { Cat } from '../../modules/cats/entities/cat.entity';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
+import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
 
 // Mock do Resend
 const mockResendSend = jest.fn<Promise<unknown>, [unknown]>();
@@ -185,6 +186,13 @@ describe('MailService', () => {
           provide: DistributedLockService,
           useValue: mockDistributedLockService,
         },
+        {
+          provide: PrivilegedDbService,
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -264,6 +272,13 @@ describe('MailService', () => {
         {
           provide: DistributedLockService,
           useValue: mockDistributedLockService,
+        },
+        {
+          provide: PrivilegedDbService,
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -536,6 +551,13 @@ describe('MailService', () => {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
           },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
@@ -641,6 +663,13 @@ describe('MailService', () => {
           {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
+          },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -748,6 +777,13 @@ describe('MailService', () => {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
           },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
@@ -845,6 +881,13 @@ describe('MailService', () => {
           {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
+          },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -964,6 +1007,13 @@ describe('MailService', () => {
           {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
+          },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();
@@ -1363,6 +1413,13 @@ describe('MailService', () => {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
           },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
@@ -1439,6 +1496,13 @@ describe('MailService', () => {
           {
             provide: DistributedLockService,
             useValue: mockDistributedLockService,
+          },
+          {
+            provide: PrivilegedDbService,
+            useValue: {
+              isEnabled: jest.fn(() => false),
+              withPrivilegedClient: jest.fn(),
+            },
           },
         ],
       }).compile();

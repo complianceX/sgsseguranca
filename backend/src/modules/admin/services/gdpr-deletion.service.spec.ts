@@ -6,6 +6,7 @@ import { GdprRetentionCleanupRun } from '../entities/gdpr-retention-cleanup-run.
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { TenantService } from '../../../shared/tenant/tenant.service';
+import { PrivilegedDbService } from '../../../shared/database/privileged-db.service';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440001';
@@ -78,6 +79,13 @@ describe('GDPRDeletionService', () => {
         {
           provide: TenantService,
           useValue: mockTenantService,
+        },
+        {
+          provide: PrivilegedDbService,
+          useValue: {
+            isEnabled: jest.fn(() => false),
+            withPrivilegedClient: jest.fn(),
+          },
         },
       ],
     }).compile();
