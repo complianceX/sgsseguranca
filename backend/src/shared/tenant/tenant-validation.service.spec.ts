@@ -56,6 +56,7 @@ describe('TenantValidationService', () => {
       companiesRepository as never,
       cacheManager as never,
       dataSource as never,
+      { isEnabled: () => false } as never,
     );
   });
 

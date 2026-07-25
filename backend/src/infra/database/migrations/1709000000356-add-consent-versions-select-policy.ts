@@ -46,5 +46,10 @@ export class AddConsentVersionsSelectPolicy1709000000356 implements MigrationInt
     await queryRunner.query(
       `DROP POLICY IF EXISTS "consent_versions_select_all" ON "consent_versions"`,
     );
+    // Reverte o ENABLE RLS adicionado por up() para que o rollback deixe
+    // a tabela acessível sem depender do bypass de RLS (sgs_rls_bypass).
+    await queryRunner.query(
+      `ALTER TABLE "consent_versions" DISABLE ROW LEVEL SECURITY`,
+    );
   }
 }
