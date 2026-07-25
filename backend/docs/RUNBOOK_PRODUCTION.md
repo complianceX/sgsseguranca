@@ -216,6 +216,66 @@ chmod +x backend/scripts/disaster-recovery-test.sh
 cat dr_test_report_*.txt
 ```
 
+### 4.4 Validação da Cadeia de Migrations (DR zero-to-schema)
+
+Última validação: 2026-07-24 — 283 migrations — OK
+
+Ambiente validado: PostgreSQL 16.14 limpo, topologia de roles equivalente à produção.
+
+#### Resultado
+
+| Critério | Resultado |
+| --- | --- |
+| Total de migrations aplicadas | **283 de 283** (exit code 0) |
+| Migration mais antiga | `InitialSchema1699000000000` |
+| Migration mais recente | `RevokeRlsBypassFromSgsApp1709000000361` |
+| Índice crítico `idx_checklists_company_modelos_created` | **CRIADO** |
+| Tabelas com RLS enabled + FORCE | **93 tabelas** (1 exceção intencional: consent_versions) |
+| Políticas RLS totais | **258 policies** |
+| Matviews com índices | **2** (company_dashboard_metrics, apr_risk_rankings) |
+| `sgs_app` possui BYPASSRLS | **f** (correto — hardening migration 361 ativo) |
+| `sgs_app` membro de sgs_rls_bypass | **f** (correto — migration 361 revogou) |
+| Audit checks (integridade + cross-tenant + FK) | **Todos 0 — limpo** |
+| Cache hit ratio | 99,79% |
+| Partições mail_logs | 19 mensais + default (abr/2026 a ago/2027) |
+| Partições ai_interactions | 24 mensais + default (abr/2026 a mar/2028) |
+| Tempo total de recovery (migrations) | ~2 min |
+
+#### Advertências conhecidas (não bloqueantes)
+
+- **3 pares de índices duplicados detectados** pelo audit check 7.4 em `rdos`, `photographic_report_days` e `photographic_report_images` — pré-existentes, fora do escopo da migration 350. Candidatos a remoção em janela de manutenção.
+- **audit_logs** não foi particionado (a migration 091 detectou divergência de schema e pulou) — comportamento esperado; particionamento de audit_logs requer migração dedicada com schema expandido.
+- **consent_versions** tem `FORCE ROW LEVEL SECURITY = false` — intencional por design (migration 356): tabela de catálogo lida mesmo sem contexto de tenant.
+
+#### Procedimento de replicação
+
+```bash
+# 1. Criar PostgreSQL 16 limpo (equivalente Neon)
+psql -U postgres -c "
+  CREATE ROLE neondb_owner LOGIN PASSWORD '<senha>' SUPERUSER;
+  CREATE ROLE sgs_app LOGIN PASSWORD '<senha>' NOSUPERUSER NOBYPASSRLS;
+  CREATE DATABASE sst_staging OWNER neondb_owner;
+"
+
+# 2. Build do backend (migrations rodam do dist/)
+cd backend && npm run build
+
+# 3. Rodar todas as migrations do zero
+DATABASE_MIGRATION_URL=postgresql://neondb_owner:<senha>@<host>:5432/sst_staging \
+DATABASE_SSL=false \
+NODE_ENV=development \
+node scripts/run-migrations.js 2>&1 | tee migration_$(date +%Y%m%d).log
+
+# 4. Verificar contagem final
+psql ... -c "SELECT COUNT(*) FROM migrations;"   -- esperado: 283
+
+# 5. Validação de integridade
+psql ... -f backend/scripts/db-audit-checks.sql
+
+# 6. Confirmar índice crítico
+psql ... -c "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_checklists_company_modelos_created';"
+```
+
 ---
 
 ## 5. DEPLOYMENT

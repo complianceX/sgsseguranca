@@ -21,7 +21,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../shared/decorators/public.decorator';
 import { TenantOptional } from '../../shared/decorators/tenant-optional.decorator';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponses } from '../../shared/swagger/api-standard-responses.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
@@ -477,6 +477,9 @@ export class AuthController {
   }
 
   @Public()
+  @ApiOperation({ summary: 'Página HTML de redefinição de senha' })
+  @ApiResponse({ status: 200, description: 'Página HTML com formulário de redefinição' })
+  @ApiResponse({ status: 400, description: 'Token ausente ou malformado no hash fragment' })
   @Get('reset-password')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store, max-age=0')

@@ -290,29 +290,41 @@ export class BruteForceService {
       )) as number;
 
       if (count >= max) {
-        await client
+        // NX garante que apenas o primeiro request concorrente a atingir o
+        // limiar grava a chave de bloqueio — evitando eventos forenses duplicados
+        // quando várias requisições simultâneas passam pelo count >= max ao mesmo tempo.
+        const results = await client
           .multi()
           .del(key)
-          .set(this.keyCpfBlock(cpf), '1', 'EX', blockSeconds)
+          .set(this.keyCpfBlock(cpf), '1', 'EX', blockSeconds, 'NX')
           .exec();
+
         this.logger.warn({
           event: 'cpf_brute_force_blocked',
           cpf: CpfUtil.mask(cpf),
           threshold: max,
           blockSeconds,
         });
-        // O identificador gravado é o hash do CPF: permite correlacionar
-        // tentativas da mesma conta sem persistir o documento na trilha.
-        await this.recordBlockEvent(
-          'AUTH_BRUTE_FORCE_ACCOUNT_BLOCKED',
-          hashSensitiveValue(cpf),
-          {
-            subject: 'cpf',
-            cpfMasked: CpfUtil.mask(cpf),
-            threshold: max,
-            blockSeconds,
-          },
-        );
+
+        // results[1] = [error, result] do SET NX: result === 'OK' se a chave
+        // foi criada pela primeira vez (este request é o bloqueador original).
+        const blockKeyWasNew =
+          Array.isArray(results) &&
+          Array.isArray(results[1]) &&
+          results[1][1] === 'OK';
+
+        if (blockKeyWasNew) {
+          await this.recordBlockEvent(
+            'AUTH_BRUTE_FORCE_ACCOUNT_BLOCKED',
+            hashSensitiveValue(cpf),
+            {
+              subject: 'cpf',
+              cpfMasked: CpfUtil.mask(cpf),
+              threshold: max,
+              blockSeconds,
+            },
+          );
+        }
       }
     } catch (err) {
       this.logger.error(
