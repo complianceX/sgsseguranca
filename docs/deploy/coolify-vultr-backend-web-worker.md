@@ -89,6 +89,15 @@ Variáveis obrigatórias:
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
 
+Para habilitar a conexão privilegiada cross-tenant (obrigatória antes de rodar migration 361):
+
+- `DATABASE_ADMIN_URL` — URL de conexão para a role `sgs_admin` (membro de `sgs_rls_bypass`).
+  Formato: `postgresql://sgs_admin:<senha>@<neon-direct-endpoint>:5432/<dbname>?sslmode=require`
+  **Endpoint DIRETO** (sem pooler) — mesma regra do `DATABASE_URL`.
+  Pré-requisito: criar a role antes de configurar esta variável (ver RUNBOOK_RLS_BYPASS_HARDENING.md §7 P1-P3).
+  Enquanto ausente, `PrivilegedDbService` fica dormente e o fallback usa `sgs_app` com `SET LOCAL is_super_admin` (funciona até migration 361 rodar).
+- `DATABASE_ADMIN_POOL_MAX=3`
+
 Para habilitar a SOPHIE com NVIDIA NIM / GPT-OSS 120B, configure no backend web:
 
 - `FEATURE_AI_ENABLED=true`
@@ -144,6 +153,13 @@ Variáveis obrigatórias:
 - `AWS_S3_ENDPOINT`
 - `AWS_ENDPOINT`
 - `S3_FORCE_PATH_STYLE=true`
+
+Para habilitar a conexão privilegiada cross-tenant no worker (mesma obrigatoriedade que o web antes de migration 361):
+
+- `DATABASE_ADMIN_URL` — mesma URL configurada no serviço web.
+- `DATABASE_ADMIN_POOL_MAX=3`
+
+O worker executa `CleanupTask` (limpeza de audit_logs cross-tenant) e `DisasterRecoveryWorker` (backup de todas as empresas). Ambos precisam de contexto privilegiado após migration 361 revogar `sgs_rls_bypass` de `sgs_app`.
 
 Se o worker executar fluxos de IA, replique as mesmas variáveis NVIDIA do backend web. Caso não processe tarefas de IA, mantenha `FEATURE_AI_ENABLED=false` nele.
 

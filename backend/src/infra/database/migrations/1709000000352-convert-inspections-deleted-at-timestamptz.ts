@@ -49,9 +49,11 @@ export class ConvertInspectionsDeletedAtTimestamptz1709000000352 implements Migr
       DO $do$
       DECLARE
         current_type text;
-        pol record;
+        mv     record;
+        pol    record;
+        mv_defs  text[] := ARRAY[]::text[];
         pol_defs text[] := ARRAY[]::text[];
-        stmt text;
+        stmt   text;
       BEGIN
         IF to_regclass('public.inspections') IS NULL THEN
           RETURN;
@@ -72,6 +74,52 @@ export class ConvertInspectionsDeletedAtTimestamptz1709000000352 implements Migr
           RETURN;
         END IF;
 
+        -- 1) Salva e remove materialized views dependentes de deleted_at
+        --    (ALTER TYPE falha se alguma matview referenciar a coluna)
+        FOR mv IN
+          SELECT DISTINCT cl.oid AS oid, cl.relname AS relname
+          FROM pg_depend d
+          JOIN pg_rewrite r   ON r.oid = d.objid
+          JOIN pg_class cl    ON cl.oid = r.ev_class
+          JOIN pg_class src   ON src.oid = d.refobjid
+          JOIN pg_attribute a ON a.attrelid = src.oid AND a.attnum = d.refobjsubid
+          JOIN pg_namespace n ON n.oid = src.relnamespace
+          WHERE n.nspname   = 'public'
+            AND src.relname = 'inspections'
+            AND a.attname   = 'deleted_at'
+            AND cl.relkind  = 'm'
+        LOOP
+          mv_defs := mv_defs || format(
+            'CREATE MATERIALIZED VIEW public.%I AS %s',
+            mv.relname,
+            pg_get_viewdef(mv.oid)
+          );
+          mv_defs := mv_defs || (
+            SELECT coalesce(array_agg(i.indexdef), ARRAY[]::text[])
+            FROM pg_indexes i
+            WHERE i.schemaname = 'public' AND i.tablename = mv.relname
+          );
+          mv_defs := mv_defs || (
+            SELECT coalesce(
+              array_agg(DISTINCT
+                CASE WHEN a.grantee = 0
+                  THEN format('GRANT %s ON public.%I TO PUBLIC', a.privilege_type, mv.relname)
+                  ELSE format('GRANT %s ON public.%I TO %I', a.privilege_type, mv.relname,
+                              (SELECT rolname FROM pg_roles WHERE oid = a.grantee))
+                END
+              ),
+              ARRAY[]::text[]
+            )
+            FROM pg_class c,
+                 aclexplode(c.relacl) a
+            WHERE c.relnamespace = 'public'::regnamespace
+              AND c.relname = mv.relname
+              AND a.grantee <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
+          );
+          EXECUTE format('DROP MATERIALIZED VIEW public.%I', mv.relname);
+        END LOOP;
+
+        -- 2) Salva e remove RLS policies da tabela
         FOR pol IN
           SELECT policyname, permissive, roles, cmd, qual, with_check
           FROM pg_policies
@@ -89,9 +137,14 @@ export class ConvertInspectionsDeletedAtTimestamptz1709000000352 implements Migr
           EXECUTE format('DROP POLICY %I ON public.inspections', pol.policyname);
         END LOOP;
 
+        -- 3) Conversão
         EXECUTE 'ALTER TABLE public.inspections ALTER COLUMN "deleted_at" TYPE ${targetType} USING "deleted_at" AT TIME ZONE ''UTC''';
 
+        -- 4) Restaura policies e matviews na ordem inversa
         FOREACH stmt IN ARRAY pol_defs LOOP
+          EXECUTE stmt;
+        END LOOP;
+        FOREACH stmt IN ARRAY mv_defs LOOP
           EXECUTE stmt;
         END LOOP;
       END

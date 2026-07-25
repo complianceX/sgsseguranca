@@ -19,8 +19,8 @@ import {
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { captureException } from '../../shared/monitoring/sentry';
-import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
+import { resolveSgsTempDirectory } from '../../shared/temp-directory.util';
 import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from './disaster-recovery.constants';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
 import type {
@@ -431,6 +431,9 @@ export class TenantBackupService {
   async backupAllActiveTenants(
     requestedByUserId?: string,
   ): Promise<{ queued: string[] }> {
+    // companies tem RLS FORCE: a query precisa de contexto privilegiado.
+    // PrivilegedDbService usa sgs_admin (membro de sgs_rls_bypass); quando não
+    // configurado, cai no fallback via QueryRunner com SET LOCAL is_super_admin.
     let rows: Array<{ id?: string }>;
     if (this.privilegedDb.isEnabled()) {
       rows = await this.privilegedDb.withPrivilegedClient(async (client) => {
@@ -464,6 +467,7 @@ export class TenantBackupService {
         await qr.release();
       }
     }
+
     const ids = rows
       .map((row) => row.id)
       .filter((id: string | undefined): id is string => Boolean(id));

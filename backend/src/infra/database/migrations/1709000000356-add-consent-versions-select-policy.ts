@@ -48,6 +48,9 @@ export class AddConsentVersionsSelectPolicy1709000000356 implements MigrationInt
     );
     // Reverte o ENABLE RLS adicionado por up() para que o rollback deixe
     // a tabela acessível sem depender do bypass de RLS (sgs_rls_bypass).
+    // NO FORCE é idempotente aqui (up() nunca setou FORCE), mas torna explícito
+    // que DISABLE sozinho não é suficiente quando FORCE está ativo — padrão
+    // defensivo alinhado com a migration 360 que usa ENABLE+FORCE.
     await queryRunner.query(
       `ALTER TABLE "consent_versions" NO FORCE ROW LEVEL SECURITY`,
     );

@@ -70,6 +70,8 @@ describe('ForensicTrailService', () => {
     expect(result.event_hash).toMatch(/^[a-f0-9]{64}$/);
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    // Migration 360 adicionou INSERT policy em forensic_trail_events para sgs_app
+    // — SET LOCAL is_super_admin não é mais necessário nem chamado.
     expect(manager.query).toHaveBeenCalledWith(
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       ['company-1:pt:pt-1'],

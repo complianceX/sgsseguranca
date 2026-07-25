@@ -1,19 +1,17 @@
 import { TenantBackupService } from './tenant-backup.service';
-import type { DataSource } from 'typeorm';
-import type { ConfigService } from '@nestjs/config';
-import type { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
-import type { PrivilegedDbService } from '../../shared/database/privileged-db.service';
+import { DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
+import { PrivilegedDbService } from '../../shared/database/privileged-db.service';
 
-function makeQueryRunner(queryResults: unknown[]) {
-  let callCount = 0;
+function makeQueryRunner(selectRows: Array<{ id?: string }>) {
   return {
     connect: jest.fn().mockResolvedValue(undefined),
     startTransaction: jest.fn().mockResolvedValue(undefined),
     query: jest
       .fn()
-      .mockImplementation(() =>
-        Promise.resolve(queryResults[callCount++] ?? []),
-      ),
+      .mockResolvedValueOnce(undefined) // SET LOCAL app.is_super_admin
+      .mockResolvedValueOnce(selectRows), // SELECT id FROM companies
     commitTransaction: jest.fn().mockResolvedValue(undefined),
     rollbackTransaction: jest.fn().mockResolvedValue(undefined),
     release: jest.fn().mockResolvedValue(undefined),
@@ -21,11 +19,10 @@ function makeQueryRunner(queryResults: unknown[]) {
 }
 
 describe('TenantBackupService.backupAllActiveTenants — trava de sanidade RLS', () => {
-  const configService = {} as ConfigService;
-  const executionService = {} as DisasterRecoveryExecutionService;
+  // PrivilegedDbService com isEnabled()=false: ativa o fallback via QueryRunner
+  // (comportamento enquanto DATABASE_ADMIN_URL não está configurada em Coolify).
   const privilegedDb = {
     isEnabled: jest.fn().mockReturnValue(false),
-    withPrivilegedClient: jest.fn(),
   } as unknown as PrivilegedDbService;
 
   it('lança erro em vez de reportar sucesso vazio quando zero empresas ativas são encontradas', async () => {
@@ -34,10 +31,11 @@ describe('TenantBackupService.backupAllActiveTenants — trava de sanidade RLS',
     // que, sem SET LOCAL app.is_super_admin, a query abaixo retorna 0 linhas
     // mesmo havendo empresas ativas reais. Antes desta trava, o método
     // retornava silenciosamente `{ queued: [] }` como se fosse sucesso.
-    const qr = makeQueryRunner([[], []]); // SET LOCAL → [], SELECT → []
     const dataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(qr),
+      createQueryRunner: jest.fn().mockReturnValue(makeQueryRunner([])),
     } as unknown as DataSource;
+    const configService = {} as ConfigService;
+    const executionService = {} as DisasterRecoveryExecutionService;
 
     const service = new TenantBackupService(
       dataSource,
@@ -52,10 +50,13 @@ describe('TenantBackupService.backupAllActiveTenants — trava de sanidade RLS',
   });
 
   it('processa normalmente quando empresas ativas são encontradas', async () => {
-    const qr = makeQueryRunner([[], [{ id: 'company-1' }]]); // SET LOCAL → [], SELECT → company
     const dataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(qr),
+      createQueryRunner: jest
+        .fn()
+        .mockReturnValue(makeQueryRunner([{ id: 'company-1' }])),
     } as unknown as DataSource;
+    const configService = {} as ConfigService;
+    const executionService = {} as DisasterRecoveryExecutionService;
 
     const service = new TenantBackupService(
       dataSource,

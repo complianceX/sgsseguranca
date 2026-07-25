@@ -125,6 +125,13 @@ export class E2EHelper {
     // migration, com destaque para as policies de RLS. Depois dessa chamada os
     // testes seguiam rodando contra um banco sem isolamento multi-tenant,
     // justamente o que boa parte deles deveria verificar.
+    //
+    // Escopo intencional: somente schema 'public'.
+    // - Schema 'auth' não existe nas migrations correntes (092 requer
+    //   ENABLE_ENTERPRISE_SCHEMA_SEPARATION=true); test-app.ts:resetDatabase()
+    //   já o descarta via DROP SCHEMA para resets locais completos.
+    // - Matviews (company_dashboard_metrics, apr_risk_rankings) são agregações
+    //   de leitura — excluí-las do TRUNCATE é correto.
     if (connection.options.type === 'postgres') {
       await connection.query(`
         DO $$

@@ -216,6 +216,97 @@ chmod +x backend/scripts/disaster-recovery-test.sh
 cat dr_test_report_*.txt
 ```
 
+### 4.4 Validação da Cadeia de Migrations (DR zero-to-schema)
+
+Última validação: 2026-07-24 — 283 migrations — OK
+
+Ambiente validado: PostgreSQL 16.14 limpo, topologia de roles equivalente à produção.
+
+#### Resultado
+
+| Critério | Resultado |
+| --- | --- |
+| Total de migrations aplicadas | **283 de 283** (exit code 0) |
+| Migration mais antiga | `InitialSchema1699000000000` |
+| Migration mais recente | `RevokeRlsBypassFromSgsApp1709000000361` |
+| Índice crítico `idx_checklists_company_modelos_created` | **CRIADO** |
+| Tabelas com RLS enabled + FORCE | **93 tabelas** (1 exceção intencional: consent_versions) |
+| Políticas RLS totais | **258 policies** |
+| Matviews com índices | **2** (company_dashboard_metrics, apr_risk_rankings) |
+| `sgs_app` possui BYPASSRLS | **f** (correto — hardening migration 361 ativo) |
+| `sgs_app` membro de sgs_rls_bypass | **f** (correto — migration 361 revogou) |
+| Audit checks (integridade + cross-tenant + FK) | **Todos 0 — limpo** |
+| Cache hit ratio | 99,79% |
+| Partições mail_logs | 19 mensais + default (abr/2026 a ago/2027) |
+| Partições ai_interactions | 24 mensais + default (abr/2026 a mar/2028) |
+| Tempo total de recovery (migrations) | ~2 min |
+
+#### Advertências conhecidas (não bloqueantes)
+
+- **3 pares de índices duplicados detectados** pelo audit check 7.4 em `rdos`, `photographic_report_days` e `photographic_report_images` — pré-existentes, fora do escopo da migration 350. Candidatos a remoção em janela de manutenção.
+- **audit_logs** não foi particionado (a migration 091 detectou divergência de schema e pulou) — comportamento esperado; particionamento de audit_logs requer migração dedicada com schema expandido.
+- **consent_versions** tem `FORCE ROW LEVEL SECURITY = false` — intencional por design (migration 356): tabela de catálogo lida mesmo sem contexto de tenant.
+
+#### Procedimento de replicação
+
+```bash
+# 1. Criar PostgreSQL 16 limpo (equivalente Neon)
+psql -U postgres -c "
+  CREATE ROLE neondb_owner LOGIN PASSWORD '<senha>' SUPERUSER;
+  CREATE ROLE sgs_app LOGIN PASSWORD '<senha>' NOSUPERUSER NOBYPASSRLS;
+  CREATE DATABASE sst_staging OWNER neondb_owner;
+"
+
+# 2. Build do backend (migrations rodam do dist/)
+cd backend && npm run build
+
+# 3. Rodar todas as migrations do zero
+DATABASE_MIGRATION_URL=postgresql://neondb_owner:<senha>@<host>:5432/sst_staging \
+DATABASE_SSL=false \
+NODE_ENV=development \
+node scripts/run-migrations.js 2>&1 | tee migration_$(date +%Y%m%d).log
+
+# 4. Verificar contagem final
+psql ... -c "SELECT COUNT(*) FROM migrations;"   -- esperado: 283
+
+# 5. Validação de integridade
+psql ... -f backend/scripts/db-audit-checks.sql
+
+# 6. Confirmar índice crítico
+psql ... -c "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_checklists_company_modelos_created';"
+```
+
+---
+
+### 4.5 Janela de Produção — Hardening RLS (migration 361)
+
+Data: 2026-07-25 | Operador: complianceX via Claude Code
+
+#### Ações executadas
+
+1. PRs #157 e #158 mergeados e deployados (web + worker)
+2. Role `sgs_admin` criada no Neon com `GRANT sgs_rls_bypass TO sgs_admin`
+3. `DATABASE_ADMIN_URL` configurada no Coolify para web e worker
+4. Migration 361 (`REVOKE sgs_rls_bypass FROM sgs_app`) aplicada via `npm run migration:run`
+
+#### Evidências
+
+| Critério | Resultado |
+| --- | --- |
+| `pg_has_role('sgs_app', 'sgs_rls_bypass', 'member')` | **f** — sgs_app não tem mais bypass |
+| `pg_has_role('sgs_admin', 'sgs_rls_bypass', 'member')` | **t** — conexão privilegiada operacional |
+| `GET /health/public` pós-REVOKE | **200 ok** |
+| Worker processando filas após deploy | **Sim** — QueueMonitorService ativo |
+| `GET /health/detailed` (requer auth) | **401** — correto, guard ativo |
+
+#### Plano de rollback (< 1 min)
+
+```bash
+# Rodar como neondb_owner via DATABASE_MIGRATION_URL:
+psql "$DATABASE_MIGRATION_URL" -c "GRANT sgs_rls_bypass TO sgs_app;"
+# Conexões existentes precisam de novo connect() para efetivar — reiniciar os containers.
+```
+
 ---
 
 ## 5. DEPLOYMENT

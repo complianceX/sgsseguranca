@@ -84,19 +84,13 @@ export class ExtendFuturePartitions1709000000354 implements MigrationInterface {
     );
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    // Só remove partições que continuem vazias: descartar uma partição com
-    // dados apagaria registros de auditoria/e-mail silenciosamente.
-    await this.dropEmptyPartitions(
-      queryRunner,
-      'mail_logs',
-      this.mailLogsMonths,
-    );
-    await this.dropEmptyPartitions(
-      queryRunner,
-      'ai_interactions',
-      this.aiInteractionsMonths,
-    );
+  public async down(_queryRunner: QueryRunner): Promise<void> {
+    // Partições não são removidas no rollback por dois motivos:
+    // (1) DROP PARTITION apaga dados silenciosamente se a partição não estiver vazia;
+    // (2) com FORCE RLS e sem policy por partição (estado antes da migration 355),
+    //     count(*) retorna 0 mesmo com linhas — tornando a verificação não confiável.
+    // Remoção manual das partições vazias documentada no runbook de migrations.
+    return Promise.resolve();
   }
 
   private async createMonthlyPartitions(

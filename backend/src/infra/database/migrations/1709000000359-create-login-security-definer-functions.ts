@@ -17,7 +17,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   - find_login_user(cpf_hash, cpf_legacy)  → dados do usuário para login
  *   - update_login_user_password_hash(user_id, new_hash) → rehash bcrypt→argon2id
  */
-export class CreateLoginSecurityDefinerFunctions1709000000359 implements MigrationInterface {
+export class CreateLoginSecurityDefinerFunctions1709000000359
+  implements MigrationInterface
+{
   name = 'CreateLoginSecurityDefinerFunctions1709000000359';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

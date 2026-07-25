@@ -60,6 +60,21 @@ export class CleanupTask {
     if (this.privilegedDb.isEnabled()) {
       ({ eligible, deleted } = await this.privilegedDb.withPrivilegedClient(
         async (client) => {
+          // Verificação prévia: falha rápida se o papel de runtime perdeu sgs_rls_bypass.
+          // Sem isso, SET LOCAL is_super_admin continua sendo emitido mas a policy
+          // RESTRICTIVE de audit_logs ainda filtra por tenant, tornando o DELETE inócuo
+          // (apaga 0 linhas) e o alerta pós-delete o único sinal do problema.
+          const roleCheck = await client.query<{ has_role: boolean }>(
+            `SELECT pg_has_role(current_user, 'sgs_rls_bypass', 'member') AS has_role`,
+          );
+          if (!roleCheck.rows[0]?.has_role) {
+            this.logger.error(
+              'CleanupTask: papel de runtime não possui sgs_rls_bypass — ' +
+                'limpeza de audit_logs abortada para evitar exclusão parcial com RLS ativo.',
+            );
+            return { eligible: 0, deleted: 0 };
+          }
+
           await client.query('BEGIN');
           try {
             await client.query("SET LOCAL app.is_super_admin = 'true'");
@@ -86,6 +101,17 @@ export class CleanupTask {
     } else {
       ({ eligible, deleted } = await this.auditLogRepo.manager.transaction(
         async (manager) => {
+          const roleCheck = (await manager.query<{ has_role: boolean }[]>(
+            `SELECT pg_has_role(current_user, 'sgs_rls_bypass', 'member') AS has_role`,
+          )) as Array<{ has_role: boolean }>;
+          if (!roleCheck[0]?.has_role) {
+            this.logger.error(
+              'CleanupTask: papel de runtime não possui sgs_rls_bypass — ' +
+                'limpeza de audit_logs abortada para evitar exclusão parcial com RLS ativo.',
+            );
+            return { eligible: 0, deleted: 0 };
+          }
+
           await manager.query(`SET LOCAL app.is_super_admin = 'true'`);
           const repo = manager.getRepository(AuditLog);
           const eligibleCount = await repo.count({

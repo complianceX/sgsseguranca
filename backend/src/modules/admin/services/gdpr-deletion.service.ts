@@ -344,9 +344,7 @@ export class GDPRDeletionService {
               );
               const affectedRows = result.rowCount ?? 0;
               totalRows += affectedRows;
-              this.logger.log(
-                `  ✓ ${table}: ${affectedRows} rows soft-deleted`,
-              );
+              this.logger.log(`  ✓ ${table}: ${affectedRows} rows soft-deleted`);
             }
             await client.query('COMMIT');
           } catch (err) {

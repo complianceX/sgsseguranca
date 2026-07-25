@@ -13,7 +13,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * SELECT cross-tenant (ex.: admin realizando exclusão LGPD) retorna previousEvent=null,
  * iniciando uma nova cadeia — comportamento seguro e aceito para eventos globais raros.
  */
-export class AddForensicTrailRlsPolicies1709000000360 implements MigrationInterface {
+export class AddForensicTrailRlsPolicies1709000000360
+  implements MigrationInterface
+{
   name = 'AddForensicTrailRlsPolicies1709000000360';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -68,6 +70,9 @@ export class AddForensicTrailRlsPolicies1709000000360 implements MigrationInterf
     await queryRunner.query(`
       DROP POLICY IF EXISTS "forensic_trail_events_insert" ON "forensic_trail_events"
     `);
+    // up() setou FORCE além de ENABLE. DISABLE sozinho apaga o flag ENABLE mas
+    // deixa FORCE ativo — com zero policies restantes isso resulta em deny-all
+    // mesmo para o dono da tabela. É preciso desfazer FORCE antes de DISABLE.
     await queryRunner.query(
       `ALTER TABLE "forensic_trail_events" NO FORCE ROW LEVEL SECURITY`,
     );
