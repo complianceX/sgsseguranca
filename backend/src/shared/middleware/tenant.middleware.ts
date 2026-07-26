@@ -151,12 +151,13 @@ export class TenantMiddleware implements NestMiddleware {
               );
             }
 
-            // Rotas de auto-serviço de auth (/auth/me, /auth/logout, etc.): usa o
-            // companyId do próprio principal para que o RLS funcione corretamente
-            // sem precisar do header x-company-id.
-            // Demais rotas sem tenant obrigatório: mantém undefined (acesso cross-tenant
-            // intencional, ex: listagem global de tenants para painel de admin).
-            companyId = this.allowsMissingExplicitTenant(req)
+            // Auth self-service (/auth/me, /auth/logout, etc.): usa o companyId
+            // do próprio principal para que o RLS encontre o usuário corretamente
+            // (SELECT users WHERE id = ? AND company_id = ?).
+            // Demais rotas sem tenant obrigatório (admin, companies, profiles, sessions):
+            // mantém undefined para que app.is_super_admin = 'true' habilite
+            // acesso cross-tenant via flag de sessão (ex: listagem de tenants).
+            companyId = this.isAuthSelfServiceRoute(req)
               ? principal.companyId
               : undefined;
           }
@@ -259,16 +260,12 @@ export class TenantMiddleware implements NestMiddleware {
     return bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined;
   }
 
-  private allowsMissingExplicitTenant(req: Request): boolean {
+  private isAuthSelfServiceRoute(req: Request): boolean {
     const method = req.method.toUpperCase();
     const requestUrl = req.originalUrl || req.url || req.path || '';
     const path = requestUrl.split('?')[0].replace(/\/+$/, '') || '/';
 
-    const isGlobalTenantOptionalPath = GLOBAL_TENANT_OPTIONAL_PATHS.some(
-      (pattern) => pattern.test(path),
-    );
-
-    const isAuthAccountRoute =
+    return (
       (method === 'GET' && path === '/auth/csrf') ||
       (method === 'GET' && path === '/auth/me') ||
       (method === 'GET' && path === '/auth/mfa/status') ||
@@ -279,9 +276,19 @@ export class TenantMiddleware implements NestMiddleware {
       (method === 'POST' && path === '/auth/mfa/recovery-codes/regenerate') ||
       (method === 'POST' && path === '/auth/mfa/disable') ||
       (method === 'POST' && path === '/auth/confirm-password') ||
-      (method === 'POST' && path === '/auth/step-up/verify');
+      (method === 'POST' && path === '/auth/step-up/verify')
+    );
+  }
 
-    return isAuthAccountRoute || isGlobalTenantOptionalPath;
+  private allowsMissingExplicitTenant(req: Request): boolean {
+    const requestUrl = req.originalUrl || req.url || req.path || '';
+    const path = requestUrl.split('?')[0].replace(/\/+$/, '') || '/';
+
+    const isGlobalTenantOptionalPath = GLOBAL_TENANT_OPTIONAL_PATHS.some(
+      (pattern) => pattern.test(path),
+    );
+
+    return this.isAuthSelfServiceRoute(req) || isGlobalTenantOptionalPath;
   }
 
   private resolveSiteScope(
