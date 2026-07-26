@@ -62,7 +62,7 @@ describe('ArrsService', () => {
     };
 
     service = new ArrsService(
-      arrRepository as unknown as Repository<Arr>,
+      arrRepository,
       tenantService as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,

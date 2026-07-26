@@ -1143,14 +1143,14 @@ describe('AprWorkflowService', () => {
   describe('addLog', () => {
     it('persiste log no repositório', async () => {
       aprLogsRepository.save.mockResolvedValue(undefined);
-      await service.addLog('apr-1', 'user-1', 'APR_APROVADA' as never);
+      await service.addLog('apr-1', 'user-1', 'APR_APROVADA');
       expect(aprLogsRepository.save).toHaveBeenCalledTimes(1);
     });
 
     it('silencia erros de persistência sem relançar', async () => {
       aprLogsRepository.save.mockRejectedValue(new Error('db error'));
       await expect(
-        service.addLog('apr-1', 'user-1', 'APR_APROVADA' as never),
+        service.addLog('apr-1', 'user-1', 'APR_APROVADA'),
       ).resolves.toBeUndefined();
     });
   });

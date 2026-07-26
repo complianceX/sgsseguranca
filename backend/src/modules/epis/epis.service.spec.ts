@@ -83,7 +83,7 @@ describe('EpisService', () => {
       await service.create({
         nome: 'Bota',
         company_id: 'tentativa-de-injecao',
-      } as unknown as Partial<Epi>);
+      });
 
       const created = episRepository.create.mock.calls[0][0];
       expect(created.company_id).toBe(TENANT_ID);
@@ -193,7 +193,7 @@ describe('EpisService', () => {
 
       await service.update(epi.id, {
         company_id: 'outro-tenant',
-      } as unknown as Partial<Epi>);
+      });
 
       const merged = episRepository.merge.mock.calls[0][1] as Record<
         string,

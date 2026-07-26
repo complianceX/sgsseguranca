@@ -115,8 +115,7 @@ export class TenantMiddleware implements NestMiddleware {
 
         // SECURITY: JWT tem company_id mas header diverge → 403 sem detalhes.
         const headerCompanyId = req.headers['x-company-id'] as
-          | string
-          | undefined;
+          string | undefined;
 
         if (isSuperAdmin) {
           if (headerCompanyId) {

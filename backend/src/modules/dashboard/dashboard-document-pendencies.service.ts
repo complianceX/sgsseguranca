@@ -615,7 +615,7 @@ export class DashboardDocumentPendenciesService {
       // no-op: falha de cache não pode quebrar o fluxo
     }
 
-    let available = false;
+    let available: boolean;
     try {
       const signedUrl = await input.resolver();
       available = Boolean(signedUrl);

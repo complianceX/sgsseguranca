@@ -11,9 +11,7 @@ import { Type } from 'class-transformer';
 export class ResolveDocumentPendencyActionDto {
   @IsIn(['open_final_pdf', 'open_governed_video', 'open_governed_attachment'])
   actionKey!:
-    | 'open_final_pdf'
-    | 'open_governed_video'
-    | 'open_governed_attachment';
+    'open_final_pdf' | 'open_governed_video' | 'open_governed_attachment';
 
   @IsString()
   module!: string;

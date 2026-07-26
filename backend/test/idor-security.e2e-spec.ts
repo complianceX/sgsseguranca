@@ -84,7 +84,7 @@ const getCsrfBundle = async (httpServer: App): Promise<CsrfBundle> => {
 
 const resolveCookieParser = (): CookieParserFactory | null => {
   if (typeof cookieParserModule === 'function') {
-    return cookieParserModule as unknown as CookieParserFactory;
+    return cookieParserModule;
   }
 
   const candidate = (

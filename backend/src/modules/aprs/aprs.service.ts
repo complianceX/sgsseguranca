@@ -235,8 +235,7 @@ export class AprsService {
       return false;
     }
     const driverError = error.driverError as
-      | { code?: string; constraint?: string }
-      | undefined;
+      { code?: string; constraint?: string } | undefined;
     return (
       driverError?.code === '23505' &&
       (driverError.constraint ?? '').includes('aprs_company_numero')
@@ -2646,7 +2645,7 @@ export class AprsService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: AprPdfAccessAvailability = 'ready';
     let message: string | undefined;
     try {

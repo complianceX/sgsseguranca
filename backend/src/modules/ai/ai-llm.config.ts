@@ -9,12 +9,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 
 export type AiLlmProviderName =
-  | 'openai'
-  | 'nvidia'
-  | 'stub'
-  | 'local'
-  | 'anthropic'
-  | 'gemini';
+  'openai' | 'nvidia' | 'stub' | 'local' | 'anthropic' | 'gemini';
 
 export type OpenAiCompatibleProviderName = 'openai' | 'nvidia';
 export type AiReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';

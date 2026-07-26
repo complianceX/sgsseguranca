@@ -493,7 +493,7 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
-    } as Dds);
+    });
 
     await expect(
       service.update('dds-1', { tema: 'Novo tema' }),
@@ -508,7 +508,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
-    } as Dds);
+    });
 
     await expect(
       service.update('dds-1', { tema: 'Novo tema' }),
@@ -524,7 +524,7 @@ describe('DdsService', () => {
       pdf_file_key: null,
       pdf_folder_path: null,
       pdf_original_name: null,
-    } as unknown as Dds);
+    });
 
     await expect(service.getPdfAccess('dds-1')).resolves.toEqual({
       ddsId: 'dds-1',
@@ -547,7 +547,7 @@ describe('DdsService', () => {
       pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
       pdf_folder_path: 'dds/company-1',
       pdf_original_name: 'dds-final.pdf',
-    } as unknown as Dds);
+    });
     (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );
@@ -728,7 +728,7 @@ describe('DdsService', () => {
       tema: 'DDS Trabalho em Altura',
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Dds);
+    });
     (publicValidationGrantService.issueToken as jest.Mock).mockResolvedValue(
       'token-publico',
     );
@@ -755,7 +755,7 @@ describe('DdsService', () => {
       participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Dds);
+    });
     (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
       {
         user_id: 'user-1',
@@ -791,7 +791,7 @@ describe('DdsService', () => {
       facilitador_id: 'user-1',
       participants: [{ id: 'user-1' }],
       status: DdsStatus.AUDITADO,
-    } as Dds);
+    });
 
     await expect(
       service.updateAudit('dds-1', {
@@ -813,7 +813,7 @@ describe('DdsService', () => {
       participants: [{ id: 'user-1' }],
       status: DdsStatus.PUBLICADO,
       pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
-    } as Dds);
+    });
 
     await expect(
       service.updateAudit('dds-1', {
@@ -834,7 +834,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.AUDITADO,
       is_modelo: false,
-    } as Dds);
+    });
 
     await expect(
       service.uploadVideoAttachment(
@@ -916,7 +916,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: 'rascunho',
       pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
-    } as Dds);
+    });
 
     await expect(
       service.updateStatus('dds-1', DdsStatus.PUBLICADO),
@@ -930,7 +930,7 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
-    } as Dds);
+    });
 
     const file = {
       originalname: 'dds-final.pdf',
@@ -1022,7 +1022,7 @@ describe('DdsService', () => {
       participants: [{ id: 'user-1' }],
       created_at: new Date('2026-03-14T07:00:00.000Z'),
       data: new Date('2026-03-14T08:00:00.000Z'),
-    } as unknown as Dds);
+    });
 
     const file = {
       originalname: 'dds-final.pdf',
@@ -1046,7 +1046,7 @@ describe('DdsService', () => {
       participants: [{ id: 'user-1' }, { id: 'user-2' }],
       created_at: new Date('2026-03-14T07:00:00.000Z'),
       data: new Date('2026-03-14T08:00:00.000Z'),
-    } as unknown as Dds);
+    });
     (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
       {
         user_id: 'user-1',
@@ -1074,7 +1074,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.RASCUNHO,
       is_modelo: false,
-    } as Dds);
+    });
 
     const result = await service.updateStatus('dds-1', DdsStatus.PUBLICADO);
     expect(result.status).toBe(DdsStatus.PUBLICADO);
@@ -1087,7 +1087,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.AUDITADO,
       is_modelo: false,
-    } as Dds);
+    });
 
     await expect(
       service.updateStatus('dds-1', DdsStatus.PUBLICADO),
@@ -1101,7 +1101,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.RASCUNHO,
       is_modelo: true,
-    } as Dds);
+    });
 
     await expect(
       service.updateStatus('dds-1', DdsStatus.PUBLICADO),
@@ -1115,7 +1115,7 @@ describe('DdsService', () => {
       company_id: 'company-1',
       status: DdsStatus.PUBLICADO,
       is_modelo: true,
-    } as Dds);
+    });
 
     await expect(
       service.updateStatus('dds-1', DdsStatus.AUDITADO),
@@ -1136,7 +1136,7 @@ describe('DdsService', () => {
       auditado_por_id: 'auditor-1',
       data_auditoria: new Date('2026-03-15T10:00:00.000Z'),
       resultado_auditoria: 'Conforme',
-    } as Dds);
+    });
     approvalRepository.find.mockResolvedValue([
       {
         id: 'approval-1',
@@ -1169,7 +1169,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [],
       is_modelo: false,
-    } as unknown as Dds);
+    });
 
     await expect(
       service.replaceSignatures(
@@ -1188,7 +1188,7 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       status: DdsStatus.PUBLICADO,
-    } as Dds);
+    });
     (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
       {
         id: 'signature-1',
@@ -1214,7 +1214,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
 
     await expect(
       service.replaceSignatures(
@@ -1243,7 +1243,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
 
     await expect(
       service.update('dds-1', {
@@ -1274,7 +1274,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
     approvalRepository.find.mockResolvedValue([
       {
         id: 'approval-1',
@@ -1301,7 +1301,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: true,
-    } as unknown as Dds);
+    });
 
     await expect(
       service.replaceSignatures(
@@ -1328,7 +1328,7 @@ describe('DdsService', () => {
       is_modelo: true,
       tema: 'Modelo DDS',
       conteudo: 'Conteudo',
-    } as unknown as Dds);
+    });
     siteRepository.findOne.mockResolvedValueOnce(null);
 
     await expect(
@@ -1347,7 +1347,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
 
     await expect(
       service.replaceSignatures(
@@ -1382,7 +1382,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
     (signaturesService.findManyByDocuments as jest.Mock).mockResolvedValue([
       {
         document_id: 'dds-old',
@@ -1434,7 +1434,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
 
     const result = await service.replaceSignatures(
       'dds-1',
@@ -1483,7 +1483,7 @@ describe('DdsService', () => {
       facilitador_id: 'facilitador-1',
       participants: [{ id: 'user-1' }],
       is_modelo: false,
-    } as unknown as Dds);
+    });
     (signaturesService.findManyByDocuments as jest.Mock).mockResolvedValue([
       {
         document_id: 'dds-old',
@@ -1545,17 +1545,7 @@ describe('DdsService', () => {
         },
       ]
     >;
-    const replaceCall = replaceCalls[0]?.[0] as {
-      document_id: string;
-      document_type: string;
-      authenticated_user_id: string;
-      signatures: Array<{
-        user_id: string;
-        signer_user_id?: string;
-        type: string;
-        pin?: string;
-      }>;
-    };
+    const replaceCall = replaceCalls[0]?.[0];
 
     expect(replaceCall).toBeDefined();
     expect(replaceCall.document_id).toBe('dds-1');

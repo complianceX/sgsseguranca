@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { StorageController } from './storage.controller';
@@ -32,7 +31,8 @@ import { PermissionsGuard } from '../../modules/auth/permissions.guard';
 jest.setTimeout(10000);
 
 const httpRequest = (nestApp: INestApplication) =>
-  request(nestApp.getHttpServer() as unknown as Server);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  request(nestApp.getHttpServer());
 
 const FAKE_TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const FAKE_PRESIGNED_URL = 'https://s3.example.com/presigned-url?sig=abc';

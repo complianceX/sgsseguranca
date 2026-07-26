@@ -23,17 +23,6 @@ type MockJob = {
   getState: () => Promise<string>;
 };
 
-type QueueStatsResponse = {
-  active: number;
-  waiting: number;
-  completed: number;
-  failed: number;
-  delayed: number;
-  total: number;
-  scannedMaxPerState: number;
-  warning: string;
-};
-
 type QueueListResponse = {
   items: Array<{
     id: string;
@@ -158,9 +147,10 @@ describe('ReportsController - tenant queue isolation', () => {
         siteScope: 'all',
       }),
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         jobId: expect.stringMatching(
           /^pdf-generation-monthly-company-1-2026-3-\d{4}-\d{2}-\d{2}t\d{2}$/,
-        ) as unknown as string,
+        ),
       }),
     );
   });
@@ -317,9 +307,9 @@ describe('ReportsController - tenant queue isolation', () => {
       return Promise.resolve(jobsByState[state] ?? []);
     });
 
-    const stats = (await controller.getQueueStats({
+    const stats = await controller.getQueueStats({
       user: { company_id: 'company-1', userId: 'user-1' },
-    })) as QueueStatsResponse;
+    });
 
     expect(stats.active).toBe(1);
     expect(stats.waiting).toBe(0);

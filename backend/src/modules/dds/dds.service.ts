@@ -91,9 +91,7 @@ type HistoricalPhotoHashes = {
 };
 
 type DdsPdfAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+  'ready' | 'registered_without_signed_url' | 'not_emitted';
 
 type TeamPhotoEvidence = {
   imageData: string;
@@ -898,7 +896,7 @@ export class DdsService {
       return payload;
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: DdsPdfAvailability = 'ready';
     let degraded = false;
     let message = 'PDF final governado disponível para acesso.';

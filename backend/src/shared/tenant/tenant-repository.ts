@@ -48,7 +48,7 @@ export class TenantRepository<TEntity extends object> {
     return withTenant(where as never, companyId, {
       tenantColumn: this.tenantColumn(),
       allowMissingTenant: this.options.allowMissingTenant,
-    }) as TWhere;
+    });
   }
 
   private ensureTenantContext(companyId: string | undefined): void {
@@ -109,11 +109,7 @@ export class TenantRepository<TEntity extends object> {
     },
   ): Promise<TEntity[]> {
     const companyId = this.effectiveTenantId(tenantId);
-    const where =
-      options?.where ??
-      ({} as unknown as
-        | FindOptionsWhere<TEntity>
-        | FindOptionsWhere<TEntity>[]);
+    const where = options?.where ?? {};
 
     return this.repo.find({
       ...(options || {}),

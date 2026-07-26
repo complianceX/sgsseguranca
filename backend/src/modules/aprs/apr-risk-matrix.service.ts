@@ -32,10 +32,7 @@ import { Injectable } from '@nestjs/common';
  */
 
 export type AprRiskCategory =
-  | 'Aceitável'
-  | 'Atenção'
-  | 'Substancial'
-  | 'Crítico';
+  'Aceitável' | 'Atenção' | 'Substancial' | 'Crítico';
 
 export type AprRiskPriority =
   | 'Não prioritário'

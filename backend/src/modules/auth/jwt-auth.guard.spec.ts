@@ -39,8 +39,7 @@ describe('JwtAuthGuard', () => {
     };
 
     await (guard.canActivate(mockExecutionContext) as
-      | Promise<boolean>
-      | boolean);
+      Promise<boolean> | boolean);
 
     const request = mockExecutionContext.switchToHttp().getRequest<{
       headers: Record<string, string>;
@@ -75,8 +74,7 @@ describe('JwtAuthGuard', () => {
     };
 
     const result = await (guard.canActivate(mockExecutionContext) as
-      | Promise<boolean>
-      | boolean);
+      Promise<boolean> | boolean);
     expect(result).toBe(false);
   });
 });

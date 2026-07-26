@@ -167,8 +167,7 @@ describe('DashboardPendingQueueService', () => {
       };
     };
     const findArgs = aprsRepository.find.mock.calls[0]?.[0] as
-      | AprFindArgs
-      | undefined;
+      AprFindArgs | undefined;
     expect(findArgs?.select?.updated_at).toBe(true);
   });
 

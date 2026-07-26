@@ -2205,16 +2205,20 @@ export class AiService {
           owner: this.toSafeString(
             item.owner ?? fallback.owner ?? 'Gestão SST',
           ),
-          priority:
-            priority === 'critical' || priority === 'high' || priority === 'low'
-              ? priority
-              : 'medium',
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+          priority: (priority === 'critical' ||
+          priority === 'high' ||
+          priority === 'low'
+            ? priority
+            : 'medium') as SophieActionPlanItem['priority'],
           timeline: this.toSafeString(
             item.timeline ?? fallback.timeline ?? 'Curto prazo',
           ),
-          type:
-            type === 'immediate' || type === 'preventive' ? type : 'corrective',
-        } as SophieActionPlanItem;
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+          type: (type === 'immediate' || type === 'preventive'
+            ? type
+            : 'corrective') as SophieActionPlanItem['type'],
+        };
       })
       .filter((item) => item.title)
       .slice(0, 5);
@@ -3030,9 +3034,7 @@ export class AiService {
       );
     }
 
-    const generated = await this.generateChecklist(
-      params as GenerateChecklistDto,
-    );
+    const generated = await this.generateChecklist(params);
     const subject =
       String(params.titulo || '').trim() ||
       String(params.maquina || '').trim() ||

@@ -697,7 +697,7 @@ export class AuditsService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: AuditPdfAccessAvailability = 'ready';
     let message: string | null = null;
     try {

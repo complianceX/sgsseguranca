@@ -7,10 +7,7 @@ export type DocumentPendencyType =
   | 'unavailable_governed_attachment';
 
 export type DocumentPendencyCriticality =
-  | 'critical'
-  | 'high'
-  | 'medium'
-  | 'low';
+  'critical' | 'high' | 'medium' | 'low';
 
 export const DOCUMENT_PENDENCY_TYPE_LABELS: Record<
   DocumentPendencyType,

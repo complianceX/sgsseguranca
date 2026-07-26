@@ -106,8 +106,7 @@ type GovernedRdoActivityPhotoReferencePayload = {
 };
 
 type RdoActivityPhotoAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url';
+  'ready' | 'registered_without_signed_url';
 
 type RdoActivityPhotoAccessResponse = {
   entityId: string;
@@ -2119,7 +2118,7 @@ export class RdosService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: RdoPdfAccessAvailability = 'ready';
     let message: string | null = null;
     try {

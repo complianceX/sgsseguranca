@@ -17,7 +17,7 @@ export class AcceptConsentDto {
     description: 'Tipo do consentimento a ser aceito.',
   })
   @IsString()
-  @IsIn(CONSENT_TYPES as unknown as string[])
+  @IsIn(CONSENT_TYPES)
   type: ConsentType;
 
   @ApiProperty({

@@ -23,9 +23,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * ROLLBACK: re-concede o membership — conexões existentes precisam de
  * novo pool.connect() para efetivar (ou reiniciar o processo).
  */
-export class RevokeRlsBypassFromSgsApp1709000000361
-  implements MigrationInterface
-{
+export class RevokeRlsBypassFromSgsApp1709000000361 implements MigrationInterface {
   name = 'RevokeRlsBypassFromSgsApp1709000000361';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

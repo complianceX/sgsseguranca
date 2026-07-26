@@ -52,8 +52,7 @@ export class TenantGuard implements CanActivate {
         headers?: Record<string, unknown>;
       }>();
       const headerCompanyId = req?.headers?.['x-company-id'] as
-        | string
-        | undefined;
+        string | undefined;
       const userAgent = req?.headers?.['user-agent'] as string | undefined;
       const sanitizedPath =
         sanitizeLogUrl(req?.originalUrl || req?.url || '').split('?')[0] || '/';

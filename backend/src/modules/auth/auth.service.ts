@@ -87,12 +87,7 @@ type AuthLoginUserRow = {
 };
 
 type ResetTokenConsumeStatus =
-  | 'CONSUMED'
-  | 'REUSED'
-  | 'RATE_LIMITED'
-  | 'MISSING'
-  | 'EXPIRED'
-  | 'INVALID';
+  'CONSUMED' | 'REUSED' | 'RATE_LIMITED' | 'MISSING' | 'EXPIRED' | 'INVALID';
 
 type ResetTokenConsumeResult = {
   status: ResetTokenConsumeStatus;
@@ -1465,7 +1460,7 @@ export class AuthService {
     const successMsg =
       'Se o CPF estiver cadastrado, você receberá um e-mail com instruções para redefinir sua senha.';
 
-    let rateLimited = false;
+    let rateLimited: boolean;
     let retryAfterSeconds = 0;
 
     try {

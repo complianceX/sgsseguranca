@@ -200,7 +200,7 @@ describe('SignaturesService', () => {
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
-    } as unknown as Partial<Apr>);
+    });
     catRepository.findOne.mockResolvedValue({
       id: 'cat-1',
       company_id: 'company-1',
@@ -321,8 +321,7 @@ describe('SignaturesService', () => {
       throw new Error('Expected persisted integrity payload');
     }
     const documentBinding = integrityPayload.document_binding as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     if (!documentBinding) {
       throw new Error('Expected persisted document binding');
     }
@@ -392,7 +391,7 @@ describe('SignaturesService', () => {
           email: 'ana@example.test',
           profile: { id: 'profile-1', nome: 'TST' },
         },
-      } as unknown as Signature,
+      },
     ]);
     storageService.downloadFileBuffer.mockResolvedValue(
       Buffer.from('data:image/png;base64,ASSINATURA', 'utf8'),
@@ -462,7 +461,7 @@ describe('SignaturesService', () => {
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
-    } as unknown as Partial<Apr>);
+    });
     useSiteScopedTenant();
 
     await service.create(
@@ -480,8 +479,7 @@ describe('SignaturesService', () => {
     const canonicalPayload = createdSignature?.integrity_payload
       ?.canonical_payload as Record<string, unknown> | undefined;
     const canonicalDocument = canonicalPayload?.document as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const documentBinding = createdSignature?.integrity_payload
       ?.document_binding as Record<string, unknown> | undefined;
 
@@ -518,7 +516,7 @@ describe('SignaturesService', () => {
         user_id: 'user-obra-b',
         type: 'drawn',
         signature_data: 'data:image/png;base64,ASSINATURA_OBRA_B',
-      } as unknown as Signature,
+      },
     ]);
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-obra-b',
@@ -526,7 +524,7 @@ describe('SignaturesService', () => {
       site_id: 'site-b',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
     useSiteScopedTenant();
 
     await expect(service.findByDocument('apr-obra-b', 'APR')).rejects.toThrow(
@@ -543,7 +541,7 @@ describe('SignaturesService', () => {
       site_id: 'site-a',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
     repository.find.mockResolvedValue([
       {
         id: 'signature-obra-a',
@@ -560,7 +558,7 @@ describe('SignaturesService', () => {
           cpf: '12345678901',
           email: 'ana@example.test',
         },
-      } as unknown as Signature,
+      },
     ]);
     useSiteScopedTenant();
 
@@ -595,7 +593,7 @@ describe('SignaturesService', () => {
           cpf: '12345678901',
           email: 'worker@example.test',
         },
-      } as unknown as Signature,
+      },
     ]);
 
     const result = await service.findByDocument('training-1', 'TREINAMENTO');
@@ -619,7 +617,7 @@ describe('SignaturesService', () => {
       site_id: 'site-b',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
     useSiteScopedTenant();
 
     await expect(
@@ -664,14 +662,14 @@ describe('SignaturesService', () => {
       user_id: 'user-obra-b',
       signature_hash: 'hash-obra-b',
       timestamp_token: 'token-obra-b',
-    } as unknown as Signature);
+    });
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-obra-b',
       company_id: 'company-1',
       site_id: 'site-b',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
     useSiteScopedTenant();
 
     await expect(service.verifyById('signature-obra-b')).rejects.toThrow(
@@ -687,7 +685,7 @@ describe('SignaturesService', () => {
       site_id: 'site-b',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
     useSiteScopedTenant();
 
     await expect(
@@ -708,7 +706,7 @@ describe('SignaturesService', () => {
       user_id: 'user-1',
       signature_data: null,
       signature_data_key: 'signatures/apr-1/digital.dat',
-    } as unknown as Signature);
+    });
 
     await service.remove('signature-1', 'user-1');
 
@@ -728,7 +726,7 @@ describe('SignaturesService', () => {
         user_id: 'user-1',
         signature_data: null,
         signature_data_key: 'signatures/apr-1/digital.dat',
-      } as unknown as Signature,
+      },
     ]);
 
     await service.removeByDocument('apr-1', 'APR', 'user-1');
@@ -743,7 +741,7 @@ describe('SignaturesService', () => {
       {
         id: 'signature-1',
         signature_data_key: 'signatures/apr-1/digital.dat',
-      } as unknown as Signature,
+      },
     ]);
 
     await expect(service.removeByDocumentSystem('apr-1', 'APR')).resolves.toBe(
@@ -931,7 +929,7 @@ describe('SignaturesService', () => {
         // PDF governado — dava para gravar "digital" (apresentado como
         // "Assinatura Digital") sem nenhuma verificação criptográfica.
         await expect(
-          service.create({ ...baseInput, type: legacyType } as never, 'user-1'),
+          service.create({ ...baseInput, type: legacyType }, 'user-1'),
         ).rejects.toThrow(/descontinuado por não representar prova verificada/);
       },
     );
@@ -939,7 +937,7 @@ describe('SignaturesService', () => {
     it('recusa tipo arbitrário inventado pelo cliente', async () => {
       await expect(
         service.create(
-          { ...baseInput, type: 'assinatura_notarial_icp' } as never,
+          { ...baseInput, type: 'assinatura_notarial_icp' },
           'user-1',
         ),
       ).rejects.toThrow(/Tipo de assinatura inválido/);
@@ -949,17 +947,14 @@ describe('SignaturesService', () => {
       'aceita o tipo canônico "%s"',
       async (type) => {
         await expect(
-          service.create({ ...baseInput, type } as never, 'user-1'),
+          service.create({ ...baseInput, type }, 'user-1'),
         ).resolves.toBeDefined();
       },
     );
 
     it('aceita team_photo_* do DDS', async () => {
       await expect(
-        service.create(
-          { ...baseInput, type: 'team_photo_1' } as never,
-          'user-1',
-        ),
+        service.create({ ...baseInput, type: 'team_photo_1' }, 'user-1'),
       ).resolves.toBeDefined();
     });
   });
@@ -1031,7 +1026,7 @@ describe('SignaturesService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: null,
-    } as unknown as Partial<Apr>);
+    });
 
     await expect(
       service.create(
@@ -1064,7 +1059,7 @@ describe('SignaturesService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-    } as unknown as Partial<Apr>);
+    });
 
     await expect(
       service.removeByDocument('apr-1', 'APR', 'user-1'),

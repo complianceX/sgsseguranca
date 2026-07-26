@@ -315,7 +315,7 @@ export class TenantDbContextService
     anyClient[this.patchedQuerySymbol] = true;
 
     const originalQuery = client.query.bind(client) as PgClient['query'];
-    client.query = (async (sql: string, params?: unknown[]) => {
+    client.query = async (sql: string, params?: unknown[]) => {
       const start = process.hrtime.bigint();
       try {
         return await originalQuery(sql, params);
@@ -323,7 +323,7 @@ export class TenantDbContextService
         const ms = Number(process.hrtime.bigint() - start) / 1_000_000;
         this.dbTimings.recordQuery(ms);
       }
-    }) as PgClient['query'];
+    };
   }
 
   private buildContextKey(ctx?: {

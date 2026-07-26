@@ -237,6 +237,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         : `${resolvedBrowser.source}:auto`;
       throw new Error(
         `Falha ao iniciar Chromium (resolved=${resolution}, exists=${resolvedBrowser.exists}, cwd=${process.cwd()}, HOME=${runtimeEnv.HOME}, XDG_CONFIG_HOME=${runtimeEnv.XDG_CONFIG_HOME}, XDG_CACHE_HOME=${runtimeEnv.XDG_CACHE_HOME}): ${reason}`,
+        { cause: error },
       );
     }
   }

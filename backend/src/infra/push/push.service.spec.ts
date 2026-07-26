@@ -128,7 +128,7 @@ describe('PushService', () => {
         endpoint: 'https://push.example/sub-foreign',
         userId: 'user-2',
         tenantId: 'tenant-1',
-      } as PushSubscription);
+      });
 
     const service = new PushService(
       repo as Repository<PushSubscription>,
@@ -158,7 +158,7 @@ describe('PushService', () => {
         endpoint: 'https://push.example/sub-tenant-mismatch',
         userId: 'user-1',
         tenantId: 'tenant-2',
-      } as PushSubscription);
+      });
 
     const service = new PushService(
       repo as Repository<PushSubscription>,
@@ -187,7 +187,7 @@ describe('PushService', () => {
       userId: 'user-1',
       tenantId: 'tenant-1',
       keys: { p256dh: 'a', auth: 'b' },
-    } as PushSubscription);
+    });
     (repo.delete as jest.Mock).mockResolvedValue({ affected: 1 });
 
     const service = new PushService(

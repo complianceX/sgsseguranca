@@ -76,7 +76,7 @@ function sanitizeCookie(rawCookies: string[] | undefined, cookieName: string) {
 
 function resolveCookieParser(): CookieParserFactory | null {
   if (typeof cookieParserModule === 'function') {
-    return cookieParserModule as unknown as CookieParserFactory;
+    return cookieParserModule;
   }
 
   const candidate = (

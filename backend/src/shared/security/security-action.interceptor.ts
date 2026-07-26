@@ -52,14 +52,11 @@ export class SecurityActionInterceptor implements NestInterceptor {
           );
           if (workflowMatch) {
             const decision = workflowMatch[1] as
-              | 'approve'
-              | 'reject'
-              | 'finalize';
+              'approve' | 'reject' | 'finalize';
             const mod = this.extractModule(request.path);
             const entityId = String(request.params?.id || 'unknown');
             const reason = (request.body as Record<string, unknown>)?.reason as
-              | string
-              | undefined;
+              string | undefined;
             this.securityAudit.approvalDecision(
               userId,
               mod,
@@ -74,8 +71,7 @@ export class SecurityActionInterceptor implements NestInterceptor {
           const mod = this.extractModule(request.path);
           const entityId = String(request.params?.id || 'unknown');
           const status = (request.body as Record<string, unknown>)?.status as
-            | string
-            | undefined;
+            string | undefined;
           this.securityAudit.approvalDecision(
             userId,
             mod,

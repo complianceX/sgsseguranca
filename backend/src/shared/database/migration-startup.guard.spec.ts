@@ -117,7 +117,7 @@ describe('assertNoPendingMigrationsInProd', () => {
     expect(
       shouldRequireNoPendingMigrations({
         NODE_ENV: 'production',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toBe(true);
   });
 
@@ -125,7 +125,7 @@ describe('assertNoPendingMigrationsInProd', () => {
     expect(
       shouldRequireNoPendingMigrations({
         NODE_ENV: 'development',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toBe(false);
   });
 });

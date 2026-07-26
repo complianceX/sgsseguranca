@@ -16,7 +16,6 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Server } from 'http';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import request from 'supertest';
@@ -37,7 +36,8 @@ import { SensitiveActionGuard } from '../../shared/security/sensitive-action.gua
 jest.setTimeout(10000);
 
 const httpRequest = (nestApp: INestApplication) =>
-  request(nestApp.getHttpServer() as unknown as Server);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  request(nestApp.getHttpServer());
 
 // Guard JWT que lança UnauthorizedException (comportamento real do passport)
 const jwtDenyGuard = {
@@ -285,8 +285,7 @@ describe('AdminController — Metadados NestJS: guards aplicados em nível de cl
   it('AdminController usa @UseGuards declarado (metadado __guards__ presente)', () => {
     // Verifica via reflect-metadata que UseGuards foi aplicado ao controller
     const guards = Reflect.getMetadata('__guards__', AdminController) as
-      | unknown[]
-      | undefined;
+      unknown[] | undefined;
 
     // Guards devem estar declarados no controller
     expect(Array.isArray(guards)).toBe(true);
@@ -328,6 +327,7 @@ describe('AdminController — Metadados NestJS: guards aplicados em nível de cl
     ];
 
     for (const item of cases) {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const handler = AdminController.prototype[item.method];
       expect(reflector.get<string[]>(PERMISSIONS_KEY, handler)).toEqual(
         item.permissions,

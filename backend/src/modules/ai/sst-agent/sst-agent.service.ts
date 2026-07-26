@@ -1069,9 +1069,7 @@ export class SstAgentService {
               source: {
                 type: 'base64',
                 media_type: mimeType as
-                  | 'image/jpeg'
-                  | 'image/png'
-                  | 'image/webp',
+                  'image/jpeg' | 'image/png' | 'image/webp',
                 data: imageBuffer.toString('base64'),
               },
             },

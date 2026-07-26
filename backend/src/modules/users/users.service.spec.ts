@@ -138,9 +138,9 @@ describe('UsersService.gdprErasure', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -209,7 +209,7 @@ describe('UsersService.gdprErasure', () => {
   });
 
   it('lança NotFound se usuário não existir', async () => {
-    repo.findOne.mockResolvedValue(null as unknown as User);
+    repo.findOne.mockResolvedValue(null);
     await expect(service.gdprErasure('missing')).rejects.toThrow(
       /Usuário com ID missing não encontrado/,
     );
@@ -255,9 +255,9 @@ describe('UsersService.exportMyData', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -403,9 +403,9 @@ describe('UsersService.updateModuleAccess', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -446,11 +446,9 @@ describe('UsersService.updateModuleAccess', () => {
     ]);
 
     const findOneCall = repo.findOne.mock.calls[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const saveCall = repo.save.mock.calls[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     expect(findOneCall).toMatchObject({
       where: { id: 'user-1', company_id: 'company-1' },
@@ -525,9 +523,9 @@ describe('UsersService.findPaginated', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -787,7 +785,7 @@ describe('UsersService.create identity classification', () => {
         ...entity,
         created_at: new Date('2026-04-30T00:00:00.000Z'),
         updated_at: new Date('2026-04-30T00:00:00.000Z'),
-      } as User),
+      }),
     );
     passwordHashMock = jest
       .fn<Promise<string>, [string]>()
@@ -817,12 +815,12 @@ describe('UsersService.create identity classification', () => {
     rbacService = {
       invalidateUserAccess: jest.fn(),
       getUserAccess: jest.fn().mockResolvedValue({ roles: [] }),
-    } as Partial<RbacService>;
+    };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -940,7 +938,7 @@ describe('UsersService.create role assignment hardening', () => {
         ...entity,
         created_at: new Date('2026-04-30T00:00:00.000Z'),
         updated_at: new Date('2026-04-30T00:00:00.000Z'),
-      } as User),
+      }),
     );
 
     repo = {
@@ -991,9 +989,9 @@ describe('UsersService.create role assignment hardening', () => {
     } as Partial<RbacService>;
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -1122,9 +1120,9 @@ describe('UsersService.update site binding', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -1277,9 +1275,9 @@ describe('UsersService.findAuthSessionUser', () => {
     };
 
     service = new UsersService(
-      repo as unknown as Repository<User>,
+      repo,
       buildUserSitesRepositoryMock(),
-      profilesRepo as unknown as Repository<Profile>,
+      profilesRepo,
       tenantService as TenantService,
       passwordService as PasswordService,
       {
@@ -1315,7 +1313,7 @@ describe('UsersService.findAuthSessionUser', () => {
         created_at: new Date('2026-03-28T00:00:00.000Z'),
         updated_at: new Date('2026-03-28T01:00:00.000Z'),
       } as Profile,
-    } as User);
+    });
 
     const result = await service.findAuthSessionUser('user-1');
     expect(result.id).toBe('user-1');

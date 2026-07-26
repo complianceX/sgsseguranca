@@ -60,8 +60,7 @@ function createHarness(grants: DocumentDownloadGrant[]): ServiceHarness {
     where: jest.fn().mockReturnThis(),
     getOne: jest.fn(function (this: { where: jest.Mock }) {
       const firstCall = this.where.mock.calls[0] as
-        | [string, { id?: string }]
-        | undefined;
+        [string, { id?: string }] | undefined;
       const id = firstCall?.[1]?.id || '';
       return Promise.resolve(store.get(id) || null);
     }),

@@ -152,11 +152,7 @@ export type DisasterRecoveryStorageProtectionItem = {
   replicaExistsBefore: boolean;
   replicaExistsAfter: boolean;
   action:
-    | 'planned'
-    | 'copied'
-    | 'skipped_existing'
-    | 'source_missing'
-    | 'failed';
+    'planned' | 'copied' | 'skipped_existing' | 'source_missing' | 'failed';
   contentType: string;
   sha256: string | null;
   sizeBytes: number | null;

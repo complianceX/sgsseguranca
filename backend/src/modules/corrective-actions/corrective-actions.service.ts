@@ -477,11 +477,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       relations: ['responsible_user', 'site'],
     });
     const scope = this.getSiteAccessScopeOrThrow();
-    const nextPriority = (dto.priority || entity.priority) as
-      | 'low'
-      | 'medium'
-      | 'high'
-      | 'critical';
+    const nextPriority = dto.priority || entity.priority;
     const nextSlaDays =
       dto.sla_days ||
       entity.sla_days ||

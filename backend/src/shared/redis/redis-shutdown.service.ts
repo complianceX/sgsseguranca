@@ -85,7 +85,9 @@ export class RedisShutdownService
   }
 
   private async closeClient(client: ClosableRedisClient): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const quit = client.quit;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const disconnect = client.disconnect;
 
     try {
