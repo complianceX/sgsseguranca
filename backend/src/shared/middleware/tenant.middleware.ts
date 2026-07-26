@@ -151,7 +151,14 @@ export class TenantMiddleware implements NestMiddleware {
               );
             }
 
-            companyId = undefined;
+            // Rotas de auto-serviço de auth (/auth/me, /auth/logout, etc.): usa o
+            // companyId do próprio principal para que o RLS funcione corretamente
+            // sem precisar do header x-company-id.
+            // Demais rotas sem tenant obrigatório: mantém undefined (acesso cross-tenant
+            // intencional, ex: listagem global de tenants para painel de admin).
+            companyId = this.allowsMissingExplicitTenant(req)
+              ? principal.companyId
+              : undefined;
           }
         } else {
           // Usuário comum:
