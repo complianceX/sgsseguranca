@@ -311,6 +311,7 @@ jobs:
         env:
           PGPASSWORD: postgres123
         run: |
+          set -euo pipefail
           mkdir -p temp
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL' | tee temp/dr-db-structural-evidence.txt
           SELECT json_build_object(
