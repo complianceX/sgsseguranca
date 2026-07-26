@@ -193,6 +193,11 @@ jobs:
       E2E_DATABASE_USER: postgres
       E2E_DATABASE_PASSWORD: postgres123
       E2E_DATABASE_NAME: sst_test_dr
+      E2E_PRESERVE_MIGRATED_SCHEMA: true
+      DATABASE_MIGRATION_URL: postgresql://postgres:postgres123@127.0.0.1:5434/sst_test_dr
+      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5434/sst_test_dr
+      DATABASE_SSL: false
+      DR_E2E_EVIDENCE_PATH: temp/dr-e2e-evidence.json
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6380
       E2E_REDIS_HOST: 127.0.0.1
@@ -221,8 +226,174 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Prepare RLS roles on clean PostgreSQL
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
+              CREATE ROLE sgs_rls_bypass NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
+              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
+              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+            END IF;
+          END
+          $$;
+          GRANT sgs_rls_bypass TO sgs_admin;
+          SQL
+
+      - name: Build and reconstruct schema from migrations
+        run: |
+          npm run build
+          npm run migration:run
+
+      - name: Grant and verify post-REVOKE database posture
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
+          ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+          ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+            GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
+
+          DO $$
+          BEGIN
+            IF pg_has_role('sgs_app', 'sgs_rls_bypass', 'member') THEN
+              RAISE EXCEPTION 'sgs_app ainda possui sgs_rls_bypass';
+            END IF;
+            IF NOT pg_has_role('sgs_admin', 'sgs_rls_bypass', 'member') THEN
+              RAISE EXCEPTION 'sgs_admin nao possui sgs_rls_bypass';
+            END IF;
+            IF NOT has_table_privilege('sgs_admin', 'public.companies', 'SELECT') THEN
+              RAISE EXCEPTION 'sgs_admin nao possui SELECT em companies';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1
+              FROM migrations
+              WHERE name = 'RevokeRlsBypassFromSgsApp1709000000361'
+            ) THEN
+              RAISE EXCEPTION 'migration 361 ausente';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_class
+              WHERE oid = 'public.companies'::regclass
+                AND relrowsecurity
+                AND relforcerowsecurity
+            ) THEN
+              RAISE EXCEPTION 'RLS FORCE ausente em companies';
+            END IF;
+          END
+          $$;
+          SQL
+
       - name: Run DR restore e2e flow
         run: npm run test:e2e -- --forceExit critical/tenant-backup-restore.e2e-spec.ts
+
+      - name: Validate restored schema, views, indexes and integrity
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          mkdir -p temp
+          psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL' | tee temp/dr-db-structural-evidence.txt
+          SELECT json_build_object(
+            'migrations', (SELECT count(*) FROM migrations),
+            'rls_force_tables', (
+              SELECT count(*)
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE n.nspname = 'public'
+                AND c.relkind = 'r'
+                AND c.relrowsecurity
+                AND c.relforcerowsecurity
+            ),
+            'rls_policies', (
+              SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+            ),
+            'indexes', (
+              SELECT count(*) FROM pg_indexes WHERE schemaname = 'public'
+            ),
+            'views', (
+              SELECT count(*) FROM pg_views WHERE schemaname = 'public'
+            ),
+            'materialized_views', (
+              SELECT count(*) FROM pg_matviews WHERE schemaname = 'public'
+            ),
+            'sgs_app_bypass', pg_has_role('sgs_app', 'sgs_rls_bypass', 'member'),
+            'sgs_admin_bypass', pg_has_role('sgs_admin', 'sgs_rls_bypass', 'member'),
+            'orphan_aprs', (
+              SELECT count(*)
+              FROM aprs a
+              LEFT JOIN companies c ON c.id = a.company_id
+              WHERE a.company_id IS NOT NULL AND c.id IS NULL
+            ),
+            'cross_tenant_apr_sites', (
+              SELECT count(*)
+              FROM aprs a
+              JOIN sites s ON s.id = a.site_id
+              WHERE a.company_id IS NOT NULL
+                AND s.company_id IS NOT NULL
+                AND a.company_id <> s.company_id
+            )
+          ) AS dr_structural_evidence;
+
+          SELECT * FROM company_dashboard_metrics LIMIT 0;
+          SELECT * FROM apr_risk_rankings LIMIT 0;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_indexes
+              WHERE schemaname = 'public'
+                AND indexname = 'idx_checklists_company_modelos_created'
+            ) THEN
+              RAISE EXCEPTION 'indice critico de checklists ausente';
+            END IF;
+            IF EXISTS (
+              SELECT 1
+              FROM aprs a
+              LEFT JOIN companies c ON c.id = a.company_id
+              WHERE a.company_id IS NOT NULL AND c.id IS NULL
+            ) THEN
+              RAISE EXCEPTION 'APR orfa apos restore';
+            END IF;
+            IF EXISTS (
+              SELECT 1
+              FROM aprs a
+              JOIN sites s ON s.id = a.site_id
+              WHERE a.company_id IS NOT NULL
+                AND s.company_id IS NOT NULL
+                AND a.company_id <> s.company_id
+            ) THEN
+              RAISE EXCEPTION 'APR cross-tenant apos restore';
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Upload DR evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-dr-e2e-evidence
+          path: |
+            backend/temp/dr-e2e-evidence.json
+            backend/temp/dr-db-structural-evidence.txt
+          if-no-files-found: warn
+          retention-days: 14
 
   frontend:
     name: Frontend Lint/Test/Build
