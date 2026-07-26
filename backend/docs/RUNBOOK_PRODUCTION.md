@@ -3,6 +3,7 @@
 ## 1. STARTUP & HEALTH CHECKS
 
 ### 1.1 Iniciar Sistema
+
 ```bash
 # Verificar status dos containers
 docker-compose ps
@@ -19,6 +20,7 @@ curl http://localhost:3001/health/detailed
 ```
 
 ### 1.2 Verificações Pré-Produção
+
 ```bash
 # 1. Database connectivity
 docker-compose exec db psql -U sst_user -d sst -c "SELECT 1"
@@ -41,6 +43,7 @@ openssl x509 -in backend/certbot/conf/live/seu-dominio.com/fullchain.pem -noout 
 ## 2. MONITORAMENTO
 
 ### 2.1 Métricas em Tempo Real
+
 ```bash
 # CPU e Memória
 docker stats
@@ -59,6 +62,7 @@ curl http://localhost:3001/bull-board
 ```
 
 ### 2.2 Logs Estruturados
+
 ```bash
 # Logs em tempo real
 docker-compose logs -f api
@@ -74,6 +78,7 @@ docker-compose logs api | grep "request-id-xyz"
 ```
 
 ### 2.3 Alertas Críticos
+
 ```bash
 # Monitorar taxa de erro
 docker-compose logs api | grep "ERROR" | wc -l
@@ -90,6 +95,7 @@ docker-compose exec db psql -U sst_user -d sst -c "SELECT count(*) FROM pg_stat_
 ## 3. TROUBLESHOOTING
 
 ### 3.1 API não inicia
+
 ```bash
 # Ver logs detalhados
 docker-compose logs api
@@ -105,6 +111,7 @@ docker-compose restart api
 ```
 
 ### 3.2 Erro de conexão com Database
+
 ```bash
 # Verificar se DB está rodando
 docker-compose ps db
@@ -123,6 +130,7 @@ docker-compose exec db df -h
 ```
 
 ### 3.3 Erro de conexão com Redis
+
 ```bash
 # Verificar se Redis está rodando
 docker-compose ps redis
@@ -141,6 +149,7 @@ docker-compose exec redis redis-cli -a $REDIS_PASSWORD info memory
 ```
 
 ### 3.4 Lentidão da API
+
 ```bash
 # 1. Verificar CPU
 docker stats api
@@ -160,6 +169,7 @@ docker-compose up -d --build
 ```
 
 ### 3.5 Fila de jobs travada
+
 ```bash
 # Ver status da fila
 curl http://localhost:3001/bull-board
@@ -179,6 +189,7 @@ docker-compose restart worker
 ## 4. BACKUP & RESTORE
 
 ### 4.1 Backup Manual
+
 ```bash
 # Fazer backup
 docker-compose exec api /app/scripts/backup-database.sh
@@ -191,6 +202,7 @@ gunzip -t /backups/db_backup_*.sql.gz
 ```
 
 ### 4.2 Restore Manual
+
 ```bash
 # 1. Parar API
 docker-compose stop api
@@ -207,6 +219,7 @@ curl http://localhost:3001/health
 ```
 
 ### 4.3 Disaster Recovery Test
+
 ```bash
 # Executar teste de DR
 chmod +x backend/scripts/disaster-recovery-test.sh
@@ -224,22 +237,22 @@ Ambiente validado: PostgreSQL 16.14 limpo, topologia de roles equivalente à pro
 
 #### Resultado
 
-| Critério | Resultado |
-| --- | --- |
-| Total de migrations aplicadas | **283 de 283** (exit code 0) |
-| Migration mais antiga | `InitialSchema1699000000000` |
-| Migration mais recente | `RevokeRlsBypassFromSgsApp1709000000361` |
-| Índice crítico `idx_checklists_company_modelos_created` | **CRIADO** |
-| Tabelas com RLS enabled + FORCE | **93 tabelas** (1 exceção intencional: consent_versions) |
-| Políticas RLS totais | **258 policies** |
-| Matviews com índices | **2** (company_dashboard_metrics, apr_risk_rankings) |
-| `sgs_app` possui BYPASSRLS | **f** (correto — hardening migration 361 ativo) |
-| `sgs_app` membro de sgs_rls_bypass | **f** (correto — migration 361 revogou) |
-| Audit checks (integridade + cross-tenant + FK) | **Todos 0 — limpo** |
-| Cache hit ratio | 99,79% |
-| Partições mail_logs | 19 mensais + default (abr/2026 a ago/2027) |
-| Partições ai_interactions | 24 mensais + default (abr/2026 a mar/2028) |
-| Tempo total de recovery (migrations) | ~2 min |
+| Critério                                                | Resultado                                                |
+| ------------------------------------------------------- | -------------------------------------------------------- |
+| Total de migrations aplicadas                           | **283 de 283** (exit code 0)                             |
+| Migration mais antiga                                   | `InitialSchema1699000000000`                             |
+| Migration mais recente                                  | `RevokeRlsBypassFromSgsApp1709000000361`                 |
+| Índice crítico `idx_checklists_company_modelos_created` | **CRIADO**                                               |
+| Tabelas com RLS enabled + FORCE                         | **93 tabelas** (1 exceção intencional: consent_versions) |
+| Políticas RLS totais                                    | **258 policies**                                         |
+| Matviews com índices                                    | **2** (company_dashboard_metrics, apr_risk_rankings)     |
+| `sgs_app` possui BYPASSRLS                              | **f** (correto — hardening migration 361 ativo)          |
+| `sgs_app` membro de sgs_rls_bypass                      | **f** (correto — migration 361 revogou)                  |
+| Audit checks (integridade + cross-tenant + FK)          | **Todos 0 — limpo**                                      |
+| Cache hit ratio                                         | 99,79%                                                   |
+| Partições mail_logs                                     | 19 mensais + default (abr/2026 a ago/2027)               |
+| Partições ai_interactions                               | 24 mensais + default (abr/2026 a mar/2028)               |
+| Tempo total de recovery (migrations)                    | ~2 min                                                   |
 
 #### Advertências conhecidas (não bloqueantes)
 
@@ -291,13 +304,13 @@ Data: 2026-07-25 | Operador: complianceX via Claude Code
 
 #### Evidências
 
-| Critério | Resultado |
-| --- | --- |
-| `pg_has_role('sgs_app', 'sgs_rls_bypass', 'member')` | **f** — sgs_app não tem mais bypass |
+| Critério                                               | Resultado                                |
+| ------------------------------------------------------ | ---------------------------------------- |
+| `pg_has_role('sgs_app', 'sgs_rls_bypass', 'member')`   | **f** — sgs_app não tem mais bypass      |
 | `pg_has_role('sgs_admin', 'sgs_rls_bypass', 'member')` | **t** — conexão privilegiada operacional |
-| `GET /health/public` pós-REVOKE | **200 ok** |
-| Worker processando filas após deploy | **Sim** — QueueMonitorService ativo |
-| `GET /health/detailed` (requer auth) | **401** — correto, guard ativo |
+| `GET /health/public` pós-REVOKE                        | **200 ok**                               |
+| Worker processando filas após deploy                   | **Sim** — QueueMonitorService ativo      |
+| `GET /health/detailed` (requer auth)                   | **401** — correto, guard ativo           |
 
 #### Plano de rollback (< 1 min)
 
@@ -307,11 +320,66 @@ psql "$DATABASE_MIGRATION_URL" -c "GRANT sgs_rls_bypass TO sgs_app;"
 # Conexões existentes precisam de novo connect() para efetivar — reiniciar os containers.
 ```
 
+### 4.6 Validação DR pós-review da PR #158
+
+Data: 2026-07-26 | PR: #170 | Run: `30224986759` | Job: `89854165870`
+
+O review tardio identificou que apenas a descoberta de empresas permanecia em
+`sgs_admin`; as leituras que montavam o payload voltavam para o DataSource
+comum. A PR #170 mantém o mesmo cliente privilegiado em todas as leituras do
+payload, dentro de um snapshot `REPEATABLE READ READ ONLY`, e exclui partições
+filhas do inventário para não duplicar linhas já lidas pelas tabelas-pai.
+
+#### Evidência controlada em PostgreSQL 16 limpo
+
+| Critério                                 | Resultado                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| Cadeia reconstruída por migrations       | **286 de 286 — success**                                                           |
+| Schema version no backup                 | `FixCompaniesRlsSuperAdminFlag1709000000364`                                       |
+| `sgs_app` membro de `sgs_rls_bypass`     | **false**                                                                          |
+| `sgs_admin` membro de `sgs_rls_bypass`   | **true**                                                                           |
+| Exportação via `DATABASE_ADMIN_URL`      | **true**                                                                           |
+| Tabelas com RLS + FORCE                  | **133**                                                                            |
+| Policies RLS                             | **259**                                                                            |
+| Índices                                  | **940**                                                                            |
+| Materialized views consultáveis          | **2**                                                                              |
+| APRs órfãs após restore                  | **0**                                                                              |
+| APRs com site cross-tenant após restore  | **0**                                                                              |
+| Partições-filhas no payload              | **0**                                                                              |
+| Arquivo de backup                        | **3.694 bytes**, não vazio                                                         |
+| Arquivo de metadata                      | **1.863 bytes**, não vazio                                                         |
+| Checksum metadata/payload                | **igual**                                                                          |
+| Linhas principais exportadas/restauradas | companies **1**, sites **1**, users **4**, aprs **1**, forensic_trail_events **5** |
+
+#### Medições controladas
+
+| Medição                                         |      Observado |     Meta |
+| ----------------------------------------------- | -------------: | -------: |
+| Geração do backup de tenant                     |     **549 ms** |        — |
+| Restore do tenant                               |     **240 ms** |  RTO 4 h |
+| Frescor do backup na validação                  |     **643 ms** | RPO 24 h |
+| Build + reconstrução por migrations             |       **30 s** |        — |
+| Job completo, incluindo instalação e containers | **3 min 44 s** |        — |
+
+Artefato do CI: `backend-dr-e2e-evidence` (retenção de 14 dias), contendo
+`dr-e2e-evidence.json` e `dr-db-structural-evidence.txt`.
+
+#### Limite da evidência
+
+Esta execução comprova o fluxo sobre dados sintéticos e schema reconstruído em
+PostgreSQL limpo. Ela **não** substitui o ensaio operacional com um backup de
+tenant de produção pós-migration 361. Esse ensaio só pode ocorrer após
+merge/deploy da PR #170 e deve restaurar o artefato em ambiente isolado, com
+acesso restrito e sem transportar dados pessoais para artefatos públicos de CI.
+Até esse ensaio, o RTO/RPO acima são medições sintéticas, não SLO comprovado de
+produção.
+
 ---
 
 ## 5. DEPLOYMENT
 
 ### 5.1 Deploy de Nova Versão
+
 ```bash
 # 1. Backup antes de atualizar
 docker-compose exec api /app/scripts/backup-database.sh
@@ -331,6 +399,7 @@ curl http://localhost:3001/health
 ```
 
 ### 5.2 Rollback
+
 ```bash
 # 1. Parar containers
 docker-compose down
@@ -354,6 +423,7 @@ curl http://localhost:3001/health
 ## 6. PERFORMANCE TUNING
 
 ### 6.1 Otimizar Database
+
 ```bash
 # Analisar tabelas
 docker-compose exec db psql -U sst_user -d sst -c "ANALYZE"
@@ -366,6 +436,7 @@ docker-compose exec db psql -U sst_user -d sst -c "VACUUM ANALYZE"
 ```
 
 ### 6.2 Otimizar Redis
+
 ```bash
 # Ver memória usada
 docker-compose exec redis redis-cli -a $REDIS_PASSWORD info memory
@@ -378,6 +449,7 @@ docker-compose exec redis redis-cli -a $REDIS_PASSWORD SLOWLOG GET 10
 ```
 
 ### 6.3 Otimizar API
+
 ```bash
 # Aumentar worker threads
 # Editar docker-compose.yml: NODE_OPTIONS=--max-old-space-size=1024
@@ -397,6 +469,7 @@ docker-compose exec api node -e "console.log(require('v8').getHeapStatistics())"
 ## 7. SEGURANÇA
 
 ### 7.1 Verificar SSL/TLS
+
 ```bash
 # Testar HTTPS
 curl -I https://seu-dominio.com
@@ -409,6 +482,7 @@ curl -I https://seu-dominio.com | grep -E "Strict-Transport|X-Frame|X-Content"
 ```
 
 ### 7.2 Verificar Rate Limiting
+
 ```bash
 # Fazer múltiplas requisições
 for i in {1..100}; do curl http://localhost:3001/auth/login; done
@@ -417,6 +491,7 @@ for i in {1..100}; do curl http://localhost:3001/auth/login; done
 ```
 
 ### 7.3 Verificar Auditoria
+
 ```bash
 # Ver logs de auditoria
 docker-compose exec db psql -U sst_user -d sst -c "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 20"
@@ -430,6 +505,7 @@ docker-compose exec db psql -U sst_user -d sst -c "SELECT * FROM security_incide
 ## 8. ESCALABILIDADE
 
 ### 8.1 Testes de Carga
+
 ```bash
 # Credenciais reais obrigatórias para fluxos autenticados
 export K6_LOGIN_CPF=00000000000
@@ -449,6 +525,7 @@ npm run loadtest:stress
 ```
 
 ### 8.2 Escalar Horizontalmente
+
 ```bash
 # Aumentar réplicas da API
 # Editar docker-compose.yml ou k8s deployment
@@ -465,6 +542,7 @@ npm run loadtest:stress
 ## 9. INCIDENTES
 
 ### 9.1 Resposta a Incidente
+
 ```bash
 # 1. Preservar evidências
 docker-compose logs > incident_logs_$(date +%Y%m%d_%H%M%S).txt
@@ -489,6 +567,7 @@ docker-compose down
 ```
 
 ### 9.2 Contatos de Emergência
+
 - **DevOps Lead:** [contato]
 - **Security Team:** [contato]
 - **Database Admin:** [contato]
