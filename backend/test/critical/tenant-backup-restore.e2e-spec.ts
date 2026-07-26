@@ -136,6 +136,17 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(backupResult.rowCounts.companies).toBe(1);
     expect(backupResult.rowCounts.aprs).toBeGreaterThanOrEqual(1);
     expect(backupResult.rowCounts.users).toBeGreaterThanOrEqual(1);
+    const exportedTableNames = Object.keys(backupResult.rowCounts);
+    expect(
+      exportedTableNames.some((table) =>
+        /^ai_interactions_(?:\d{4}_\d{2}|default)$/.test(table),
+      ),
+    ).toBe(false);
+    expect(
+      exportedTableNames.some((table) =>
+        /^mail_logs_(?:\d{4}_\d{2}|default)$/.test(table),
+      ),
+    ).toBe(false);
 
     const backupFileStat = await fs.stat(backupResult.filePath);
     const metadataFileStat = await fs.stat(backupResult.metadataPath);
@@ -301,6 +312,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
             checks: {
               backupFilesNonEmpty: true,
               metadataChecksumMatches: true,
+              partitionChildrenExcluded: true,
               aprRecovered: true,
               aprSoftDeleteCleared: true,
             },

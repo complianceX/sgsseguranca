@@ -1453,10 +1453,19 @@ export class TenantBackupService {
       data_type: string;
     }>(
       `
-        SELECT table_name, column_name
-             , data_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
+        SELECT
+          cols.table_name,
+          cols.column_name,
+          cols.data_type
+        FROM information_schema.columns cols
+        JOIN pg_namespace ns
+          ON ns.nspname = cols.table_schema
+        JOIN pg_class rel
+          ON rel.relnamespace = ns.oid
+         AND rel.relname = cols.table_name
+        WHERE cols.table_schema = 'public'
+          AND rel.relkind IN ('r', 'p')
+          AND NOT rel.relispartition
       `,
     );
 
