@@ -111,7 +111,7 @@ describe('TenantBackupService — contexto de leitura da exportação', () => {
   it('libera o QueryRunner quando startTransaction falha', async () => {
     const transactionError = new Error('transaction failed');
     const queryRunner = {
-      isTransactionActive: false,
+      isTransactionActive: true,
       connect: jest.fn().mockResolvedValue(undefined),
       startTransaction: jest.fn().mockRejectedValue(transactionError),
       query: jest.fn(),
@@ -133,6 +133,7 @@ describe('TenantBackupService — contexto de leitura da exportação', () => {
     ).rejects.toBe(transactionError);
 
     expect(queryRunner.query).not.toHaveBeenCalled();
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 });

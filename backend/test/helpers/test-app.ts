@@ -201,8 +201,18 @@ export class TestApp {
           JOIN pg_namespace n
             ON n.oid = c.relnamespace
            AND n.nspname = t.schemaname
-          WHERE t.schemaname = 'public'
-            AND t.tablename <> 'migrations'
+          WHERE t.schemaname IN (
+              'public',
+              'auth',
+              'operations',
+              'audit',
+              'documents',
+              'safety'
+            )
+            AND NOT (
+              t.schemaname = 'public'
+              AND t.tablename = 'migrations'
+            )
             AND NOT c.relispartition;
 
           IF table_names IS NOT NULL THEN
