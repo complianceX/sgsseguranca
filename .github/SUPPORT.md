@@ -1,30 +1,36 @@
 # Support
 
-## Quando abrir cada tipo de chamado
+Use este guia para escolher o canal correto e evitar exposicao de dados sensiveis.
 
-- **Bug**: comportamento incorreto reproduzivel no produto.
-- **Feature request**: nova capacidade, melhoria de UX ou ajuste de fluxo.
-- **Incident report**: problema em producao com impacto real (indisponibilidade/degradacao).
-- **Security report**: vulnerabilidade ou risco de seguranca (usar canal privado).
+## Onde abrir cada demanda
+
+- **Bug:** comportamento incorreto reproduzivel no produto.
+- **Feature request:** nova capacidade, melhoria de UX ou ajuste de fluxo.
+- **Incident report:** problema em producao com impacto real.
+- **Security report:** vulnerabilidade ou risco de seguranca, sempre por canal privado.
 
 ## Canais
 
-- **Issues do GitHub**: backlog de bugs, melhorias e incidentes.
-- **Security Advisory (privado)**: reporte de vulnerabilidades.
-- **Documentacao operacional**:
-  - `README.md`
-  - `backend/docs/RUNBOOK_PRODUCTION.md`
-  - `backend/docs/OBSERVABILITY.md`
+- **Issues do GitHub:** bugs, melhorias e incidentes sem dados sensiveis.
+- **Security Advisory:** vulnerabilidades e riscos de seguranca.
+- **Documentacao operacional:**
+  - [README.md](../README.md)
+  - [backend/docs/RUNBOOK_PRODUCTION.md](../backend/docs/RUNBOOK_PRODUCTION.md)
+  - [backend/docs/OBSERVABILITY.md](../backend/docs/OBSERVABILITY.md)
 
-## Escopo minimo esperado no chamado
+## Escopo minimo de um chamado
 
-- Contexto objetivo do problema
-- Passos de reproducao ou timeline do incidente
-- Evidencia tecnica (requestId/traceId/deployId/timestamp)
-- Impacto em tenant/modulo/site (sem expor PII)
+Inclua:
+
+- contexto objetivo do problema;
+- modulo, tenant/site impactado e ambiente;
+- passos de reproducao ou timeline do incidente;
+- evidencia tecnica redigida: `requestId`, `traceId`, deployId, timestamp, status code;
+- impacto percebido em operacao, SST, dashboard, documentos ou usuarios.
 
 ## Boas praticas
 
-- Nao publicar segredos, tokens ou credenciais
-- Nao publicar dados pessoais de usuarios/trabalhadores
-- Sempre informar timezone nas datas/horarios
+- Nao publique segredos, tokens, cookies ou credenciais.
+- Nao publique CPF, dados medicos, assinaturas, documentos pessoais ou payloads brutos.
+- Informe timezone em datas e horarios.
+- Prefira evidencias tecnicas redigidas a prints com dados pessoais.
