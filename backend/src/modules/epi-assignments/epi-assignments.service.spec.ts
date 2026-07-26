@@ -93,7 +93,7 @@ describe('EpiAssignmentsService', () => {
             signature_data: 'data',
             signer_name: 'Test',
             signature_type: 'drawn',
-          } as never,
+          },
         }),
       ).rejects.toThrow(NotFoundException);
     });
@@ -113,7 +113,7 @@ describe('EpiAssignmentsService', () => {
             signature_data: 'data',
             signer_name: 'Test',
             signature_type: 'drawn',
-          } as never,
+          },
         }),
       ).rejects.toThrow(NotFoundException);
     });
@@ -225,7 +225,7 @@ describe('EpiAssignmentsService', () => {
             signature_data: 'data',
             signer_name: 'Test',
             signature_type: 'drawn',
-          } as never,
+          },
         }),
       ).rejects.toThrow(BadRequestException);
     });

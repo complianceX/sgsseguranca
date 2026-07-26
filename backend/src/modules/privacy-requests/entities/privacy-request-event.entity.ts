@@ -8,9 +8,7 @@ import {
 import type { PrivacyRequestStatus } from './privacy-request.entity';
 
 export type PrivacyRequestEventType =
-  | 'created'
-  | 'status_changed'
-  | 'response_updated';
+  'created' | 'status_changed' | 'response_updated';
 
 @Entity('privacy_request_events')
 @Index('IDX_privacy_request_events_request_created', [

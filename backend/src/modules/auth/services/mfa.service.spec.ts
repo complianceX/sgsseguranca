@@ -126,6 +126,7 @@ describe('MfaService', () => {
       companyId: 'company-1',
       label: 'admin@example.com',
     });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const saveMock = credentialRepository['save'] as jest.MockedFunction<
       Repository<UserMfaCredential>['save']
     >;
@@ -152,6 +153,7 @@ describe('MfaService', () => {
 
   it('resolve auth_user_id UUID valido como fallback no status MFA', async () => {
     const { service, credentialRepository } = createService();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const credentialFindOneMock = credentialRepository['findOne'] as jest.Mock;
 
     const result = await service.getStatus({
@@ -173,6 +175,7 @@ describe('MfaService', () => {
 
   it('usa auth_user_id UUID valido ao criar bootstrap MFA', async () => {
     const { service, credentialRepository } = createService();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const credentialFindOneMock = credentialRepository['findOne'] as jest.Mock;
     credentialFindOneMock.mockResolvedValue(null);
 

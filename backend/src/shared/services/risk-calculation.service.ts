@@ -2,11 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ControlHierarchy =
-  | 'ELIMINATION'
-  | 'SUBSTITUTION'
-  | 'ENGINEERING'
-  | 'ADMINISTRATIVE'
-  | 'PPE';
+  'ELIMINATION' | 'SUBSTITUTION' | 'ENGINEERING' | 'ADMINISTRATIVE' | 'PPE';
 
 export interface SuggestedControl {
   hierarchy: ControlHierarchy;

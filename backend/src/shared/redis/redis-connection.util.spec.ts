@@ -10,7 +10,7 @@ describe('redis-connection.util', () => {
     const connection = resolveRedisConnection(
       {
         REDIS_AUTH_URL: 'rediss://auth-user:auth-secret@auth.redis.local:6381',
-      } as NodeJS.ProcessEnv,
+      },
       'auth',
     );
 
@@ -30,7 +30,7 @@ describe('redis-connection.util', () => {
       {
         REDIS_CACHE_URL:
           'redis://cache-user:cache-secret@cache.redis.local:6380',
-      } as NodeJS.ProcessEnv,
+      },
       'cache',
     );
 
@@ -51,7 +51,7 @@ describe('redis-connection.util', () => {
         REDIS_QUEUE_HOST: 'queue.redis.local',
         REDIS_QUEUE_PORT: '6390',
         REDIS_QUEUE_PASSWORD: 'queue-secret',
-      } as NodeJS.ProcessEnv,
+      },
       'queue',
     );
 
@@ -68,7 +68,7 @@ describe('redis-connection.util', () => {
   it('resolve conexão a partir de REDIS_URL', () => {
     const connection = resolveRedisConnection({
       REDIS_URL: 'rediss://default:secret@example.upstash.io:6380',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(connection).toEqual({
       source: 'url',
@@ -85,7 +85,7 @@ describe('redis-connection.util', () => {
     const connection = resolveRedisConnection({
       REDIS_URL: 'rediss://default:secret@example.upstash.io:6380',
       REDIS_TLS_ALLOW_INSECURE: 'true',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(connection).toEqual({
       source: 'url',
@@ -103,7 +103,7 @@ describe('redis-connection.util', () => {
       REDIS_HOST: 'redis.internal',
       REDIS_PORT: '6379',
       REDIS_PASSWORD: 'pw',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(connection).toEqual({
       source: 'host',
@@ -119,12 +119,12 @@ describe('redis-connection.util', () => {
       resolveRedisConnection({
         REDIS_DISABLED: 'true',
         REDIS_URL: 'rediss://default:secret@example.upstash.io:6380',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toBeNull();
     expect(
       isRedisExplicitlyDisabled({
         REDIS_DISABLED: 'true',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toBe(true);
   });
 
@@ -132,7 +132,7 @@ describe('redis-connection.util', () => {
     const connection = resolveRedisConnection(
       {
         REDIS_URL: 'redis://default:secret@generic.redis.local:6379',
-      } as NodeJS.ProcessEnv,
+      },
       'auth',
     );
 

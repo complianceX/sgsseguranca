@@ -22,7 +22,7 @@ describeE2E('Users CRUD (e2e)', () => {
       .post('/auth/login')
       .send({ cpf: 'admin-cpf', password: 'admin-pass' });
 
-    authCookie = res.headers['set-cookie'] as unknown as string;
+    authCookie = res.headers['set-cookie'];
   });
 
   afterAll(async () => {

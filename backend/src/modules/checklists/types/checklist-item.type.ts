@@ -48,8 +48,7 @@ export const CHECKLIST_ITEM_CRITICALITY_VALUES = [
 ] as const;
 
 export type ChecklistItemStatus =
-  | boolean
-  | (typeof CHECKLIST_ITEM_STATUS_VALUES)[number];
+  boolean | (typeof CHECKLIST_ITEM_STATUS_VALUES)[number];
 
 export type ChecklistItemResponseType =
   (typeof CHECKLIST_ITEM_RESPONSE_TYPE_VALUES)[number];

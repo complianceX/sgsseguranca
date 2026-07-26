@@ -61,7 +61,6 @@ import { DocumentBundleService } from '../../shared/services/document-bundle.ser
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
-import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../../shared/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import {
@@ -94,15 +93,10 @@ type ChecklistPdfAccessAvailability = GovernedPdfAccessAvailability;
 type ChecklistPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 type ChecklistSegment =
-  | 'normativos'
-  | 'operacionais'
-  | 'equipamentos'
-  | 'veiculos'
-  | 'epis';
+  'normativos' | 'operacionais' | 'equipamentos' | 'veiculos' | 'epis';
 
 type ChecklistPhotoAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url';
+  'ready' | 'registered_without_signed_url';
 
 type ChecklistPhotoAccessResponse = {
   entityId: string;
@@ -458,7 +452,7 @@ export class ChecklistsService {
     company: {
       id: true,
       razao_social: true,
-    } as FindOptionsSelect<Company>,
+    },
     site: {
       id: true,
       nome: true,
@@ -1149,9 +1143,7 @@ export class ChecklistsService {
 
     if (options?.resetExecutionState) {
       normalizedItem.status =
-        normalizedItem.tipo_resposta === 'conforme'
-          ? ('ok' as ChecklistItemValue['status'])
-          : ('sim' as ChecklistItemValue['status']);
+        normalizedItem.tipo_resposta === 'conforme' ? 'ok' : 'sim';
       normalizedItem.resposta = '';
       normalizedItem.observacao = '';
       normalizedItem.fotos = [];
@@ -1163,7 +1155,7 @@ export class ChecklistsService {
           : 'ok';
       normalizedItem.resposta =
         typeof current.resposta === 'string'
-          ? (sanitizePlainText(current.resposta) as string)
+          ? sanitizePlainText(current.resposta)
           : (current.resposta ?? '');
       normalizedItem.observacao =
         typeof current.observacao === 'string'
@@ -1544,11 +1536,7 @@ export class ChecklistsService {
               if (!item.bloqueia_operacao_quando_nc) {
                 return false;
               }
-              return (
-                this.classifyChecklistItemAssessment(
-                  item as Record<string, unknown>,
-                ) === 'rompido'
-              );
+              return this.classifyChecklistItemAssessment(item) === 'rompido';
             });
 
           return {
@@ -3405,7 +3393,7 @@ export class ChecklistsService {
       return response;
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: ChecklistPdfAccessAvailability = 'ready';
     let message = 'PDF final do checklist disponível para acesso.';
     try {
@@ -3700,7 +3688,7 @@ Regras:
         tipo_resposta: (item.tipo_resposta ||
           'sim_nao_na') as ChecklistItemValue['tipo_resposta'],
         obrigatorio: item.obrigatorio !== false,
-        status: 'ok' as ChecklistItemValue['status'],
+        status: 'ok',
         peso: 1,
         observacao: '',
       })) as ChecklistItemValue[],

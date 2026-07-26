@@ -64,7 +64,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           exceptionResponse.details ?? exceptionResponse.errors,
         );
       } else {
-        message = this.sanitizeMessage(exceptionResponse as string);
+        message = this.sanitizeMessage(exceptionResponse);
       }
 
       // Sanitização em produção: para 5xx, não expor mensagens internas ao client.

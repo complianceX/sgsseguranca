@@ -65,7 +65,7 @@ function buildService(opts: {
         ...e,
         created_at: new Date(),
         updated_at: new Date(),
-      } as User),
+      }),
     ),
     manager: {
       getRepository: jest.fn().mockReturnValue(siteRepo),

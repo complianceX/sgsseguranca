@@ -261,7 +261,7 @@ describe('EpiAssignmentsService.create() — achado Q1 (site_id fallback)', () =
     await service.create({
       epi_id: 'epi-1',
       user_id: 'u1',
-      assinatura_entrega: validSig as never,
+      assinatura_entrega: validSig,
     });
 
     expect(savedSiteId).toBe('site-abc');
@@ -287,7 +287,7 @@ describe('EpiAssignmentsService.create() — achado Q1 (site_id fallback)', () =
         epi_id: 'epi-1',
         user_id: 'u1',
         site_id: 'site-xyz',
-        assinatura_entrega: validSig as never,
+        assinatura_entrega: validSig,
       }),
     ).rejects.toThrow(BadRequestException);
   });

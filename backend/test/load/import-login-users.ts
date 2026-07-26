@@ -456,7 +456,7 @@ function normalizeUsersForImport(
       }
 
       let attempt = 0;
-      let candidate = '';
+      let candidate: string;
       do {
         candidate = generateValidCpf(index + 1 + attempt * 1000);
         attempt += 1;

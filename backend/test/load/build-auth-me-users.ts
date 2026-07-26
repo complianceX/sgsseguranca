@@ -17,10 +17,7 @@ type Credential = {
 };
 
 type ResultReason =
-  | 'invalid_credential'
-  | 'login_failed'
-  | 'auth_me_failed'
-  | 'network_error';
+  'invalid_credential' | 'login_failed' | 'auth_me_failed' | 'network_error';
 
 const DEFAULT_INPUT_FILE = path.resolve(
   __dirname,

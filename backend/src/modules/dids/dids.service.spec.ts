@@ -55,8 +55,8 @@ describe('DidsService', () => {
     };
 
     service = new DidsService(
-      didRepository as unknown as Repository<Did>,
-      usersRepository as unknown as Repository<User>,
+      didRepository,
+      usersRepository,
       tenantService as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,

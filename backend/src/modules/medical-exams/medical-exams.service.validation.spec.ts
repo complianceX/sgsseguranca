@@ -101,7 +101,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
           resultado: 'apto',
           data_realizacao: '2025-06-01',
           data_vencimento: '2025-05-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -115,7 +115,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
           resultado: 'apto',
           data_realizacao: '2025-06-01',
           data_vencimento: '2025-06-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -130,7 +130,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
           resultado: 'apto',
           data_realizacao: '2025-01-10',
           data_vencimento: '2026-01-10',
-        } as never),
+        }),
       ).resolves.toBeDefined();
     });
 
@@ -144,7 +144,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
           tipo_exame: 'admissional',
           resultado: 'apto',
           data_realizacao: '2025-01-10',
-        } as never),
+        }),
       ).resolves.toBeDefined();
     });
 
@@ -198,7 +198,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
       );
 
       await expect(
-        service.update(EXAM_ID, { data_vencimento: '2025-05-01' } as never),
+        service.update(EXAM_ID, { data_vencimento: '2025-05-01' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -209,7 +209,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
       );
 
       await expect(
-        service.update(EXAM_ID, { data_realizacao: '2025-07-01' } as never),
+        service.update(EXAM_ID, { data_realizacao: '2025-07-01' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -226,7 +226,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
       });
 
       await expect(
-        service.update(EXAM_ID, { data_vencimento: '2027-01-10' } as never),
+        service.update(EXAM_ID, { data_vencimento: '2027-01-10' }),
       ).resolves.toBeDefined();
     });
 
@@ -237,7 +237,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
       repository.save.mockResolvedValueOnce({ ...exam, resultado: 'inapto' });
 
       await expect(
-        service.update(EXAM_ID, { resultado: 'inapto' } as never),
+        service.update(EXAM_ID, { resultado: 'inapto' }),
       ).resolves.toBeDefined();
     });
 
@@ -246,7 +246,7 @@ describe('MedicalExamsService — validações de cadastro', () => {
       repository.findOne.mockResolvedValueOnce(null);
 
       await expect(
-        service.update('inexistente', { resultado: 'apto' } as never),
+        service.update('inexistente', { resultado: 'apto' }),
       ).rejects.toThrow(NotFoundException);
     });
   });

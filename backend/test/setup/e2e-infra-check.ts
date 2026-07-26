@@ -37,8 +37,8 @@ async function waitForInfraAvailability(
   const retryIntervalMs = Number(process.env.E2E_INFRA_RETRY_MS || 1000);
   const startedAt = Date.now();
 
-  let db = false;
-  let redis = false;
+  let db: boolean;
+  let redis: boolean;
 
   do {
     [db, redis] = await Promise.all([

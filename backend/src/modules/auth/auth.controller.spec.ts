@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import type { AuthService } from './auth.service';
@@ -87,21 +88,19 @@ describe('AuthController security hardening', () => {
       ...overrides,
     }) as Request;
 
-  const buildLoginDto = (overrides: Partial<LoginDto> = {}): LoginDto =>
-    ({
-      cpf: '12345678900',
-      password: 'SenhaSegura@123',
-      turnstileToken: 'turnstile',
-      ...overrides,
-    }) as LoginDto;
+  const buildLoginDto = (overrides: Partial<LoginDto> = {}): LoginDto => ({
+    cpf: '12345678900',
+    password: 'SenhaSegura@123',
+    turnstileToken: 'turnstile',
+    ...overrides,
+  });
 
   const buildConfirmPasswordDto = (
     overrides: Partial<ConfirmPasswordDto> = {},
-  ): ConfirmPasswordDto =>
-    ({
-      password: 'SenhaSegura@123',
-      ...overrides,
-    }) as ConfirmPasswordDto;
+  ): ConfirmPasswordDto => ({
+    password: 'SenhaSegura@123',
+    ...overrides,
+  });
 
   beforeEach(() => {
     process.env.REFRESH_CSRF_ENFORCED = 'true';

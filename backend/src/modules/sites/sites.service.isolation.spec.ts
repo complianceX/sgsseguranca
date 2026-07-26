@@ -227,7 +227,7 @@ describe('SitesService — isolamento de tenant', () => {
         service.update(SITE_ID, {
           nome: 'Obra',
           company_id: 'tenant-malicioso',
-        } as never),
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 

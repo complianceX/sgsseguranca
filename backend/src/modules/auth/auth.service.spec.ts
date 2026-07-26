@@ -592,7 +592,7 @@ describe('AuthService', () => {
         email: 'user@example.com',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
         password: '$argon2id$v=19$m=65536,t=3,p=4$shadow$hash',
-      } as Partial<User>);
+      });
       passwordService.isLegacyHash.mockReturnValue(false);
       passwordService.verify.mockResolvedValue(true);
 
@@ -619,7 +619,7 @@ describe('AuthService', () => {
         id: 'user-1',
         email: 'user@example.com',
         password: TEST_BCRYPT_HASH,
-      } as Partial<User>);
+      });
       passwordService.isLegacyHash.mockReturnValue(true);
       passwordService.verify.mockResolvedValue(true);
 
@@ -638,7 +638,7 @@ describe('AuthService', () => {
         email: 'user@example.com',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
         password: TEST_BCRYPT_HASH,
-      } as Partial<User>);
+      });
       passwordService.isLegacyHash.mockReturnValue(true);
       passwordService.verify.mockResolvedValue(false);
 

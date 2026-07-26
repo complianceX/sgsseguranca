@@ -8,9 +8,7 @@ export const DEFAULT_RETENTION_DAYS = {
 } as const;
 
 export type TenantRetentionPolicyColumn =
-  | 'retention_days_apr'
-  | 'retention_days_dds'
-  | 'retention_days_pts';
+  'retention_days_apr' | 'retention_days_dds' | 'retention_days_pts';
 
 export function resolveRetentionColumnForModule(
   moduleName: string,

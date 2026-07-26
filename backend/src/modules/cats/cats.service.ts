@@ -50,9 +50,7 @@ import { MetricsService } from '../../shared/observability/metrics.service';
 import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 
 type CatPdfAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+  'ready' | 'registered_without_signed_url' | 'not_emitted';
 
 @Injectable()
 export class CatsService {
@@ -1088,7 +1086,7 @@ export class CatsService {
         ...(requestId ? { requestId } : {}),
       },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId: cat.company_id,
     });
   }

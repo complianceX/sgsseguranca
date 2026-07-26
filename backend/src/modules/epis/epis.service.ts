@@ -121,8 +121,7 @@ export class EpisService extends BaseService<Epi> {
 
   async count(options?: FindManyOptions<Epi>): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
-    const where =
-      options?.where ?? ({} as FindOptionsWhere<Epi> | FindOptionsWhere<Epi>[]);
+    const where = options?.where ?? {};
     return this.episRepository.count({
       ...(options ?? {}),
       where: tenantId ? { ...where, company_id: tenantId } : where,

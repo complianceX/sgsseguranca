@@ -13,9 +13,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * sgs_app seja membro de sgs_rls_bypass, seguindo o mesmo padrão de
  * find_login_user (migration 359).
  */
-export class CreateUserBridgeSecurityDefinerFunction1709000000362
-  implements MigrationInterface
-{
+export class CreateUserBridgeSecurityDefinerFunction1709000000362 implements MigrationInterface {
   name = 'CreateUserBridgeSecurityDefinerFunction1709000000362';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -205,8 +205,7 @@ export class PtsService {
       return false;
     }
     const driverError = error.driverError as
-      | { code?: string; constraint?: string }
-      | undefined;
+      { code?: string; constraint?: string } | undefined;
     return (
       driverError?.code === '23505' &&
       (driverError.constraint ?? '').includes('pts_company_numero')
@@ -1206,7 +1205,7 @@ export class PtsService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: PtPdfAccessAvailability = 'ready';
     try {
       url = await this.documentStorageService.getSignedUrl(
@@ -1612,7 +1611,7 @@ export class PtsService {
       throw new NotFoundException('Foto de evidência não encontrada.');
     }
 
-    let url: string | null = null;
+    let url: string | null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         payload.fileKey,
@@ -1818,7 +1817,7 @@ export class PtsService {
       throw new NotFoundException('Anexo do item de checklist não encontrado.');
     }
 
-    let url: string | null = null;
+    let url: string | null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         payload.fileKey,
@@ -1904,7 +1903,7 @@ export class PtsService {
         },
       },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId: pt.company_id,
     });
 
@@ -2337,7 +2336,7 @@ export class PtsService {
         after: params.after ?? null,
       },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId,
     });
   }

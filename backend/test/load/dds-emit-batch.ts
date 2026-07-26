@@ -29,9 +29,7 @@ type MfaEnrollRequiredResponse = {
 };
 
 type AuthLoginResponse =
-  | AuthSessionResponse
-  | MfaRequiredResponse
-  | MfaEnrollRequiredResponse;
+  AuthSessionResponse | MfaRequiredResponse | MfaEnrollRequiredResponse;
 
 type CsrfSession = {
   token: string;

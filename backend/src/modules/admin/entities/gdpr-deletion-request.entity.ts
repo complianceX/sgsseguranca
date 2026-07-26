@@ -7,10 +7,7 @@ import {
 } from 'typeorm';
 
 export type GdprDeletionStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'completed'
-  | 'failed';
+  'pending' | 'in_progress' | 'completed' | 'failed';
 
 @Entity('gdpr_deletion_requests')
 export class GdprDeletionRequest {

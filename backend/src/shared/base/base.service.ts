@@ -43,7 +43,7 @@ export abstract class BaseService<T extends ObjectLiteral> {
     return {
       ...where,
       company_id: tenantId,
-    } as FindOptionsWhere<T>;
+    };
   }
 
   protected addDays(days: number, fromDate: Date = new Date()): Date {

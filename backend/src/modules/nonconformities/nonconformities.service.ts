@@ -76,8 +76,7 @@ export type NonConformityAnalyticsOverview = {
 };
 
 export type NonConformityAttachmentAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url';
+  'ready' | 'registered_without_signed_url';
 
 export type NonConformityAttachmentAccessResponse = {
   entityId: string;
@@ -1479,7 +1478,7 @@ export class NonConformitiesService {
       const { saved: lockedSaved, result: snapshot } =
         await this.mutateNcAttachmentsLocked(id, nc.company_id, (locked) => {
           this.assertNcDocumentMutable(locked);
-          const snap = { ...locked } as NonConformity;
+          const snap = { ...locked };
           locked.anexos = Array.from(
             new Set([...(locked.anexos ?? []), reference]),
           );
@@ -1798,7 +1797,7 @@ export class NonConformitiesService {
       entityId,
       changes: { before, after },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId,
     });
   }

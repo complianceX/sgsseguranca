@@ -132,7 +132,7 @@ function cloneRecord(record: DocumentImport): DocumentImport {
     deadLetteredAt: record.deadLetteredAt
       ? new Date(record.deadLetteredAt)
       : null,
-  } as DocumentImport;
+  };
 }
 
 function makeDocumentImport(
@@ -248,7 +248,7 @@ function createInMemoryRepository(): InMemoryDocumentImportRepository {
             metadata:
               typeof patch.metadata === 'undefined'
                 ? cloneMetadata(current.metadata)
-                : cloneMetadata(patch.metadata as DocumentImportMetadata),
+                : cloneMetadata(patch.metadata),
             arquivoStaging:
               typeof patch.arquivoStaging === 'undefined'
                 ? current.arquivoStaging

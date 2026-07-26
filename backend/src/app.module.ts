@@ -1016,7 +1016,7 @@ export const validationSchema = Joi.object({
           );
 
           const redisConfig: RedisCacheConfig = {
-            store: redisStore as unknown,
+            store: redisStore,
             host: redisConnection.host,
             port: redisConnection.port,
             password: redisConnection.password,
@@ -1029,7 +1029,7 @@ export const validationSchema = Joi.object({
             redisConfig.tls = redisConnection.tls;
           }
 
-          return redisConfig as unknown as RedisClientOptions;
+          return redisConfig;
         }
 
         if (
@@ -1184,7 +1184,7 @@ export const validationSchema = Joi.object({
                 master: { url, ssl: sslConfig },
                 slaves: [{ url: replicaUrl, ssl: sslConfig }],
               },
-            } as TypeOrmModuleOptions;
+            };
           }
 
           return {

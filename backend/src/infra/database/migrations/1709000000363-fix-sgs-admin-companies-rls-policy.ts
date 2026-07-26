@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixSgsAdminCompaniesRlsPolicy1709000000363
-  implements MigrationInterface
-{
+export class FixSgsAdminCompaniesRlsPolicy1709000000363 implements MigrationInterface {
   name = 'FixSgsAdminCompaniesRlsPolicy1709000000363';
 
   async up(queryRunner: QueryRunner): Promise<void> {

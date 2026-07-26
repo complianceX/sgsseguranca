@@ -23,7 +23,7 @@ const hasNestPrefix = (chunk: string | Uint8Array): boolean => {
 const writeShim = (
   original: typeof process.stdout.write,
 ): typeof process.stdout.write => {
-  return ((chunk: string | Uint8Array, ...rest: unknown[]): boolean => {
+  return (chunk: string | Uint8Array, ...rest: unknown[]): boolean => {
     if (hasNestPrefix(chunk)) {
       const callback = rest.find(
         (value): value is (error?: Error | null) => void =>
@@ -34,7 +34,7 @@ const writeShim = (
     }
 
     return original(chunk, ...(rest as [never, never]));
-  }) as typeof process.stdout.write;
+  };
 };
 
 process.stdout.write = writeShim(originalStdoutWrite);
