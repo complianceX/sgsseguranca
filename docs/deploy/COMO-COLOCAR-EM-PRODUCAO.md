@@ -72,15 +72,15 @@ reexibido depois de criado).
 
 ```bash
 TOKEN="<seu token>"
-COOLIFY="http://216.238.99.177:8000"
+COOLIFY="http://216.22.43.246:8000"
 
 # Backend Web
 curl -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
-  "$COOLIFY/api/v1/deploy?uuid=r64jryc2fcvep21cxa9egqr9&force=false"
+  "$COOLIFY/api/v1/deploy?uuid=zdz9pgctj4k0gpds0sj2az6s&force=false"
 
 # Worker
 curl -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
-  "$COOLIFY/api/v1/deploy?uuid=cim45dhcc183kzn1nrwmq050&force=false"
+  "$COOLIFY/api/v1/deploy?uuid=jos9vyejobbagk1yejqlsfhd&force=false"
 ```
 
 > **`Accept: application/json` é obrigatório.** Sem esse header a API responde
@@ -88,14 +88,17 @@ curl -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
 
 | Aplicação | UUID |
 |---|---|
-| Backend WEB | `r64jryc2fcvep21cxa9egqr9` |
-| Backend Worker | `cim45dhcc183kzn1nrwmq050` |
+| Backend WEB | `zdz9pgctj4k0gpds0sj2az6s` |
+| Backend Worker | `jos9vyejobbagk1yejqlsfhd` |
+
+Painel do ambiente atual:
+`http://216.22.43.246:8000/project/e90jc1p5csbhj21cii0xybf4/environment/dmsy07hd8g2gz5bqqctokf9n`.
 
 ### Confirmar que subiu o commit certo
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
-  "$COOLIFY/api/v1/deployments/applications/r64jryc2fcvep21cxa9egqr9" \
+  "$COOLIFY/api/v1/deployments/applications/zdz9pgctj4k0gpds0sj2az6s" \
   | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
       const x=JSON.parse(d).deployments[0];
       console.log(x.status, x.commit, x.created_at);
