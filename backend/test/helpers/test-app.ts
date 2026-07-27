@@ -162,7 +162,11 @@ export class TestApp {
     await this.resetRedisEphemeralState();
 
     const dbType = this.dataSource.options.type;
-    if (dbType === 'postgres' && this.isLocalTestDatabase()) {
+    if (
+      dbType === 'postgres' &&
+      this.isLocalTestDatabase() &&
+      !this.shouldPreserveMigratedSchema()
+    ) {
       // LIMITAÇÃO CONHECIDA — o schema de teste vem de synchronize(), não das
       // migrations.
       //
@@ -173,20 +177,10 @@ export class TestApp {
       // pela camada de aplicação (guards, escopo por tenant nas queries), não o
       // do banco.
       //
-      // A troca por `runMigrations()` foi tentada e revertida: aplicar a cadeia
-      // completa a partir dos fontes falha em `1709000000113`
-      // ("column deleted_at does not exist" ao indexar `sites`), derrubando 125
-      // testes. A cadeia aplica bem quando executada pelo runner oficial
-      // (`npm run migration:run`, a partir de `dist/`), e `src` e `dist` contêm
-      // exatamente as mesmas 277 migrations — a divergência está na ordem de
-      // execução resolvida em cada caminho, e corrigi-la é trabalho próprio, com
-      // risco alto para ser feito junto de outras mudanças.
-      //
-      // Enquanto isso não for resolvido, vale registrar: defeitos que só
-      // aparecem ao aplicar a cadeia do zero (ALTER bloqueado por policy ou por
-      // view materializada, FK com tipo incompatível, policy referenciando
-      // coluna inexistente) NÃO são detectados por este CI. Todos os encontrados
-      // nesta auditoria vieram de execução manual contra um PostgreSQL real.
+      // A suíte E2E geral mantém synchronize() por velocidade. O job dedicado de
+      // DR aplica a cadeia pelo runner oficial antes de iniciar o Jest e define
+      // E2E_PRESERVE_MIGRATED_SCHEMA=true; nesse modo, este helper apenas limpa
+      // os dados e preserva migrations, policies, views, grants e índices.
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
       await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
@@ -202,9 +196,24 @@ export class TestApp {
         BEGIN
           SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
           INTO table_names
-          FROM pg_tables
-          WHERE schemaname = 'public'
-            AND tablename <> 'migrations';
+          FROM pg_tables t
+          JOIN pg_class c ON c.relname = t.tablename
+          JOIN pg_namespace n
+            ON n.oid = c.relnamespace
+           AND n.nspname = t.schemaname
+          WHERE t.schemaname IN (
+              'public',
+              'auth',
+              'operations',
+              'audit',
+              'documents',
+              'safety'
+            )
+            AND NOT (
+              t.schemaname = 'public'
+              AND t.tablename = 'migrations'
+            )
+            AND NOT c.relispartition;
 
           IF table_names IS NOT NULL THEN
             EXECUTE 'TRUNCATE TABLE ' || table_names || ' RESTART IDENTITY CASCADE';
@@ -505,6 +514,10 @@ export class TestApp {
       process.env.NODE_ENV === 'test' &&
       ['127.0.0.1', 'localhost'].includes(host)
     );
+  }
+
+  private shouldPreserveMigratedSchema(): boolean {
+    return process.env.E2E_PRESERVE_MIGRATED_SCHEMA === 'true';
   }
 
   private async seedProfiles(): Promise<Record<Role, Profile>> {

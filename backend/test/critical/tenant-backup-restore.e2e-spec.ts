@@ -3,7 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { Role } from '../../src/modules/auth/enums/roles.enum';
+import {
+  DISASTER_RECOVERY_DEFAULT_RPO_HOURS,
+  DISASTER_RECOVERY_DEFAULT_RTO_HOURS,
+} from '../../src/modules/disaster-recovery/disaster-recovery.constants';
 import { TenantBackupService } from '../../src/modules/disaster-recovery/tenant-backup.service';
+import type { TenantBackupExecutionResult } from '../../src/modules/disaster-recovery/tenant-backup.types';
 import { createApr } from '../factories/apr.factory';
 import { TestApp } from '../helpers/test-app';
 
@@ -91,6 +96,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       csrfHeaders,
       'tenant_backup',
     );
+    const backupStartedAt = Date.now();
     const backupTriggerResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/backup`)
@@ -99,45 +105,67 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       .set('X-Step-Up-Token', backupStepUpToken);
     expect([200, 201]).toContain(backupTriggerResponse.status);
 
-    let backupId = '';
-    let backupFilePath = '';
     const backupBody = backupTriggerResponse.body as
       | {
           job_id?: string;
           mode?: 'inline';
-          result?: { backupId?: string; filePath?: string };
+          result?: TenantBackupExecutionResult;
         }
       | undefined;
+    let backupResult =
+      backupBody?.mode === 'inline' ? backupBody.result : undefined;
 
-    if (backupBody?.mode === 'inline') {
-      backupId = String(backupBody.result?.backupId ?? '');
-      backupFilePath = String(backupBody.result?.filePath ?? '');
-    } else if (backupBody?.job_id) {
-      const materialized = await tenantBackupService.backupTenant(
-        tenantA.companyId,
-        {
-          triggerSource: 'manual',
-          requestedByUserId: superAdminSession.userId,
-        },
-      );
-      backupId = materialized.backupId;
-      backupFilePath = materialized.filePath;
+    if (!backupResult && backupBody?.job_id) {
+      backupResult = await tenantBackupService.backupTenant(tenantA.companyId, {
+        triggerSource: 'manual',
+        requestedByUserId: superAdminSession.userId,
+      });
     }
 
-    if (!backupId || !backupFilePath) {
-      const materialized = await tenantBackupService.backupTenant(
-        tenantA.companyId,
-        {
-          triggerSource: 'manual',
-          requestedByUserId: superAdminSession.userId,
-        },
-      );
-      backupId = materialized.backupId;
-      backupFilePath = materialized.filePath;
+    if (!backupResult) {
+      backupResult = await tenantBackupService.backupTenant(tenantA.companyId, {
+        triggerSource: 'manual',
+        requestedByUserId: superAdminSession.userId,
+      });
     }
 
+    const backupDurationMs = Date.now() - backupStartedAt;
+    const { backupId, filePath: backupFilePath } = backupResult;
     expect(backupId.length).toBeGreaterThan(5);
     expect(backupFilePath.length).toBeGreaterThan(10);
+    expect(backupResult.rowCounts.companies).toBe(1);
+    expect(backupResult.rowCounts.aprs).toBeGreaterThanOrEqual(1);
+    expect(backupResult.rowCounts.users).toBeGreaterThanOrEqual(1);
+    const exportedTableNames = Object.keys(backupResult.rowCounts);
+    expect(
+      exportedTableNames.some((table) =>
+        /^ai_interactions_(?:\d{4}_\d{2}|default)$/.test(table),
+      ),
+    ).toBe(false);
+    expect(
+      exportedTableNames.some((table) =>
+        /^mail_logs_(?:\d{4}_\d{2}|default)$/.test(table),
+      ),
+    ).toBe(false);
+
+    const backupFileStat = await fs.stat(backupResult.filePath);
+    const metadataFileStat = await fs.stat(backupResult.metadataPath);
+    expect(backupFileStat.size).toBeGreaterThan(0);
+    expect(metadataFileStat.size).toBeGreaterThan(0);
+
+    const metadataRaw = await fs.readFile(backupResult.metadataPath, 'utf8');
+    const metadata = JSON.parse(metadataRaw) as {
+      checksumSha256?: string;
+      rowCounts?: Record<string, number>;
+      schemaVersion?: string | null;
+    };
+    expect(metadata.checksumSha256).toBe(backupResult.checksumSha256);
+    expect(metadata.rowCounts).toEqual(backupResult.rowCounts);
+
+    if (process.env.E2E_PRESERVE_MIGRATED_SCHEMA === 'true') {
+      expect(backupResult.schemaVersion).toBeTruthy();
+      expect(metadata.schemaVersion).toBe(backupResult.schemaVersion);
+    }
 
     const backupListResponse = await testApp
       .request()
@@ -180,6 +208,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       csrfHeaders,
       'tenant_restore',
     );
+    const restoreStartedAt = Date.now();
     const restoreResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/restore`)
@@ -192,6 +221,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       .field('confirm_phrase', buildRestorePhrase(tenantA.companyId))
       .attach('file', backupFilePath);
     expect([200, 201]).toContain(restoreResponse.status);
+    const restoreDurationMs = Date.now() - restoreStartedAt;
 
     const restoreBody = restoreResponse.body as
       | {
@@ -199,6 +229,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
           result?: {
             targetCompanyId?: string;
             mode?: 'overwrite_same_tenant' | 'clone_to_new_tenant';
+            restoredRowsByTable?: Record<string, number>;
           };
         }
       | undefined;
@@ -206,6 +237,10 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(restoreBody?.mode).toBe('inline');
     expect(restoreBody?.result?.mode).toBe('overwrite_same_tenant');
     expect(restoreBody?.result?.targetCompanyId).toBe(tenantA.companyId);
+    expect(restoreBody?.result?.restoredRowsByTable?.companies).toBe(1);
+    expect(
+      restoreBody?.result?.restoredRowsByTable?.aprs,
+    ).toBeGreaterThanOrEqual(1);
 
     const restoredAprResponse = await testApp
       .request()
@@ -231,5 +266,62 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       deleted_at?: string | null;
     }>;
     expect(restoredRows[0]?.deleted_at ?? null).toBeNull();
+
+    const observedBackupFreshnessMs = Math.max(
+      0,
+      Date.now() - Date.parse(backupResult.exportedAt),
+    );
+    expect(observedBackupFreshnessMs).toBeLessThanOrEqual(
+      DISASTER_RECOVERY_DEFAULT_RPO_HOURS * 60 * 60 * 1000,
+    );
+    expect(restoreDurationMs).toBeLessThanOrEqual(
+      DISASTER_RECOVERY_DEFAULT_RTO_HOURS * 60 * 60 * 1000,
+    );
+
+    const evidencePath = process.env.DR_E2E_EVIDENCE_PATH?.trim();
+    if (evidencePath) {
+      await fs.mkdir(path.dirname(evidencePath), { recursive: true });
+      await fs.writeFile(
+        evidencePath,
+        JSON.stringify(
+          {
+            generatedAt: new Date().toISOString(),
+            validationMode:
+              process.env.E2E_PRESERVE_MIGRATED_SCHEMA === 'true'
+                ? 'clean-migrations'
+                : 'entity-synchronize',
+            privilegedExportEnabled: Boolean(process.env.DATABASE_ADMIN_URL),
+            backup: {
+              durationMs: backupDurationMs,
+              freshnessMsAtValidation: observedBackupFreshnessMs,
+              fileSizeBytes: backupFileStat.size,
+              metadataFileSizeBytes: metadataFileStat.size,
+              schemaVersion: backupResult.schemaVersion,
+              checksumSha256: backupResult.checksumSha256,
+              rowCounts: backupResult.rowCounts,
+            },
+            restore: {
+              durationMs: restoreDurationMs,
+              restoredRowsByTable:
+                restoreBody?.result?.restoredRowsByTable ?? {},
+            },
+            targets: {
+              rpoHours: DISASTER_RECOVERY_DEFAULT_RPO_HOURS,
+              rtoHours: DISASTER_RECOVERY_DEFAULT_RTO_HOURS,
+            },
+            checks: {
+              backupFilesNonEmpty: true,
+              metadataChecksumMatches: true,
+              partitionChildrenExcluded: true,
+              aprRecovered: true,
+              aprSoftDeleteCleared: true,
+            },
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+    }
   }, 120_000);
 });
