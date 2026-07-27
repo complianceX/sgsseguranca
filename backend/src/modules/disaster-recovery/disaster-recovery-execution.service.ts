@@ -31,20 +31,23 @@ export class DisasterRecoveryExecutionService {
     const execution = await this.runAsGlobalSuperAdmin(async () => {
       const savedExecution = await this.persistStartedExecution(input);
 
-      await this.forensicTrailService.append({
-        eventType: 'dr_execution_started',
-        module: DR_MODULE,
-        entityId: savedExecution.id,
-        userId: input.requestedByUserId ?? undefined,
-        metadata: {
-          operationType: savedExecution.operation_type,
-          scope: savedExecution.scope,
-          environment: savedExecution.environment,
-          targetEnvironment: savedExecution.target_environment,
-          triggerSource: savedExecution.trigger_source,
-          backupName: savedExecution.backup_name,
+      await this.forensicTrailService.append(
+        {
+          eventType: 'dr_execution_started',
+          module: DR_MODULE,
+          entityId: savedExecution.id,
+          userId: input.requestedByUserId ?? undefined,
+          metadata: {
+            operationType: savedExecution.operation_type,
+            scope: savedExecution.scope,
+            environment: savedExecution.environment,
+            targetEnvironment: savedExecution.target_environment,
+            triggerSource: savedExecution.trigger_source,
+            backupName: savedExecution.backup_name,
+          },
         },
-      });
+        { isSuperAdmin: true },
+      );
 
       return savedExecution;
     });
@@ -72,27 +75,30 @@ export class DisasterRecoveryExecutionService {
         input,
       );
 
-      await this.forensicTrailService.append({
-        eventType:
-          input.status === 'failed'
-            ? 'dr_execution_failed'
-            : 'dr_execution_completed',
-        module: DR_MODULE,
-        entityId: finalized.id,
-        userId: finalized.requested_by_user_id ?? undefined,
-        metadata: {
-          operationType: finalized.operation_type,
-          scope: finalized.scope,
-          environment: finalized.environment,
-          targetEnvironment: finalized.target_environment,
-          triggerSource: finalized.trigger_source,
-          status: finalized.status,
-          backupName: finalized.backup_name,
-          artifactPath: finalized.artifact_path,
-          artifactStorageKey: finalized.artifact_storage_key,
-          errorMessage: finalized.error_message,
+      await this.forensicTrailService.append(
+        {
+          eventType:
+            input.status === 'failed'
+              ? 'dr_execution_failed'
+              : 'dr_execution_completed',
+          module: DR_MODULE,
+          entityId: finalized.id,
+          userId: finalized.requested_by_user_id ?? undefined,
+          metadata: {
+            operationType: finalized.operation_type,
+            scope: finalized.scope,
+            environment: finalized.environment,
+            targetEnvironment: finalized.target_environment,
+            triggerSource: finalized.trigger_source,
+            status: finalized.status,
+            backupName: finalized.backup_name,
+            artifactPath: finalized.artifact_path,
+            artifactStorageKey: finalized.artifact_storage_key,
+            errorMessage: finalized.error_message,
+          },
         },
-      });
+        { isSuperAdmin: true },
+      );
 
       return finalized;
     });
