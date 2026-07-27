@@ -118,6 +118,12 @@ const EXCLUDED_TABLES = new Set([
   'typeorm_metadata',
 ]);
 
+// Tabelas protegidas por trigger contra UPDATE/DELETE. No overwrite, os
+// registros já existentes permanecem e os eventos ausentes do backup são
+// inseridos de forma idempotente. Isso preserva a cadeia forense mais recente
+// sem exigir session_replication_role=replica ou uma role SUPERUSER.
+const APPEND_ONLY_TABLES = new Set(['forensic_trail_events']);
+
 const EXCLUDED_COLUMNS_BY_TABLE = new Map<string, Set<string>>([
   [
     'users',
@@ -1218,6 +1224,9 @@ export class TenantBackupService {
       .filter((table) => table !== 'companies');
 
     for (const table of deletionOrder) {
+      if (APPEND_ONLY_TABLES.has(table)) {
+        continue;
+      }
       const columns = input.schema.columnsByTable.get(table) ?? new Set();
       if (columns.has('company_id')) {
         await input.queryRunner.query(
@@ -1486,9 +1495,12 @@ export class TenantBackupService {
         valuesSql.push(`(${placeholders.join(', ')})`);
       }
 
+      const conflictClause = APPEND_ONLY_TABLES.has(table)
+        ? ' ON CONFLICT DO NOTHING'
+        : '';
       const sql = `INSERT INTO ${this.quoteIdentifier(table)} (${columns
         .map((column) => this.quoteIdentifier(column))
-        .join(', ')}) VALUES ${valuesSql.join(', ')}`;
+        .join(', ')}) VALUES ${valuesSql.join(', ')}${conflictClause}`;
 
       await queryRunner.query(sql, params);
     }
