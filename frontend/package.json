@@ -68,6 +68,7 @@
     "@types/react-dom": "^19",
     "esbuild-register": "^3.6.0",
     "eslint": "^10.8.0",
+    "globals": "^14.0.0",
     "eslint-config-next": "^16.2.11",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
