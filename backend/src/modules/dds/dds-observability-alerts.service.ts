@@ -228,7 +228,7 @@ export class DdsObservabilityAlertsService {
       return;
     }
 
-    let lock: DistributedLockHandle | null = null;
+    let lock: DistributedLockHandle | null;
     try {
       lock = await this.distributedLock.tryAcquire(
         'dds:observability-alerts',

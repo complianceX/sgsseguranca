@@ -1,7 +1,5 @@
 export type RetentionImplementationStatus =
-  | 'implemented'
-  | 'partially_implemented'
-  | 'requires_external_evidence';
+  'implemented' | 'partially_implemented' | 'requires_external_evidence';
 
 export type PrivacyRetentionMatrixEntry = {
   dataDomain: string;

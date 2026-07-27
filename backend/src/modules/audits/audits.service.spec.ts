@@ -174,7 +174,7 @@ describe('AuditsService', () => {
       company_id: 'company-1',
       site_id: 'site-1',
       titulo: 'Auditoria anterior',
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
       company_id: 'company-1',
@@ -387,7 +387,7 @@ describe('AuditsService', () => {
       site_id: 'site-1',
       titulo: 'Auditoria de campo',
       pdf_file_key: null,
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-2',
       company_id: 'company-1',
@@ -416,7 +416,7 @@ describe('AuditsService', () => {
       site_id: 'site-1',
       titulo: 'Auditoria de campo',
       pdf_file_key: null,
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-2',
       company_id: 'company-1',
@@ -432,7 +432,7 @@ describe('AuditsService', () => {
           tipo_auditoria: 'Interna',
           site_id: 'site-1',
           auditor_id: 'user-2',
-        } as never,
+        },
         'company-1',
       ),
     ).rejects.toThrow(BadRequestException);
@@ -445,7 +445,7 @@ describe('AuditsService', () => {
       site_id: 'site-1',
       titulo: 'Auditoria de campo',
       pdf_file_key: null,
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-2',
       company_id: 'company-1',
@@ -466,7 +466,7 @@ describe('AuditsService', () => {
           tipo_auditoria: 'Interna',
           site_id: 'site-1',
           auditor_id: 'user-2',
-        } as never,
+        },
         'company-1',
       ),
     ).resolves.toEqual(
@@ -483,7 +483,7 @@ describe('AuditsService', () => {
       site_id: 'site-1',
       titulo: 'Auditoria de campo',
       pdf_file_key: null,
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-2',
       company_id: 'company-1',
@@ -502,7 +502,7 @@ describe('AuditsService', () => {
           tipo_auditoria: 'Interna',
           site_id: 'site-1',
           auditor_id: 'user-2',
-        } as never,
+        },
         'company-1',
       ),
     ).resolves.toEqual(
@@ -519,7 +519,7 @@ describe('AuditsService', () => {
       site_id: 'site-1',
       titulo: 'Auditoria de campo',
       pdf_file_key: null,
-    } as unknown as Audit);
+    });
     usersRepository.findOne.mockResolvedValue({
       id: 'user-2',
       company_id: 'company-1',
@@ -540,7 +540,7 @@ describe('AuditsService', () => {
           tipo_auditoria: 'Interna',
           site_id: 'site-1',
           auditor_id: 'user-2',
-        } as never,
+        },
         'company-1',
       ),
     ).resolves.toEqual(
@@ -568,7 +568,7 @@ describe('AuditsService', () => {
       id: 'audit-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
-    } as unknown as Audit);
+    });
 
     await expect(
       service.update(
@@ -592,7 +592,7 @@ describe('AuditsService', () => {
       id: 'audit-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
-    } as unknown as Audit);
+    });
 
     const file = {
       originalname: 'audit-final.pdf',
@@ -692,7 +692,7 @@ describe('AuditsService', () => {
       pdf_file_key: null,
       pdf_folder_path: null,
       pdf_original_name: null,
-    } as unknown as Audit);
+    });
 
     await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
       {
@@ -715,7 +715,7 @@ describe('AuditsService', () => {
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
       pdf_folder_path: 'audits/company-1',
       pdf_original_name: 'audit-final.pdf',
-    } as unknown as Audit);
+    });
     (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );
@@ -742,7 +742,7 @@ describe('AuditsService', () => {
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
       pdf_folder_path: 'audits/company-1',
       pdf_original_name: 'audit-final.pdf',
-    } as unknown as Audit);
+    });
 
     await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
       {

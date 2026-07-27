@@ -79,7 +79,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     // LGPD: corpos de request exigem opt-in fora de produção.
     if (!isAuthRoute && shouldLogRequestBody) {
-      baseLog.body = this.sanitizeBody(body as Record<string, unknown>);
+      baseLog.body = this.sanitizeBody(body);
     }
 
     this.writeLog('log', baseLog);

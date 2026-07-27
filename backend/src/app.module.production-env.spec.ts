@@ -68,8 +68,7 @@ describe('AppModule production environment validation', () => {
 
   function getCustomMessage(result: ValidationResult): string {
     const context = result.error?.details[0]?.context as
-      | { message?: string }
-      | undefined;
+      { message?: string } | undefined;
     return context?.message || result.error?.message || '';
   }
 

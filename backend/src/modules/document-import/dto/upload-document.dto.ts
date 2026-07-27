@@ -64,7 +64,7 @@ class DocumentImportMetadataShapeConstraint implements ValidatorConstraintInterf
       return false;
     }
 
-    const keys = Object.keys(value as Record<string, unknown>);
+    const keys = Object.keys(value);
     if (keys.length > 20) {
       return false;
     }

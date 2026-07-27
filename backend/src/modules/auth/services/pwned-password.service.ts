@@ -115,8 +115,7 @@ export class PwnedPasswordService {
             'User-Agent': 'SGS-Seguranca/1.0',
             'Add-Padding': 'true',
           },
-          signal:
-            controller.signal as unknown as import('http').RequestOptions['signal'],
+          signal: controller.signal,
         },
         (res) => {
           if (res.statusCode !== 200) {

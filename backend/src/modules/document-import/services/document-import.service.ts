@@ -910,8 +910,7 @@ export class DocumentImportService {
     queueSnapshot: QueueSnapshot,
   ): DocumentImportStatusResponseDto {
     const validation = record.metadata?.validacao as
-      | DocumentValidationResultDto
-      | undefined;
+      DocumentValidationResultDto | undefined;
 
     return toDocumentImportStatusResponseDto({
       documentId: record.id,
@@ -959,8 +958,7 @@ export class DocumentImportService {
 
   private buildMetadataDto(record: DocumentImport): DocumentImportMetadataDto {
     const validacao = record.metadata?.validacao as
-      | DocumentValidationResultDto
-      | undefined;
+      DocumentValidationResultDto | undefined;
 
     return {
       tamanhoArquivo: record.tamanho || 0,

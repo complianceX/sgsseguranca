@@ -675,7 +675,7 @@ describe('NonConformitiesService', () => {
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
     };
-    repository.createQueryBuilder.mockReturnValue(queryBuilder as never);
+    repository.createQueryBuilder.mockReturnValue(queryBuilder);
 
     await expect(
       service.findPaginated({
@@ -712,11 +712,9 @@ describe('NonConformitiesService', () => {
     repository.save.mockResolvedValue({
       ...validNc,
       id: 'nc-test',
-    } as unknown as NonConformity);
+    });
 
-    const result = await service.create(
-      validNc as Parameters<NonConformitiesService['create']>[0],
-    );
+    const result = await service.create(validNc);
     expect(result.status).toBe('ENCERRADA');
     expect(repository.save).toHaveBeenCalled();
   });

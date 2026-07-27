@@ -47,9 +47,7 @@ type MonthRange = {
 };
 
 export type ReportPdfAccessAvailability =
-  | 'not_emitted'
-  | 'ready'
-  | 'registered_without_signed_url';
+  'not_emitted' | 'ready' | 'registered_without_signed_url';
 
 export type ReportPdfAccessResponse = {
   entityId: string;

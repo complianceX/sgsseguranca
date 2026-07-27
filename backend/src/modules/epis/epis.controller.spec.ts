@@ -80,7 +80,7 @@ describe('EpisController', () => {
       const epi = makeEpi();
       service.create.mockResolvedValueOnce(epi);
 
-      const result = await controller.create({ nome: 'Capacete' } as never);
+      const result = await controller.create({ nome: 'Capacete' });
 
       expect(service.create).toHaveBeenCalledWith({ nome: 'Capacete' });
       expect(result).toEqual(epi);
@@ -89,9 +89,9 @@ describe('EpisController', () => {
     it('propaga exceção do service', async () => {
       service.create.mockRejectedValueOnce(new NotFoundException('EPI'));
 
-      await expect(
-        controller.create({ nome: 'Invalido' } as never),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.create({ nome: 'Invalido' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -104,7 +104,7 @@ describe('EpisController', () => {
         page: 1,
         limit: 10,
         search: 'capacete',
-      } as never);
+      });
 
       expect(service.findPaginated).toHaveBeenCalledWith({
         page: 1,
@@ -118,7 +118,7 @@ describe('EpisController', () => {
       const emptyPage = makeOffsetPage([]);
       service.findPaginated.mockResolvedValueOnce(emptyPage);
 
-      const result = await controller.findAll({} as never);
+      const result = await controller.findAll({});
       expect((result as typeof emptyPage).data).toHaveLength(0);
     });
   });
@@ -150,7 +150,7 @@ describe('EpisController', () => {
 
       const result = await controller.update(updated.id, {
         nome: 'Capacete Atualizado',
-      } as never);
+      });
 
       expect(service.update).toHaveBeenCalledWith(updated.id, {
         nome: 'Capacete Atualizado',
@@ -162,7 +162,7 @@ describe('EpisController', () => {
       service.update.mockRejectedValueOnce(new NotFoundException());
 
       await expect(
-        controller.update('inexistente', { nome: 'X' } as never),
+        controller.update('inexistente', { nome: 'X' }),
       ).rejects.toThrow(NotFoundException);
     });
   });

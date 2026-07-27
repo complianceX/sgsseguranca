@@ -27,7 +27,7 @@ function hasDangerousKey(value: unknown, depth = 0): boolean {
 
   if (typeof value !== 'object' || value === null) return false;
 
-  for (const key of Object.keys(value as Record<string, unknown>)) {
+  for (const key of Object.keys(value)) {
     if (DANGEROUS_KEYS.has(key)) return true;
     if (hasDangerousKey((value as Record<string, unknown>)[key], depth + 1)) {
       return true;

@@ -688,7 +688,6 @@ async function makeRedisClient(
       );
     } catch {
       sharedRedisBootstrapPromises.delete(connectionKey);
-      bootstrapPromise = undefined;
     }
   }
 

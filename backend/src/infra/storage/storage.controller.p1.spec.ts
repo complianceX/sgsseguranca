@@ -15,7 +15,6 @@
  */
 
 import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
-import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -35,7 +34,8 @@ import { PermissionsGuard } from '../../modules/auth/permissions.guard';
 // ─── Mocks de infra ────────────────────────────────────────────────────────
 
 const httpRequest = (nestApp: INestApplication) =>
-  request(nestApp.getHttpServer() as unknown as Server);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  request(nestApp.getHttpServer());
 
 const TENANT_ID = randomUUID();
 const QUARANTINE_KEY = `quarantine/${TENANT_ID}/${randomUUID()}.pdf`;

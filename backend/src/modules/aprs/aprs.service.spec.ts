@@ -987,7 +987,7 @@ describe('AprsService', () => {
       pdf_file_key: null,
       is_modelo: false,
       participants: [{ id: 'user-1' }],
-    } as unknown as Apr);
+    });
 
     const file = {
       originalname: 'apr-final.pdf',
@@ -1042,7 +1042,7 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     await expect(service.remove('apr-1', 'user-1')).rejects.toThrow(
       /Somente APRs pendentes e sem PDF final podem ser removidas\./,
@@ -1095,7 +1095,7 @@ describe('AprsService', () => {
       pdf_file_key: null,
       is_modelo: false,
       participants: [{ id: 'user-1' }, { id: 'user-2' }],
-    } as unknown as Apr);
+    });
     (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
       { user_id: 'user-1' },
     ]);
@@ -1129,14 +1129,14 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     await expect(
       service.update(
         'apr-1',
         {
           titulo: 'APR revisada fora do fluxo oficial',
-        } as never,
+        },
         'user-1',
       ),
     ).rejects.toThrow(
@@ -1150,7 +1150,7 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     await expect(
       service.reject('apr-1', 'user-1', 'Risco não aceito', {
@@ -1241,7 +1241,7 @@ describe('AprsService', () => {
       final_pdf_hash_sha256: 'a'.repeat(64),
       verification_code: 'APR-FINALIZE-1',
       pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
-    } as unknown as Apr);
+    });
 
     const result = await service.finalize('apr-finalize-1', 'user-1');
 
@@ -1263,7 +1263,7 @@ describe('AprsService', () => {
       numero: 'APR-001',
       versao: 1,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     await expect(service.createNewVersion('apr-1', 'user-1')).rejects.toThrow(
       'Somente APRs Aprovadas podem gerar nova versão.',
@@ -1438,7 +1438,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
-    } as unknown as Apr);
+    });
     (aprRepository as unknown as { manager: unknown }).manager = {
       getRepository: jest.fn(() => ({ find })),
     };
@@ -1479,7 +1479,7 @@ describe('AprsService', () => {
       elaborador_id: 'user-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     const riskItemRepository = {
       findOne: jest.fn().mockResolvedValue({
@@ -1560,7 +1560,7 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     const file = {
       originalname: 'evidence.jpg',
@@ -1594,7 +1594,7 @@ describe('AprsService', () => {
       final_pdf_hash_sha256: 'a'.repeat(64),
       verification_code: 'APR-ABC123',
       pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
-    } as unknown as Apr);
+    });
 
     await expect(
       service.reject('apr-1', 'user-1', 'Cancelamento tardio'),
@@ -1612,7 +1612,7 @@ describe('AprsService', () => {
       final_pdf_hash_sha256: 'a'.repeat(64),
       verification_code: 'APR-ABC123',
       pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
-    } as unknown as Apr);
+    });
 
     await expect(service.finalize('apr-1', 'user-1')).resolves.toEqual(
       expect.objectContaining({
@@ -1672,12 +1672,12 @@ describe('AprsService', () => {
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
       updated_at: updatedAt,
-    } as unknown as Apr);
+    });
 
     await expect(
       service.update('apr-1', {
         _conflict_guard_updated_at: '2026-01-01T09:00:00.000Z',
-      } as never),
+      }),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -1692,7 +1692,7 @@ describe('AprsService', () => {
       risk_items: [],
       itens_risco: [],
       participants: [],
-    } as unknown as Apr);
+    });
 
     aprRepository.manager.query.mockResolvedValue([]);
 
@@ -1702,7 +1702,7 @@ describe('AprsService', () => {
         {
           _conflict_guard_updated_at: '2026-01-01T10:00:00.200Z',
           titulo: 'APR Atualizada',
-        } as never,
+        },
         'user-1',
       ),
     ).resolves.toBeDefined();
@@ -1729,7 +1729,7 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
     (
       aprLogsRepository as unknown as { find: jest.Mock }
     ).find.mockResolvedValue(logs);
@@ -1755,7 +1755,7 @@ describe('AprsService', () => {
       status: AprStatus.APROVADA,
       pdf_file_key: null,
       parent_apr_id: null,
-    } as unknown as Apr);
+    });
     // buildAprWhere usa o contexto completo; aqui simulamos perda do tenant
     // no passo seguinte de carregamento do historico.
     (tenantService.getTenantId as jest.Mock).mockReturnValue(null);
@@ -1772,7 +1772,7 @@ describe('AprsService', () => {
       status: AprStatus.APROVADA,
       pdf_file_key: null,
       parent_apr_id: null,
-    } as unknown as Apr);
+    });
 
     const versions = [
       { id: 'apr-root', versao: 1, parent_apr_id: null },
@@ -1865,7 +1865,7 @@ describe('AprsService', () => {
         id: 'apr-1',
         company_id: 'company-1',
         risk_items: [],
-      } as unknown as Apr);
+      });
 
     const result = await service.validateCompliance('apr-1');
 

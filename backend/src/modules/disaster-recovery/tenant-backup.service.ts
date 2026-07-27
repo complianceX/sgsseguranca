@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -52,6 +52,15 @@ type SchemaMetadata = {
 };
 
 type TableRowsPayload = TenantBackupPayload['tables'][string];
+
+type BackupReadQuery = <Row extends Record<string, unknown>>(
+  sql: string,
+  parameters?: unknown[],
+) => Promise<Row[]>;
+
+type RestoreQueryExecutor = {
+  query: (sql: string, parameters?: unknown[]) => Promise<unknown>;
+};
 
 type CreateBackupOptions = {
   triggerSource: 'manual' | 'scheduled_daily';
@@ -108,6 +117,27 @@ const EXCLUDED_TABLES = new Set([
   'user_sessions',
   'typeorm_metadata',
 ]);
+
+// Tabelas protegidas por trigger contra UPDATE/DELETE. No overwrite, os
+// registros já existentes permanecem e os eventos ausentes do backup são
+// inseridos de forma idempotente. Isso preserva a cadeia forense mais recente
+// sem exigir session_replication_role=replica ou uma role SUPERUSER.
+const APPEND_ONLY_TABLES = new Set(['forensic_trail_events']);
+
+// Sessões não entram no backup por segurança, mas mantêm FKs para users. Elas
+// precisam ser revogadas antes do overwrite para que a restauração dos usuários
+// não seja bloqueada e para evitar sessões autenticadas contra estado anterior.
+const RESTORE_PURGE_TABLES = ['user_sessions'] as const;
+
+// forensic_trail_events referencia users e é append-only; apagar um usuário
+// acionaria ON DELETE SET NULL e o trigger bloquearia a mutação da trilha.
+// Usuários ausentes do snapshot são desativados por soft-delete, enquanto os
+// presentes são restaurados depois via UPSERT.
+const RESTORE_SOFT_DELETE_TABLES = new Set(['users', 'sites']);
+
+// Perfis relacionados são compartilhados/referenciados por usuários que não
+// podem ser removidos fisicamente. O UPSERT restaura seu estado sem quebrar FKs.
+const RESTORE_PRESERVE_TABLES = new Set(['profiles']);
 
 const EXCLUDED_COLUMNS_BY_TABLE = new Map<string, Set<string>>([
   [
@@ -182,7 +212,9 @@ export class TenantBackupService {
     });
 
     try {
-      const payload = await this.buildTenantBackupPayload(companyId, backupId);
+      const payload = await this.withTenantExportReadContext((query) =>
+        this.buildTenantBackupPayload(companyId, backupId, query),
+      );
       const serialized = Buffer.from(JSON.stringify(payload), 'utf8');
       const prepared = this.beforePersistBackup(serialized);
       const compressed = await gzipAsync(prepared);
@@ -431,42 +463,14 @@ export class TenantBackupService {
   async backupAllActiveTenants(
     requestedByUserId?: string,
   ): Promise<{ queued: string[] }> {
-    // companies tem RLS FORCE: a query precisa de contexto privilegiado.
-    // PrivilegedDbService usa sgs_admin (membro de sgs_rls_bypass); quando não
-    // configurado, cai no fallback via QueryRunner com SET LOCAL is_super_admin.
-    let rows: Array<{ id?: string }>;
-    if (this.privilegedDb.isEnabled()) {
-      rows = await this.privilegedDb.withPrivilegedClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          await client.query("SET LOCAL app.is_super_admin = 'true'");
-          const result = await client.query<{ id: string }>(
-            `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
-          );
-          await client.query('COMMIT');
-          return result.rows;
-        } catch (err) {
-          await client.query('ROLLBACK');
-          throw err;
-        }
-      });
-    } else {
-      const qr = this.dataSource.createQueryRunner();
-      await qr.connect();
-      await qr.startTransaction();
-      try {
-        await qr.query("SET LOCAL app.is_super_admin = 'true'");
-        rows = (await qr.query(
-          `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
-        )) as Array<{ id?: string }>;
-        await qr.commitTransaction();
-      } catch (err) {
-        await qr.rollbackTransaction();
-        throw err;
-      } finally {
-        await qr.release();
-      }
-    }
+    // companies tem RLS FORCE: a query precisa do mesmo contexto privilegiado
+    // usado pela exportacao. Cada backupTenant abre seu proprio snapshot
+    // consistente para todas as tabelas que compoem o payload.
+    const rows = await this.withTenantExportReadContext((query) =>
+      query<{ id?: string }>(
+        `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
+      ),
+    );
 
     const ids = rows
       .map((row) => row.id)
@@ -493,6 +497,106 @@ export class TenantBackupService {
     }
 
     return { queued: ids };
+  }
+
+  private async withTenantExportReadContext<T>(
+    operation: (query: BackupReadQuery) => Promise<T>,
+  ): Promise<T> {
+    if (this.privilegedDb.isEnabled()) {
+      return this.privilegedDb.withPrivilegedClient(async (client) => {
+        let transactionStarted = false;
+        try {
+          await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+          transactionStarted = true;
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+
+          const query: BackupReadQuery = async <
+            Row extends Record<string, unknown>,
+          >(
+            sql: string,
+            parameters?: unknown[],
+          ): Promise<Row[]> => {
+            const result = await client.query(sql, parameters);
+            return result.rows as Row[];
+          };
+
+          const result = await operation(query);
+          await client.query('COMMIT');
+          transactionStarted = false;
+          return result;
+        } catch (error) {
+          if (transactionStarted) {
+            try {
+              await client.query('ROLLBACK');
+            } catch (rollbackError) {
+              this.reportTenantExportCleanupFailure(
+                'tenant_export_privileged_rollback_failed',
+                rollbackError,
+              );
+            }
+          }
+          throw error;
+        }
+      });
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction('REPEATABLE READ');
+      await queryRunner.query('SET TRANSACTION READ ONLY');
+      await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
+
+      const query: BackupReadQuery = async <
+        Row extends Record<string, unknown>,
+      >(
+        sql: string,
+        parameters?: unknown[],
+      ): Promise<Row[]> => {
+        const rows: unknown = await queryRunner.query(sql, parameters);
+        return rows as Row[];
+      };
+
+      const result = await operation(query);
+      await queryRunner.commitTransaction();
+      return result;
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackError) {
+          this.reportTenantExportCleanupFailure(
+            'tenant_export_fallback_rollback_failed',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    } finally {
+      try {
+        await queryRunner.release();
+      } catch (releaseError) {
+        this.reportTenantExportCleanupFailure(
+          'tenant_export_query_runner_release_failed',
+          releaseError,
+        );
+      }
+    }
+  }
+
+  private reportTenantExportCleanupFailure(
+    event: string,
+    error: unknown,
+  ): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.warn({ event, message });
+    captureException(error, {
+      tags: {
+        module: 'disaster-recovery',
+        operation: 'tenant-export-cleanup',
+      },
+      extra: { event },
+    });
   }
 
   async pruneBackups(): Promise<{
@@ -580,10 +684,11 @@ export class TenantBackupService {
   private async buildTenantBackupPayload(
     companyId: string,
     backupId: string,
+    query: BackupReadQuery,
   ): Promise<TenantBackupPayload> {
-    const schema = await this.loadSchemaMetadata();
+    const schema = await this.loadSchemaMetadata(query);
     const exportedAt = new Date().toISOString();
-    const schemaVersion = await this.resolveSchemaVersion();
+    const schemaVersion = await this.resolveSchemaVersion(query);
 
     const tables = new Map<string, TableRowsPayload>();
 
@@ -592,6 +697,7 @@ export class TenantBackupService {
       'id',
       [companyId],
       schema,
+      query,
     );
     if (companyRows.length === 0) {
       throw new NotFoundException(`Empresa ${companyId} não encontrada.`);
@@ -612,6 +718,7 @@ export class TenantBackupService {
         'company_id',
         [companyId],
         schema,
+        query,
       );
       tables.set(table, {
         primaryKeyColumns: schema.primaryKeysByTable.get(table) ?? [],
@@ -623,6 +730,7 @@ export class TenantBackupService {
     await this.expandRelatedRowsByForeignKeys({
       tables,
       schema,
+      query,
     });
 
     const rowCounts: Record<string, number> = {};
@@ -665,6 +773,7 @@ export class TenantBackupService {
   private async expandRelatedRowsByForeignKeys(input: {
     tables: Map<string, TableRowsPayload>;
     schema: SchemaMetadata;
+    query: BackupReadQuery;
   }): Promise<void> {
     const queue = Array.from(input.tables.keys());
     const visited = new Set<string>();
@@ -708,6 +817,7 @@ export class TenantBackupService {
           relation.column,
           referenceValues,
           input.schema,
+          input.query,
         );
 
         if (rows.length === 0) {
@@ -993,73 +1103,122 @@ export class TenantBackupService {
   private async executeTenantRestore(
     input: RestoreExecutionInput,
   ): Promise<void> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction('SERIALIZABLE');
+    if (this.privilegedDb.isEnabled()) {
+      await this.privilegedDb.withPrivilegedClient(async (client) => {
+        let transactionStarted = false;
+        try {
+          await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+          transactionStarted = true;
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
 
-    try {
-      await queryRunner.query(`SET LOCAL lock_timeout = '5s'`);
-      await queryRunner.query(`SET LOCAL statement_timeout = '0'`);
-      await queryRunner.query(`SET LOCAL session_replication_role = replica`);
-
-      const tables = Object.keys(input.transformedPayload.tables);
-      const companiesPayload = input.transformedPayload.tables['companies'];
-      if (!companiesPayload || companiesPayload.rows.length === 0) {
-        throw new BadRequestException(
-          'Backup inválido: tabela companies ausente ou sem registros.',
-        );
-      }
-
-      if (input.mode === 'clone_to_new_tenant') {
-        await this.assertTargetCompanyDoesNotExist(
-          queryRunner,
-          input.targetCompanyId,
-        );
-      } else {
-        await this.cleanupTargetCompanyData({
-          queryRunner,
-          targetCompanyId: input.targetCompanyId,
-          payload: input.transformedPayload,
-          schema: input.schema,
-        });
-      }
-
-      await this.upsertCompanyRow(
-        queryRunner,
-        companiesPayload.rows[0],
-        input.mode,
-        input.targetCompanyId,
-      );
-
-      const insertionOrder = this.resolveInsertionOrder(
-        input.schema,
-        tables,
-      ).filter((table) => table !== 'companies');
-      for (const table of insertionOrder) {
-        const tablePayload = input.transformedPayload.tables[table];
-        if (!tablePayload || tablePayload.rows.length === 0) {
-          continue;
+          const executor: RestoreQueryExecutor = {
+            query: async (sql, parameters) => {
+              const result = await client.query(sql, parameters);
+              return result.rows as unknown[];
+            },
+          };
+          await this.executeTenantRestoreInTransaction(executor, input);
+          await client.query('COMMIT');
+          transactionStarted = false;
+        } catch (error) {
+          if (transactionStarted) {
+            try {
+              await client.query('ROLLBACK');
+            } catch (rollbackError) {
+              this.reportTenantExportCleanupFailure(
+                'tenant_restore_privileged_rollback_failed',
+                rollbackError,
+              );
+            }
+          }
+          throw error;
         }
-        await this.insertRows(
-          queryRunner,
-          table,
-          tablePayload.rows,
-          input.schema,
-        );
-      }
+      });
+      return;
+    }
 
-      await queryRunner.query(`SET LOCAL session_replication_role = DEFAULT`);
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction('SERIALIZABLE');
+      await this.executeTenantRestoreInTransaction(queryRunner, input);
       await queryRunner.commitTransaction();
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackError) {
+          this.reportTenantExportCleanupFailure(
+            'tenant_restore_fallback_rollback_failed',
+            rollbackError,
+          );
+        }
+      }
       throw error;
     } finally {
-      await queryRunner.release();
+      try {
+        await queryRunner.release();
+      } catch (releaseError) {
+        this.reportTenantExportCleanupFailure(
+          'tenant_restore_query_runner_release_failed',
+          releaseError,
+        );
+      }
+    }
+  }
+
+  private async executeTenantRestoreInTransaction(
+    executor: RestoreQueryExecutor,
+    input: RestoreExecutionInput,
+  ): Promise<void> {
+    await executor.query(`SET LOCAL lock_timeout = '5s'`);
+    await executor.query(`SET LOCAL statement_timeout = '0'`);
+
+    const tables = Object.keys(input.transformedPayload.tables);
+    const companiesPayload = input.transformedPayload.tables['companies'];
+    if (!companiesPayload || companiesPayload.rows.length === 0) {
+      throw new BadRequestException(
+        'Backup inválido: tabela companies ausente ou sem registros.',
+      );
+    }
+
+    if (input.mode === 'clone_to_new_tenant') {
+      await this.assertTargetCompanyDoesNotExist(
+        executor,
+        input.targetCompanyId,
+      );
+    } else {
+      await this.cleanupTargetCompanyData({
+        queryRunner: executor,
+        targetCompanyId: input.targetCompanyId,
+        payload: input.transformedPayload,
+        schema: input.schema,
+      });
+    }
+
+    await this.upsertCompanyRow(
+      executor,
+      companiesPayload.rows[0],
+      input.mode,
+      input.targetCompanyId,
+      input.schema,
+    );
+
+    const insertionOrder = this.resolveInsertionOrder(
+      input.schema,
+      tables,
+    ).filter((table) => table !== 'companies');
+    for (const table of insertionOrder) {
+      const tablePayload = input.transformedPayload.tables[table];
+      if (!tablePayload || tablePayload.rows.length === 0) {
+        continue;
+      }
+      await this.insertRows(executor, table, tablePayload.rows, input.schema);
     }
   }
 
   private async cleanupTargetCompanyData(input: {
-    queryRunner: QueryRunner;
+    queryRunner: RestoreQueryExecutor;
     targetCompanyId: string;
     payload: TenantBackupPayload;
     schema: SchemaMetadata;
@@ -1074,13 +1233,49 @@ export class TenantBackupService {
       );
     }
 
+    for (const table of RESTORE_PURGE_TABLES) {
+      const columns = input.schema.columnsByTable.get(table);
+      if (!columns?.has('company_id')) {
+        continue;
+      }
+      await input.queryRunner.query(
+        `DELETE FROM ${this.quoteIdentifier(table)} WHERE ${this.quoteIdentifier('company_id')} = $1`,
+        [input.targetCompanyId],
+      );
+    }
+
     const tables = Object.keys(input.payload.tables);
     const deletionOrder = this.resolveInsertionOrder(input.schema, tables)
       .reverse()
       .filter((table) => table !== 'companies');
 
     for (const table of deletionOrder) {
+      if (APPEND_ONLY_TABLES.has(table) || RESTORE_PRESERVE_TABLES.has(table)) {
+        continue;
+      }
       const columns = input.schema.columnsByTable.get(table) ?? new Set();
+      if (
+        RESTORE_SOFT_DELETE_TABLES.has(table) &&
+        columns.has('company_id') &&
+        columns.has('deleted_at')
+      ) {
+        const tablePayload = input.payload.tables[table];
+        const retainedIds = (tablePayload?.rows ?? [])
+          .map((row) => row.id)
+          .filter((value): value is string => typeof value === 'string');
+        await input.queryRunner.query(
+          `
+            UPDATE ${this.quoteIdentifier(table)}
+            SET
+              ${this.quoteIdentifier('deleted_at')} = COALESCE(${this.quoteIdentifier('deleted_at')}, now())
+              ${columns.has('status') ? `, ${this.quoteIdentifier('status')} = false` : ''}
+            WHERE ${this.quoteIdentifier('company_id')} = $1
+              AND NOT (${this.quoteIdentifier('id')} = ANY($2::uuid[]))
+          `,
+          [input.targetCompanyId, retainedIds],
+        );
+        continue;
+      }
       if (columns.has('company_id')) {
         await input.queryRunner.query(
           `DELETE FROM ${this.quoteIdentifier(table)} WHERE ${this.quoteIdentifier('company_id')} = $1`,
@@ -1112,7 +1307,7 @@ export class TenantBackupService {
   }
 
   private async deleteRowsByPrimaryKeys(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     table: string,
     primaryKeyColumns: string[],
     rows: Array<Record<string, unknown>>,
@@ -1161,10 +1356,11 @@ export class TenantBackupService {
   }
 
   private async upsertCompanyRow(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     row: Record<string, unknown>,
     mode: TenantRestoreMode,
     targetCompanyId: string,
+    schema: SchemaMetadata,
   ): Promise<void> {
     const columns = Object.keys(row);
     if (columns.length === 0) {
@@ -1178,12 +1374,7 @@ export class TenantBackupService {
 
     const existing = await this.companyExists(queryRunner, targetCompanyId);
     if (!existing) {
-      await this.insertRows(
-        queryRunner,
-        'companies',
-        [row],
-        await this.loadSchemaMetadata(),
-      );
+      await this.insertRows(queryRunner, 'companies', [row], schema);
       return;
     }
 
@@ -1195,7 +1386,6 @@ export class TenantBackupService {
     const assignments = updatableColumns.map(
       (column, index) => `${this.quoteIdentifier(column)} = $${index + 1}`,
     );
-    const schema = await this.loadSchemaMetadata();
     const values = updatableColumns.map((column) =>
       this.prepareColumnValue('companies', column, row[column], schema),
     );
@@ -1216,7 +1406,7 @@ export class TenantBackupService {
   }
 
   private async companyExists(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     companyId: string,
   ): Promise<boolean> {
     const rows = (await queryRunner.query(
@@ -1227,7 +1417,7 @@ export class TenantBackupService {
   }
 
   private async assertTargetCompanyDoesNotExist(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     targetCompanyId: string,
   ): Promise<void> {
     const exists = await this.companyExists(queryRunner, targetCompanyId);
@@ -1257,6 +1447,13 @@ export class TenantBackupService {
 
     for (const fk of schema.foreignKeys) {
       if (!nodes.has(fk.table) || !nodes.has(fk.referencedTable)) {
+        continue;
+      }
+      // Uma FK autorreferente (ex.: aprs.parent_apr_id -> aprs.id) não cria
+      // dependência entre tabelas. Mantê-la no grafo impede o nó de chegar a
+      // grau zero e joga todo o subgrafo para o fallback alfabético, quebrando
+      // a ordem reversa de exclusão (users podia ser removida antes de aprs).
+      if (fk.table === fk.referencedTable) {
         continue;
       }
       dependencies.get(fk.table)?.add(fk.referencedTable);
@@ -1295,7 +1492,7 @@ export class TenantBackupService {
   }
 
   private async insertRows(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     table: string,
     rows: Array<Record<string, unknown>>,
     schema: SchemaMetadata,
@@ -1346,31 +1543,66 @@ export class TenantBackupService {
         valuesSql.push(`(${placeholders.join(', ')})`);
       }
 
+      const primaryKeyColumns = (
+        schema.primaryKeysByTable.get(table) ?? []
+      ).filter((column) => columns.includes(column));
+      const updatableColumns = columns.filter(
+        (column) => !primaryKeyColumns.includes(column),
+      );
+      let conflictClause = '';
+      if (primaryKeyColumns.length > 0) {
+        const conflictTarget = primaryKeyColumns
+          .map((column) => this.quoteIdentifier(column))
+          .join(', ');
+        if (APPEND_ONLY_TABLES.has(table) || updatableColumns.length === 0) {
+          conflictClause = ` ON CONFLICT (${conflictTarget}) DO NOTHING`;
+        } else {
+          const assignments = updatableColumns
+            .map(
+              (column) =>
+                `${this.quoteIdentifier(column)} = EXCLUDED.${this.quoteIdentifier(column)}`,
+            )
+            .join(', ');
+          conflictClause = ` ON CONFLICT (${conflictTarget}) DO UPDATE SET ${assignments}`;
+        }
+      }
       const sql = `INSERT INTO ${this.quoteIdentifier(table)} (${columns
         .map((column) => this.quoteIdentifier(column))
-        .join(', ')}) VALUES ${valuesSql.join(', ')}`;
+        .join(', ')}) VALUES ${valuesSql.join(', ')}${conflictClause}`;
 
       await queryRunner.query(sql, params);
     }
   }
 
-  private async loadSchemaMetadata(): Promise<SchemaMetadata> {
+  private async loadSchemaMetadata(
+    query?: BackupReadQuery,
+  ): Promise<SchemaMetadata> {
     if (this.schemaMetadataCache) {
       return this.schemaMetadataCache;
     }
 
-    const columnRows = (await this.dataSource.query(
-      `
-        SELECT table_name, column_name
-             , data_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-      `,
-    )) as unknown as Array<{
+    const read = query ?? this.createDataSourceReadQuery();
+    const columnRows = await read<{
       table_name: string;
       column_name: string;
       data_type: string;
-    }>;
+    }>(
+      `
+        SELECT
+          cols.table_name,
+          cols.column_name,
+          cols.data_type
+        FROM information_schema.columns cols
+        JOIN pg_namespace ns
+          ON ns.nspname = cols.table_schema
+        JOIN pg_class rel
+          ON rel.relnamespace = ns.oid
+         AND rel.relname = cols.table_name
+        WHERE cols.table_schema = 'public'
+          AND rel.relkind IN ('r', 'p')
+          AND NOT rel.relispartition
+      `,
+    );
 
     const columnsByTable = new Map<string, Set<string>>();
     const jsonColumnsByTable = new Map<string, Set<string>>();
@@ -1397,7 +1629,10 @@ export class TenantBackupService {
       .filter((table) => !EXCLUDED_TABLES.has(table))
       .sort((a, b) => a.localeCompare(b));
 
-    const primaryKeyRows = (await this.dataSource.query(
+    const primaryKeyRows = await read<{
+      table_name: string;
+      column_name: string;
+    }>(
       `
         SELECT
           tc.table_name,
@@ -1411,10 +1646,7 @@ export class TenantBackupService {
           AND tc.constraint_type = 'PRIMARY KEY'
         ORDER BY tc.table_name, kcu.ordinal_position
       `,
-    )) as unknown as Array<{
-      table_name: string;
-      column_name: string;
-    }>;
+    );
 
     const primaryKeysByTable = new Map<string, string[]>();
     for (const row of primaryKeyRows) {
@@ -1423,29 +1655,43 @@ export class TenantBackupService {
       primaryKeysByTable.set(row.table_name, current);
     }
 
-    const foreignKeyRows = (await this.dataSource.query(
-      `
-        SELECT
-          tc.table_name AS table_name,
-          kcu.column_name AS column_name,
-          ccu.table_name AS referenced_table_name,
-          ccu.column_name AS referenced_column_name
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name
-         AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-          ON ccu.constraint_name = tc.constraint_name
-         AND ccu.table_schema = tc.table_schema
-        WHERE tc.table_schema = 'public'
-          AND tc.constraint_type = 'FOREIGN KEY'
-      `,
-    )) as unknown as Array<{
+    const foreignKeyRows = await read<{
       table_name: string;
       column_name: string;
       referenced_table_name: string;
       referenced_column_name: string;
-    }>;
+    }>(
+      `
+        SELECT
+          child.relname AS table_name,
+          child_attribute.attname AS column_name,
+          parent.relname AS referenced_table_name,
+          parent_attribute.attname AS referenced_column_name
+        FROM pg_constraint constraint_row
+        JOIN pg_class child
+          ON child.oid = constraint_row.conrelid
+        JOIN pg_namespace child_namespace
+          ON child_namespace.oid = child.relnamespace
+        JOIN pg_class parent
+          ON parent.oid = constraint_row.confrelid
+        JOIN LATERAL unnest(constraint_row.conkey)
+          WITH ORDINALITY child_key(attnum, ordinality)
+          ON true
+        JOIN LATERAL unnest(constraint_row.confkey)
+          WITH ORDINALITY parent_key(attnum, ordinality)
+          ON parent_key.ordinality = child_key.ordinality
+        JOIN pg_attribute child_attribute
+          ON child_attribute.attrelid = child.oid
+         AND child_attribute.attnum = child_key.attnum
+        JOIN pg_attribute parent_attribute
+          ON parent_attribute.attrelid = parent.oid
+         AND parent_attribute.attnum = parent_key.attnum
+        WHERE constraint_row.contype = 'f'
+          AND child_namespace.nspname = 'public'
+          AND NOT child.relispartition
+          AND NOT parent.relispartition
+      `,
+    );
 
     const foreignKeys: SchemaForeignKey[] = foreignKeyRows.map((row) => ({
       table: row.table_name,
@@ -1465,19 +1711,31 @@ export class TenantBackupService {
     return this.schemaMetadataCache;
   }
 
-  private async resolveSchemaVersion(): Promise<string | null> {
+  private createDataSourceReadQuery(): BackupReadQuery {
+    return async <Row extends Record<string, unknown>>(
+      sql: string,
+      parameters?: unknown[],
+    ): Promise<Row[]> => {
+      const rows: unknown = await this.dataSource.query(sql, parameters);
+      return rows as Row[];
+    };
+  }
+
+  private async resolveSchemaVersion(
+    query: BackupReadQuery,
+  ): Promise<string | null> {
     try {
-      const migrationTableLookup = (await this.dataSource.query(
-        `SELECT to_regclass('public.migrations') AS migration_table`,
-      )) as unknown as Array<{ migration_table?: unknown }>;
+      const migrationTableLookup = await query<{
+        migration_table?: unknown;
+      }>(`SELECT to_regclass('public.migrations') AS migration_table`);
       const migrationTable = migrationTableLookup[0]?.migration_table;
       if (typeof migrationTable !== 'string' || migrationTable.length === 0) {
         return null;
       }
 
-      const rows = (await this.dataSource.query(
+      const rows = await query<{ name?: unknown }>(
         `SELECT name FROM "migrations" ORDER BY "timestamp" DESC LIMIT 1`,
-      )) as unknown as Array<{ name?: unknown }>;
+      );
       const name = rows[0]?.name;
       return typeof name === 'string' ? name : null;
     } catch {
@@ -1490,15 +1748,14 @@ export class TenantBackupService {
     column: string,
     values: string[],
     schema: SchemaMetadata,
+    query: BackupReadQuery,
   ): Promise<Array<Record<string, unknown>>> {
     if (values.length === 0) {
       return [];
     }
 
     const sql = `SELECT * FROM ${this.quoteIdentifier(table)} WHERE CAST(${this.quoteIdentifier(column)} AS text) = ANY($1::text[])`;
-    const rows = (await this.dataSource.query(sql, [
-      values,
-    ])) as unknown as Array<Record<string, unknown>>;
+    const rows = await query<Record<string, unknown>>(sql, [values]);
     return rows.map((row) => this.sanitizeRowForExport(table, row, schema));
   }
 

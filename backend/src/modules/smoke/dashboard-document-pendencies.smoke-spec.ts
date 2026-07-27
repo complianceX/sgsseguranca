@@ -134,7 +134,7 @@ describe('Dashboard document pendencies smoke', () => {
           permissions: ['can_view_dashboard', 'can_view_pt'],
         },
         tenant: { companyId: COMPANY_ID },
-      } as never,
+      },
       {
         actionKey: 'open_final_pdf',
         module: 'pt',
@@ -184,7 +184,7 @@ describe('Dashboard document pendencies smoke', () => {
           userId: USER_ID,
           permissions: ['can_import_documents'],
         },
-      } as never,
+      },
       DOCUMENT_ID,
     );
 

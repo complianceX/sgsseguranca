@@ -49,8 +49,7 @@ const getFirstCreateArg = (
   createMock: jest.Mock,
 ): Partial<MedicalExam> & { company_id?: string } => {
   const firstCall = createMock.mock.calls[0] as
-    | [Partial<MedicalExam>]
-    | undefined;
+    [Partial<MedicalExam>] | undefined;
 
   if (!firstCall) {
     throw new Error('repository.create não foi chamado.');

@@ -153,7 +153,7 @@ export class AuthPrincipalService {
     const secret = resolveAccessTokenSecret(this.configService);
     const verified = this.verifyJwt(token, secret);
     if (verified && typeof verified === 'object' && !Array.isArray(verified)) {
-      return verified as Record<string, unknown>;
+      return verified;
     }
     throw new UnauthorizedException('Token inválido');
   }

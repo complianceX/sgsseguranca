@@ -21,11 +21,7 @@ type AuditActionItem = {
 type PendingQueuePriority = 'critical' | 'high' | 'medium';
 type PendingQueueCategory = 'documents' | 'health' | 'actions';
 type PendingQueueSlaStatus =
-  | 'breached'
-  | 'due_today'
-  | 'due_soon'
-  | 'on_track'
-  | 'unscheduled';
+  'breached' | 'due_today' | 'due_soon' | 'on_track' | 'unscheduled';
 
 type PendingQueueItem = {
   id: string;

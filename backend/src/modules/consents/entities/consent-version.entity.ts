@@ -8,11 +8,7 @@ import {
 } from 'typeorm';
 
 export type ConsentType =
-  | 'privacy'
-  | 'terms'
-  | 'cookies'
-  | 'ai_processing'
-  | 'marketing';
+  'privacy' | 'terms' | 'cookies' | 'ai_processing' | 'marketing';
 
 /**
  * Versão imutável de um texto jurídico aceito por titulares.

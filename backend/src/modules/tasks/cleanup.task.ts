@@ -54,8 +54,8 @@ export class CleanupTask {
     // `audit_logs` tem RLS com FORCE. Este cron roda fora de requisição HTTP
     // sem contexto de tenant — a limpeza é intencionalmente global (todos os
     // tenants), então exige bypass de RLS.
-    let eligible = 0;
-    let deleted = 0;
+    let eligible: number;
+    let deleted: number;
 
     if (this.privilegedDb.isEnabled()) {
       ({ eligible, deleted } = await this.privilegedDb.withPrivilegedClient(

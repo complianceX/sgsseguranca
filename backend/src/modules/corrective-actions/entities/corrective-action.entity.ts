@@ -12,11 +12,7 @@ import { User } from '../../users/entities/user.entity';
 
 export type CorrectiveActionSource = 'manual' | 'nonconformity' | 'audit';
 export type CorrectiveActionStatus =
-  | 'open'
-  | 'in_progress'
-  | 'done'
-  | 'overdue'
-  | 'cancelled';
+  'open' | 'in_progress' | 'done' | 'overdue' | 'cancelled';
 export type CorrectiveActionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 @Entity('corrective_actions')

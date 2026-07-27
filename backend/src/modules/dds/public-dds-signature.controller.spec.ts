@@ -1,11 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import { PublicDdsSignatureController } from './public-dds-signature.controller';
-import type {
-  DdsSignatureInviteService,
-  PublicDdsSignatureContext,
-  PublicDdsSignatureSubmitResult,
-} from './dds-signature-invite.service';
+import type { DdsSignatureInviteService } from './dds-signature-invite.service';
 
 describe('PublicDdsSignatureController', () => {
   let controller: PublicDdsSignatureController;
@@ -28,7 +24,7 @@ describe('PublicDdsSignatureController', () => {
   it('retorna contexto público quando token é válido', async () => {
     (signatureInviteService.getPublicContext as jest.Mock).mockResolvedValue({
       inviteId: 'invite-1',
-    } as PublicDdsSignatureContext);
+    });
 
     await expect(controller.getContext('aaa.bbb.ccc')).resolves.toEqual({
       inviteId: 'invite-1',
@@ -46,7 +42,7 @@ describe('PublicDdsSignatureController', () => {
       signatureId: 'sig-1',
       signatureHash: 'a'.repeat(64),
       signedAt: new Date().toISOString(),
-    } as PublicDdsSignatureSubmitResult);
+    });
     const req = {
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' },

@@ -631,7 +631,7 @@ export class MfaService {
       throw new ForbiddenException('Token de step-up inválido ou já utilizado');
     }
 
-    let state: StepUpState | null = null;
+    let state: StepUpState | null;
     try {
       state = JSON.parse(stored) as StepUpState;
     } catch {

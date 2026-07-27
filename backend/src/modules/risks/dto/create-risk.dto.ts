@@ -69,11 +69,7 @@ export class CreateRiskDto {
   ])
   @IsOptional()
   control_hierarchy?:
-    | 'ELIMINATION'
-    | 'SUBSTITUTION'
-    | 'ENGINEERING'
-    | 'ADMINISTRATIVE'
-    | 'PPE';
+    'ELIMINATION' | 'SUBSTITUTION' | 'ENGINEERING' | 'ADMINISTRATIVE' | 'PPE';
 
   @IsString()
   @IsOptional()

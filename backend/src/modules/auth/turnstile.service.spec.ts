@@ -74,7 +74,7 @@ describe('TurnstileService', () => {
         action: 'login',
         hostname: 'app.sgsseguranca.com.br',
       },
-    } as never);
+    });
     const service = new TurnstileService(createConfigService());
 
     await expect(
@@ -91,7 +91,7 @@ describe('TurnstileService', () => {
         success: false,
         'error-codes': ['timeout-or-duplicate'],
       },
-    } as never);
+    });
     const service = new TurnstileService(createConfigService());
 
     await expect(service.assertHuman('token-123')).rejects.toBeInstanceOf(
@@ -105,7 +105,7 @@ describe('TurnstileService', () => {
         success: true,
         hostname: 'evil.example.com',
       },
-    } as never);
+    });
     const service = new TurnstileService(createConfigService());
 
     await expect(service.assertHuman('token-123')).rejects.toBeInstanceOf(
@@ -133,7 +133,7 @@ describe('TurnstileService', () => {
           action: 'login',
           hostname: 'app.sgsseguranca.com.br',
         },
-      } as never);
+      });
     const service = new TurnstileService(createConfigService());
 
     await expect(

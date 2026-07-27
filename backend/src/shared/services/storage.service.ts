@@ -231,7 +231,7 @@ export class StorageService {
     if (isReadableBody(body)) {
       const chunks: Buffer[] = [];
       for await (const chunk of body) {
-        chunks.push(toBufferChunk(chunk));
+        chunks.push(toBufferChunk(chunk as Buffer | Uint8Array | string));
       }
       return Buffer.concat(chunks);
     }

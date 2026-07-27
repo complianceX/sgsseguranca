@@ -23,9 +23,7 @@ import {
 
 type ResolveDashboardDocumentPendencyActionInput = {
   actionKey:
-    | 'open_final_pdf'
-    | 'open_governed_video'
-    | 'open_governed_attachment';
+    'open_final_pdf' | 'open_governed_video' | 'open_governed_attachment';
   module: string;
   documentId: string;
   attachmentId?: string;

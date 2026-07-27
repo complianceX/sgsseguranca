@@ -86,7 +86,7 @@ describe('AprRulesEngineService', () => {
         triggerCondition: { type: 'APR_SEM_RISCO' },
       }),
     ]);
-    const apr = makeApr({ risk_items: [] } as never);
+    const apr = makeApr({ risk_items: [] });
     const result = await service.validate(apr);
 
     expect(result.isValid).toBe(false);
@@ -102,7 +102,7 @@ describe('AprRulesEngineService', () => {
         triggerCondition: { type: 'APR_SEM_RISCO' },
       }),
     ]);
-    const apr = makeApr({ risk_items: [] } as never);
+    const apr = makeApr({ risk_items: [] });
     const result = await service.validate(apr);
 
     expect(result.isValid).toBe(true);
@@ -120,7 +120,7 @@ describe('AprRulesEngineService', () => {
         }),
       ),
     );
-    const apr = makeApr({ risk_items: [] } as never);
+    const apr = makeApr({ risk_items: [] });
     const result = await service.validate(apr);
 
     expect(result.score).toBe(0);
@@ -139,7 +139,7 @@ describe('AprRulesEngineService', () => {
         },
       }),
     ]);
-    const apr = makeApr({ tipo_atividade: 'Trabalho em altura' } as never);
+    const apr = makeApr({ tipo_atividade: 'Trabalho em altura' });
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(1);
   });
@@ -157,7 +157,7 @@ describe('AprRulesEngineService', () => {
         },
       }),
     ]);
-    const apr = makeApr({ tipo_atividade: 'Trabalho em altura' } as never);
+    const apr = makeApr({ tipo_atividade: 'Trabalho em altura' });
     const item = makeRiskItem({ epi: 'Talabarte de posicionamento' });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
@@ -175,7 +175,7 @@ describe('AprRulesEngineService', () => {
         },
       }),
     ]);
-    const apr = makeApr({ tipo_atividade: 'Manutenção elétrica' } as never);
+    const apr = makeApr({ tipo_atividade: 'Manutenção elétrica' });
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(1);
   });
@@ -192,7 +192,7 @@ describe('AprRulesEngineService', () => {
     ]);
     const apr = makeApr({
       tipo_atividade: 'Entrada em espaço confinado',
-    } as never);
+    });
     const item = makeRiskItem({ permissao_trabalho: null });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
@@ -211,7 +211,7 @@ describe('AprRulesEngineService', () => {
     ]);
     const apr = makeApr({
       tipo_atividade: 'Entrada em espaço confinado',
-    } as never);
+    });
     const item = makeRiskItem({ permissao_trabalho: 'PT-2026-001' });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
@@ -267,7 +267,7 @@ describe('AprRulesEngineService', () => {
         triggerCondition: { type: 'SEM_RESPONSAVEL_TECNICO' },
       }),
     ]);
-    const apr = makeApr({ responsavel_tecnico_nome: '' } as never);
+    const apr = makeApr({ responsavel_tecnico_nome: '' });
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(1);
   });
@@ -278,7 +278,7 @@ describe('AprRulesEngineService', () => {
         triggerCondition: { type: 'APR_SEM_RISCO' },
       }),
     ]);
-    const apr = makeApr({ risk_items: [] } as never);
+    const apr = makeApr({ risk_items: [] });
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(1);
   });
@@ -348,7 +348,7 @@ describe('AprRulesEngineService', () => {
         triggerCondition: { type: 'APR_SEM_RISCO' },
       }),
     ]);
-    const apr = makeApr({ risk_items: [] } as never);
+    const apr = makeApr({ risk_items: [] });
     const result = await service.validate(apr);
     // RULE_OK should still fire despite RULE_BAD potentially erroring
     expect(result.blockers.some((b) => b.ruleCode === 'RULE_OK')).toBe(true);

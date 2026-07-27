@@ -12,7 +12,6 @@ import { randomUUID } from 'node:crypto';
 import {
   type EntityManager,
   type EntityTarget,
-  type FindOptionsWhere,
   DataSource,
   In,
   IsNull,
@@ -1211,7 +1210,7 @@ export class SignaturesService {
         where: {
           id: input.documentId,
           company_id: scope.companyId,
-        } as FindOptionsWhere<SiteScopedSignatureDocument>,
+        },
         select: ['id', 'company_id', 'site_id'],
       });
 
@@ -1575,8 +1574,7 @@ export class SignaturesService {
       (signature.integrity_payload as Record<string, unknown> | null) || null;
     const documentBinding =
       (integrityPayload?.document_binding as
-        | Record<string, unknown>
-        | undefined) || undefined;
+        Record<string, unknown> | undefined) || undefined;
 
     const verificationMode = this.isKnownVerificationMode(
       integrityPayload?.verification_mode,

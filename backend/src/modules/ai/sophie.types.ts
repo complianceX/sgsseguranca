@@ -273,9 +273,7 @@ export type SophiePhotographicReportSummaryJsonResponse = {
 };
 
 export type AiAnalysisResult =
-  | AnalyzeAprResponse
-  | AnalyzePtResponse
-  | SophieImageAnalysisJsonResponse;
+  AnalyzeAprResponse | AnalyzePtResponse | SophieImageAnalysisJsonResponse;
 
 export type SophieTaskJsonResponseMap = {
   insights: SophieInsightsJsonResponse;

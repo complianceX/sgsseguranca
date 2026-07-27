@@ -3,7 +3,6 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DocumentDownloadController } from './document-download.controller';
@@ -16,8 +15,8 @@ const mockSecurityAudit: Partial<SecurityAuditService> = {
   bruteForceBlocked: jest.fn(),
 };
 
-const httpRequest = (app: INestApplication) =>
-  request(app.getHttpServer() as unknown as Server);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+const httpRequest = (app: INestApplication) => request(app.getHttpServer());
 
 describe('DocumentDownloadController', () => {
   beforeEach(() => {

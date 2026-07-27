@@ -6,13 +6,12 @@ import type { AuthRedisService } from '../../shared/redis/redis.service';
 describe('BruteForceService', () => {
   const originalEnv = { ...process.env };
 
-  const createSut = (
-    setNxResult: 'OK' | null = 'OK',
-  ) => {
+  const createSut = (setNxResult: 'OK' | null = 'OK') => {
     // Simula resultado do MULTI exec: [[null, del_count], [null, set_nx_result]]
-    const multiExec = jest
-      .fn()
-      .mockResolvedValue([[null, 1], [null, setNxResult]]);
+    const multiExec = jest.fn().mockResolvedValue([
+      [null, 1],
+      [null, setNxResult],
+    ]);
     const multiSet = jest.fn().mockReturnValue({ exec: multiExec });
     const multiDel = jest
       .fn()
@@ -84,7 +83,10 @@ describe('BruteForceService', () => {
     client.eval.mockResolvedValueOnce(4); // count > max
 
     const forensicSpy = jest
-      .spyOn(service as unknown as { recordBlockEvent: jest.Mock }, 'recordBlockEvent')
+      .spyOn(
+        service as unknown as { recordBlockEvent: jest.Mock },
+        'recordBlockEvent',
+      )
       .mockResolvedValue(undefined);
 
     await service.registerCpfFailure('12345678900');

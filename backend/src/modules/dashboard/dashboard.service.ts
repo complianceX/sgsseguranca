@@ -2135,9 +2135,7 @@ export class DashboardService {
 
   async resolveDocumentPendencyAction(input: {
     actionKey:
-      | 'open_final_pdf'
-      | 'open_governed_video'
-      | 'open_governed_attachment';
+      'open_final_pdf' | 'open_governed_video' | 'open_governed_attachment';
     module: string;
     documentId: string;
     attachmentId?: string;
@@ -3028,11 +3026,7 @@ export class DashboardService {
     companyId: string;
     queryType: DashboardRevalidateQueryType;
     outcome:
-      | 'redis_hit'
-      | 'snapshot_hit'
-      | 'stale_served'
-      | 'live_build'
-      | 'bypass';
+      'redis_hit' | 'snapshot_hit' | 'stale_served' | 'live_build' | 'bypass';
     source: DashboardMetaSource;
   }): void {
     try {

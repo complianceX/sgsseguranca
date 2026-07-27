@@ -102,7 +102,7 @@ describe('TrainingsService — validações de cadastro', () => {
           user_id: USER_ID,
           data_conclusao: '2025-06-01',
           data_vencimento: '2025-05-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -115,7 +115,7 @@ describe('TrainingsService — validações de cadastro', () => {
           user_id: USER_ID,
           data_conclusao: '2025-06-01',
           data_vencimento: '2025-06-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -129,7 +129,7 @@ describe('TrainingsService — validações de cadastro', () => {
           user_id: USER_ID,
           data_conclusao: '2025-01-01',
           data_vencimento: '2026-01-01',
-        } as never),
+        }),
       ).resolves.toBeDefined();
     });
 
@@ -195,7 +195,7 @@ describe('TrainingsService — validações de cadastro', () => {
       await expect(
         service.update('training-uuid-1', {
           data_vencimento: '2025-05-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -208,7 +208,7 @@ describe('TrainingsService — validações de cadastro', () => {
       await expect(
         service.update('training-uuid-1', {
           data_conclusao: '2025-07-01',
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -223,7 +223,7 @@ describe('TrainingsService — validações de cadastro', () => {
         service.update('training-uuid-1', {
           nome: 'NR-35 Atualizado',
           data_vencimento: '2027-01-01',
-        } as never),
+        }),
       ).resolves.toBeDefined();
     });
 
@@ -237,7 +237,7 @@ describe('TrainingsService — validações de cadastro', () => {
       await expect(
         service.update('training-uuid-1', {
           nome: 'NR-35 Atualizado',
-        } as never),
+        }),
       ).resolves.toBeDefined();
     });
 
@@ -246,7 +246,7 @@ describe('TrainingsService — validações de cadastro', () => {
       trainingsRepository.findOne.mockResolvedValueOnce(null);
 
       await expect(
-        service.update('inexistente', { nome: 'X' } as never),
+        service.update('inexistente', { nome: 'X' }),
       ).rejects.toThrow(NotFoundException);
     });
   });

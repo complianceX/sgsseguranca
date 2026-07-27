@@ -531,10 +531,7 @@ export class SstToolsExecutor {
           status.toLowerCase(),
         )
         ? (status.toLowerCase() as
-            | 'rascunho'
-            | 'publicado'
-            | 'auditado'
-            | 'arquivado')
+            'rascunho' | 'publicado' | 'auditado' | 'arquivado')
         : undefined
       : undefined;
 

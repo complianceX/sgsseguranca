@@ -2136,7 +2136,7 @@ export class AprsPdfService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     let availability: AprPdfAccessAvailability = 'ready';
     let message: string | null = null;
     try {

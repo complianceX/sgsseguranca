@@ -327,11 +327,7 @@ export class PublicDdsValidationController {
     code: string;
     companyId: string | null;
     outcome:
-      | 'success'
-      | 'legacy'
-      | 'invalid_token'
-      | 'module_mismatch'
-      | 'blocked';
+      'success' | 'legacy' | 'invalid_token' | 'module_mismatch' | 'blocked';
     suspiciousReasons: SuspiciousReason[];
     blocked: boolean;
     tokenProtected: boolean;

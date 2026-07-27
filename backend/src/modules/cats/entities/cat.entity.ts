@@ -21,10 +21,7 @@ export type CatStatus = 'aberta' | 'investigacao' | 'fechada';
 export type CatTipo = 'tipico' | 'trajeto' | 'doenca_ocupacional' | 'outros';
 export type CatGravidade = 'leve' | 'moderada' | 'grave' | 'fatal';
 export type CatAttachmentCategory =
-  | 'abertura'
-  | 'investigacao'
-  | 'fechamento'
-  | 'geral';
+  'abertura' | 'investigacao' | 'fechamento' | 'geral';
 
 export interface CatAttachment {
   id: string;

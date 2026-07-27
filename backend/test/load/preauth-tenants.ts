@@ -56,7 +56,7 @@ async function main(): Promise<void> {
     });
 
     const payloadText = await res.text();
-    let payload: Record<string, unknown> | null = null;
+    let payload: Record<string, unknown> | null;
     try {
       payload = JSON.parse(payloadText) as Record<string, unknown>;
     } catch {

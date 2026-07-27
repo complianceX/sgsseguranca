@@ -24,7 +24,7 @@ export class DatabaseConnectionManager {
         this.logger.warn({
           event: 'query_runner_release_failed',
           message,
-        } as Record<string, unknown>);
+        });
       }
     }
   }
@@ -55,7 +55,7 @@ export class DatabaseConnectionManager {
         this.logger.warn({
           event: 'transaction_release_failed',
           message,
-        } as Record<string, unknown>);
+        });
       }
     }
   }
