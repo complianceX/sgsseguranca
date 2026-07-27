@@ -15,6 +15,31 @@ type TenantBackupServiceReadContext = {
   ): Promise<T>;
 };
 
+type RelatedRowsPayload = {
+  primaryKeyColumns: string[];
+  rowCount: number;
+  rows: Array<Record<string, unknown>>;
+};
+
+type TenantBackupServiceRelations = {
+  expandRelatedRowsByForeignKeys(input: {
+    tables: Map<string, RelatedRowsPayload>;
+    schema: {
+      companyScopedTables: string[];
+      primaryKeysByTable: Map<string, string[]>;
+      foreignKeys: Array<{
+        table: string;
+        column: string;
+        referencedTable: string;
+        referencedColumn: string;
+      }>;
+      columnsByTable: Map<string, Set<string>>;
+      jsonColumnsByTable: Map<string, Set<string>>;
+    };
+    query: BackupReadQuery;
+  }): Promise<void>;
+};
+
 function invokeReadContext<T>(
   service: TenantBackupService,
   operation: (query: BackupReadQuery) => Promise<T>,
@@ -135,5 +160,64 @@ describe('TenantBackupService — contexto de leitura da exportação', () => {
     expect(queryRunner.query).not.toHaveBeenCalled();
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('inclui pais globais referenciados para permitir restore em banco limpo', async () => {
+    const service = makeService({
+      dataSource: {},
+      privilegedDb: { isEnabled: jest.fn().mockReturnValue(false) },
+    });
+    const tables = new Map<string, RelatedRowsPayload>([
+      [
+        'users',
+        {
+          primaryKeyColumns: ['id'],
+          rowCount: 1,
+          rows: [{ id: 'user-1', profile_id: 'profile-1' }],
+        },
+      ],
+    ]);
+    const query = jest.fn((sql: string) =>
+      Promise.resolve(
+        sql.includes('FROM "profiles"')
+          ? [{ id: 'profile-1', name: 'ADMIN_EMPRESA' }]
+          : [],
+      ),
+    ) as BackupReadQuery & jest.Mock;
+
+    await (
+      service as unknown as TenantBackupServiceRelations
+    ).expandRelatedRowsByForeignKeys({
+      tables,
+      schema: {
+        companyScopedTables: ['users'],
+        primaryKeysByTable: new Map([
+          ['users', ['id']],
+          ['profiles', ['id']],
+        ]),
+        foreignKeys: [
+          {
+            table: 'users',
+            column: 'profile_id',
+            referencedTable: 'profiles',
+            referencedColumn: 'id',
+          },
+        ],
+        columnsByTable: new Map([
+          ['users', new Set(['id', 'profile_id'])],
+          ['profiles', new Set(['id', 'name'])],
+        ]),
+        jsonColumnsByTable: new Map(),
+      },
+      query,
+    });
+
+    expect(tables.get('profiles')?.rows).toEqual([
+      { id: 'profile-1', name: 'ADMIN_EMPRESA' },
+    ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM "profiles"'),
+      [['profile-1']],
+    );
   });
 });
