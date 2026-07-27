@@ -44,6 +44,9 @@ function createHarness(privilegedEnabled: boolean) {
   };
   const forensicTrailService = {
     append: jest.fn(() => Promise.resolve({ id: 'forensic-event' })),
+    appendWithPrivilegedClient: jest.fn(() =>
+      Promise.resolve({ id: 'forensic-event' }),
+    ),
   };
   const tenantService = {
     run: jest.fn(
@@ -98,19 +101,22 @@ describe('DisasterRecoveryExecutionService', () => {
     });
 
     expect(result.id).toBe(EXECUTION_ID);
-    expect(harness.privilegedDb.withPrivilegedClient).toHaveBeenCalledTimes(1);
+    expect(harness.privilegedDb.withPrivilegedClient).toHaveBeenCalledTimes(2);
     expect(harness.client.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO "disaster_recovery_executions"'),
       expect.any(Array),
     );
     expect(harness.repository.save).not.toHaveBeenCalled();
-    expect(harness.forensicTrailService.append).toHaveBeenCalledWith(
+    expect(
+      harness.forensicTrailService.appendWithPrivilegedClient,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'dr_execution_started',
         entityId: EXECUTION_ID,
       }),
-      { isSuperAdmin: true },
+      harness.client,
     );
+    expect(harness.forensicTrailService.append).not.toHaveBeenCalled();
   });
 
   it('finaliza a execução pela conexão privilegiada e preserva o metadata', async () => {
@@ -139,12 +145,14 @@ describe('DisasterRecoveryExecutionService', () => {
     );
     expect(harness.repository.findOneByOrFail).not.toHaveBeenCalled();
     expect(harness.repository.save).not.toHaveBeenCalled();
-    expect(harness.forensicTrailService.append).toHaveBeenCalledWith(
+    expect(
+      harness.forensicTrailService.appendWithPrivilegedClient,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'dr_execution_completed',
         entityId: EXECUTION_ID,
       }),
-      { isSuperAdmin: true },
+      harness.client,
     );
   });
 
