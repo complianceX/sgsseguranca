@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -57,6 +57,10 @@ type BackupReadQuery = <Row extends Record<string, unknown>>(
   sql: string,
   parameters?: unknown[],
 ) => Promise<Row[]>;
+
+type RestoreQueryExecutor = {
+  query: (sql: string, parameters?: unknown[]) => Promise<unknown>;
+};
 
 type CreateBackupOptions = {
   triggerSource: 'manual' | 'scheduled_daily';
@@ -1078,73 +1082,122 @@ export class TenantBackupService {
   private async executeTenantRestore(
     input: RestoreExecutionInput,
   ): Promise<void> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction('SERIALIZABLE');
+    if (this.privilegedDb.isEnabled()) {
+      await this.privilegedDb.withPrivilegedClient(async (client) => {
+        let transactionStarted = false;
+        try {
+          await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+          transactionStarted = true;
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
 
-    try {
-      await queryRunner.query(`SET LOCAL lock_timeout = '5s'`);
-      await queryRunner.query(`SET LOCAL statement_timeout = '0'`);
-      await queryRunner.query(`SET LOCAL session_replication_role = replica`);
-
-      const tables = Object.keys(input.transformedPayload.tables);
-      const companiesPayload = input.transformedPayload.tables['companies'];
-      if (!companiesPayload || companiesPayload.rows.length === 0) {
-        throw new BadRequestException(
-          'Backup inválido: tabela companies ausente ou sem registros.',
-        );
-      }
-
-      if (input.mode === 'clone_to_new_tenant') {
-        await this.assertTargetCompanyDoesNotExist(
-          queryRunner,
-          input.targetCompanyId,
-        );
-      } else {
-        await this.cleanupTargetCompanyData({
-          queryRunner,
-          targetCompanyId: input.targetCompanyId,
-          payload: input.transformedPayload,
-          schema: input.schema,
-        });
-      }
-
-      await this.upsertCompanyRow(
-        queryRunner,
-        companiesPayload.rows[0],
-        input.mode,
-        input.targetCompanyId,
-      );
-
-      const insertionOrder = this.resolveInsertionOrder(
-        input.schema,
-        tables,
-      ).filter((table) => table !== 'companies');
-      for (const table of insertionOrder) {
-        const tablePayload = input.transformedPayload.tables[table];
-        if (!tablePayload || tablePayload.rows.length === 0) {
-          continue;
+          const executor: RestoreQueryExecutor = {
+            query: async (sql, parameters) => {
+              const result = await client.query(sql, parameters);
+              return result.rows as unknown[];
+            },
+          };
+          await this.executeTenantRestoreInTransaction(executor, input);
+          await client.query('COMMIT');
+          transactionStarted = false;
+        } catch (error) {
+          if (transactionStarted) {
+            try {
+              await client.query('ROLLBACK');
+            } catch (rollbackError) {
+              this.reportTenantExportCleanupFailure(
+                'tenant_restore_privileged_rollback_failed',
+                rollbackError,
+              );
+            }
+          }
+          throw error;
         }
-        await this.insertRows(
-          queryRunner,
-          table,
-          tablePayload.rows,
-          input.schema,
-        );
-      }
+      });
+      return;
+    }
 
-      await queryRunner.query(`SET LOCAL session_replication_role = DEFAULT`);
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction('SERIALIZABLE');
+      await this.executeTenantRestoreInTransaction(queryRunner, input);
       await queryRunner.commitTransaction();
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackError) {
+          this.reportTenantExportCleanupFailure(
+            'tenant_restore_fallback_rollback_failed',
+            rollbackError,
+          );
+        }
+      }
       throw error;
     } finally {
-      await queryRunner.release();
+      try {
+        await queryRunner.release();
+      } catch (releaseError) {
+        this.reportTenantExportCleanupFailure(
+          'tenant_restore_query_runner_release_failed',
+          releaseError,
+        );
+      }
+    }
+  }
+
+  private async executeTenantRestoreInTransaction(
+    executor: RestoreQueryExecutor,
+    input: RestoreExecutionInput,
+  ): Promise<void> {
+    await executor.query(`SET LOCAL lock_timeout = '5s'`);
+    await executor.query(`SET LOCAL statement_timeout = '0'`);
+
+    const tables = Object.keys(input.transformedPayload.tables);
+    const companiesPayload = input.transformedPayload.tables['companies'];
+    if (!companiesPayload || companiesPayload.rows.length === 0) {
+      throw new BadRequestException(
+        'Backup inválido: tabela companies ausente ou sem registros.',
+      );
+    }
+
+    if (input.mode === 'clone_to_new_tenant') {
+      await this.assertTargetCompanyDoesNotExist(
+        executor,
+        input.targetCompanyId,
+      );
+    } else {
+      await this.cleanupTargetCompanyData({
+        queryRunner: executor,
+        targetCompanyId: input.targetCompanyId,
+        payload: input.transformedPayload,
+        schema: input.schema,
+      });
+    }
+
+    await this.upsertCompanyRow(
+      executor,
+      companiesPayload.rows[0],
+      input.mode,
+      input.targetCompanyId,
+      input.schema,
+    );
+
+    const insertionOrder = this.resolveInsertionOrder(
+      input.schema,
+      tables,
+    ).filter((table) => table !== 'companies');
+    for (const table of insertionOrder) {
+      const tablePayload = input.transformedPayload.tables[table];
+      if (!tablePayload || tablePayload.rows.length === 0) {
+        continue;
+      }
+      await this.insertRows(executor, table, tablePayload.rows, input.schema);
     }
   }
 
   private async cleanupTargetCompanyData(input: {
-    queryRunner: QueryRunner;
+    queryRunner: RestoreQueryExecutor;
     targetCompanyId: string;
     payload: TenantBackupPayload;
     schema: SchemaMetadata;
@@ -1197,7 +1250,7 @@ export class TenantBackupService {
   }
 
   private async deleteRowsByPrimaryKeys(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     table: string,
     primaryKeyColumns: string[],
     rows: Array<Record<string, unknown>>,
@@ -1246,10 +1299,11 @@ export class TenantBackupService {
   }
 
   private async upsertCompanyRow(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     row: Record<string, unknown>,
     mode: TenantRestoreMode,
     targetCompanyId: string,
+    schema: SchemaMetadata,
   ): Promise<void> {
     const columns = Object.keys(row);
     if (columns.length === 0) {
@@ -1263,12 +1317,7 @@ export class TenantBackupService {
 
     const existing = await this.companyExists(queryRunner, targetCompanyId);
     if (!existing) {
-      await this.insertRows(
-        queryRunner,
-        'companies',
-        [row],
-        await this.loadSchemaMetadata(),
-      );
+      await this.insertRows(queryRunner, 'companies', [row], schema);
       return;
     }
 
@@ -1280,7 +1329,6 @@ export class TenantBackupService {
     const assignments = updatableColumns.map(
       (column, index) => `${this.quoteIdentifier(column)} = $${index + 1}`,
     );
-    const schema = await this.loadSchemaMetadata();
     const values = updatableColumns.map((column) =>
       this.prepareColumnValue('companies', column, row[column], schema),
     );
@@ -1301,7 +1349,7 @@ export class TenantBackupService {
   }
 
   private async companyExists(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     companyId: string,
   ): Promise<boolean> {
     const rows = (await queryRunner.query(
@@ -1312,7 +1360,7 @@ export class TenantBackupService {
   }
 
   private async assertTargetCompanyDoesNotExist(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     targetCompanyId: string,
   ): Promise<void> {
     const exists = await this.companyExists(queryRunner, targetCompanyId);
@@ -1380,7 +1428,7 @@ export class TenantBackupService {
   }
 
   private async insertRows(
-    queryRunner: QueryRunner,
+    queryRunner: RestoreQueryExecutor,
     table: string,
     rows: Array<Record<string, unknown>>,
     schema: SchemaMetadata,
