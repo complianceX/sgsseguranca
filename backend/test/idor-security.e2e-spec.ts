@@ -109,12 +109,23 @@ const isLocalTestDatabase = (): boolean => {
 
 const resetTestDatabase = async (dataSource: DataSource): Promise<void> => {
   if (dataSource.options.type === 'postgres' && isLocalTestDatabase()) {
-    await dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
-    await dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
-    await dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
-    await dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-    await dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
-    await dataSource.synchronize(false);
+    // Trunca dados preservando o schema completo (funções SECURITY DEFINER, políticas RLS,
+    // índices criados pelas migrations). Dropar o schema destruía find_login_user e
+    // synchronize(false) não a recriava, quebrando o login no teste.
+    const tables = await dataSource.query<{ tablename: string }[]>(
+      `SELECT tablename FROM pg_tables
+       WHERE schemaname = 'public'
+         AND tablename NOT IN (
+           SELECT c.relname FROM pg_inherits i
+           JOIN pg_class c ON c.oid = i.inhrelid
+         )`,
+    );
+    if (tables.length > 0) {
+      const tableList = tables.map((t) => `"${t.tablename}"`).join(', ');
+      await dataSource.query(
+        `TRUNCATE ${tableList} RESTART IDENTITY CASCADE`,
+      );
+    }
     return;
   }
 
