@@ -1495,9 +1495,29 @@ export class TenantBackupService {
         valuesSql.push(`(${placeholders.join(', ')})`);
       }
 
-      const conflictClause = APPEND_ONLY_TABLES.has(table)
-        ? ' ON CONFLICT DO NOTHING'
-        : '';
+      const primaryKeyColumns = (
+        schema.primaryKeysByTable.get(table) ?? []
+      ).filter((column) => columns.includes(column));
+      const updatableColumns = columns.filter(
+        (column) => !primaryKeyColumns.includes(column),
+      );
+      let conflictClause = '';
+      if (primaryKeyColumns.length > 0) {
+        const conflictTarget = primaryKeyColumns
+          .map((column) => this.quoteIdentifier(column))
+          .join(', ');
+        if (APPEND_ONLY_TABLES.has(table) || updatableColumns.length === 0) {
+          conflictClause = ` ON CONFLICT (${conflictTarget}) DO NOTHING`;
+        } else {
+          const assignments = updatableColumns
+            .map(
+              (column) =>
+                `${this.quoteIdentifier(column)} = EXCLUDED.${this.quoteIdentifier(column)}`,
+            )
+            .join(', ');
+          conflictClause = ` ON CONFLICT (${conflictTarget}) DO UPDATE SET ${assignments}`;
+        }
+      }
       const sql = `INSERT INTO ${this.quoteIdentifier(table)} (${columns
         .map((column) => this.quoteIdentifier(column))
         .join(', ')}) VALUES ${valuesSql.join(', ')}${conflictClause}`;
