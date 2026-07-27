@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
+import type { PoolClient } from 'pg';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
 import { ForensicTrailEvent } from './entities/forensic-trail-event.entity';
@@ -40,7 +41,7 @@ export class ForensicTrailService {
 
   async append(
     input: AppendForensicTrailEventInput,
-    options?: { manager?: EntityManager; isSuperAdmin?: boolean },
+    options?: { manager?: EntityManager },
   ): Promise<ForensicTrailEvent> {
     const companyId = input.companyId ?? RequestContext.getCompanyId() ?? null;
     const userId = input.userId ?? RequestContext.getUserId() ?? null;
@@ -104,21 +105,94 @@ export class ForensicTrailService {
     };
 
     if (options?.manager) {
-      if (options.isSuperAdmin) {
-        await options.manager.query("SET LOCAL app.is_super_admin = 'true'");
-      }
       return execute(options.manager);
     }
 
     return this.dataSource.transaction(async (manager) => {
-      // A policy restritiva histórica rls_forensic_company_isolation continua
-      // compondo a autorização. Eventos globais internos (company_id NULL)
-      // precisam declarar o contexto super-admin dentro da mesma transação.
-      if (options?.isSuperAdmin) {
-        await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      }
       return execute(manager);
     });
+  }
+
+  async appendWithPrivilegedClient(
+    input: AppendForensicTrailEventInput,
+    client: PoolClient,
+  ): Promise<ForensicTrailEvent> {
+    const companyId = input.companyId ?? RequestContext.getCompanyId() ?? null;
+    const userId = input.userId ?? RequestContext.getUserId() ?? null;
+    const requestId = input.requestId ?? RequestContext.getRequestId() ?? null;
+    const ip = input.ip ?? RequestContext.get<string>('ip') ?? null;
+    const userAgent =
+      input.userAgent ?? RequestContext.get<string>('userAgent') ?? null;
+    const streamKey = this.buildStreamKey(
+      companyId,
+      input.module,
+      input.entityId,
+    );
+    const occurredAt = input.occurredAt ?? new Date();
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      streamKey,
+    ]);
+    const previousResult = await client.query<{
+      stream_sequence: number;
+      event_hash: string;
+    }>(
+      `SELECT "stream_sequence", "event_hash"
+         FROM "forensic_trail_events"
+        WHERE "stream_key" = $1
+        ORDER BY "stream_sequence" DESC
+        LIMIT 1`,
+      [streamKey],
+    );
+    const previousEvent = previousResult.rows[0];
+    const streamSequence = (previousEvent?.stream_sequence ?? 0) + 1;
+    const normalizedMetadata = this.normalizeMetadata(input.metadata);
+    const eventHash = this.computeEventHash({
+      streamKey,
+      streamSequence,
+      eventType: input.eventType,
+      module: input.module,
+      entityId: input.entityId,
+      companyId,
+      userId,
+      requestId,
+      ip,
+      userAgent,
+      previousEventHash: previousEvent?.event_hash ?? null,
+      occurredAt,
+      metadata: normalizedMetadata,
+    });
+
+    const inserted = await client.query<ForensicTrailEvent>(
+      `INSERT INTO "forensic_trail_events" (
+         "stream_key", "stream_sequence", "event_type", "module",
+         "entity_id", "company_id", "user_id", "request_id", "ip",
+         "user_agent", "metadata", "previous_event_hash", "event_hash",
+         "occurred_at"
+       )
+       VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14
+       )
+       RETURNING *`,
+      [
+        streamKey,
+        streamSequence,
+        input.eventType,
+        input.module,
+        input.entityId,
+        companyId,
+        userId,
+        requestId,
+        ip,
+        userAgent,
+        normalizedMetadata === null ? null : JSON.stringify(normalizedMetadata),
+        previousEvent?.event_hash ?? null,
+        eventHash,
+        occurredAt,
+      ],
+    );
+
+    return Object.assign(new ForensicTrailEvent(), inserted.rows[0]);
   }
 
   private buildStreamKey(
