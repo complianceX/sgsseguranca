@@ -109,7 +109,7 @@ describe('ServiceOrdersService', () => {
     repository.findOne.mockResolvedValueOnce({
       id: 'os-1',
       company_id: 'company-1',
-    } as ServiceOrder);
+    });
 
     await service.remove('os-1');
 

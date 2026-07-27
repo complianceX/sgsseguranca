@@ -19,9 +19,7 @@ export type DocumentVideoModule = (typeof DOCUMENT_VIDEO_MODULES)[number];
 export type DocumentVideoProcessingStatus = 'ready';
 
 export type DocumentVideoAvailability =
-  | 'stored'
-  | 'registered_without_signed_url'
-  | 'removed';
+  'stored' | 'registered_without_signed_url' | 'removed';
 
 @Entity('document_video_attachments')
 @Index('IDX_document_video_company_module_document_created', [

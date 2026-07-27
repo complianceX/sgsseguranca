@@ -192,7 +192,7 @@ function buildAprRiskItem(id: string, aprId: string): AprRiskItem {
     apr: null as unknown as import('./entities/apr.entity').Apr,
     created_at: new Date('2026-03-20T10:00:00.000Z'),
     updated_at: new Date('2026-03-20T10:00:00.000Z'),
-  } as AprRiskItem;
+  };
 }
 
 function buildApr(id: string, overrides: Partial<Apr> = {}): Apr {
@@ -478,7 +478,7 @@ describe('APR lock (http integration)', () => {
       evidences: Array.isArray(input.evidences)
         ? input.evidences
         : existing?.evidences || [],
-    } as AprRiskItem;
+    };
     store.riskItems.set(id, clone(record));
     return clone(record);
   };
@@ -753,15 +753,15 @@ describe('APR lock (http integration)', () => {
   };
 
   manager.getRepository = (entity: unknown) => {
-    if (entity === Apr) return aprsRepository as Record<string, unknown>;
+    if (entity === Apr) return aprsRepository;
     if (entity === AprRiskItem) {
-      return aprRiskItemsRepository as Record<string, unknown>;
+      return aprRiskItemsRepository;
     }
     if (entity === AprRiskEvidence) {
-      return aprEvidencesRepository as Record<string, unknown>;
+      return aprEvidencesRepository;
     }
     if (entity === Signature) {
-      return signaturesRepository as Record<string, unknown>;
+      return signaturesRepository;
     }
     return {
       exist: jest.fn(() => Promise.resolve(true)),

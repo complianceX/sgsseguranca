@@ -35,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         try {
           done(null, resolveAccessTokenSecret(configService));
         } catch (error) {
-          done(error as Error);
+          done(error);
         }
       },
     });

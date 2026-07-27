@@ -1,9 +1,5 @@
 export type DashboardQueryType =
-  | 'summary'
-  | 'kpis'
-  | 'pending-queue'
-  | 'heatmap'
-  | 'tst-day';
+  'summary' | 'kpis' | 'pending-queue' | 'heatmap' | 'tst-day';
 
 export type DashboardMetaSource = 'redis' | 'snapshot' | 'live';
 

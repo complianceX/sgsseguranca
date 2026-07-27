@@ -153,9 +153,7 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as unknown as Partial<
-          Repository<CorrectiveAction>
-        >,
+        correctiveActionsRepository: repo,
       });
 
       const result = await service.findSummary();
@@ -178,9 +176,7 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as unknown as Partial<
-          Repository<CorrectiveAction>
-        >,
+        correctiveActionsRepository: repo,
       });
 
       const result = await service.findSummary();
@@ -222,9 +218,7 @@ describe('CorrectiveActionsService', () => {
         find: jest.fn().mockResolvedValue(actions),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
-          Repository<CorrectiveAction>
-        >,
+        correctiveActionsRepository: repo,
       });
 
       const result = await service.getSlaOverview();
@@ -239,9 +233,7 @@ describe('CorrectiveActionsService', () => {
         find: jest.fn().mockResolvedValue([]),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
-          Repository<CorrectiveAction>
-        >,
+        correctiveActionsRepository: repo,
       });
 
       const result = await service.getSlaOverview();
@@ -274,9 +266,7 @@ describe('CorrectiveActionsService', () => {
         createQueryBuilder: jest.fn().mockReturnValue(qb),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
-          Repository<CorrectiveAction>
-        >,
+        correctiveActionsRepository: repo,
       });
 
       const result = await service.getSlaBySite();

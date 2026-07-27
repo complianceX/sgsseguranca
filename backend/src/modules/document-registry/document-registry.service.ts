@@ -704,7 +704,7 @@ export class DocumentRegistryService {
       };
     }
 
-    let url: string | null = null;
+    let url: string | null;
     try {
       url = await this.documentStorageService.getSignedUrl(document.file_key);
     } catch {

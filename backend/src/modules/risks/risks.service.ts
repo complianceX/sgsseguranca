@@ -93,7 +93,7 @@ export class RisksService extends BaseService<Risk> {
       entityId: created.id,
       changes: { before: null, after: this.toHistorySnapshot(created) },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId: this.getTenantId(),
     });
     await this.invalidateCatalogCache(created.company_id);
@@ -123,7 +123,7 @@ export class RisksService extends BaseService<Risk> {
         after: this.toHistorySnapshot(updated),
       },
       ip: (RequestContext.get('ip') as string) || 'unknown',
-      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      userAgent: RequestContext.get('userAgent') || 'unknown',
       companyId: this.getTenantId(),
     });
     await this.invalidateCatalogCache(updated.company_id);

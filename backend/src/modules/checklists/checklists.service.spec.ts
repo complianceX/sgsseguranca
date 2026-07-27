@@ -799,8 +799,7 @@ describe('ChecklistsService', () => {
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: Record<string, unknown>) => {
       const fn = input.removeEntityState as
-        | ((m: unknown) => Promise<void>)
-        | undefined;
+        ((m: unknown) => Promise<void>) | undefined;
       if (fn) await fn(manager);
     });
     (signaturesService.removeByDocumentSystem as jest.Mock).mockResolvedValue(
@@ -2991,8 +2990,7 @@ describe('ChecklistsService', () => {
         documentGovernanceService.removeFinalDocumentReference as jest.Mock
       ).mockImplementation(async (input: Record<string, unknown>) => {
         const fn = input.removeEntityState as
-          | ((m: unknown) => Promise<void>)
-          | undefined;
+          ((m: unknown) => Promise<void>) | undefined;
         if (fn) await fn(manager);
       });
 

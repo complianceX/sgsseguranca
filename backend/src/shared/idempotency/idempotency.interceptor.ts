@@ -39,8 +39,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const response = context.switchToHttp().getResponse<Response>();
 
     const idempotencyKey = request.headers['x-idempotency-key'] as
-      | string
-      | undefined;
+      string | undefined;
 
     // Só aplica em métodos não-seguros com a header presente
     if (!idempotencyKey || !this.IDEMPOTENT_METHODS.has(request.method)) {

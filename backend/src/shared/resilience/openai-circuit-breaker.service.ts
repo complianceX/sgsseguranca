@@ -408,7 +408,7 @@ export class OpenAiCircuitBreakerService {
   ): Promise<void> {
     const now = Date.now();
     const minTimestamp = now - TRIP_ALERT_WINDOW_MS;
-    let tripsLastHour = 0;
+    let tripsLastHour: number;
 
     if (mode === 'local') {
       this.localTrips = this.localTrips

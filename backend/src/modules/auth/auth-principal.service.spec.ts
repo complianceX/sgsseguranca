@@ -189,8 +189,7 @@ describe('AuthPrincipalService', () => {
 
   it('deduplica lookups concorrentes do bridge', async () => {
     let resolveLookup:
-      | ((value: Array<Record<string, unknown>>) => void)
-      | undefined;
+      ((value: Array<Record<string, unknown>>) => void) | undefined;
     dataSource.query.mockImplementation(
       () =>
         new Promise((resolve) => {

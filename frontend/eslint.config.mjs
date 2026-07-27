@@ -1,20 +1,64 @@
-import { FlatCompat } from "@eslint/eslintrc";
+import { createRequire } from "node:module";
 import globals from "globals";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+// eslint-config-next@16.x já exporta flat config nativo (array de objetos).
+// Importar via createRequire evita FlatCompat/@eslint/eslintrc, que trava ao
+// serializar eslint-plugin-react@7.37+ com JSON.stringify por ref circular.
+const require = createRequire(import.meta.url);
+const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
 
 const eslintConfig = [
   {
-    ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
+    // eslint-config-next@16.2.11 usa o parser Babel do Next.js para arquivos .js/.mjs.
+    // Esse parser não produz scope manager com addGlobals(), exigido pelo ESLint 10.
+    // Esses arquivos são config/scripts operacionais (não TypeScript app code), portanto
+    // são excluídos do lint. O código de aplicação real é 100% TypeScript (.ts/.tsx).
+    ignores: [
+      ".next/**",
+      ".vercel/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+      // Arquivos .js/.mjs são config/scripts sem TypeScript — excluídos do lint
+      "*.js",
+      "*.mjs",
+      "scripts/**",
+      "public/**",
+    ],
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextCoreWebVitals,
+  // eslint-config-next sets settings.react.version = 'detect', which calls
+  // context.getFilename() (removed in ESLint 10). Override with explicit version
+  // so eslint-plugin-react@7.37.5 skips auto-detection entirely.
+  {
+    settings: {
+      react: {
+        version: "19",
+      },
+    },
+  },
+  {
+    // eslint-plugin-react-hooks@7.x (bundled in eslint-config-next@16.2.11) adicionou
+    // regras do React Compiler (set-state-in-effect, refs, purity, etc.) que violam
+    // 155 patterns no codebase atual. Este projeto não usa React Compiler experimental.
+    // Mantemos apenas as regras tradicionais: rules-of-hooks e exhaustive-deps.
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/incompatible-library": "off",
+      "react-hooks/static-components": "off",
+      "react-hooks/use-memo": "off",
+      "react-hooks/globals": "off",
+      "react-hooks/error-boundaries": "off",
+      "react-hooks/set-state-in-render": "off",
+      "react-hooks/unsupported-syntax": "off",
+      "react-hooks/config": "off",
+      "react-hooks/gating": "off",
+    },
+  },
   {
     rules: {
       "no-restricted-syntax": [

@@ -27,7 +27,7 @@ describe('ForensicTrailService', () => {
         (input: Partial<ForensicTrailEvent>) => input as ForensicTrailEvent,
       ),
       save: jest.fn((input: ForensicTrailEvent) =>
-        Promise.resolve({ ...input, id: 'event-1' } as ForensicTrailEvent),
+        Promise.resolve({ ...input, id: 'event-1' }),
       ),
       manager: {} as EntityManager,
     };
@@ -36,7 +36,7 @@ describe('ForensicTrailService', () => {
       query: jest.fn(() => Promise.resolve([])),
     };
     dataSource = {
-      options: { type: 'postgres' } as DataSource['options'],
+      options: { type: 'postgres' },
       transaction: jest.fn(
         async (callback: (tx: EntityManager) => Promise<unknown>) =>
           callback(manager as unknown as EntityManager),
@@ -83,7 +83,7 @@ describe('ForensicTrailService', () => {
       id: 'event-previous',
       stream_sequence: 2,
       event_hash: 'a'.repeat(64),
-    } as ForensicTrailEvent);
+    });
 
     const store = new Map<string, unknown>([
       ['requestId', 'req-1'],

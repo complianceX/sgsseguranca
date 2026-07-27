@@ -46,7 +46,7 @@ describe('DatabaseConnectionManager', () => {
         DatabaseConnectionManager,
         {
           provide: getDataSourceToken(),
-          useValue: mockDataSource as unknown as DataSource,
+          useValue: mockDataSource,
         },
       ],
     }).compile();

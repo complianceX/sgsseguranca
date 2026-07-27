@@ -260,7 +260,7 @@ describe('ConsentsService', () => {
       versionsRepo.findOne.mockResolvedValue({
         ...ACTIVE_VERSION,
         body_hash: computeConsentBodyHash('texto original'),
-      } as ConsentVersion);
+      });
 
       await expect(
         service.publishVersion({

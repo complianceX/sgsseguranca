@@ -120,9 +120,10 @@ describe('CleanupTask', () => {
       'training-check',
       { tenantId: 'company-1', type: 'training-check' },
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         jobId: expect.stringMatching(
           /^expiry-notifications-training-check-company-1-\d{4}-\d{2}-\d{2}$/,
-        ) as unknown as string,
+        ),
         removeOnFail: 1000,
       }),
     );
@@ -130,9 +131,10 @@ describe('CleanupTask', () => {
       'run-sla-sweep',
       { tenantId: 'company-1' },
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         jobId: expect.stringMatching(
           /^sla-escalation-run-sla-sweep-company-1-\d{4}-\d{2}-\d{2}t\d{2}$/,
-        ) as unknown as string,
+        ),
       }),
     );
   });

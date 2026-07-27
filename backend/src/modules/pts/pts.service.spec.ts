@@ -145,9 +145,7 @@ describe('PtsService', () => {
               const tenantId =
                 typeof params?.[1] === 'string' ? params[1] : undefined;
               const pt = await ptsRepository.findOne({
-                where: tenantId
-                  ? ({ id, company_id: tenantId } as never)
-                  : ({ id } as never),
+                where: tenantId ? { id, company_id: tenantId } : { id },
               });
               return pt ? [pt] : [];
             }),
@@ -157,9 +155,9 @@ describe('PtsService', () => {
     };
 
     service = new PtsService(
-      ptsRepository as unknown as Repository<Pt>,
-      companiesRepository as unknown as Repository<Company>,
-      auditLogsRepository as unknown as Repository<AuditLog>,
+      ptsRepository,
+      companiesRepository,
+      auditLogsRepository,
       tenantService as TenantService,
       riskCalculationService as RiskCalculationService,
       auditService as unknown as AuditService,
@@ -246,7 +244,7 @@ describe('PtsService', () => {
             },
           },
         },
-      } as unknown as AuditLog,
+      },
     ]);
 
     const result = await service.getPreApprovalHistory('pt-1');
@@ -862,9 +860,7 @@ describe('PtsService', () => {
     // Todas as tentativas de transação falham com o código de lock indisponível.
     (
       ptsRepository as unknown as { manager: { transaction: jest.Mock } }
-    ).manager.transaction = jest
-      .fn()
-      .mockRejectedValue({ code: '55P03' } as never);
+    ).manager.transaction = jest.fn().mockRejectedValue({ code: '55P03' });
 
     await expect(
       service.approve('pt-lock', 'user-1', 'ok'),
@@ -1189,7 +1185,7 @@ describe('PtsService', () => {
             getRepository: jest.fn(() => ({ update: jest.fn() })),
           }),
         ),
-      } as never;
+      };
       // Não deve lançar PT_APPROVAL_BLOCKED por regras NR-33; qualquer erro
       // posterior de infraestrutura da transição não é o alvo deste teste.
       let blockedByNr33 = false;
@@ -1454,7 +1450,7 @@ describe('PtsService', () => {
       ptsRepository.findOne.mockResolvedValue({
         ...basePt(),
         pdf_file_key: 'documents/company-1/pts/pt-1/final.pdf',
-      } as unknown as Pt);
+      });
 
       await expect(
         service.attachEvidencePhoto(
@@ -1472,7 +1468,7 @@ describe('PtsService', () => {
       ptsRepository.findOne.mockResolvedValue({
         ...basePt(),
         status: PtStatus.ENCERRADA,
-      } as unknown as Pt);
+      });
 
       await expect(
         service.attachEvidencePhoto(
@@ -1552,7 +1548,7 @@ describe('PtsService', () => {
     it('usa o número cru da PT como document_code quando há número', async () => {
       const code = await runAttachAndCaptureCode({
         numero: 'PT-2026-07-10-ECQ-001',
-      } as Partial<Pt>);
+      });
       // Deve ser exatamente igual ao que o frontend imprime no QR
       // (frontend prioriza pt.numero cru — ver ptGenerator.ts).
       expect(code).toBe('PT-2026-07-10-ECQ-001');
@@ -1561,7 +1557,7 @@ describe('PtsService', () => {
     it('trima o número antes de usar como document_code', async () => {
       const code = await runAttachAndCaptureCode({
         numero: '   PT-77   ',
-      } as Partial<Pt>);
+      });
       expect(code).toBe('PT-77');
     });
 
@@ -1569,7 +1565,7 @@ describe('PtsService', () => {
       const code = await runAttachAndCaptureCode({
         numero: undefined,
         id: 'abcdef12-3456-7890-abcd-ef1234567890',
-      } as Partial<Pt>);
+      });
       // Espelha buildDocumentCode do frontend: PT-{ano}-{últimos 8 alfanum de id, upper}.
       expect(code).toBe('PT-2026-34567890');
     });

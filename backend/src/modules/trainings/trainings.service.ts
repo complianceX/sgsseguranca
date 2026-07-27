@@ -48,9 +48,7 @@ export interface BlockingTrainingUser {
 }
 
 type TrainingPdfAccessAvailability =
-  | 'not_emitted'
-  | 'ready'
-  | 'registered_without_signed_url';
+  'not_emitted' | 'ready' | 'registered_without_signed_url';
 
 export type TrainingPdfAccessResponse = {
   entityId: string;

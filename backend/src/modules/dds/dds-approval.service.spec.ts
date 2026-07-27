@@ -128,7 +128,7 @@ describe('DdsApprovalService', () => {
             input.id ||
             `66666666-6666-4666-8666-${String(records.length + 1).padStart(12, '0')}`,
           created_at: input.created_at || new Date(),
-        } as DdsApprovalRecord;
+        };
         records.push(record);
         return Promise.resolve(record);
       }),
@@ -187,7 +187,7 @@ describe('DdsApprovalService', () => {
           ) =>
             callback({
               getRepository: ddsRepository.manager.getRepository,
-            } as { getRepository: jest.Mock }),
+            }),
         ),
       },
     };

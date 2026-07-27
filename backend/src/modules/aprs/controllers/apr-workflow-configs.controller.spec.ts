@@ -43,7 +43,7 @@ describe('AprWorkflowConfigsController', () => {
       createdAt: new Date('2026-05-23T00:00:00.000Z'),
       updatedAt: new Date('2026-05-23T00:00:00.000Z'),
       steps: [],
-    } as AprWorkflowConfig);
+    });
 
     const stepRepo = {
       create: jest.fn<AprWorkflowStep, [Partial<AprWorkflowStep>]>(
@@ -148,7 +148,7 @@ describe('AprWorkflowConfigsController', () => {
         siteId,
         name: 'Workflow APR',
         steps: [],
-      } as never),
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

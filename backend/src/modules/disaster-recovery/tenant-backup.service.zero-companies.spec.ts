@@ -6,10 +6,12 @@ import { PrivilegedDbService } from '../../shared/database/privileged-db.service
 
 function makeQueryRunner(selectRows: Array<{ id?: string }>) {
   return {
+    isTransactionActive: true,
     connect: jest.fn().mockResolvedValue(undefined),
     startTransaction: jest.fn().mockResolvedValue(undefined),
     query: jest
       .fn()
+      .mockResolvedValueOnce(undefined) // SET TRANSACTION READ ONLY
       .mockResolvedValueOnce(undefined) // SET LOCAL app.is_super_admin
       .mockResolvedValueOnce(selectRows), // SELECT id FROM companies
     commitTransaction: jest.fn().mockResolvedValue(undefined),

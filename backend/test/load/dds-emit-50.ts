@@ -29,9 +29,7 @@ type MfaEnrollRequiredResponse = {
 };
 
 type AuthLoginResponse =
-  | AuthSessionResponse
-  | MfaRequiredResponse
-  | MfaEnrollRequiredResponse;
+  AuthSessionResponse | MfaRequiredResponse | MfaEnrollRequiredResponse;
 
 type CsrfSession = {
   token: string;
@@ -299,7 +297,7 @@ async function requestJson<T>(
   });
 
   const raw = await res.text();
-  let parsed: T | null = null;
+  let parsed: T | null;
   try {
     parsed = raw ? (JSON.parse(raw) as T) : null;
   } catch {

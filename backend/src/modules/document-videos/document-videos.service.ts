@@ -23,8 +23,7 @@ import {
 } from './document-video.constants';
 
 export type DocumentVideoAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url';
+  'ready' | 'registered_without_signed_url';
 
 export type DocumentVideoAttachmentAccessResponse = {
   entityId: string;

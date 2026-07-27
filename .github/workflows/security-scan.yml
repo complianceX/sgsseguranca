@@ -185,11 +185,18 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./${{ matrix.directory }}
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --omit=optional
 
       - name: Generate CycloneDX SBOM
         working-directory: ./${{ matrix.directory }}
-        run: npx @cyclonedx/cyclonedx-npm --output-file ../sbom-${{ matrix.directory }}.json --spec-version 1.5
+        # Upstream plugins ainda limitam o peer range ao ESLint 9. O audit exige
+        # ESLint 10 para consumir minimatch/brace-expansion corrigidos; o SBOM
+        # continua incluindo a árvore retornada pelo npm mesmo com ELSPROBLEMS.
+        run: >
+          npx --yes @cyclonedx/cyclonedx-npm@6.0.0
+          --ignore-npm-errors
+          --output-file ../sbom-${{ matrix.directory }}.json
+          --spec-version 1.5
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v7

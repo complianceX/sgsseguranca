@@ -6,7 +6,7 @@ describe('assertWorkerRedisContract', () => {
       assertWorkerRedisContract({
         REDIS_DISABLED: 'false',
         REDIS_URL: 'rediss://default:REDACTED@example.upstash.io:6380',
-      } as NodeJS.ProcessEnv),
+      }),
     ).not.toThrow();
   });
 
@@ -14,7 +14,7 @@ describe('assertWorkerRedisContract', () => {
     expect(() =>
       assertWorkerRedisContract({
         REDIS_DISABLED: 'true',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow(
       'REDIS_DISABLED=true não é suportado no runtime worker. Inicie apenas a API em modo degradado ou habilite Redis para processar filas.',
     );
@@ -24,7 +24,7 @@ describe('assertWorkerRedisContract', () => {
     expect(() =>
       assertWorkerRedisContract({
         REDIS_DISABLED: 'false',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow(
       'Worker sem Redis de fila configurado. Defina REDIS_QUEUE_URL ou o fallback genérico.',
     );

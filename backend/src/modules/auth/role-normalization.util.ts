@@ -63,5 +63,5 @@ export function normalizeRoleName(role?: string | Role | null): Role | null {
         .toUpperCase() === normalizedRole,
   );
 
-  return matchedEntry ? (matchedEntry[1] as Role) : null;
+  return matchedEntry ? matchedEntry[1] : null;
 }

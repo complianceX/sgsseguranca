@@ -9,9 +9,7 @@ import { ApiProperty } from '@nestjs/swagger';
  * - `not_emitted` — PDF final ainda não foi gerado/armazenado.
  */
 export type GovernedPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+  'ready' | 'registered_without_signed_url' | 'not_emitted';
 
 /**
  * DTO canônico para resposta de acesso a PDF governado.

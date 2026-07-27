@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixCompaniesRlsSuperAdminFlag1709000000364
-  implements MigrationInterface
-{
+export class FixCompaniesRlsSuperAdminFlag1709000000364 implements MigrationInterface {
   name = 'FixCompaniesRlsSuperAdminFlag1709000000364';
 
   async up(queryRunner: QueryRunner): Promise<void> {

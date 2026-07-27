@@ -1,7 +1,5 @@
 export type SubprocessorStatus =
-  | 'active'
-  | 'configured_if_enabled'
-  | 'pending_review';
+  'active' | 'configured_if_enabled' | 'pending_review';
 
 export type DpaStatus = 'available' | 'pending_review' | 'not_applicable';
 

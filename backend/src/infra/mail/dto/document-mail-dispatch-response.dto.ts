@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export type DocumentMailArtifactType =
-  | 'governed_final_pdf'
-  | 'local_uploaded_pdf';
+  'governed_final_pdf' | 'local_uploaded_pdf';
 
 export type DocumentMailDeliveryMode = 'queued' | 'sent';
 

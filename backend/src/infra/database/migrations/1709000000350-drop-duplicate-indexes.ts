@@ -160,7 +160,10 @@ export class DropDuplicateIndexes1709000000350 implements MigrationInterface {
       // lock de tabela — transaction=false permite CONCURRENTLY fora de bloco DO.
       const concurrentDef = def
         .replace(/^CREATE INDEX /, 'CREATE INDEX CONCURRENTLY IF NOT EXISTS ')
-        .replace(/^CREATE UNIQUE INDEX /, 'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ')
+        .replace(
+          /^CREATE UNIQUE INDEX /,
+          'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ',
+        )
         .replace(`"${pair.keep}"`, `"${pair.duplicate}"`);
 
       await queryRunner.query(concurrentDef);

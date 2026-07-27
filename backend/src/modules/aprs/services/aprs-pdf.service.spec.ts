@@ -217,7 +217,7 @@ describe('AprsPdfService', () => {
       pdf_file_key: 'documents/company-1/aprs/apr-1/existing.pdf',
       pdf_folder_path: 'aprs/company-1',
       pdf_original_name: 'APR-001_v1.pdf',
-    } as unknown as Apr);
+    });
 
     const result = await service.generateFinalPdf('apr-1', 'user-1');
 
@@ -235,7 +235,7 @@ describe('AprsPdfService', () => {
         pdf_file_key: null,
         pdf_folder_path: null,
         pdf_original_name: null,
-      } as unknown as Apr)
+      })
       .mockResolvedValueOnce({
         id: 'apr-1',
         company_id: 'company-1',
@@ -278,7 +278,7 @@ describe('AprsPdfService', () => {
               'Isolar a área, inspecionar ancoragem e exigir linha de vida certificada.',
           },
         ],
-      } as unknown as Apr)
+      })
       .mockResolvedValueOnce(null) // supersedingRow check — no superseding APR
       .mockResolvedValueOnce({
         id: 'apr-1',
@@ -287,7 +287,7 @@ describe('AprsPdfService', () => {
         pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
         pdf_folder_path: 'aprs/company-1',
         pdf_original_name: 'APR-001_v1.pdf',
-      } as unknown as Apr);
+      });
 
     const result = await service.generateFinalPdf('apr-1', 'user-1');
 
@@ -400,7 +400,7 @@ describe('AprsPdfService', () => {
       id: 'apr-1',
       company_id: 'company-1',
       pdf_file_key: null,
-    } as unknown as Apr);
+    });
 
     await expect(
       service.regeneratePdfWithSupersededWatermark('apr-1', 'user-1'),
