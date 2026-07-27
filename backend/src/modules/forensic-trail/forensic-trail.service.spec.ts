@@ -76,6 +76,30 @@ describe('ForensicTrailService', () => {
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       ['company-1:pt:pt-1'],
     );
+    expect(manager.query).not.toHaveBeenCalledWith(
+      "SET LOCAL app.is_super_admin = 'true'",
+    );
+  });
+
+  it('ativa o contexto super-admin para eventos globais internos', async () => {
+    await service.append(
+      {
+        eventType: 'dr_execution_started',
+        module: 'disaster-recovery',
+        entityId: 'execution-1',
+      },
+      { isSuperAdmin: true },
+    );
+
+    expect(manager.query).toHaveBeenNthCalledWith(
+      1,
+      "SET LOCAL app.is_super_admin = 'true'",
+    );
+    expect(manager.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      ['global:disaster-recovery:execution-1'],
+    );
   });
 
   it('encadeia o hash e usa contexto da requisição quando disponível', async () => {
