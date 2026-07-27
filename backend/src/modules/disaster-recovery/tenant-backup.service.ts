@@ -53,6 +53,13 @@ type SchemaMetadata = {
 
 type TableRowsPayload = TenantBackupPayload['tables'][string];
 
+type ForeignKeyExpansion = {
+  visitKey: string;
+  sourceColumn: string;
+  targetTable: string;
+  targetColumn: string;
+};
+
 type BackupReadQuery = <Row extends Record<string, unknown>>(
   sql: string,
   parameters?: unknown[],
@@ -789,64 +796,125 @@ export class TenantBackupService {
         continue;
       }
 
-      const relations = input.schema.foreignKeys.filter(
-        (fk) =>
-          fk.referencedTable === parentTable &&
-          !EXCLUDED_TABLES.has(fk.table) &&
-          !input.schema.companyScopedTables.includes(fk.table),
+      const expansions = this.getForeignKeyExpansions(
+        parentTable,
+        input.schema,
       );
-
-      for (const relation of relations) {
-        const relationKey = `${relation.table}:${relation.column}:${relation.referencedTable}:${relation.referencedColumn}`;
-        if (visited.has(relationKey)) {
-          continue;
-        }
-        visited.add(relationKey);
-
-        const referenceValues = parentPayload.rows
-          .map((row) => row[relation.referencedColumn])
-          .filter((value) => value !== null && value !== undefined)
-          .map((value) => this.scalarString(value));
-
-        if (referenceValues.length === 0) {
-          continue;
-        }
-
-        const rows = await this.selectRowsByColumn(
-          relation.table,
-          relation.column,
-          referenceValues,
-          input.schema,
-          input.query,
-        );
-
-        if (rows.length === 0) {
-          continue;
-        }
-
-        const existing = input.tables.get(relation.table);
-        const mergedRows = this.mergeRows({
-          table: relation.table,
-          currentRows: existing?.rows ?? [],
-          incomingRows: rows,
-          primaryKeyColumns:
-            existing?.primaryKeyColumns ??
-            input.schema.primaryKeysByTable.get(relation.table) ??
-            [],
-        });
-
-        input.tables.set(relation.table, {
-          primaryKeyColumns:
-            existing?.primaryKeyColumns ??
-            input.schema.primaryKeysByTable.get(relation.table) ??
-            [],
-          rowCount: mergedRows.length,
-          rows: mergedRows,
-        });
-
-        queue.push(relation.table);
-      }
+      await this.applyForeignKeyExpansions({
+        ...input,
+        sourceRows: parentPayload.rows,
+        expansions,
+        visited,
+        queue,
+      });
     }
+  }
+
+  private getForeignKeyExpansions(
+    table: string,
+    schema: SchemaMetadata,
+  ): ForeignKeyExpansion[] {
+    const childExpansions = schema.foreignKeys
+      .filter(
+        (fk) =>
+          fk.referencedTable === table &&
+          !EXCLUDED_TABLES.has(fk.table) &&
+          !schema.companyScopedTables.includes(fk.table),
+      )
+      .map((fk) => ({
+        visitKey: `child:${fk.table}:${fk.column}:${fk.referencedTable}:${fk.referencedColumn}`,
+        sourceColumn: fk.referencedColumn,
+        targetTable: fk.table,
+        targetColumn: fk.column,
+      }));
+
+    // Inclui também os pais globais referenciados pelas linhas do tenant.
+    // Exemplo crítico: users.profile_id -> profiles.id.
+    const parentExpansions = schema.foreignKeys
+      .filter(
+        (fk) =>
+          fk.table === table &&
+          fk.table !== fk.referencedTable &&
+          !EXCLUDED_TABLES.has(fk.referencedTable) &&
+          !schema.companyScopedTables.includes(fk.referencedTable),
+      )
+      .map((fk) => ({
+        visitKey: `parent:${fk.table}:${fk.column}:${fk.referencedTable}:${fk.referencedColumn}`,
+        sourceColumn: fk.column,
+        targetTable: fk.referencedTable,
+        targetColumn: fk.referencedColumn,
+      }));
+
+    return [...childExpansions, ...parentExpansions];
+  }
+
+  private async applyForeignKeyExpansions(input: {
+    tables: Map<string, TableRowsPayload>;
+    schema: SchemaMetadata;
+    query: BackupReadQuery;
+    sourceRows: Array<Record<string, unknown>>;
+    expansions: ForeignKeyExpansion[];
+    visited: Set<string>;
+    queue: string[];
+  }): Promise<void> {
+    for (const expansion of input.expansions) {
+      if (input.visited.has(expansion.visitKey)) {
+        continue;
+      }
+      input.visited.add(expansion.visitKey);
+
+      const referenceValues = input.sourceRows
+        .map((row) => row[expansion.sourceColumn])
+        .filter((value) => value !== null && value !== undefined)
+        .map((value) => this.scalarString(value));
+      if (referenceValues.length === 0) {
+        continue;
+      }
+
+      const rows = await this.selectRowsByColumn(
+        expansion.targetTable,
+        expansion.targetColumn,
+        referenceValues,
+        input.schema,
+        input.query,
+      );
+      if (rows.length === 0) {
+        continue;
+      }
+
+      this.mergeExpandedTableRows(input.tables, input.schema, {
+        table: expansion.targetTable,
+        rows,
+      });
+      input.queue.push(expansion.targetTable);
+    }
+  }
+
+  private mergeExpandedTableRows(
+    tables: Map<string, TableRowsPayload>,
+    schema: SchemaMetadata,
+    input: {
+      table: string;
+      rows: Array<Record<string, unknown>>;
+    },
+  ): void {
+    const existing = tables.get(input.table);
+    const primaryKeyColumns =
+      existing?.primaryKeyColumns ??
+      schema.primaryKeysByTable.get(input.table) ??
+      [];
+    const mergedRows = this.mergeRows({
+      table: input.table,
+      currentRows: existing?.rows ?? [],
+      incomingRows: input.rows,
+      primaryKeyColumns,
+    });
+
+    tables.set(input.table, {
+      primaryKeyColumns,
+      rowCount: mergedRows.length,
+      rows: mergedRows,
+    });
   }
 
   private mergeRows(input: {
