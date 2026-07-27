@@ -797,7 +797,7 @@ export class TenantBackupService {
       );
 
       for (const relation of relations) {
-        const relationKey = `${relation.table}:${relation.column}:${relation.referencedTable}:${relation.referencedColumn}`;
+        const relationKey = `child:${relation.table}:${relation.column}:${relation.referencedTable}:${relation.referencedColumn}`;
         if (visited.has(relationKey)) {
           continue;
         }
@@ -845,6 +845,66 @@ export class TenantBackupService {
         });
 
         queue.push(relation.table);
+      }
+
+      // Inclui também os pais globais referenciados pelas linhas do tenant.
+      // Exemplo crítico: users.profile_id -> profiles.id. Sem essa direção do
+      // grafo, o backup contém usuários que não podem ser restaurados em um
+      // banco limpo porque o catálogo de perfis correspondente fica ausente.
+      const referencedRelations = input.schema.foreignKeys.filter(
+        (fk) =>
+          fk.table === parentTable &&
+          fk.table !== fk.referencedTable &&
+          !EXCLUDED_TABLES.has(fk.referencedTable) &&
+          !input.schema.companyScopedTables.includes(fk.referencedTable),
+      );
+
+      for (const relation of referencedRelations) {
+        const relationKey = `parent:${relation.table}:${relation.column}:${relation.referencedTable}:${relation.referencedColumn}`;
+        if (visited.has(relationKey)) {
+          continue;
+        }
+        visited.add(relationKey);
+
+        const referenceValues = parentPayload.rows
+          .map((row) => row[relation.column])
+          .filter((value) => value !== null && value !== undefined)
+          .map((value) => this.scalarString(value));
+        if (referenceValues.length === 0) {
+          continue;
+        }
+
+        const rows = await this.selectRowsByColumn(
+          relation.referencedTable,
+          relation.referencedColumn,
+          referenceValues,
+          input.schema,
+          input.query,
+        );
+        if (rows.length === 0) {
+          continue;
+        }
+
+        const existing = input.tables.get(relation.referencedTable);
+        const mergedRows = this.mergeRows({
+          table: relation.referencedTable,
+          currentRows: existing?.rows ?? [],
+          incomingRows: rows,
+          primaryKeyColumns:
+            existing?.primaryKeyColumns ??
+            input.schema.primaryKeysByTable.get(relation.referencedTable) ??
+            [],
+        });
+
+        input.tables.set(relation.referencedTable, {
+          primaryKeyColumns:
+            existing?.primaryKeyColumns ??
+            input.schema.primaryKeysByTable.get(relation.referencedTable) ??
+            [],
+          rowCount: mergedRows.length,
+          rows: mergedRows,
+        });
+        queue.push(relation.referencedTable);
       }
     }
   }
