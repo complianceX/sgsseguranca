@@ -89,6 +89,68 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     });
     expect(createdApr.id).toBeTruthy();
 
+    const consentVersionId = randomUUID();
+    const userConsentId = randomUUID();
+    const mappedConsentVersionId = randomUUID();
+    const replacementConsentVersionId = randomUUID();
+    const mappedUserConsentId = randomUUID();
+    await testApp.dataSource.query(
+      `INSERT INTO consent_versions (
+         id, type, version_label, body_md, body_hash, summary,
+         effective_at, retired_at
+       )
+       VALUES ($1, 'marketing', $2, $3, $4, $5, NOW(), NOW())`,
+      [
+        consentVersionId,
+        `dr-e2e-${consentVersionId}`,
+        'Versão controlada para validar dependência global no restore de DR.',
+        'a'.repeat(64),
+        'Evidência E2E de restore privilegiado.',
+      ],
+    );
+    await testApp.dataSource.query(
+      `INSERT INTO consent_versions (
+         id, type, version_label, body_md, body_hash, summary,
+         effective_at, retired_at
+       )
+       VALUES ($1, 'cookies', $2, $3, $4, $5, NOW(), NOW())`,
+      [
+        mappedConsentVersionId,
+        `dr-e2e-${mappedConsentVersionId}`,
+        'Versão controlada para validar reconciliação por chave natural.',
+        'b'.repeat(64),
+        'Evidência E2E de reconciliação de consentimento.',
+      ],
+    );
+    await testApp.dataSource.query(
+      `INSERT INTO user_consents (
+         id, user_id, company_id, type, version_id, accepted_at,
+         migrated_from_legacy, notes
+       )
+       VALUES ($1, $2, $3, 'marketing', $4, NOW(), false, $5)`,
+      [
+        userConsentId,
+        tecnicA.id,
+        tenantA.companyId,
+        consentVersionId,
+        'Evidência E2E de restore privilegiado.',
+      ],
+    );
+    await testApp.dataSource.query(
+      `INSERT INTO user_consents (
+         id, user_id, company_id, type, version_id, accepted_at,
+         migrated_from_legacy, notes
+       )
+       VALUES ($1, $2, $3, 'cookies', $4, NOW(), false, $5)`,
+      [
+        mappedUserConsentId,
+        tecnicA.id,
+        tenantA.companyId,
+        mappedConsentVersionId,
+        'Evidência E2E de reconciliação de consentimento.',
+      ],
+    );
+
     const superAdminHeaders = testApp.authHeaders(superAdminSession);
     const backupStepUpToken = await issueStepUpToken(
       testApp,
@@ -136,6 +198,8 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(backupResult.rowCounts.companies).toBe(1);
     expect(backupResult.rowCounts.aprs).toBeGreaterThanOrEqual(1);
     expect(backupResult.rowCounts.users).toBeGreaterThanOrEqual(1);
+    expect(backupResult.rowCounts.consent_versions).toBeGreaterThanOrEqual(1);
+    expect(backupResult.rowCounts.user_consents).toBeGreaterThanOrEqual(1);
     const exportedTableNames = Object.keys(backupResult.rowCounts);
     expect(
       exportedTableNames.some((table) =>
@@ -202,6 +266,29 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     }>;
     expect(deletedRows[0]?.deleted_at).toBeTruthy();
 
+    await testApp.dataSource.query(
+      'DELETE FROM user_consents WHERE id = ANY($1::uuid[])',
+      [[userConsentId, mappedUserConsentId]],
+    );
+    await testApp.dataSource.query(
+      'DELETE FROM consent_versions WHERE id = ANY($1::uuid[])',
+      [[consentVersionId, mappedConsentVersionId]],
+    );
+    await testApp.dataSource.query(
+      `INSERT INTO consent_versions (
+         id, type, version_label, body_md, body_hash, summary,
+         effective_at, retired_at
+       )
+       VALUES ($1, 'cookies', $2, $3, $4, $5, NOW(), NOW())`,
+      [
+        replacementConsentVersionId,
+        `dr-e2e-${mappedConsentVersionId}`,
+        'Versão controlada para validar reconciliação por chave natural.',
+        'b'.repeat(64),
+        'Evidência E2E de reconciliação de consentimento.',
+      ],
+    );
+
     const restoreStepUpToken = await issueStepUpToken(
       testApp,
       superAdminHeaders,
@@ -266,6 +353,35 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       deleted_at?: string | null;
     }>;
     expect(restoredRows[0]?.deleted_at ?? null).toBeNull();
+
+    const restoredConsentRows = await testApp.dataSource.query<
+      Array<{
+        inserted_version_count: number;
+        source_version_count: number;
+        replacement_version_count: number;
+        consent_count: number;
+        remapped_consent_count: number;
+      }>
+    >(
+      `SELECT
+         (SELECT COUNT(*)::int FROM consent_versions WHERE id = $1) AS inserted_version_count,
+         (SELECT COUNT(*)::int FROM consent_versions WHERE id = $2) AS source_version_count,
+         (SELECT COUNT(*)::int FROM consent_versions WHERE id = $3) AS replacement_version_count,
+         (SELECT COUNT(*)::int FROM user_consents WHERE id = $4 AND version_id = $1) AS consent_count,
+         (SELECT COUNT(*)::int FROM user_consents WHERE id = $5 AND version_id = $3) AS remapped_consent_count`,
+      [
+        consentVersionId,
+        mappedConsentVersionId,
+        replacementConsentVersionId,
+        userConsentId,
+        mappedUserConsentId,
+      ],
+    );
+    expect(restoredConsentRows[0]?.inserted_version_count).toBe(1);
+    expect(restoredConsentRows[0]?.source_version_count).toBe(0);
+    expect(restoredConsentRows[0]?.replacement_version_count).toBe(1);
+    expect(restoredConsentRows[0]?.consent_count).toBe(1);
+    expect(restoredConsentRows[0]?.remapped_consent_count).toBe(1);
 
     const observedBackupFreshnessMs = Math.max(
       0,
