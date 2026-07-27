@@ -213,7 +213,7 @@
     "nest-winston": "^1.10.2",
     "newrelic": "^14.1.0",
     "nodemailer": "^9.0.0",
-    "p-limit": "^3.1.0",
+    "p-limit": "^7.3.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdf-lib": "^1.17.1",
