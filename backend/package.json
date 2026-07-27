@@ -190,7 +190,7 @@
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.10.0",
-    "bullmq": "^5.70.1",
+    "bullmq": "^5.81.2",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-store": "^3.0.1",
     "class-sanitizer": "^1.0.1",
