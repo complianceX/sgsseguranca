@@ -189,7 +189,7 @@
     "argon2": "^0.44.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "^13.0.1",
     "bullmq": "^5.70.1",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-store": "^3.0.1",
