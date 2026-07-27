@@ -109,6 +109,7 @@ describe('DisasterRecoveryExecutionService', () => {
         eventType: 'dr_execution_started',
         entityId: EXECUTION_ID,
       }),
+      { isSuperAdmin: true },
     );
   });
 
@@ -138,6 +139,13 @@ describe('DisasterRecoveryExecutionService', () => {
     );
     expect(harness.repository.findOneByOrFail).not.toHaveBeenCalled();
     expect(harness.repository.save).not.toHaveBeenCalled();
+    expect(harness.forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'dr_execution_completed',
+        entityId: EXECUTION_ID,
+      }),
+      { isSuperAdmin: true },
+    );
   });
 
   it('mantém o fallback legado quando DATABASE_ADMIN_URL não está configurada', async () => {

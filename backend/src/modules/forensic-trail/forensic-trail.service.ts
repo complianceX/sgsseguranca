@@ -40,7 +40,7 @@ export class ForensicTrailService {
 
   async append(
     input: AppendForensicTrailEventInput,
-    options?: { manager?: EntityManager },
+    options?: { manager?: EntityManager; isSuperAdmin?: boolean },
   ): Promise<ForensicTrailEvent> {
     const companyId = input.companyId ?? RequestContext.getCompanyId() ?? null;
     const userId = input.userId ?? RequestContext.getUserId() ?? null;
@@ -104,12 +104,19 @@ export class ForensicTrailService {
     };
 
     if (options?.manager) {
+      if (options.isSuperAdmin) {
+        await options.manager.query("SET LOCAL app.is_super_admin = 'true'");
+      }
       return execute(options.manager);
     }
 
-    // Migration 360 adicionou INSERT policy permissiva em forensic_trail_events
-    // para sgs_app — não é mais necessário SET LOCAL is_super_admin = 'true'.
     return this.dataSource.transaction(async (manager) => {
+      // A policy restritiva histórica rls_forensic_company_isolation continua
+      // compondo a autorização. Eventos globais internos (company_id NULL)
+      // precisam declarar o contexto super-admin dentro da mesma transação.
+      if (options?.isSuperAdmin) {
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      }
       return execute(manager);
     });
   }
