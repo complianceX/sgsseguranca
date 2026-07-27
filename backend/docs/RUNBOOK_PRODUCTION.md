@@ -267,7 +267,7 @@ NODE_ENV=development \
 node scripts/run-migrations.js 2>&1 | tee migration_$(date +%Y%m%d).log
 
 # 4. Verificar contagem final
-psql ... -c "SELECT COUNT(*) FROM migrations;"   -- esperado: 283
+psql ... -c "SELECT COUNT(*) FROM migrations;"   -- esperado: 287
 
 # 5. Validação de integridade
 psql ... -f backend/scripts/db-audit-checks.sql
@@ -360,6 +360,97 @@ merge/deploy da PR #170 e deve restaurar o artefato em ambiente isolado, com
 acesso restrito e sem transportar dados pessoais para artefatos públicos de CI.
 Até esse ensaio, o RTO/RPO acima são medições sintéticas, não SLO comprovado de
 produção.
+
+### 4.7 Ensaio operacional final pós-REVOKE
+
+Data: 2026-07-27 | PR final: #196 | SHA implantado:
+`6c1c40815167f43c05ad7affd2df8f53d3dd7282` | CI `30298664977`
+
+O ensaio foi executado com backups reais de todos os tenants ativos depois da
+migration 365 e do deploy do mesmo SHA no web e no worker. Nenhum identificador
+de tenant ou dado pessoal foi publicado em artefatos de CI.
+
+#### Backups definitivos
+
+| Tenant anonimizado | Backup ID | Tabelas | Tabelas não vazias | Linhas | Artefato |
+| --- | --- | ---: | ---: | ---: | ---: |
+| T1 | `tenant-20260727-195413-b8124573` | 60 | 12 | 421 | 76.022 bytes |
+| T2 | `tenant-20260727-195442-8b427e6c` | 72 | 55 | 44.432 | 26.009.096 bytes |
+| T3 | `tenant-20260727-195519-85017f7a` | 60 | 13 | 497 | 291.934 bytes |
+| T4 | `tenant-20260727-195545-45710c9a` | 68 | 44 | 91.362 | 54.767.156 bytes |
+| T5 | `tenant-20260727-195624-bb98cab3` | 60 | 11 | 415 | 73.952 bytes |
+
+Tempo do lote: **157.435 ms**. Os cinco arquivos foram descompactados,
+descriptografados e validados: envelope AES-256-GCM v1, IV de 12 bytes, tag de
+16 bytes e checksum SHA-256 do payload igual ao metadata em **5/5**. A versão de
+schema gravada em todos foi
+`AllowPrivilegedConsentVersionRestore1709000000365`.
+
+#### Restore em PostgreSQL limpo
+
+O banco temporário `sgs_dr_verify_20260727_1643` foi criado vazio e reconstruído
+exclusivamente pela cadeia de migrations. O Neon confirmou as migrations em
+duas invocações retomáveis (252 + 35), sem dados de empresa entre elas. Antes do
+restore: **287 migrations, migration 365 como última e zero empresas**.
+
+O maior backup (T4) foi restaurado como clone isolado usando `sgs_app` na
+conexão comum e `sgs_admin` no `PrivilegedDbService`.
+
+| Critério | Resultado |
+| --- | --- |
+| Tabelas restauradas | **67** |
+| Linhas restauradas após reconciliação global | **91.278** |
+| `roles` / `permissions` reconciliados por chave natural | **0 / 2 inseridos** |
+| `consent_versions` reconciliados | **2** |
+| `document_registry` / versões | **34 / 54** |
+| `forensic_trail_events` | **3.809** |
+| `users` | **88**, incluindo 1 placeholder histórico anonimizado |
+
+#### Segurança, estrutura e integridade
+
+| Critério | Resultado |
+| --- | --- |
+| Tabelas com RLS habilitado / FORCE | **134 / 133** |
+| Policies RLS | **262** |
+| Policies de `consent_versions` | **4** |
+| Índices | **940** |
+| Materialized views consultáveis | **2/2** |
+| `sgs_app` / `sgs_admin` com `sgs_rls_bypass` | **false / true** |
+| Probe `sgs_app` sem contexto / tenant próprio / tenant alheio | **0 / 1 / 0** |
+| Relações `company_id` verificadas / linhas cross-tenant | **125 / 0** |
+| APRs órfãs / APR-site cross-tenant | **0 / 0** |
+| Placeholder histórico sem e-mail, CPF, senha e login | **1/1** |
+| Documentos restaurados presentes / hash igual | **34/34 / 34/34** |
+
+A única constraint `NOT VALID` é
+`pts.CHK_pts_data_hora_validas`, deliberadamente criada assim pela migration
+312 para não bloquear dados legados. Ela não representa falha do restore.
+
+Durante a verificação foi encontrada uma lacuna anterior ao restore: 28
+referências ativas apontavam para objetos que nunca chegaram ao bucket e não
+possuíam versão recuperável no B2. Os documentos foram reconstruídos a partir
+dos registros canônicos, com aviso de reconstrução embutido, hash novo, nova
+versão no registry e evento forense, sem fabricar aprovações ou assinaturas.
+Após a correção, a produção ficou com **54/54 objetos presentes e 54/54 hashes
+válidos**; o restore do tenant ensaiado confirmou **34/34**.
+
+Quatro execuções históricas órfãs em estado `running` (todas com mais de seis
+horas) foram reconciliadas para `failed` com evento forense. Nenhuma execução
+ativa recente foi alterada.
+
+#### RTO e RPO observados
+
+| Medição | Observado | Meta | Resultado |
+| --- | ---: | ---: | --- |
+| Reconstrução por migrations | **18m31s** | — | medido no Neon |
+| Restore do maior tenant | **2m22s** | — | success |
+| Validação estrutural + B2 | **41s** | — | success |
+| RTO ponta a ponta | **21m34s** | **4h** | **atendido** |
+| RPO no início do restore | **28m38s** | **24h** | **atendido** |
+
+Conclusão: o Disaster Recovery pós-REVOKE está operacionalmente validado. O
+papel comum permanece fail-closed e o backup/restore usa a conexão privilegiada
+somente nos caminhos administrativos previstos.
 
 ---
 
