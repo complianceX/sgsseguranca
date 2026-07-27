@@ -129,6 +129,12 @@ const APPEND_ONLY_TABLES = new Set(['forensic_trail_events']);
 // não seja bloqueada e para evitar sessões autenticadas contra estado anterior.
 const RESTORE_PURGE_TABLES = ['user_sessions'] as const;
 
+// forensic_trail_events referencia users e é append-only; apagar um usuário
+// acionaria ON DELETE SET NULL e o trigger bloquearia a mutação da trilha.
+// Usuários ausentes do snapshot são desativados por soft-delete, enquanto os
+// presentes são restaurados depois via UPSERT.
+const RESTORE_SOFT_DELETE_TABLES = new Set(['users']);
+
 const EXCLUDED_COLUMNS_BY_TABLE = new Map<string, Set<string>>([
   [
     'users',
@@ -1244,6 +1250,28 @@ export class TenantBackupService {
         continue;
       }
       const columns = input.schema.columnsByTable.get(table) ?? new Set();
+      if (
+        RESTORE_SOFT_DELETE_TABLES.has(table) &&
+        columns.has('company_id') &&
+        columns.has('deleted_at')
+      ) {
+        const tablePayload = input.payload.tables[table];
+        const retainedIds = (tablePayload?.rows ?? [])
+          .map((row) => row.id)
+          .filter((value): value is string => typeof value === 'string');
+        await input.queryRunner.query(
+          `
+            UPDATE ${this.quoteIdentifier(table)}
+            SET
+              ${this.quoteIdentifier('deleted_at')} = COALESCE(${this.quoteIdentifier('deleted_at')}, now())
+              ${columns.has('status') ? `, ${this.quoteIdentifier('status')} = false` : ''}
+            WHERE ${this.quoteIdentifier('company_id')} = $1
+              AND NOT (${this.quoteIdentifier('id')} = ANY($2::uuid[]))
+          `,
+          [input.targetCompanyId, retainedIds],
+        );
+        continue;
+      }
       if (columns.has('company_id')) {
         await input.queryRunner.query(
           `DELETE FROM ${this.quoteIdentifier(table)} WHERE ${this.quoteIdentifier('company_id')} = $1`,
