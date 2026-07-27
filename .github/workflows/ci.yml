@@ -117,9 +117,13 @@ jobs:
       DATABASE_NAME: sst_test
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5433
-      E2E_DATABASE_USER: postgres
-      E2E_DATABASE_PASSWORD: postgres123
+      E2E_DATABASE_USER: neondb_owner
+      E2E_DATABASE_PASSWORD: neondb_owner_e2e
       E2E_DATABASE_NAME: sst_test
+      E2E_PRESERVE_MIGRATED_SCHEMA: true
+      DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5433/sst_test
+      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5433/sst_test
+      DATABASE_SSL: false
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
       E2E_REDIS_HOST: 127.0.0.1
@@ -147,6 +151,53 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Prepare RLS roles on clean PostgreSQL
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neondb_owner') THEN
+              CREATE ROLE neondb_owner LOGIN PASSWORD 'neondb_owner_e2e' SUPERUSER;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
+              CREATE ROLE sgs_rls_bypass NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
+              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
+              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+            END IF;
+          END
+          $$;
+          ALTER DATABASE sst_test OWNER TO neondb_owner;
+          GRANT sgs_rls_bypass TO sgs_admin;
+          SQL
+
+      - name: Build and reconstruct schema from migrations
+        run: |
+          npm run build
+          npm run migration:run
+
+      - name: Grant privileged access after reconstruction
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
+          ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+          ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
+            GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
+          SQL
 
       - name: Run critical e2e flows
         run: npm run test:e2e -- --forceExit
