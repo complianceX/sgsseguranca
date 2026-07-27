@@ -133,7 +133,11 @@ const RESTORE_PURGE_TABLES = ['user_sessions'] as const;
 // acionaria ON DELETE SET NULL e o trigger bloquearia a mutação da trilha.
 // Usuários ausentes do snapshot são desativados por soft-delete, enquanto os
 // presentes são restaurados depois via UPSERT.
-const RESTORE_SOFT_DELETE_TABLES = new Set(['users']);
+const RESTORE_SOFT_DELETE_TABLES = new Set(['users', 'sites']);
+
+// Perfis relacionados são compartilhados/referenciados por usuários que não
+// podem ser removidos fisicamente. O UPSERT restaura seu estado sem quebrar FKs.
+const RESTORE_PRESERVE_TABLES = new Set(['profiles']);
 
 const EXCLUDED_COLUMNS_BY_TABLE = new Map<string, Set<string>>([
   [
@@ -1246,7 +1250,7 @@ export class TenantBackupService {
       .filter((table) => table !== 'companies');
 
     for (const table of deletionOrder) {
-      if (APPEND_ONLY_TABLES.has(table)) {
+      if (APPEND_ONLY_TABLES.has(table) || RESTORE_PRESERVE_TABLES.has(table)) {
         continue;
       }
       const columns = input.schema.columnsByTable.get(table) ?? new Set();
