@@ -307,6 +307,60 @@ psql "$DATABASE_MIGRATION_URL" -c "GRANT sgs_rls_bypass TO sgs_app;"
 # Conexões existentes precisam de novo connect() para efetivar — reiniciar os containers.
 ```
 
+### 4.6 Validação DR pós-review da PR #158
+
+Data: 2026-07-26 | PR: #170 | Run: `30224986759` | Job: `89854165870`
+
+O review tardio identificou que apenas a descoberta de empresas permanecia em
+`sgs_admin`; as leituras que montavam o payload voltavam para o DataSource
+comum. A PR #170 mantém o mesmo cliente privilegiado em todas as leituras do
+payload, dentro de um snapshot `REPEATABLE READ READ ONLY`, e exclui partições
+filhas do inventário para não duplicar linhas já lidas pelas tabelas-pai.
+
+#### Evidência controlada em PostgreSQL 16 limpo
+
+| Critério | Resultado |
+| --- | --- |
+| Cadeia reconstruída por migrations | **286 de 286 — success** |
+| Schema version no backup | `FixCompaniesRlsSuperAdminFlag1709000000364` |
+| `sgs_app` membro de `sgs_rls_bypass` | **false** |
+| `sgs_admin` membro de `sgs_rls_bypass` | **true** |
+| Exportação via `DATABASE_ADMIN_URL` | **true** |
+| Tabelas com RLS + FORCE | **133** |
+| Policies RLS | **259** |
+| Índices | **940** |
+| Materialized views consultáveis | **2** |
+| APRs órfãs após restore | **0** |
+| APRs com site cross-tenant após restore | **0** |
+| Partições-filhas no payload | **0** |
+| Arquivo de backup | **3.694 bytes**, não vazio |
+| Arquivo de metadata | **1.863 bytes**, não vazio |
+| Checksum metadata/payload | **igual** |
+| Linhas principais exportadas/restauradas | companies **1**, sites **1**, users **4**, aprs **1**, forensic_trail_events **5** |
+
+#### Medições controladas
+
+| Medição | Observado | Meta |
+| --- | ---: | ---: |
+| Geração do backup de tenant | **549 ms** | — |
+| Restore do tenant | **240 ms** | RTO 4 h |
+| Frescor do backup na validação | **643 ms** | RPO 24 h |
+| Build + reconstrução por migrations | **30 s** | — |
+| Job completo, incluindo instalação e containers | **3 min 44 s** | — |
+
+Artefato do CI: `backend-dr-e2e-evidence` (retenção de 14 dias), contendo
+`dr-e2e-evidence.json` e `dr-db-structural-evidence.txt`.
+
+#### Limite da evidência
+
+Esta execução comprova o fluxo sobre dados sintéticos e schema reconstruído em
+PostgreSQL limpo. Ela **não** substitui o ensaio operacional com um backup de
+tenant de produção pós-migration 361. Esse ensaio só pode ocorrer após
+merge/deploy da PR #170 e deve restaurar o artefato em ambiente isolado, com
+acesso restrito e sem transportar dados pessoais para artefatos públicos de CI.
+Até esse ensaio, o RTO/RPO acima são medições sintéticas, não SLO comprovado de
+produção.
+
 ---
 
 ## 5. DEPLOYMENT

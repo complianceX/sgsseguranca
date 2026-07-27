@@ -53,6 +53,11 @@ type SchemaMetadata = {
 
 type TableRowsPayload = TenantBackupPayload['tables'][string];
 
+type BackupReadQuery = <Row extends Record<string, unknown>>(
+  sql: string,
+  parameters?: unknown[],
+) => Promise<Row[]>;
+
 type CreateBackupOptions = {
   triggerSource: 'manual' | 'scheduled_daily';
   requestedByUserId?: string;
@@ -182,7 +187,9 @@ export class TenantBackupService {
     });
 
     try {
-      const payload = await this.buildTenantBackupPayload(companyId, backupId);
+      const payload = await this.withTenantExportReadContext((query) =>
+        this.buildTenantBackupPayload(companyId, backupId, query),
+      );
       const serialized = Buffer.from(JSON.stringify(payload), 'utf8');
       const prepared = this.beforePersistBackup(serialized);
       const compressed = await gzipAsync(prepared);
@@ -431,42 +438,14 @@ export class TenantBackupService {
   async backupAllActiveTenants(
     requestedByUserId?: string,
   ): Promise<{ queued: string[] }> {
-    // companies tem RLS FORCE: a query precisa de contexto privilegiado.
-    // PrivilegedDbService usa sgs_admin (membro de sgs_rls_bypass); quando não
-    // configurado, cai no fallback via QueryRunner com SET LOCAL is_super_admin.
-    let rows: Array<{ id?: string }>;
-    if (this.privilegedDb.isEnabled()) {
-      rows = await this.privilegedDb.withPrivilegedClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          await client.query("SET LOCAL app.is_super_admin = 'true'");
-          const result = await client.query<{ id: string }>(
-            `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
-          );
-          await client.query('COMMIT');
-          return result.rows;
-        } catch (err) {
-          await client.query('ROLLBACK');
-          throw err;
-        }
-      });
-    } else {
-      const qr = this.dataSource.createQueryRunner();
-      await qr.connect();
-      await qr.startTransaction();
-      try {
-        await qr.query("SET LOCAL app.is_super_admin = 'true'");
-        rows = (await qr.query(
-          `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
-        )) as Array<{ id?: string }>;
-        await qr.commitTransaction();
-      } catch (err) {
-        await qr.rollbackTransaction();
-        throw err;
-      } finally {
-        await qr.release();
-      }
-    }
+    // companies tem RLS FORCE: a query precisa do mesmo contexto privilegiado
+    // usado pela exportacao. Cada backupTenant abre seu proprio snapshot
+    // consistente para todas as tabelas que compoem o payload.
+    const rows = await this.withTenantExportReadContext((query) =>
+      query<{ id?: string }>(
+        `SELECT id FROM "companies" WHERE "status" = true AND "deleted_at" IS NULL`,
+      ),
+    );
 
     const ids = rows
       .map((row) => row.id)
@@ -493,6 +472,106 @@ export class TenantBackupService {
     }
 
     return { queued: ids };
+  }
+
+  private async withTenantExportReadContext<T>(
+    operation: (query: BackupReadQuery) => Promise<T>,
+  ): Promise<T> {
+    if (this.privilegedDb.isEnabled()) {
+      return this.privilegedDb.withPrivilegedClient(async (client) => {
+        let transactionStarted = false;
+        try {
+          await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+          transactionStarted = true;
+          await client.query("SET LOCAL app.is_super_admin = 'true'");
+
+          const query: BackupReadQuery = async <
+            Row extends Record<string, unknown>,
+          >(
+            sql: string,
+            parameters?: unknown[],
+          ): Promise<Row[]> => {
+            const result = await client.query(sql, parameters);
+            return result.rows as Row[];
+          };
+
+          const result = await operation(query);
+          await client.query('COMMIT');
+          transactionStarted = false;
+          return result;
+        } catch (error) {
+          if (transactionStarted) {
+            try {
+              await client.query('ROLLBACK');
+            } catch (rollbackError) {
+              this.reportTenantExportCleanupFailure(
+                'tenant_export_privileged_rollback_failed',
+                rollbackError,
+              );
+            }
+          }
+          throw error;
+        }
+      });
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction('REPEATABLE READ');
+      await queryRunner.query('SET TRANSACTION READ ONLY');
+      await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
+
+      const query: BackupReadQuery = async <
+        Row extends Record<string, unknown>,
+      >(
+        sql: string,
+        parameters?: unknown[],
+      ): Promise<Row[]> => {
+        const rows: unknown = await queryRunner.query(sql, parameters);
+        return rows as Row[];
+      };
+
+      const result = await operation(query);
+      await queryRunner.commitTransaction();
+      return result;
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackError) {
+          this.reportTenantExportCleanupFailure(
+            'tenant_export_fallback_rollback_failed',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    } finally {
+      try {
+        await queryRunner.release();
+      } catch (releaseError) {
+        this.reportTenantExportCleanupFailure(
+          'tenant_export_query_runner_release_failed',
+          releaseError,
+        );
+      }
+    }
+  }
+
+  private reportTenantExportCleanupFailure(
+    event: string,
+    error: unknown,
+  ): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.warn({ event, message });
+    captureException(error, {
+      tags: {
+        module: 'disaster-recovery',
+        operation: 'tenant-export-cleanup',
+      },
+      extra: { event },
+    });
   }
 
   async pruneBackups(): Promise<{
@@ -580,10 +659,11 @@ export class TenantBackupService {
   private async buildTenantBackupPayload(
     companyId: string,
     backupId: string,
+    query: BackupReadQuery,
   ): Promise<TenantBackupPayload> {
-    const schema = await this.loadSchemaMetadata();
+    const schema = await this.loadSchemaMetadata(query);
     const exportedAt = new Date().toISOString();
-    const schemaVersion = await this.resolveSchemaVersion();
+    const schemaVersion = await this.resolveSchemaVersion(query);
 
     const tables = new Map<string, TableRowsPayload>();
 
@@ -592,6 +672,7 @@ export class TenantBackupService {
       'id',
       [companyId],
       schema,
+      query,
     );
     if (companyRows.length === 0) {
       throw new NotFoundException(`Empresa ${companyId} não encontrada.`);
@@ -612,6 +693,7 @@ export class TenantBackupService {
         'company_id',
         [companyId],
         schema,
+        query,
       );
       tables.set(table, {
         primaryKeyColumns: schema.primaryKeysByTable.get(table) ?? [],
@@ -623,6 +705,7 @@ export class TenantBackupService {
     await this.expandRelatedRowsByForeignKeys({
       tables,
       schema,
+      query,
     });
 
     const rowCounts: Record<string, number> = {};
@@ -665,6 +748,7 @@ export class TenantBackupService {
   private async expandRelatedRowsByForeignKeys(input: {
     tables: Map<string, TableRowsPayload>;
     schema: SchemaMetadata;
+    query: BackupReadQuery;
   }): Promise<void> {
     const queue = Array.from(input.tables.keys());
     const visited = new Set<string>();
@@ -708,6 +792,7 @@ export class TenantBackupService {
           relation.column,
           referenceValues,
           input.schema,
+          input.query,
         );
 
         if (rows.length === 0) {
@@ -1354,23 +1439,35 @@ export class TenantBackupService {
     }
   }
 
-  private async loadSchemaMetadata(): Promise<SchemaMetadata> {
+  private async loadSchemaMetadata(
+    query?: BackupReadQuery,
+  ): Promise<SchemaMetadata> {
     if (this.schemaMetadataCache) {
       return this.schemaMetadataCache;
     }
 
-    const columnRows = (await this.dataSource.query(
-      `
-        SELECT table_name, column_name
-             , data_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-      `,
-    )) as unknown as Array<{
+    const read = query ?? this.createDataSourceReadQuery();
+    const columnRows = await read<{
       table_name: string;
       column_name: string;
       data_type: string;
-    }>;
+    }>(
+      `
+        SELECT
+          cols.table_name,
+          cols.column_name,
+          cols.data_type
+        FROM information_schema.columns cols
+        JOIN pg_namespace ns
+          ON ns.nspname = cols.table_schema
+        JOIN pg_class rel
+          ON rel.relnamespace = ns.oid
+         AND rel.relname = cols.table_name
+        WHERE cols.table_schema = 'public'
+          AND rel.relkind IN ('r', 'p')
+          AND NOT rel.relispartition
+      `,
+    );
 
     const columnsByTable = new Map<string, Set<string>>();
     const jsonColumnsByTable = new Map<string, Set<string>>();
@@ -1397,7 +1494,10 @@ export class TenantBackupService {
       .filter((table) => !EXCLUDED_TABLES.has(table))
       .sort((a, b) => a.localeCompare(b));
 
-    const primaryKeyRows = (await this.dataSource.query(
+    const primaryKeyRows = await read<{
+      table_name: string;
+      column_name: string;
+    }>(
       `
         SELECT
           tc.table_name,
@@ -1411,10 +1511,7 @@ export class TenantBackupService {
           AND tc.constraint_type = 'PRIMARY KEY'
         ORDER BY tc.table_name, kcu.ordinal_position
       `,
-    )) as unknown as Array<{
-      table_name: string;
-      column_name: string;
-    }>;
+    );
 
     const primaryKeysByTable = new Map<string, string[]>();
     for (const row of primaryKeyRows) {
@@ -1423,7 +1520,12 @@ export class TenantBackupService {
       primaryKeysByTable.set(row.table_name, current);
     }
 
-    const foreignKeyRows = (await this.dataSource.query(
+    const foreignKeyRows = await read<{
+      table_name: string;
+      column_name: string;
+      referenced_table_name: string;
+      referenced_column_name: string;
+    }>(
       `
         SELECT
           tc.table_name AS table_name,
@@ -1440,12 +1542,7 @@ export class TenantBackupService {
         WHERE tc.table_schema = 'public'
           AND tc.constraint_type = 'FOREIGN KEY'
       `,
-    )) as unknown as Array<{
-      table_name: string;
-      column_name: string;
-      referenced_table_name: string;
-      referenced_column_name: string;
-    }>;
+    );
 
     const foreignKeys: SchemaForeignKey[] = foreignKeyRows.map((row) => ({
       table: row.table_name,
@@ -1465,19 +1562,31 @@ export class TenantBackupService {
     return this.schemaMetadataCache;
   }
 
-  private async resolveSchemaVersion(): Promise<string | null> {
+  private createDataSourceReadQuery(): BackupReadQuery {
+    return async <Row extends Record<string, unknown>>(
+      sql: string,
+      parameters?: unknown[],
+    ): Promise<Row[]> => {
+      const rows: unknown = await this.dataSource.query(sql, parameters);
+      return rows as Row[];
+    };
+  }
+
+  private async resolveSchemaVersion(
+    query: BackupReadQuery,
+  ): Promise<string | null> {
     try {
-      const migrationTableLookup = (await this.dataSource.query(
-        `SELECT to_regclass('public.migrations') AS migration_table`,
-      )) as unknown as Array<{ migration_table?: unknown }>;
+      const migrationTableLookup = await query<{
+        migration_table?: unknown;
+      }>(`SELECT to_regclass('public.migrations') AS migration_table`);
       const migrationTable = migrationTableLookup[0]?.migration_table;
       if (typeof migrationTable !== 'string' || migrationTable.length === 0) {
         return null;
       }
 
-      const rows = (await this.dataSource.query(
+      const rows = await query<{ name?: unknown }>(
         `SELECT name FROM "migrations" ORDER BY "timestamp" DESC LIMIT 1`,
-      )) as unknown as Array<{ name?: unknown }>;
+      );
       const name = rows[0]?.name;
       return typeof name === 'string' ? name : null;
     } catch {
@@ -1490,15 +1599,14 @@ export class TenantBackupService {
     column: string,
     values: string[],
     schema: SchemaMetadata,
+    query: BackupReadQuery,
   ): Promise<Array<Record<string, unknown>>> {
     if (values.length === 0) {
       return [];
     }
 
     const sql = `SELECT * FROM ${this.quoteIdentifier(table)} WHERE CAST(${this.quoteIdentifier(column)} AS text) = ANY($1::text[])`;
-    const rows = (await this.dataSource.query(sql, [
-      values,
-    ])) as unknown as Array<Record<string, unknown>>;
+    const rows = await query<Record<string, unknown>>(sql, [values]);
     return rows.map((row) => this.sanitizeRowForExport(table, row, schema));
   }
 
