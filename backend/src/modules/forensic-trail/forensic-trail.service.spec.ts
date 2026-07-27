@@ -1,4 +1,5 @@
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import type { PoolClient } from 'pg';
 import { requestContextStorage } from '../../shared/middleware/request-context.middleware';
 import { ForensicTrailEvent } from './entities/forensic-trail-event.entity';
 import { ForensicTrailService } from './forensic-trail.service';
@@ -76,30 +77,6 @@ describe('ForensicTrailService', () => {
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       ['company-1:pt:pt-1'],
     );
-    expect(manager.query).not.toHaveBeenCalledWith(
-      "SET LOCAL app.is_super_admin = 'true'",
-    );
-  });
-
-  it('ativa o contexto super-admin para eventos globais internos', async () => {
-    await service.append(
-      {
-        eventType: 'dr_execution_started',
-        module: 'disaster-recovery',
-        entityId: 'execution-1',
-      },
-      { isSuperAdmin: true },
-    );
-
-    expect(manager.query).toHaveBeenNthCalledWith(
-      1,
-      "SET LOCAL app.is_super_admin = 'true'",
-    );
-    expect(manager.query).toHaveBeenNthCalledWith(
-      2,
-      'SELECT pg_advisory_xact_lock(hashtext($1))',
-      ['global:disaster-recovery:execution-1'],
-    );
   });
 
   it('encadeia o hash e usa contexto da requisição quando disponível', async () => {
@@ -133,5 +110,49 @@ describe('ForensicTrailService', () => {
     expect(result.user_id).toBe('user-context');
     expect(result.ip).toBe('10.0.0.1');
     expect(result.user_agent).toBe('jest-agent');
+  });
+
+  it('persiste evento global pelo client privilegiado', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockImplementationOnce((_sql: string, parameters: unknown[]) =>
+          Promise.resolve({
+            rows: [
+              {
+                id: 'event-privileged',
+                stream_key: parameters[0],
+                stream_sequence: parameters[1],
+                event_type: parameters[2],
+                module: parameters[3],
+                entity_id: parameters[4],
+                company_id: parameters[5],
+                event_hash: parameters[12],
+              },
+            ],
+          }),
+        ),
+    };
+
+    const result = await service.appendWithPrivilegedClient(
+      {
+        eventType: 'dr_execution_started',
+        module: 'disaster-recovery',
+        entityId: 'execution-1',
+      },
+      client as unknown as PoolClient,
+    );
+
+    expect(result.id).toBe('event-privileged');
+    expect(result.stream_key).toBe('global:disaster-recovery:execution-1');
+    expect(client.query).toHaveBeenNthCalledWith(
+      1,
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      ['global:disaster-recovery:execution-1'],
+    );
+    const insertCall = client.query.mock.calls.at(2) as [string, unknown[]];
+    expect(insertCall[0]).toContain('INSERT INTO "forensic_trail_events"');
   });
 });
