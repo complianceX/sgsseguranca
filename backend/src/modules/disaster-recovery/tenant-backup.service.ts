@@ -1392,6 +1392,13 @@ export class TenantBackupService {
       if (!nodes.has(fk.table) || !nodes.has(fk.referencedTable)) {
         continue;
       }
+      // Uma FK autorreferente (ex.: aprs.parent_apr_id -> aprs.id) não cria
+      // dependência entre tabelas. Mantê-la no grafo impede o nó de chegar a
+      // grau zero e joga todo o subgrafo para o fallback alfabético, quebrando
+      // a ordem reversa de exclusão (users podia ser removida antes de aprs).
+      if (fk.table === fk.referencedTable) {
+        continue;
+      }
       dependencies.get(fk.table)?.add(fk.referencedTable);
       dependents.get(fk.referencedTable)?.add(fk.table);
     }
@@ -1576,19 +1583,33 @@ export class TenantBackupService {
     }>(
       `
         SELECT
-          tc.table_name AS table_name,
-          kcu.column_name AS column_name,
-          ccu.table_name AS referenced_table_name,
-          ccu.column_name AS referenced_column_name
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name
-         AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-          ON ccu.constraint_name = tc.constraint_name
-         AND ccu.table_schema = tc.table_schema
-        WHERE tc.table_schema = 'public'
-          AND tc.constraint_type = 'FOREIGN KEY'
+          child.relname AS table_name,
+          child_attribute.attname AS column_name,
+          parent.relname AS referenced_table_name,
+          parent_attribute.attname AS referenced_column_name
+        FROM pg_constraint constraint_row
+        JOIN pg_class child
+          ON child.oid = constraint_row.conrelid
+        JOIN pg_namespace child_namespace
+          ON child_namespace.oid = child.relnamespace
+        JOIN pg_class parent
+          ON parent.oid = constraint_row.confrelid
+        JOIN LATERAL unnest(constraint_row.conkey)
+          WITH ORDINALITY child_key(attnum, ordinality)
+          ON true
+        JOIN LATERAL unnest(constraint_row.confkey)
+          WITH ORDINALITY parent_key(attnum, ordinality)
+          ON parent_key.ordinality = child_key.ordinality
+        JOIN pg_attribute child_attribute
+          ON child_attribute.attrelid = child.oid
+         AND child_attribute.attnum = child_key.attnum
+        JOIN pg_attribute parent_attribute
+          ON parent_attribute.attrelid = parent.oid
+         AND parent_attribute.attnum = parent_key.attnum
+        WHERE constraint_row.contype = 'f'
+          AND child_namespace.nspname = 'public'
+          AND NOT child.relispartition
+          AND NOT parent.relispartition
       `,
     );
 
