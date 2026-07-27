@@ -189,6 +189,10 @@ jobs:
 
       - name: Generate CycloneDX SBOM
         working-directory: ./${{ matrix.directory }}
+        env:
+          # eslint-config-next peerDep on eslint@^8||^9 conflicts with eslint@10;
+          # legacy-peer-deps makes npm-ls (called internally by cyclonedx-npm) exit 0.
+          npm_config_legacy_peer_deps: "true"
         run: npx @cyclonedx/cyclonedx-npm --output-file ../sbom-${{ matrix.directory }}.json --spec-version 1.5
 
       - name: Upload SBOM artifact
