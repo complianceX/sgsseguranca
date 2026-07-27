@@ -122,9 +122,7 @@ const resetTestDatabase = async (dataSource: DataSource): Promise<void> => {
     );
     if (tables.length > 0) {
       const tableList = tables.map((t) => `"${t.tablename}"`).join(', ');
-      await dataSource.query(
-        `TRUNCATE ${tableList} RESTART IDENTITY CASCADE`,
-      );
+      await dataSource.query(`TRUNCATE ${tableList} RESTART IDENTITY CASCADE`);
     }
     return;
   }
