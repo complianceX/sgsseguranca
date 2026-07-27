@@ -54,7 +54,6 @@ type SchemaMetadata = {
 type TableRowsPayload = TenantBackupPayload['tables'][string];
 
 type ForeignKeyExpansion = {
-  visitKey: string;
   sourceColumn: string;
   targetTable: string;
   targetColumn: string;
@@ -739,6 +738,13 @@ export class TenantBackupService {
       schema,
       query,
     });
+    const pseudonymizedExternalUserReferences =
+      this.pseudonymizeExternalUserReferences({
+        tables,
+        schema,
+        companyId,
+        exportedAt,
+      });
 
     const rowCounts: Record<string, number> = {};
     const payloadTables: TenantBackupPayload['tables'] = {};
@@ -766,6 +772,7 @@ export class TenantBackupService {
       notes: [
         'password/signature pin hashes e refresh/session tokens não são exportados.',
         'Backup por tenant preserva soft-deletes e histórico operacional.',
+        `external_user_references_pseudonymized=${pseudonymizedExternalUserReferences}`,
       ],
     };
 
@@ -777,13 +784,122 @@ export class TenantBackupService {
     };
   }
 
+  private pseudonymizeExternalUserReferences(input: {
+    tables: Map<string, TableRowsPayload>;
+    schema: SchemaMetadata;
+    companyId: string;
+    exportedAt: string;
+  }): number {
+    const usersPayload = input.tables.get('users');
+    if (!usersPayload) {
+      return 0;
+    }
+
+    const knownUserIds = new Set(
+      usersPayload.rows.map((row) => this.scalarString(row.id)),
+    );
+    const userRelations = input.schema.foreignKeys.filter(
+      (foreignKey) =>
+        foreignKey.referencedTable === 'users' &&
+        foreignKey.referencedColumn === 'id' &&
+        foreignKey.table !== 'users',
+    );
+    const externalUserIds = new Set<string>();
+
+    for (const relation of userRelations) {
+      const tablePayload = input.tables.get(relation.table);
+      if (!tablePayload) {
+        continue;
+      }
+      for (const row of tablePayload.rows) {
+        const referencedUserId = this.scalarString(row[relation.column]);
+        if (referencedUserId && !knownUserIds.has(referencedUserId)) {
+          externalUserIds.add(referencedUserId);
+        }
+      }
+    }
+
+    if (externalUserIds.size === 0) {
+      return 0;
+    }
+
+    const fallbackProfileId = usersPayload.rows
+      .map((row) => this.scalarString(row.profile_id))
+      .find((value) => value.length > 0);
+    if (!fallbackProfileId) {
+      throw new BadRequestException(
+        'Não foi possível anonimizar referência externa de usuário: perfil seguro ausente no tenant.',
+      );
+    }
+
+    for (const externalUserId of externalUserIds) {
+      const placeholderId = this.buildPseudonymousUserId(
+        input.companyId,
+        externalUserId,
+      );
+      for (const relation of userRelations) {
+        const tablePayload = input.tables.get(relation.table);
+        if (!tablePayload) {
+          continue;
+        }
+        for (const row of tablePayload.rows) {
+          if (this.scalarString(row[relation.column]) === externalUserId) {
+            row[relation.column] = placeholderId;
+          }
+        }
+      }
+
+      usersPayload.rows.push({
+        id: placeholderId,
+        nome: 'Ator histórico externo anonimizado',
+        cpf: null,
+        email: null,
+        funcao: 'Referência histórica de disaster recovery',
+        password: null,
+        status: false,
+        company_id: input.companyId,
+        site_id: null,
+        profile_id: fallbackProfileId,
+        created_at: input.exportedAt,
+        updated_at: input.exportedAt,
+        deleted_at: input.exportedAt,
+        ai_processing_consent: false,
+        auth_user_id: null,
+        cpf_hash: null,
+        cpf_ciphertext: null,
+        must_change_password: false,
+        identity_type: 'employee_signer',
+        access_status: 'no_login',
+        module_access_keys: [],
+      });
+    }
+
+    usersPayload.rowCount = usersPayload.rows.length;
+    return externalUserIds.size;
+  }
+
+  private buildPseudonymousUserId(
+    companyId: string,
+    externalUserId: string,
+  ): string {
+    const hex = createHash('sha256')
+      .update(`tenant-backup-external-user:${companyId}:${externalUserId}`)
+      .digest('hex')
+      .slice(0, 32)
+      .split('');
+    hex[12] = '5';
+    hex[16] = '8';
+    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex
+      .slice(12, 16)
+      .join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
+  }
+
   private async expandRelatedRowsByForeignKeys(input: {
     tables: Map<string, TableRowsPayload>;
     schema: SchemaMetadata;
     query: BackupReadQuery;
   }): Promise<void> {
     const queue = Array.from(input.tables.keys());
-    const visited = new Set<string>();
 
     while (queue.length > 0) {
       const parentTable = queue.shift();
@@ -804,7 +920,6 @@ export class TenantBackupService {
         ...input,
         sourceRows: parentPayload.rows,
         expansions,
-        visited,
         queue,
       });
     }
@@ -814,15 +929,17 @@ export class TenantBackupService {
     table: string,
     schema: SchemaMetadata,
   ): ForeignKeyExpansion[] {
+    const tenantAnchoredTables = this.getTenantAnchoredTables(schema);
+    const sourceIsTenantAnchored = tenantAnchoredTables.has(table);
     const childExpansions = schema.foreignKeys
       .filter(
         (fk) =>
           fk.referencedTable === table &&
           !EXCLUDED_TABLES.has(fk.table) &&
-          !schema.companyScopedTables.includes(fk.table),
+          !schema.companyScopedTables.includes(fk.table) &&
+          (sourceIsTenantAnchored || !tenantAnchoredTables.has(fk.table)),
       )
       .map((fk) => ({
-        visitKey: `child:${fk.table}:${fk.column}:${fk.referencedTable}:${fk.referencedColumn}`,
         sourceColumn: fk.referencedColumn,
         targetTable: fk.table,
         targetColumn: fk.column,
@@ -839,7 +956,6 @@ export class TenantBackupService {
           !schema.companyScopedTables.includes(fk.referencedTable),
       )
       .map((fk) => ({
-        visitKey: `parent:${fk.table}:${fk.column}:${fk.referencedTable}:${fk.referencedColumn}`,
         sourceColumn: fk.column,
         targetTable: fk.referencedTable,
         targetColumn: fk.referencedColumn,
@@ -848,21 +964,33 @@ export class TenantBackupService {
     return [...childExpansions, ...parentExpansions];
   }
 
+  private getTenantAnchoredTables(schema: SchemaMetadata): Set<string> {
+    const anchored = new Set(schema.companyScopedTables);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const foreignKey of schema.foreignKeys) {
+        if (
+          !anchored.has(foreignKey.table) &&
+          anchored.has(foreignKey.referencedTable)
+        ) {
+          anchored.add(foreignKey.table);
+          changed = true;
+        }
+      }
+    }
+    return anchored;
+  }
+
   private async applyForeignKeyExpansions(input: {
     tables: Map<string, TableRowsPayload>;
     schema: SchemaMetadata;
     query: BackupReadQuery;
     sourceRows: Array<Record<string, unknown>>;
     expansions: ForeignKeyExpansion[];
-    visited: Set<string>;
     queue: string[];
   }): Promise<void> {
     for (const expansion of input.expansions) {
-      if (input.visited.has(expansion.visitKey)) {
-        continue;
-      }
-      input.visited.add(expansion.visitKey);
-
       const referenceValues = input.sourceRows
         .map((row) => row[expansion.sourceColumn])
         .filter((value) => value !== null && value !== undefined)
@@ -882,11 +1010,17 @@ export class TenantBackupService {
         continue;
       }
 
-      this.mergeExpandedTableRows(input.tables, input.schema, {
-        table: expansion.targetTable,
-        rows,
-      });
-      input.queue.push(expansion.targetTable);
+      const tableChanged = this.mergeExpandedTableRows(
+        input.tables,
+        input.schema,
+        {
+          table: expansion.targetTable,
+          rows,
+        },
+      );
+      if (tableChanged) {
+        input.queue.push(expansion.targetTable);
+      }
     }
   }
 
@@ -897,7 +1031,7 @@ export class TenantBackupService {
       table: string;
       rows: Array<Record<string, unknown>>;
     },
-  ): void {
+  ): boolean {
     const existing = tables.get(input.table);
     const primaryKeyColumns =
       existing?.primaryKeyColumns ??
@@ -915,6 +1049,7 @@ export class TenantBackupService {
       rowCount: mergedRows.length,
       rows: mergedRows,
     });
+    return mergedRows.length > (existing?.rows.length ?? 0);
   }
 
   private mergeRows(input: {
@@ -1242,6 +1377,16 @@ export class TenantBackupService {
     await executor.query(`SET LOCAL lock_timeout = '5s'`);
     await executor.query(`SET LOCAL statement_timeout = '0'`);
 
+    await this.reconcileGlobalCatalogByNaturalKey(executor, input, {
+      table: 'roles',
+      naturalKeyColumn: 'name',
+    });
+    await this.reconcileGlobalCatalogByNaturalKey(executor, input, {
+      table: 'permissions',
+      naturalKeyColumn: 'name',
+    });
+    await this.reconcileConsentVersionsForRestore(executor, input);
+
     const tables = Object.keys(input.transformedPayload.tables);
     const companiesPayload = input.transformedPayload.tables['companies'];
     if (!companiesPayload || companiesPayload.rows.length === 0) {
@@ -1283,6 +1428,169 @@ export class TenantBackupService {
       }
       await this.insertRows(executor, table, tablePayload.rows, input.schema);
     }
+  }
+
+  private async reconcileGlobalCatalogByNaturalKey(
+    executor: RestoreQueryExecutor,
+    input: RestoreExecutionInput,
+    catalog: {
+      table: 'roles' | 'permissions';
+      naturalKeyColumn: 'name';
+    },
+  ): Promise<void> {
+    const tablePayload = input.transformedPayload.tables[catalog.table];
+    if (!tablePayload || tablePayload.rows.length === 0) {
+      return;
+    }
+
+    const reconciledRows: Array<Record<string, unknown>> = [];
+    for (const row of tablePayload.rows) {
+      const sourceId = this.scalarString(row.id);
+      const naturalKeyValue = this.scalarString(row[catalog.naturalKeyColumn]);
+      if (!sourceId || !naturalKeyValue) {
+        throw new BadRequestException(
+          `Backup inválido: ${catalog.table} contém registro incompleto.`,
+        );
+      }
+
+      const existingRows = await this.selectRestoreRows<{ id: string }>(
+        executor,
+        `SELECT id
+           FROM ${this.quoteIdentifier(catalog.table)}
+          WHERE ${this.quoteIdentifier(catalog.naturalKeyColumn)} = $1
+          LIMIT 1`,
+        [naturalKeyValue],
+      );
+      const existing = existingRows[0];
+      if (existing && existing.id !== sourceId) {
+        this.remapForeignKeyReferences(
+          input,
+          catalog.table,
+          sourceId,
+          existing.id,
+        );
+        continue;
+      }
+
+      reconciledRows.push(row);
+    }
+
+    tablePayload.rows = reconciledRows;
+    tablePayload.rowCount = reconciledRows.length;
+    input.transformedPayload.rowCounts[catalog.table] = reconciledRows.length;
+  }
+
+  private async reconcileConsentVersionsForRestore(
+    executor: RestoreQueryExecutor,
+    input: RestoreExecutionInput,
+  ): Promise<void> {
+    const versionPayload = input.transformedPayload.tables['consent_versions'];
+    if (!versionPayload || versionPayload.rows.length === 0) {
+      return;
+    }
+
+    const reconciledRows: Array<Record<string, unknown>> = [];
+    for (const row of versionPayload.rows) {
+      const sourceId = this.scalarString(row.id);
+      const type = this.scalarString(row.type);
+      const versionLabel = this.scalarString(row.version_label);
+      const bodyHash = this.scalarString(row.body_hash);
+      if (!sourceId || !type || !versionLabel || !bodyHash) {
+        throw new BadRequestException(
+          'Backup inválido: consent_versions contém registro incompleto.',
+        );
+      }
+
+      const naturalMatch = await this.selectRestoreRows<{
+        id: string;
+        body_hash: string;
+      }>(
+        executor,
+        `SELECT id, body_hash
+           FROM consent_versions
+          WHERE type = $1
+            AND version_label = $2
+          LIMIT 1`,
+        [type, versionLabel],
+      );
+      const existing = naturalMatch[0];
+      if (existing) {
+        if (existing.body_hash !== bodyHash) {
+          throw new BadRequestException(
+            `Integridade violada em consent_versions(type=${type}, version=${versionLabel}): body_hash divergente no banco alvo.`,
+          );
+        }
+        if (existing.id !== sourceId) {
+          this.remapForeignKeyReferences(
+            input,
+            'consent_versions',
+            sourceId,
+            existing.id,
+          );
+          continue;
+        }
+      }
+
+      if (row.retired_at === null || row.retired_at === undefined) {
+        const activeVersion = await this.selectRestoreRows<{ id: string }>(
+          executor,
+          `SELECT id
+             FROM consent_versions
+            WHERE type = $1
+              AND retired_at IS NULL
+              AND id <> $2
+            LIMIT 1`,
+          [type, sourceId],
+        );
+        if (activeVersion.length > 0) {
+          reconciledRows.push({
+            ...row,
+            retired_at: input.transformedPayload.exportedAt,
+          });
+          continue;
+        }
+      }
+
+      reconciledRows.push(row);
+    }
+
+    versionPayload.rows = reconciledRows;
+    versionPayload.rowCount = reconciledRows.length;
+    input.transformedPayload.rowCounts.consent_versions = reconciledRows.length;
+  }
+
+  private remapForeignKeyReferences(
+    input: RestoreExecutionInput,
+    referencedTable: string,
+    sourceId: string,
+    targetId: string,
+  ): void {
+    const relations = input.schema.foreignKeys.filter(
+      (foreignKey) =>
+        foreignKey.referencedTable === referencedTable &&
+        foreignKey.referencedColumn === 'id',
+    );
+
+    for (const relation of relations) {
+      const tablePayload = input.transformedPayload.tables[relation.table];
+      if (!tablePayload) {
+        continue;
+      }
+      for (const row of tablePayload.rows) {
+        if (this.scalarString(row[relation.column]) === sourceId) {
+          row[relation.column] = targetId;
+        }
+      }
+    }
+  }
+
+  private async selectRestoreRows<Row extends Record<string, unknown>>(
+    executor: RestoreQueryExecutor,
+    sql: string,
+    parameters: unknown[],
+  ): Promise<Row[]> {
+    const rows = await executor.query(sql, parameters);
+    return Array.isArray(rows) ? (rows as Row[]) : [];
   }
 
   private async cleanupTargetCompanyData(input: {
