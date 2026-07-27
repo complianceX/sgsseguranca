@@ -254,3 +254,23 @@ SELECT EXISTS (
 Runtime (`sgs_app`) sem `sgs_rls_bypass`; login e LGPD funcionando (definer / conexao
 dedicada); leitura e escrita cross-tenant bloqueadas com o papel comum; fail-closed sem
 contexto confirmado.
+
+## 11. Encerramento operacional
+
+Validado em 2026-07-27, após a migration 365 e o deploy do SHA
+`6c1c40815167f43c05ad7affd2df8f53d3dd7282`.
+
+- `sgs_app` sem `sgs_rls_bypass`; `sgs_admin` com a membership dedicada.
+- Probe real de RLS como `sgs_app`: sem contexto `0`, tenant próprio `1`,
+  tenant alheio `0`.
+- Cinco backups reais pós-REVOKE gerados e validados com AES-256-GCM e checksum.
+- Maior backup restaurado em PostgreSQL reconstruído por 287 migrations:
+  67 tabelas e 91.278 linhas após reconciliação de catálogos globais.
+- Zero linhas cross-tenant em 125 relações com `company_id`.
+- 34/34 documentos do tenant restaurado presentes no B2 e com hash válido.
+- RTO observado de 21m34s, abaixo da meta de 4h; RPO de 28m38s, abaixo da meta
+  de 24h.
+
+As evidências detalhadas, os IDs anonimizados dos backups e a ressalva da
+constraint legado `NOT VALID` estão na seção 4.7 de
+`backend/docs/RUNBOOK_PRODUCTION.md`.
