@@ -124,6 +124,11 @@ const EXCLUDED_TABLES = new Set([
 // sem exigir session_replication_role=replica ou uma role SUPERUSER.
 const APPEND_ONLY_TABLES = new Set(['forensic_trail_events']);
 
+// Sessões não entram no backup por segurança, mas mantêm FKs para users. Elas
+// precisam ser revogadas antes do overwrite para que a restauração dos usuários
+// não seja bloqueada e para evitar sessões autenticadas contra estado anterior.
+const RESTORE_PURGE_TABLES = ['user_sessions'] as const;
+
 const EXCLUDED_COLUMNS_BY_TABLE = new Map<string, Set<string>>([
   [
     'users',
@@ -1215,6 +1220,17 @@ export class TenantBackupService {
     if (!targetExists) {
       throw new NotFoundException(
         `Tenant alvo ${input.targetCompanyId} não existe para restore em sobrescrita.`,
+      );
+    }
+
+    for (const table of RESTORE_PURGE_TABLES) {
+      const columns = input.schema.columnsByTable.get(table);
+      if (!columns?.has('company_id')) {
+        continue;
+      }
+      await input.queryRunner.query(
+        `DELETE FROM ${this.quoteIdentifier(table)} WHERE ${this.quoteIdentifier('company_id')} = $1`,
+        [input.targetCompanyId],
       );
     }
 
