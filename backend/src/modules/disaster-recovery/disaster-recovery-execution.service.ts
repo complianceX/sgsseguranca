@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { PoolClient } from 'pg';
 import { Repository } from 'typeorm';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
@@ -142,7 +143,7 @@ export class DisasterRecoveryExecutionService {
       );
     }
 
-    return this.privilegedDb.withPrivilegedClient(async (client) => {
+    return this.withPrivilegedExecutionContext(async (client) => {
       const result = await client.query(
         `
           INSERT INTO "disaster_recovery_executions" (
@@ -207,7 +208,7 @@ export class DisasterRecoveryExecutionService {
       return this.executionRepository.save(execution);
     }
 
-    return this.privilegedDb.withPrivilegedClient(async (client) => {
+    return this.withPrivilegedExecutionContext(async (client) => {
       const result = await client.query(
         `
           UPDATE "disaster_recovery_executions"
@@ -242,6 +243,38 @@ export class DisasterRecoveryExecutionService {
       }
 
       return this.requireExecutionRow(result.rows[0]);
+    });
+  }
+
+  private withPrivilegedExecutionContext<T>(
+    operation: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    return this.privilegedDb.withPrivilegedClient(async (client) => {
+      let transactionStarted = false;
+      try {
+        await client.query('BEGIN');
+        transactionStarted = true;
+        await client.query("SET LOCAL app.is_super_admin = 'true'");
+        const result = await operation(client);
+        await client.query('COMMIT');
+        transactionStarted = false;
+        return result;
+      } catch (error) {
+        if (transactionStarted) {
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            this.logger.warn({
+              event: 'dr_execution_privileged_rollback_failed',
+              error:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : String(rollbackError),
+            });
+          }
+        }
+        throw error;
+      }
     });
   }
 
