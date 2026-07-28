@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';

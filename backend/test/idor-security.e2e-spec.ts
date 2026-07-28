@@ -16,7 +16,6 @@ bootstrapBackendTestEnvironment();
 
 type App = Parameters<typeof request>[0];
 type IdRow = { id: string };
-type LoginResponse = { accessToken: string };
 type CsrfBundle = { token: string; cookie: string };
 type CookieParserFactory = (
   ...args: unknown[]
@@ -41,10 +40,7 @@ const readAccessToken = (body: unknown): string => {
       ? (body as Record<string, unknown>)
       : null;
 
-  if (
-    !candidate ||
-    typeof candidate.accessToken !== 'string'
-  ) {
+  if (!candidate || typeof candidate.accessToken !== 'string') {
     throw new Error('Login response did not include a string accessToken');
   }
 
