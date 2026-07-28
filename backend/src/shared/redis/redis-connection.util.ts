@@ -97,61 +97,49 @@ export function isRedisExplicitlyDisabled(reader: RedisConfigReader): boolean {
   return /^true$/i.test(readValue(reader, 'REDIS_DISABLED') || '');
 }
 
-export function resolveRedisConnection(
+function resolveRedisUrlConnection(
   reader: RedisConfigReader,
-  tier?: RedisConnectionTier,
-): ResolvedRedisConnection | null {
-  if (isRedisExplicitlyDisabled(reader)) {
-    return null;
+  tier: RedisConnectionTier | undefined,
+  prefix: string | undefined,
+  redisUrl: string,
+): ResolvedRedisConnection {
+  const parsed = new URL(redisUrl);
+  if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
+    throw new Error(
+      `Protocolo Redis inválido: ${parsed.protocol}. Use redis:// ou rediss://.`,
+    );
   }
 
-  const prefix = tier ? `REDIS_${tierEnvName(tier)}_` : undefined;
-  const redisUrl = firstNonEmpty(
-    reader,
-    prefix
-      ? [`${prefix}URL`, 'REDIS_URL', 'URL_REDIS', 'REDIS_PUBLIC_URL']
-      : ['REDIS_URL', 'URL_REDIS', 'REDIS_PUBLIC_URL'],
-  );
+  const username =
+    (parsed.username ? decodeURIComponent(parsed.username) : undefined) ??
+    firstNonEmpty(
+      reader,
+      prefix ? [`${prefix}USERNAME`, 'REDIS_USERNAME'] : ['REDIS_USERNAME'],
+    );
+  const password =
+    (parsed.password ? decodeURIComponent(parsed.password) : undefined) ??
+    firstNonEmpty(
+      reader,
+      prefix ? [`${prefix}PASSWORD`, 'REDIS_PASSWORD'] : ['REDIS_PASSWORD'],
+    );
 
-  if (redisUrl) {
-    const parsed = new URL(redisUrl);
-    if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
-      throw new Error(
-        `Protocolo Redis inválido: ${parsed.protocol}. Use redis:// ou rediss://.`,
-      );
-    }
-    const username =
-      (parsed.username ? decodeURIComponent(parsed.username) : undefined) ??
-      firstNonEmpty(
-        reader,
-        prefix ? [`${prefix}USERNAME`, 'REDIS_USERNAME'] : ['REDIS_USERNAME'],
-      );
-    const password =
-      (parsed.password ? decodeURIComponent(parsed.password) : undefined) ??
-      firstNonEmpty(
-        reader,
-        prefix ? [`${prefix}PASSWORD`, 'REDIS_PASSWORD'] : ['REDIS_PASSWORD'],
-      );
+  return {
+    source: 'url',
+    url: redisUrl,
+    host: parsed.hostname,
+    port: Number(parsed.port || 6379),
+    username,
+    password,
+    tls: resolveTls(reader, tier, parsed.protocol === 'rediss:'),
+  };
+}
 
-    return {
-      source: 'url',
-      url: redisUrl,
-      host: parsed.hostname,
-      port: Number(parsed.port || 6379),
-      username,
-      password,
-      tls: resolveTls(reader, tier, parsed.protocol === 'rediss:'),
-    };
-  }
-
-  const host = firstNonEmpty(
-    reader,
-    prefix ? [`${prefix}HOST`, 'REDIS_HOST'] : ['REDIS_HOST'],
-  );
-  if (!host) {
-    return null;
-  }
-
+function resolveRedisHostConnection(
+  reader: RedisConfigReader,
+  tier: RedisConnectionTier | undefined,
+  prefix: string | undefined,
+  host: string,
+): ResolvedRedisConnection {
   const port = Number(
     firstNonEmpty(
       reader,
@@ -173,4 +161,35 @@ export function resolveRedisConnection(
     ),
     tls: resolveTls(reader, tier),
   };
+}
+
+export function resolveRedisConnection(
+  reader: RedisConfigReader,
+  tier?: RedisConnectionTier,
+): ResolvedRedisConnection | null {
+  if (isRedisExplicitlyDisabled(reader)) {
+    return null;
+  }
+
+  const prefix = tier ? `REDIS_${tierEnvName(tier)}_` : undefined;
+  const redisUrl = firstNonEmpty(
+    reader,
+    prefix
+      ? [`${prefix}URL`, 'REDIS_URL', 'URL_REDIS', 'REDIS_PUBLIC_URL']
+      : ['REDIS_URL', 'URL_REDIS', 'REDIS_PUBLIC_URL'],
+  );
+
+  if (redisUrl) {
+    return resolveRedisUrlConnection(reader, tier, prefix, redisUrl);
+  }
+
+  const host = firstNonEmpty(
+    reader,
+    prefix ? [`${prefix}HOST`, 'REDIS_HOST'] : ['REDIS_HOST'],
+  );
+  if (!host) {
+    return null;
+  }
+
+  return resolveRedisHostConnection(reader, tier, prefix, host);
 }
