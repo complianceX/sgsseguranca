@@ -10,8 +10,14 @@ export const defaultJobOptions: JobsOptions = {
     type: 'exponential',
     delay: 5000,
   },
-  removeOnComplete: 100,
-  removeOnFail: 500,
+  removeOnComplete: {
+    age: 24 * 60 * 60,
+    count: 100,
+  },
+  removeOnFail: {
+    age: 7 * 24 * 60 * 60,
+    count: 500,
+  },
 };
 
 export function withDefaultJobOptions(

@@ -6,7 +6,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT_CACHE } from '../../../shared/redis/redis.constants';
+import { createHmac } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
+import { REDIS_CLIENT_RATE_LIMIT } from '../../../shared/redis/redis.constants';
 
 export enum RiskType {
   SUSPICIOUS_ACTIVITY = 'suspicious_activity',
@@ -26,8 +28,22 @@ export class PdfRateLimitService {
   private readonly logger = new Logger(PdfRateLimitService.name);
   private readonly RATE_LIMIT_WINDOW = 120; // 2 minutes in seconds
   private readonly MAX_DOWNLOADS = 50;
+  private readonly auditHmacKey: string;
 
-  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS_CLIENT_RATE_LIMIT) private readonly redis: Redis,
+    configService: ConfigService,
+  ) {
+    const configuredKey = configService
+      .get<string>('SECURITY_AUDIT_HMAC_KEY')
+      ?.trim();
+    if (!configuredKey || configuredKey.length < 32) {
+      throw new Error(
+        'SECURITY_AUDIT_HMAC_KEY deve ter ao menos 32 caracteres.',
+      );
+    }
+    this.auditHmacKey = configuredKey;
+  }
 
   async checkDownloadLimit(userId: string, ip: string): Promise<void> {
     const key = `rate:pdf_download:${userId}`;
@@ -59,14 +75,13 @@ export class PdfRateLimitService {
 
     // Check if limit exceeded
     if (count > this.MAX_DOWNLOADS) {
-      this.logger.warn(
-        `User ${userId} exceeded PDF download limit: ${count} in 2 mins`,
-      );
-
-      // Register high risk event - MOCK for now
-      this.logger.error(
-        `HIGH RISK EVENT: Mass PDF Download Detected for user ${userId} at IP ${ip}`,
-      );
+      this.logger.error({
+        event: 'mass_pdf_download_detected',
+        userHash: this.hashAuditValue(userId),
+        ipHash: this.hashAuditValue(ip),
+        count,
+        windowSeconds: this.RATE_LIMIT_WINDOW,
+      });
 
       throw new HttpException(
         'Limite de downloads de PDF excedido. Atividade suspeita detectada.',
@@ -79,5 +94,12 @@ export class PdfRateLimitService {
     const key = `rate:pdf_download:${userId}`;
     const count = await this.redis.get(key);
     return count ? parseInt(count, 10) : 0;
+  }
+
+  private hashAuditValue(value: string): string {
+    return createHmac('sha256', this.auditHmacKey)
+      .update(`pdf-rate-limit:${value}`)
+      .digest('hex')
+      .slice(0, 32);
   }
 }

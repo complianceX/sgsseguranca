@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Redis from 'ioredis';
 import { Logger, Provider } from '@nestjs/common';
 import {
+  assertSecureRedisConnection,
   isRedisExplicitlyDisabled,
   isLocalRedisConnection,
   type RedisConnectionTier,
@@ -13,6 +14,7 @@ import {
   REDIS_CLIENT_AUTH,
   REDIS_CLIENT_CACHE,
   REDIS_CLIENT_QUEUE,
+  REDIS_CLIENT_RATE_LIMIT,
 } from './redis.constants';
 
 const logger = new Logger('RedisProvider');
@@ -45,6 +47,37 @@ function formatUnknownErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+export function readRedisMaxmemoryPolicy(info: string): string | undefined {
+  const match = String(info).match(
+    /(?:^|\r?\n)maxmemory_policy:([^\r\n]+)(?:\r?\n|$)/,
+  );
+  return match?.[1]?.trim().toLowerCase();
+}
+
+async function assertRedisEvictionPolicy(
+  client: Redis,
+  tierLabel: string,
+  expectedPolicy: 'noeviction' | undefined,
+  isProduction: boolean,
+): Promise<void> {
+  if (!isProduction || !expectedPolicy) {
+    return;
+  }
+
+  const info = await client.info('memory');
+  const actualPolicy = readRedisMaxmemoryPolicy(info);
+  if (!actualPolicy) {
+    throw new Error(
+      `[Redis:${tierLabel}] não foi possível validar maxmemory_policy.`,
+    );
+  }
+  if (actualPolicy !== expectedPolicy) {
+    throw new Error(
+      `[Redis:${tierLabel}] maxmemory_policy=${actualPolicy}; esperado=${expectedPolicy}.`,
+    );
+  }
 }
 
 function redisKeyMatchesPattern(key: string, match: string): boolean {
@@ -190,7 +223,7 @@ function assertValidRedisUrl(redisUrl: string): void {
   }
 }
 
-function buildRedisConnectionCacheKey(
+export function buildRedisConnectionCacheKey(
   connection: ReturnType<typeof resolveRedisConnection>,
 ): string {
   if (!connection) {
@@ -198,14 +231,25 @@ function buildRedisConnectionCacheKey(
   }
 
   if (connection.url) {
-    return `url:${connection.url}`;
+    const sanitizedUrl = new URL(connection.url);
+    sanitizedUrl.username = '';
+    sanitizedUrl.password = '';
+    // A credential rotation requires process restart; never derive/cache the secret.
+    const passwordState = connection.password ? 'configured' : 'none';
+    return [
+      `url:${sanitizedUrl.toString()}`,
+      `username:${connection.username ?? ''}`,
+      `password-state:${passwordState}`,
+      `tls:${connection.tls ? '1' : '0'}`,
+    ].join('|');
   }
 
+  const passwordState = connection.password ? 'configured' : 'none';
   return [
     `host:${connection.host}`,
     `port:${connection.port}`,
     `username:${connection.username ?? ''}`,
-    `password:${connection.password ?? ''}`,
+    `password-state:${passwordState}`,
     `tls:${connection.tls ? '1' : '0'}`,
   ].join('|');
 }
@@ -231,6 +275,7 @@ async function bootstrapRealRedisClient(
   if (redisUrl) {
     assertValidRedisUrl(redisUrl);
   }
+  assertSecureRedisConnection(redisConnection);
 
   try {
     logger.log(
@@ -242,6 +287,9 @@ async function bootstrapRealRedisClient(
 
   const client = redisUrl
     ? new Redis(redisUrl, {
+        username: redisConnection.username,
+        password: redisConnection.password,
+        tls: redisConnection.tls,
         maxRetriesPerRequest: 3,
         enableReadyCheck: false,
         connectTimeout: 10000,
@@ -610,7 +658,10 @@ export class InMemoryRedis {
 async function makeRedisClient(
   tierLabel: string,
   connectionTier?: RedisConnectionTier,
-  opts: { failClosedInProd?: boolean } = {},
+  opts: {
+    failClosedInProd?: boolean;
+    requiredPolicy?: 'noeviction';
+  } = {},
 ): Promise<Redis> {
   const redisDisabled = isRedisExplicitlyDisabled(process.env);
   const isProd = process.env.NODE_ENV === 'production';
@@ -669,12 +720,25 @@ async function makeRedisClient(
   }
 
   const connectionKey = buildRedisConnectionCacheKey(redisConnection);
-  let bootstrapPromise = sharedRedisBootstrapPromises.get(connectionKey);
+  const existingBootstrapPromise =
+    sharedRedisBootstrapPromises.get(connectionKey);
 
-  if (bootstrapPromise) {
+  if (existingBootstrapPromise) {
+    let sharedClient: Redis | undefined;
     try {
-      const sharedClient = await bootstrapPromise;
+      sharedClient = await existingBootstrapPromise;
+    } catch {
+      sharedRedisBootstrapPromises.delete(connectionKey);
+    }
+
+    if (sharedClient) {
       if (await canReuseSharedRedisClient(sharedClient)) {
+        await assertRedisEvictionPolicy(
+          sharedClient,
+          tierLabel,
+          opts.requiredPolicy,
+          isProd,
+        );
         logger.log(
           `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
         );
@@ -682,22 +746,34 @@ async function makeRedisClient(
       }
 
       sharedRedisBootstrapPromises.delete(connectionKey);
-      bootstrapPromise = undefined;
       logger.warn(
         `[Redis:${tierLabel}] shared client was already closed. Bootstrapping a new client.`,
       );
-    } catch {
-      sharedRedisBootstrapPromises.delete(connectionKey);
     }
   }
 
-  bootstrapPromise = bootstrapRealRedisClient(tierLabel, redisConnection);
+  const bootstrapPromise = bootstrapRealRedisClient(tierLabel, redisConnection);
   sharedRedisBootstrapPromises.set(connectionKey, bootstrapPromise);
 
+  let client: Redis | undefined;
   try {
-    return await bootstrapPromise;
+    client = await bootstrapPromise;
+    await assertRedisEvictionPolicy(
+      client,
+      tierLabel,
+      opts.requiredPolicy,
+      isProd,
+    );
+    return client;
   } catch (error) {
     sharedRedisBootstrapPromises.delete(connectionKey);
+    if (client) {
+      try {
+        client.disconnect();
+      } catch {
+        // noop
+      }
+    }
     const message = error instanceof Error ? error.message : String(error);
     logger.error(
       `❌ [Redis:${tierLabel}] unavailable at bootstrap: ${message}`,
@@ -730,18 +806,36 @@ export const redisProvider: Provider = {
  */
 export const redisAuthProvider: Provider = {
   provide: REDIS_CLIENT_AUTH,
-  useFactory: () => makeRedisClient('auth', 'auth', { failClosedInProd: true }),
+  useFactory: () =>
+    makeRedisClient('auth', 'auth', {
+      failClosedInProd: true,
+      requiredPolicy: 'noeviction',
+    }),
 };
 
 /**
- * P1 — Tier de cache/rate-limit.
- * Usado por: TenantRateLimitService, UserRateLimitService, dashboards.
+ * P1 — Tier de cache recalculável.
+ * Usado por dashboards, catálogos e snapshots.
  * Política recomendada no servidor: maxmemory-policy allkeys-lru
  * Fail-open aceitável (dados podem ser recalculados).
  */
 export const redisCacheProvider: Provider = {
   provide: REDIS_CLIENT_CACHE,
   useFactory: () => makeRedisClient('cache', 'cache'),
+};
+
+/**
+ * Tier de rate limiting e idempotência.
+ * Política recomendada: noeviction. Em produção, falha fechado para impedir
+ * bypass de controles de abuso quando o Redis estiver indisponível.
+ */
+export const redisRateLimitProvider: Provider = {
+  provide: REDIS_CLIENT_RATE_LIMIT,
+  useFactory: () =>
+    makeRedisClient('rate-limit', 'rateLimit', {
+      failClosedInProd: true,
+      requiredPolicy: 'noeviction',
+    }),
 };
 
 /**
@@ -753,7 +847,10 @@ export const redisCacheProvider: Provider = {
 export const redisQueueProvider: Provider = {
   provide: REDIS_CLIENT_QUEUE,
   useFactory: () =>
-    makeRedisClient('queue', 'queue', { failClosedInProd: true }),
+    makeRedisClient('queue', 'queue', {
+      failClosedInProd: true,
+      requiredPolicy: 'noeviction',
+    }),
 };
 
 /**
@@ -786,12 +883,21 @@ export const redisBullMqProvider: Provider = {
       logger.warn(`[Redis:bullmq] connection ended.`);
     });
 
-    await connectRedisWithBootstrapRetry(
-      bullmqClient,
-      logger,
-      process.env.NODE_ENV === 'production',
-    );
-    logger.log(`✅ [Redis:bullmq] connected`);
-    return bullmqClient;
+    try {
+      await connectRedisWithBootstrapRetry(
+        bullmqClient,
+        logger,
+        process.env.NODE_ENV === 'production',
+      );
+      logger.log(`✅ [Redis:bullmq] connected`);
+      return bullmqClient;
+    } catch (error) {
+      try {
+        bullmqClient.disconnect();
+      } catch {
+        // noop
+      }
+      throw error;
+    }
   },
 };

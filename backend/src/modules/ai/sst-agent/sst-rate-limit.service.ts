@@ -17,9 +17,14 @@
  * - Alertas quando tenant atinge 80% do limite diário
  */
 
-import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT_CACHE } from '../../../shared/redis/redis.constants';
+import { REDIS_CLIENT_RATE_LIMIT } from '../../../shared/redis/redis.constants';
 import { SstRateLimitCheck } from './sst-agent.types';
 
 // ---------------------------------------------------------------------------
@@ -45,16 +50,9 @@ export class SstRateLimitService {
   >();
 
   constructor(
-    @Optional()
-    @Inject(REDIS_CLIENT_CACHE)
-    private readonly redis: Redis | null,
-  ) {
-    if (!this.redis) {
-      this.logger.warn(
-        '[SstRateLimit] Redis não disponível — usando fallback local em memória',
-      );
-    }
-  }
+    @Inject(REDIS_CLIENT_RATE_LIMIT)
+    private readonly redis: Redis,
+  ) {}
 
   /**
    * Verifica e consome um slot de rate limit para o tenant.
@@ -64,17 +62,18 @@ export class SstRateLimitService {
    * @returns SstRateLimitCheck com allowed=true se dentro dos limites
    */
   async checkAndConsume(tenantId: string): Promise<SstRateLimitCheck> {
-    if (!this.redis) {
-      return this.executeLocalCheck(tenantId);
-    }
-
     try {
       return await this.executeCheck(tenantId);
     } catch (err) {
       this.logger.error(
-        `[SstRateLimit] Erro no Redis para tenant ${tenantId}; usando fallback local: ` +
+        `[SstRateLimit] Erro no Redis para tenant ${tenantId}: ` +
           (err instanceof Error ? err.message : String(err)),
       );
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Controle de limite da Sophie temporariamente indisponível.',
+        );
+      }
       return this.executeLocalCheck(tenantId);
     }
   }
@@ -84,7 +83,7 @@ export class SstRateLimitService {
    * Não bloqueia — apenas incrementa o contador para auditoria futura.
    */
   async recordTokenUsage(tenantId: string, tokens: number): Promise<void> {
-    if (!this.redis || LIMITS.TOKENS_PER_DAY === 0 || tokens <= 0) return;
+    if (LIMITS.TOKENS_PER_DAY === 0 || tokens <= 0) return;
 
     try {
       const key = this.tokensDayKey(tenantId);
@@ -102,55 +101,44 @@ export class SstRateLimitService {
   private async executeCheck(tenantId: string): Promise<SstRateLimitCheck> {
     const minKey = this.minuteKey(tenantId);
     const dayKey = this.dayKey(tenantId);
+    const script = `
+      local minute = redis.call('INCR', KEYS[1])
+      if minute == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
+      local daily = redis.call('INCR', KEYS[2])
+      if daily == 1 then redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2])) end
+      local minute_ttl = redis.call('TTL', KEYS[1])
+      local daily_ttl = redis.call('TTL', KEYS[2])
+      if minute > tonumber(ARGV[3]) or daily > tonumber(ARGV[4]) then
+        minute = redis.call('DECR', KEYS[1])
+        daily = redis.call('DECR', KEYS[2])
+        return {0, minute, daily, minute_ttl, daily_ttl}
+      end
+      return {1, minute, daily, minute_ttl, daily_ttl}
+    `;
+    const result = (await this.redis.eval(
+      script,
+      2,
+      minKey,
+      dayKey,
+      '60',
+      '86400',
+      String(LIMITS.REQUESTS_PER_MINUTE),
+      String(LIMITS.REQUESTS_PER_DAY),
+    )) as [number, number, number, number, number];
+    const allowed = Number(result[0]) === 1;
+    const minuteCount = Number(result[1]);
+    const dayCount = Number(result[2]);
+    const minuteTtl = Math.max(Number(result[3]), 1);
+    const dayTtl = Math.max(Number(result[4]), 1);
 
-    // Incrementa ambos os contadores atomicamente
-    const [minuteCount, dayCount] = await Promise.all([
-      this.redis!.incr(minKey),
-      this.redis!.incr(dayKey),
-    ]);
-
-    // Define TTL na primeira requisição da janela
-    if (minuteCount === 1) await this.redis!.expire(minKey, 60);
-    if (dayCount === 1) await this.redis!.expire(dayKey, 86_400);
-
-    // Verifica limite por minuto
-    if (minuteCount > LIMITS.REQUESTS_PER_MINUTE) {
-      // Desfaz os incrementos para não distorcer contadores
-      await this.safeDecrement(minKey);
-      await this.safeDecrement(dayKey);
-
-      this.logger.warn(
-        `[SstRateLimit] Tenant ${tenantId} excedeu limite por minuto (${minuteCount}/${LIMITS.REQUESTS_PER_MINUTE})`,
-      );
-
+    if (!allowed) {
+      const minuteExceeded = minuteCount >= LIMITS.REQUESTS_PER_MINUTE;
       return {
         allowed: false,
-        retryAfterSeconds: 60,
+        retryAfterSeconds: minuteExceeded ? minuteTtl : dayTtl,
         remaining: {
-          perMinute: 0,
-          perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - (dayCount - 1)),
-        },
-      };
-    }
-
-    // Verifica limite por dia
-    if (dayCount > LIMITS.REQUESTS_PER_DAY) {
-      await this.safeDecrement(minKey);
-      await this.safeDecrement(dayKey);
-
-      this.logger.warn(
-        `[SstRateLimit] Tenant ${tenantId} excedeu limite diário (${dayCount}/${LIMITS.REQUESTS_PER_DAY})`,
-      );
-
-      return {
-        allowed: false,
-        retryAfterSeconds: this.secondsUntilMidnight(),
-        remaining: {
-          perMinute: Math.max(
-            0,
-            LIMITS.REQUESTS_PER_MINUTE - (minuteCount - 1),
-          ),
-          perDay: 0,
+          perMinute: Math.max(0, LIMITS.REQUESTS_PER_MINUTE - minuteCount),
+          perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - dayCount),
         },
       };
     }
@@ -206,14 +194,6 @@ export class SstRateLimitService {
         perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - dayCount),
       },
     };
-  }
-
-  private async safeDecrement(key: string): Promise<void> {
-    try {
-      await this.redis!.decr(key);
-    } catch {
-      // Silencioso
-    }
   }
 
   private bumpLocalCounter(key: string, ttlSeconds: number): number {

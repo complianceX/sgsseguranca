@@ -83,8 +83,15 @@ export class ConsentsService {
     userId: string,
     type: ConsentType,
   ): Promise<UserConsent | null> {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Tenant não identificado para consulta de consentimento.',
+      );
+    }
+
     return this.userConsentsRepo.findOne({
-      where: { user_id: userId, type },
+      where: { user_id: userId, company_id: tenantId, type },
       order: { created_at: 'DESC' },
       // A relação não é eager: sem o join, `latest.version` vinha undefined e
       // o titular nunca conseguia ver QUAL versão aceitou (getStatus retornava

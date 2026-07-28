@@ -26,6 +26,7 @@ import { AiInteraction } from '../entities/ai-interaction.entity';
 import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import { IntegrationResilienceService } from '../../../shared/resilience/integration-resilience.service';
 import { OpenAiCircuitBreakerService } from '../../../shared/resilience/openai-circuit-breaker.service';
+import { ConsentsService } from '../../consents/consents.service';
 import {
   AiInteractionStatus,
   ConfidenceLevel,
@@ -74,6 +75,10 @@ const mockOpenAiCircuitBreakerService = () => ({
   isCountableFailureError: jest.fn().mockReturnValue(true),
 });
 
+const mockConsentsService = () => ({
+  hasActiveConsent: jest.fn().mockResolvedValue(true),
+});
+
 const mockConfigService = (options?: {
   apiKey?: string;
   provider?: 'openai' | 'nvidia';
@@ -118,6 +123,7 @@ const makeService = async (options?: {
   repo: ReturnType<typeof mockRepo>;
   tenantService: ReturnType<typeof mockTenantService>;
   rateLimitService: ReturnType<typeof mockRateLimitService>;
+  consentsService: ReturnType<typeof mockConsentsService>;
 }> => {
   const tenantId =
     options && 'tenantId' in options ? options.tenantId : TENANT_ID;
@@ -130,6 +136,7 @@ const makeService = async (options?: {
   const sophieLocalChatMock = mockSophieLocalChatService();
   const integrationMock = mockIntegrationResilienceService();
   const openAiCircuitBreakerMock = mockOpenAiCircuitBreakerService();
+  const consentsMock = mockConsentsService();
 
   tenantMock.getTenantId.mockReturnValue(tenantId);
   rlMock.checkAndConsume.mockResolvedValue({
@@ -164,6 +171,10 @@ const makeService = async (options?: {
         useValue: openAiCircuitBreakerMock,
       },
       {
+        provide: ConsentsService,
+        useValue: consentsMock,
+      },
+      {
         provide: getQueueToken('ai-recovery'),
         useValue: { add: jest.fn().mockResolvedValue(undefined) },
       },
@@ -175,6 +186,7 @@ const makeService = async (options?: {
     repo: repoMock,
     tenantService: tenantMock,
     rateLimitService: rlMock,
+    consentsService: consentsMock,
   };
 };
 
@@ -228,6 +240,35 @@ describe('SstAgentService', () => {
       await expect(service.getHistory(USER_ID)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('cancela recovery quando o consentimento de IA foi revogado', async () => {
+      const { service, repo, consentsService } = await makeService();
+      const interaction = {
+        id: 'interaction-id-1',
+        company_id: TENANT_ID,
+        user_id: USER_ID,
+        question: 'Pergunta sensível',
+        status: AiInteractionStatus.ERROR,
+      } as AiInteraction;
+      repo.findOne.mockResolvedValue(interaction);
+      consentsService.hasActiveConsent.mockResolvedValue(false);
+
+      await expect(
+        service.recoverInteraction(interaction.id),
+      ).resolves.toBeUndefined();
+
+      expect(consentsService.hasActiveConsent).toHaveBeenCalledWith(
+        USER_ID,
+        'ai_processing',
+      );
+      const savedInteraction = getFirstMockArgument(repo.save);
+      expect(isRecord(savedInteraction)).toBe(true);
+      if (!isRecord(savedInteraction)) {
+        fail('Interação de recovery não foi persistida.');
+      }
+      expect(savedInteraction.status).toBe(AiInteractionStatus.ERROR);
+      expect(String(savedInteraction.error_message)).toContain('consentimento');
     });
 
     it('chat() deve falhar fechado com userId sentinela', async () => {

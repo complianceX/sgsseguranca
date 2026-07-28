@@ -1,24 +1,40 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { SstRateLimitService } from './sst-rate-limit.service';
 
 describe('SstRateLimitService', () => {
-  it('aplica limite local em memória quando Redis não está disponível', async () => {
-    const service = new SstRateLimitService(null);
+  const originalNodeEnv = process.env.NODE_ENV;
 
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      await expect(service.checkAndConsume('tenant-1')).resolves.toEqual(
-        expect.objectContaining({ allowed: true }),
-      );
-    }
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
 
-    await expect(service.checkAndConsume('tenant-1')).resolves.toEqual(
-      expect.objectContaining({
-        allowed: false,
-        retryAfterSeconds: 60,
-      }),
+  it('incrementa limites de minuto e dia em uma única operação Lua', async () => {
+    const redis = {
+      eval: jest.fn().mockResolvedValue([1, 1, 1, 60, 86_400]),
+      incrby: jest.fn(),
+    };
+    const service = new SstRateLimitService(redis as never);
+
+    await expect(service.checkAndConsume('tenant-atomic')).resolves.toEqual({
+      allowed: true,
+      remaining: {
+        perMinute: 9,
+        perDay: 199,
+      },
+    });
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('INCR', KEYS[1])"),
+      2,
+      expect.stringContaining('sst:rl:min:tenant-atomic'),
+      expect.stringContaining('sst:rl:day:tenant-atomic'),
+      '60',
+      '86400',
+      '10',
+      '200',
     );
   });
 
-  it('cai para fallback local quando Redis falha em tempo de execução', async () => {
+  it('cai para contenção local fora de produção quando Redis falha em runtime', async () => {
     const redis = {
       incr: jest.fn().mockRejectedValue(new Error('redis down')),
       expire: jest.fn(),
@@ -37,6 +53,19 @@ describe('SstRateLimitService', () => {
         allowed: false,
         retryAfterSeconds: 60,
       }),
+    );
+  });
+
+  it('falha fechado em produção quando Redis falha em tempo de execução', async () => {
+    process.env.NODE_ENV = 'production';
+    const redis = {
+      eval: jest.fn().mockRejectedValue(new Error('redis down')),
+      incrby: jest.fn(),
+    };
+    const service = new SstRateLimitService(redis as never);
+
+    await expect(service.checkAndConsume('tenant-prod')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
     );
   });
 });

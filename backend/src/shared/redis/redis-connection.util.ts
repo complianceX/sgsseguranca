@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 
 type RedisConfigReader = ConfigService | NodeJS.ProcessEnv;
-export type RedisConnectionTier = 'auth' | 'cache' | 'queue';
+export type RedisConnectionTier = 'auth' | 'cache' | 'queue' | 'rateLimit';
 
 export type ResolvedRedisConnection = {
   source: 'url' | 'host';
@@ -14,6 +14,24 @@ export type ResolvedRedisConnection = {
     rejectUnauthorized: boolean;
   };
 };
+
+export function assertSecureRedisConnection(
+  connection: ResolvedRedisConnection,
+  environment = process.env.NODE_ENV,
+): void {
+  const isRemoteProduction =
+    environment === 'production' && !isLocalRedisConnection(connection);
+  if (isRemoteProduction && !connection.tls) {
+    throw new Error(
+      'Redis remoto em produção exige TLS. Use rediss:// ou habilite REDIS_<TIER>_TLS=true com endpoint TLS válido.',
+    );
+  }
+  if (isRemoteProduction && !connection.password) {
+    throw new Error(
+      'Redis remoto em produção exige autenticação. Configure senha na URL ou em REDIS_<TIER>_PASSWORD.',
+    );
+  }
+}
 
 export function isLoopbackHostname(hostname?: string | null): boolean {
   if (typeof hostname !== 'string') {
@@ -61,7 +79,7 @@ function resolveTls(
   tier: RedisConnectionTier | undefined,
   forceTls = false,
 ): ResolvedRedisConnection['tls'] {
-  const prefix = tier ? `REDIS_${tier.toUpperCase()}_` : 'REDIS_';
+  const prefix = tier ? `REDIS_${tierEnvName(tier)}_` : 'REDIS_';
   const tlsEnabled =
     forceTls ||
     /^true$/i.test(firstNonEmpty(reader, [`${prefix}TLS`, 'REDIS_TLS']) || '');
@@ -69,6 +87,10 @@ function resolveTls(
   if (!tlsEnabled) return undefined;
 
   return { rejectUnauthorized: true };
+}
+
+function tierEnvName(tier: RedisConnectionTier): string {
+  return tier === 'rateLimit' ? 'RATE_LIMIT' : tier.toUpperCase();
 }
 
 export function isRedisExplicitlyDisabled(reader: RedisConfigReader): boolean {
@@ -83,7 +105,7 @@ export function resolveRedisConnection(
     return null;
   }
 
-  const prefix = tier ? `REDIS_${tier.toUpperCase()}_` : undefined;
+  const prefix = tier ? `REDIS_${tierEnvName(tier)}_` : undefined;
   const redisUrl = firstNonEmpty(
     reader,
     prefix
@@ -93,17 +115,31 @@ export function resolveRedisConnection(
 
   if (redisUrl) {
     const parsed = new URL(redisUrl);
+    if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
+      throw new Error(
+        `Protocolo Redis inválido: ${parsed.protocol}. Use redis:// ou rediss://.`,
+      );
+    }
+    const username =
+      (parsed.username ? decodeURIComponent(parsed.username) : undefined) ??
+      firstNonEmpty(
+        reader,
+        prefix ? [`${prefix}USERNAME`, 'REDIS_USERNAME'] : ['REDIS_USERNAME'],
+      );
+    const password =
+      (parsed.password ? decodeURIComponent(parsed.password) : undefined) ??
+      firstNonEmpty(
+        reader,
+        prefix ? [`${prefix}PASSWORD`, 'REDIS_PASSWORD'] : ['REDIS_PASSWORD'],
+      );
+
     return {
       source: 'url',
       url: redisUrl,
       host: parsed.hostname,
       port: Number(parsed.port || 6379),
-      username: parsed.username
-        ? decodeURIComponent(parsed.username)
-        : undefined,
-      password: parsed.password
-        ? decodeURIComponent(parsed.password)
-        : undefined,
+      username,
+      password,
       tls: resolveTls(reader, tier, parsed.protocol === 'rediss:'),
     };
   }

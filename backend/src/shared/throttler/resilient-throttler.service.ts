@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RedisService } from '../redis/redis.service';
+import { RateLimitRedisService } from '../redis/redis.service';
 import { Request } from 'express';
 
 /**
@@ -28,7 +28,7 @@ export class ResilientThrottlerService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
+    private readonly redisService: RateLimitRedisService,
   ) {
     this.enabled = this.configService.get<boolean>('THROTTLER_ENABLED', true);
     this.failClosed = this.configService.get<boolean>(
