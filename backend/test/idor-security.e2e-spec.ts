@@ -36,15 +36,19 @@ const readFirstId = (rows: IdRow[], label: string): string => {
 };
 
 const readAccessToken = (body: unknown): string => {
+  const candidate =
+    typeof body === 'object' && body !== null
+      ? (body as Record<string, unknown>)
+      : null;
+
   if (
-    typeof body !== 'object' ||
-    body === null ||
-    typeof body.accessToken !== 'string'
+    !candidate ||
+    typeof candidate.accessToken !== 'string'
   ) {
     throw new Error('Login response did not include a string accessToken');
   }
 
-  return (body as LoginResponse).accessToken;
+  return candidate.accessToken;
 };
 
 const sanitizeCookie = (
@@ -64,12 +68,20 @@ const sanitizeCookie = (
   return tokenCookie ? tokenCookie.split(';')[0] : '';
 };
 
+const readSetCookies = (value: string | string[] | undefined): string[] => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return typeof value === 'string' ? [value] : [];
+};
+
 const getCsrfBundle = async (httpServer: App): Promise<CsrfBundle> => {
   const response = await request(httpServer).get('/auth/csrf');
   const body = response.body as unknown as { csrfToken?: unknown };
   const token = typeof body.csrfToken === 'string' ? body.csrfToken.trim() : '';
   const cookie = sanitizeCookie(
-    response.headers['set-cookie'] as string[] | undefined,
+    readSetCookies(response.headers['set-cookie']),
     'csrf-token',
   );
 

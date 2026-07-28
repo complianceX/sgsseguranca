@@ -12,5 +12,10 @@
     "scripts/generate-pdf-homologation.ts",
     "../frontend/src/lib/pdf-system/**/*.ts",
     "../frontend/src/lib/pdf/monthlyReportGenerator.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test"
   ]
 }

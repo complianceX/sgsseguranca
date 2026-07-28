@@ -2,6 +2,7 @@
 import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import type { NextFunction, Request, Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -65,8 +66,11 @@ describe('E2E Fase 4 - step-up MFA', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.use((req, _res, next) => {
-      (req as Record<string, unknown>).user = {
+    app.use((req: Request, _res: Response, next: NextFunction) => {
+      const requestWithUser = req as Request & {
+        user?: { userId: string; jti: string };
+      };
+      requestWithUser.user = {
         userId: 'user-1',
         jti: 'access-jti-1',
       };
