@@ -779,12 +779,16 @@ function attackOpenRedirect() {
       const ok = check(res, {
         [`A11.${i + 1}: Redirect para ${redirect.slice(0, 30)} → não aponta para domínio externo`]: (r) => {
           const location = String(r.headers['Location'] || r.headers['location'] || '');
-          // Não deve redirecionar para domínios externos
-          if (location.startsWith('https://evil.com')) return false;
-          if (location.startsWith('//evil.com')) return false;
-          if (location.startsWith('javascript:')) return false;
-          if (location.startsWith('data:')) return false;
-          return true;
+          try {
+            const parsedLocation = new URL(location, BASE_URL);
+            const parsedBase = new URL(BASE_URL);
+            if (parsedLocation.protocol === 'javascript:' || parsedLocation.protocol === 'data:') {
+              return false;
+            }
+            return parsedLocation.origin === parsedBase.origin;
+          } catch {
+            return false;
+          }
         },
       });
       recordAttack(`A11.${i + 1} OpenRedirect`, ok);

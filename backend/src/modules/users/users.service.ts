@@ -7,7 +7,13 @@
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { randomBytes, pbkdf2Sync, createHmac, randomUUID } from 'crypto';
+import {
+  randomBytes,
+  pbkdf2Sync,
+  createHmac,
+  randomUUID,
+  randomInt,
+} from 'crypto';
 import { Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -481,17 +487,26 @@ export class UsersService {
     const digits = '0123456789';
     const specials = '!@#$%^&*()-_=+[]{}<>?';
     const all = upper + lower + digits + specials;
-    const rand = (s: string) => s[Math.floor(Math.random() * s.length)];
-    let pass = '';
-    pass += rand(upper);
-    pass += rand(lower);
-    pass += rand(digits);
-    pass += rand(specials);
-    while (pass.length < 12) pass += rand(all);
-    return pass
-      .split('')
-      .sort(() => 0.5 - Math.random())
-      .join('');
+    const passwordChars = [
+      upper[randomInt(upper.length)],
+      lower[randomInt(lower.length)],
+      digits[randomInt(digits.length)],
+      specials[randomInt(specials.length)],
+    ];
+
+    while (passwordChars.length < 12) {
+      passwordChars.push(all[randomInt(all.length)]);
+    }
+
+    for (let index = passwordChars.length - 1; index > 0; index -= 1) {
+      const swapIndex = randomInt(index + 1);
+      [passwordChars[index], passwordChars[swapIndex]] = [
+        passwordChars[swapIndex],
+        passwordChars[index],
+      ];
+    }
+
+    return passwordChars.join('');
   }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
