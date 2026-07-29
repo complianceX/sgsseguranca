@@ -782,7 +782,11 @@ function attackOpenRedirect() {
           try {
             const parsedLocation = new URL(location, BASE_URL);
             const parsedBase = new URL(BASE_URL);
-            if (parsedLocation.protocol === 'javascript:' || parsedLocation.protocol === 'data:') {
+            if (
+              !['http:', 'https:'].includes(parsedLocation.protocol) ||
+              parsedLocation.protocol === 'javascript:' ||
+              parsedLocation.protocol === 'data:'
+            ) {
               return false;
             }
             return parsedLocation.origin === parsedBase.origin;

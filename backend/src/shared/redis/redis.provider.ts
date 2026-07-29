@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import Redis from 'ioredis';
 import { Logger, Provider } from '@nestjs/common';
-import { createHmac } from 'node:crypto';
+import { scryptSync } from 'node:crypto';
 import {
   assertSecureRedisConnection,
   isRedisExplicitlyDisabled,
@@ -263,7 +263,7 @@ function fingerprintRedisPassword(password: string | undefined): string {
     process.env.REDIS_CONNECTION_CACHE_KEY_SECRET?.trim() ||
     process.env.JWT_SECRET?.trim() ||
     'sgs-redis-connection-cache-key-development-only';
-  return createHmac('sha256', key).update(password).digest('hex').slice(0, 16);
+  return scryptSync(password, key, 16).toString('hex');
 }
 
 async function canReuseSharedRedisClient(client: Redis): Promise<boolean> {
