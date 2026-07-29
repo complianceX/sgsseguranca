@@ -265,7 +265,7 @@ describe('SstAgentService', () => {
       const savedInteraction = getFirstMockArgument(repo.save);
       expect(isRecord(savedInteraction)).toBe(true);
       if (!isRecord(savedInteraction)) {
-        fail('Interação de recovery não foi persistida.');
+        throw new Error('Interação de recovery não foi persistida.');
       }
       expect(savedInteraction.status).toBe(AiInteractionStatus.ERROR);
       expect(String(savedInteraction.error_message)).toContain('consentimento');

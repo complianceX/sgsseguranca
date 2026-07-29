@@ -189,7 +189,12 @@ export class CacheService {
 
     try {
       await redis.eval(releaseScript, 1, lockKey, lockToken);
-    } catch {
+    } catch (error) {
+      this.logger.debug(
+        `releaseDistributedLock falhou para lockKey="${lockKey}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       // Nunca usar GET seguido de DEL como fallback: entre as duas operações o
       // lock pode expirar e ser adquirido por outro processo. O TTL garante a
       // liberação eventual sem remover o lock de outro proprietário.
@@ -252,9 +257,6 @@ export class CacheService {
    */
   async invalidateUserCache(companyId: string, userId: string): Promise<void> {
     await this.del(this.tenantKey(companyId, 'user', 'profile', userId));
-    await this.invalidatePattern(
-      this.tenantKey(companyId, 'user', '*', userId, '*'),
-    );
   }
 
   /**

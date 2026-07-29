@@ -11,6 +11,7 @@ import {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const DEFAULT_MAX_RECOVERY_AGE_MS = 24 * 60 * 60 * 1000;
 
 @Processor('ai-recovery', { concurrency: 1 })
 export class AiRecoveryProcessor extends WorkerHost {
@@ -66,11 +67,20 @@ export class AiRecoveryProcessor extends WorkerHost {
   }
 
   private getMaxRecoveryAgeMs(): number {
-    const raw = Number(process.env.AI_RECOVERY_MAX_AGE_MS);
-    if (!Number.isFinite(raw)) {
-      return 24 * 60 * 60 * 1000;
+    const raw = process.env.AI_RECOVERY_MAX_AGE_MS?.trim();
+    if (!raw) {
+      return DEFAULT_MAX_RECOVERY_AGE_MS;
     }
-    return Math.min(Math.max(Math.floor(raw), 60_000), 7 * 24 * 60 * 60 * 1000);
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return DEFAULT_MAX_RECOVERY_AGE_MS;
+    }
+
+    return Math.min(
+      Math.max(Math.floor(parsed), 60_000),
+      7 * 24 * 60 * 60 * 1000,
+    );
   }
 
   @OnWorkerEvent('failed')

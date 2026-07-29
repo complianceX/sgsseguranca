@@ -20,6 +20,8 @@ const JOB_STATES = [
   'waiting',
   'delayed',
   'paused',
+  'prioritized',
+  'waiting-children',
   'completed',
   'failed',
 ] as const;
@@ -67,8 +69,25 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    await queue.close();
-    await redis.quit();
+    try {
+      await queue.close();
+    } catch (error) {
+      console.warn(
+        `[ai-recovery-sanitize] queue.close() falhou: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      try {
+        await redis.quit();
+      } catch (error) {
+        console.warn(
+          `[ai-recovery-sanitize] redis.quit() falhou: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
   }
 
   console.log(

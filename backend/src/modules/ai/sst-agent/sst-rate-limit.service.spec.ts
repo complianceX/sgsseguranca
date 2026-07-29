@@ -14,6 +14,12 @@ describe('SstRateLimitService', () => {
       incrby: jest.fn(),
     };
     const service = new SstRateLimitService(redis as never);
+    const secondsUntilMidnight = jest
+      .spyOn(
+        service as unknown as { secondsUntilMidnight: () => number },
+        'secondsUntilMidnight',
+      )
+      .mockReturnValue(12_345);
 
     await expect(service.checkAndConsume('tenant-atomic')).resolves.toEqual({
       allowed: true,
@@ -28,17 +34,16 @@ describe('SstRateLimitService', () => {
       expect.stringContaining('sst:rl:min:tenant-atomic'),
       expect.stringContaining('sst:rl:day:tenant-atomic'),
       '60',
-      '86400',
+      '12345',
       '10',
       '200',
     );
+    secondsUntilMidnight.mockRestore();
   });
 
   it('cai para contenção local fora de produção quando Redis falha em runtime', async () => {
     const redis = {
-      incr: jest.fn().mockRejectedValue(new Error('redis down')),
-      expire: jest.fn(),
-      incrby: jest.fn(),
+      eval: jest.fn().mockRejectedValue(new Error('redis down')),
     };
     const service = new SstRateLimitService(redis as never);
 

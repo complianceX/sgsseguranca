@@ -4,6 +4,18 @@ import {
 } from './redis.provider';
 
 describe('redis.provider', () => {
+  const originalRedisConnectionCacheKeySecret =
+    process.env.REDIS_CONNECTION_CACHE_KEY_SECRET;
+
+  afterEach(() => {
+    if (originalRedisConnectionCacheKeySecret === undefined) {
+      delete process.env.REDIS_CONNECTION_CACHE_KEY_SECRET;
+    } else {
+      process.env.REDIS_CONNECTION_CACHE_KEY_SECRET =
+        originalRedisConnectionCacheKeySecret;
+    }
+  });
+
   it('distingue conexões URL com e sem TLS', () => {
     const base = {
       source: 'url' as const,
@@ -25,6 +37,7 @@ describe('redis.provider', () => {
   });
 
   it('não incorpora a credencial no identificador de conexão', () => {
+    process.env.REDIS_CONNECTION_CACHE_KEY_SECRET = 'test-cache-key-secret';
     const first = buildRedisConnectionCacheKey({
       source: 'url',
       url: 'rediss://redis.example.com:6380',
@@ -42,9 +55,11 @@ describe('redis.provider', () => {
       tls: { rejectUnauthorized: true },
     });
 
-    expect(first).toBe(second);
+    expect(first).not.toBe(second);
     expect(first).not.toContain('secret-a');
     expect(second).not.toContain('secret-b');
+    expect(first).toContain('password-hmac:');
+    expect(second).toContain('password-hmac:');
   });
 
   it('extrai maxmemory_policy do INFO Redis', () => {

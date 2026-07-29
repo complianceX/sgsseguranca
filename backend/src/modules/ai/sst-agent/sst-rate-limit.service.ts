@@ -121,7 +121,7 @@ export class SstRateLimitService {
       minKey,
       dayKey,
       '60',
-      '86400',
+      String(this.secondsUntilMidnight()),
       String(LIMITS.REQUESTS_PER_MINUTE),
       String(LIMITS.REQUESTS_PER_DAY),
     )) as [number, number, number, number, number];

@@ -22,6 +22,7 @@ import type { Redis } from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import { PuppeteerPoolService } from '../../shared/services/puppeteer-pool.service';
 import { Public } from '../../shared/decorators/public.decorator';
+import { TenantOptional } from '../../shared/decorators/tenant-optional.decorator';
 import { HealthService } from './health.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -211,6 +212,7 @@ export class HealthController {
 
   @Get('ready')
   @Public()
+  @TenantOptional()
   async ready() {
     if (await this.getReadinessStatus()) {
       return { status: 'ready' };

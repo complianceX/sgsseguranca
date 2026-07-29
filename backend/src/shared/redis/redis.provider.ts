@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import Redis from 'ioredis';
 import { Logger, Provider } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
 import {
   assertSecureRedisConnection,
   isRedisExplicitlyDisabled,
@@ -234,24 +235,35 @@ export function buildRedisConnectionCacheKey(
     const sanitizedUrl = new URL(connection.url);
     sanitizedUrl.username = '';
     sanitizedUrl.password = '';
-    // A credential rotation requires process restart; never derive/cache the secret.
-    const passwordState = connection.password ? 'configured' : 'none';
+    const passwordFingerprint = fingerprintRedisPassword(connection.password);
     return [
       `url:${sanitizedUrl.toString()}`,
       `username:${connection.username ?? ''}`,
-      `password-state:${passwordState}`,
+      `password-hmac:${passwordFingerprint}`,
       `tls:${connection.tls ? '1' : '0'}`,
     ].join('|');
   }
 
-  const passwordState = connection.password ? 'configured' : 'none';
+  const passwordFingerprint = fingerprintRedisPassword(connection.password);
   return [
     `host:${connection.host}`,
     `port:${connection.port}`,
     `username:${connection.username ?? ''}`,
-    `password-state:${passwordState}`,
+    `password-hmac:${passwordFingerprint}`,
     `tls:${connection.tls ? '1' : '0'}`,
   ].join('|');
+}
+
+function fingerprintRedisPassword(password: string | undefined): string {
+  if (!password) {
+    return '';
+  }
+
+  const key =
+    process.env.REDIS_CONNECTION_CACHE_KEY_SECRET?.trim() ||
+    process.env.JWT_SECRET?.trim() ||
+    'sgs-redis-connection-cache-key-development-only';
+  return createHmac('sha256', key).update(password).digest('hex').slice(0, 16);
 }
 
 async function canReuseSharedRedisClient(client: Redis): Promise<boolean> {
@@ -733,16 +745,33 @@ async function makeRedisClient(
 
     if (sharedClient) {
       if (await canReuseSharedRedisClient(sharedClient)) {
-        await assertRedisEvictionPolicy(
-          sharedClient,
-          tierLabel,
-          opts.requiredPolicy,
-          isProd,
-        );
-        logger.log(
-          `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
-        );
-        return sharedClient;
+        try {
+          await assertRedisEvictionPolicy(
+            sharedClient,
+            tierLabel,
+            opts.requiredPolicy,
+            isProd,
+          );
+          logger.log(
+            `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
+          );
+          return sharedClient;
+        } catch (error) {
+          sharedRedisBootstrapPromises.delete(connectionKey);
+          const message =
+            error instanceof Error ? error.message : String(error);
+          logger.error(
+            `❌ [Redis:${tierLabel}] unavailable at bootstrap: ${message}`,
+          );
+          if (!failOpen) {
+            throw error;
+          }
+
+          logger.warn(
+            `⚠️ [Redis:${tierLabel}] REDIS_FAIL_OPEN ativo: fallback para in-memory.`,
+          );
+          return new InMemoryRedis() as unknown as Redis;
+        }
       }
 
       sharedRedisBootstrapPromises.delete(connectionKey);

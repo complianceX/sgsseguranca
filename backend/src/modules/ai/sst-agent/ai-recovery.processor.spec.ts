@@ -3,6 +3,15 @@ import { AiRecoveryProcessor } from './ai-recovery.processor';
 describe('AiRecoveryProcessor', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
   const interactionId = '22222222-2222-4222-8222-222222222222';
+  const originalMaxAge = process.env.AI_RECOVERY_MAX_AGE_MS;
+
+  afterEach(() => {
+    if (originalMaxAge === undefined) {
+      delete process.env.AI_RECOVERY_MAX_AGE_MS;
+    } else {
+      process.env.AI_RECOVERY_MAX_AGE_MS = originalMaxAge;
+    }
+  });
 
   it('restaura o contexto tenant antes de reprocessar', async () => {
     const recoverInteraction = jest.fn().mockResolvedValue(undefined);
@@ -147,5 +156,34 @@ describe('AiRecoveryProcessor', () => {
       queuedAt,
     });
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('usa o limite padrão de 24h quando AI_RECOVERY_MAX_AGE_MS está em branco', async () => {
+    process.env.AI_RECOVERY_MAX_AGE_MS = '';
+    const recoverInteraction = jest.fn().mockResolvedValue(undefined);
+    const run = jest
+      .fn()
+      .mockImplementation((_context: unknown, callback: () => Promise<void>) =>
+        callback(),
+      );
+    const processor = new AiRecoveryProcessor(
+      { run } as never,
+      { recoverInteraction } as never,
+    );
+
+    await expect(
+      processor.process({
+        id: 'job-default-age',
+        timestamp: Date.now(),
+        data: {
+          tenantId,
+          interactionId,
+          queuedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+        },
+      } as never),
+    ).resolves.toBeUndefined();
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(recoverInteraction).toHaveBeenCalledWith(interactionId);
   });
 });

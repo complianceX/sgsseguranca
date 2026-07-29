@@ -133,10 +133,12 @@ export class IdempotencyService {
 
       if (currentCount > this.maxKeysPerScope) {
         await this.redis.del(key);
+        await this.redis.decr(quotaKey).catch(() => undefined);
         return 'quota_exceeded';
       }
     } catch (error) {
       await this.redis.del(key).catch(() => undefined);
+      await this.redis.decr(quotaKey).catch(() => undefined);
       throw error;
     }
 
@@ -187,7 +189,10 @@ export class IdempotencyService {
     idempotencyKey: string,
   ): Promise<void> {
     const key = this.buildKey(scopeId, method, path, idempotencyKey);
-    await this.redis.del(key);
+    const removed = await this.redis.del(key);
+    if (removed > 0) {
+      await this.redis.decr(this.buildQuotaKey(scopeId)).catch(() => undefined);
+    }
   }
 
   /**

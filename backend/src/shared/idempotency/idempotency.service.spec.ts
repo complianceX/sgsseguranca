@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import { IdempotencyService } from './idempotency.service';
 
 describe('IdempotencyService', () => {
@@ -16,6 +17,7 @@ describe('IdempotencyService', () => {
       get: jest.fn().mockResolvedValue(null),
       del: jest.fn().mockResolvedValue(1),
       incr: jest.fn().mockResolvedValue(1),
+      decr: jest.fn().mockResolvedValue(0),
       expire: jest.fn().mockResolvedValue(1),
     };
     const values: Record<string, number | undefined> = {
@@ -34,9 +36,13 @@ describe('IdempotencyService', () => {
     };
   }
 
+  const quotaKey = (scopeId: string): string =>
+    `idempotency:quota:${createHash('sha256').update(scopeId).digest('hex')}`;
+
   it('limita a quantidade de chaves por escopo e remove a excedente', async () => {
     const { redis, service } = createService({ maxKeysPerScope: 1 });
     redis.incr.mockResolvedValue(2);
+    redis.del.mockResolvedValue(1);
 
     await expect(
       service.markProcessing(
@@ -50,6 +56,19 @@ describe('IdempotencyService', () => {
     expect(redis.del).toHaveBeenCalledWith(
       'idempotency:tenant:t:user:u:POST:/reports:key-2',
     );
+    expect(redis.decr).toHaveBeenCalledWith(quotaKey('tenant:t:user:u'));
+  });
+
+  it('devolve a quota quando remove um registro ativo', async () => {
+    const { redis, service } = createService();
+    redis.del.mockResolvedValue(1);
+
+    await service.deleteRecord('tenant:t:user:u', 'POST', '/reports', 'key-1');
+
+    expect(redis.del).toHaveBeenCalledWith(
+      'idempotency:tenant:t:user:u:POST:/reports:key-1',
+    );
+    expect(redis.decr).toHaveBeenCalledWith(quotaKey('tenant:t:user:u'));
   });
 
   it('não armazena corpo de resposta acima do limite configurado', async () => {
