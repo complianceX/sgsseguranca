@@ -785,6 +785,7 @@ function attackOpenRedirect() {
             if (
               !['http:', 'https:'].includes(parsedLocation.protocol) ||
               parsedLocation.protocol === 'javascript:' ||
+              parsedLocation.protocol === 'vbscript:' ||
               parsedLocation.protocol === 'data:'
             ) {
               return false;
