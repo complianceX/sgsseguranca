@@ -1,0 +1,233 @@
+{
+  "metadata": {
+    "schemaVersion": 1,
+    "fixtureId": "sgs-hml-sintetico-v1",
+    "environment": "homologacao-only",
+    "generatedAt": "2026-07-30T00:00:00-04:00",
+    "productionUseForbidden": true,
+    "containsRealPersonalData": false,
+    "automaticEmailDelivery": false,
+    "automaticExternalApiCalls": false,
+    "notes": [
+      "CPFs e CNPJs passam nos digitos verificadores, mas identificam somente personas sinteticas.",
+      "Senhas nao sao armazenadas; o seed futuro deve recebe-las por variaveis HML_PASSWORD_*.",
+      "Nenhum anexo aponta para storage real.",
+      "A transformacao em seed depende do inventario de entidades, migrations e constraints."
+    ]
+  },
+  "companies": [
+    {
+      "fixtureKey": "empresa-a",
+      "legalName": "Empresa A Homologacao SST Ltda",
+      "tradeName": "Empresa A HML",
+      "cnpj": "90000001000129",
+      "status": "ACTIVE",
+      "email": "empresa-a@sgs-hml.example.invalid"
+    }
+  ],
+  "sites": [
+    {
+      "fixtureKey": "obra-x",
+      "companyKey": "empresa-a",
+      "name": "Obra X Homologacao",
+      "status": "ACTIVE"
+    },
+    {
+      "fixtureKey": "obra-y",
+      "companyKey": "empresa-a",
+      "name": "Obra Y Homologacao",
+      "status": "ACTIVE"
+    }
+  ],
+  "users": [
+    {
+      "fixtureKey": "admin-geral",
+      "name": "Admin Geral Sintetico",
+      "cpf": "90000000175",
+      "email": "admin-geral@sgs-hml.example.invalid",
+      "profileCode": "ADMIN_GERAL",
+      "companyKey": null,
+      "siteKeys": [],
+      "status": "ACTIVE",
+      "passwordRef": "HML_PASSWORD_ADMIN_GERAL"
+    },
+    {
+      "fixtureKey": "admin-empresa-a",
+      "name": "Admin Empresa A Sintetico",
+      "cpf": "90000000256",
+      "email": "admin-empresa-a@sgs-hml.example.invalid",
+      "profileCode": "ADMIN_EMPRESA",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-x", "obra-y"],
+      "status": "ACTIVE",
+      "passwordRef": "HML_PASSWORD_ADMIN_EMPRESA"
+    },
+    {
+      "fixtureKey": "tst-empresa-a",
+      "name": "TST Empresa A Sintetico",
+      "cpf": "90000000337",
+      "email": "tst-empresa-a@sgs-hml.example.invalid",
+      "profileCode": "TST",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-x", "obra-y"],
+      "status": "ACTIVE",
+      "passwordRef": "HML_PASSWORD_TST"
+    },
+    {
+      "fixtureKey": "gestor-obra-x",
+      "name": "Gestor Obra X Sintetico",
+      "cpf": "90000000418",
+      "email": "gestor-obra-x@sgs-hml.example.invalid",
+      "profileCode": "GESTOR",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-x"],
+      "status": "ACTIVE",
+      "passwordRef": "HML_PASSWORD_GESTOR"
+    },
+    {
+      "fixtureKey": "colaborador-obra-y",
+      "name": "Colaborador Obra Y Sintetico",
+      "cpf": "90000000507",
+      "email": "colaborador-obra-y@sgs-hml.example.invalid",
+      "profileCode": "COLABORADOR",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-y"],
+      "status": "ACTIVE",
+      "passwordRef": "HML_PASSWORD_COLABORADOR"
+    },
+    {
+      "fixtureKey": "usuario-inativo",
+      "name": "Usuario Inativo Sintetico",
+      "cpf": "90000000680",
+      "email": "usuario-inativo@sgs-hml.example.invalid",
+      "profileCode": "TST",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-x"],
+      "status": "INACTIVE",
+      "passwordRef": "HML_PASSWORD_INACTIVE"
+    }
+  ],
+  "workers": [
+    {
+      "fixtureKey": "trabalhador-x-1",
+      "name": "Trabalhador X Um Sintetico",
+      "cpf": "90000000760",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-x"],
+      "jobTitle": "Eletricista",
+      "status": "ACTIVE"
+    },
+    {
+      "fixtureKey": "trabalhador-y-1",
+      "name": "Trabalhador Y Um Sintetico",
+      "cpf": "90000000841",
+      "companyKey": "empresa-a",
+      "siteKeys": ["obra-y"],
+      "jobTitle": "Operador de Maquinas",
+      "status": "ACTIVE"
+    }
+  ],
+  "documents": [
+    {
+      "fixtureKey": "dds-x-pendente",
+      "type": "DDS",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-x",
+      "status": "SIGNATURE_PENDING",
+      "title": "DDS Sintetico - Trabalho em Altura",
+      "participantWorkerKeys": ["trabalhador-x-1"],
+      "attachmentKeys": []
+    },
+    {
+      "fixtureKey": "pt-x-aprovada",
+      "type": "PT",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-x",
+      "status": "APPROVED",
+      "title": "PT Sintetica - Manutencao Eletrica",
+      "participantWorkerKeys": ["trabalhador-x-1"],
+      "attachmentKeys": ["anexo-foto-x"]
+    },
+    {
+      "fixtureKey": "checklist-y-concluido",
+      "type": "CHECKLIST",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-y",
+      "status": "COMPLETED",
+      "title": "Checklist Sintetico - Inspecao de Maquina",
+      "participantWorkerKeys": ["trabalhador-y-1"],
+      "attachmentKeys": []
+    },
+    {
+      "fixtureKey": "treinamento-x-valido",
+      "type": "TRAINING",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-x",
+      "status": "VALID",
+      "title": "Treinamento Sintetico NR-35",
+      "participantWorkerKeys": ["trabalhador-x-1"],
+      "attachmentKeys": []
+    },
+    {
+      "fixtureKey": "aso-y-apto",
+      "type": "MEDICAL_EXAM",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-y",
+      "status": "FIT",
+      "title": "ASO Sintetico sem dado clinico",
+      "participantWorkerKeys": ["trabalhador-y-1"],
+      "attachmentKeys": [],
+      "sensitivePayload": null
+    },
+    {
+      "fixtureKey": "relatorio-fotografico-x",
+      "type": "PHOTOGRAPHIC_REPORT",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-x",
+      "status": "DRAFT",
+      "title": "Relatorio Fotografico Sintetico",
+      "participantWorkerKeys": [],
+      "attachmentKeys": ["anexo-foto-x"]
+    }
+  ],
+  "attachments": [
+    {
+      "fixtureKey": "anexo-foto-x",
+      "companyKey": "empresa-a",
+      "siteKey": "obra-x",
+      "fileName": "evidencia-sintetica-obra-x.jpg",
+      "contentType": "image/jpeg",
+      "storageProvider": null,
+      "storageKey": null,
+      "sha256": null,
+      "contentRequiredBeforeSeed": true
+    }
+  ],
+  "negativeCases": [
+    {
+      "fixtureKey": "tenant-cross-access",
+      "expected": "DENY",
+      "description": "Usuario de outro tenant tenta ler documento da Empresa A."
+    },
+    {
+      "fixtureKey": "site-out-of-scope",
+      "expected": "DENY",
+      "description": "Gestor da Obra X tenta alterar documento da Obra Y."
+    },
+    {
+      "fixtureKey": "inactive-user-login",
+      "expected": "DENY",
+      "description": "Usuario inativo tenta autenticar."
+    },
+    {
+      "fixtureKey": "expired-public-token",
+      "expected": "DENY",
+      "description": "Token publico de assinatura expirado e reutilizado."
+    },
+    {
+      "fixtureKey": "ai-without-consent",
+      "expected": "DENY",
+      "description": "Usuario sem consentimento tenta enviar conteudo para Sophie."
+    }
+  ]
+}

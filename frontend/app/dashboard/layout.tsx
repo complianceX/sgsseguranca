@@ -14,8 +14,9 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { siteStore } from '@/lib/siteStore';
 import { Company } from '@/services/companiesService';
-import { AlertTriangle, Building2, ChevronsUpDown } from 'lucide-react';
+import { AlertTriangle, Building2, ChevronsUpDown, HardHat } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import {
   isAdminRoute,
@@ -26,6 +27,10 @@ import { cn } from '@/lib/utils';
 
 const CompanySelectorModal = dynamic(
   () => import('@/components/CompanySelectorModal'),
+  { ssr: false },
+);
+const SiteSelectorModal = dynamic(
+  () => import('@/components/SiteSelectorModal'),
   { ssr: false },
 );
 const OnboardingModal = dynamic(
@@ -57,9 +62,11 @@ function DashboardShell({
   const pathname = usePathname();
 
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [siteSelectorOpen, setSiteSelectorOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(() =>
     selectedTenantStore.get(),
   );
+  const [selectedSite, setSelectedSite] = useState(() => siteStore.get());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarModal, setSidebarModal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -80,6 +87,13 @@ function DashboardShell({
     const unsub = selectedTenantStore.subscribe((tenant) =>
       setSelectedTenant(tenant),
     );
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsub = siteStore.subscribe((site) => setSelectedSite(site));
     return () => {
       unsub();
     };
@@ -115,6 +129,15 @@ function DashboardShell({
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  const handleSiteSelect = (site: { id: string; nome: string; company_id: string }) => {
+    // Ao selecionar uma obra, também atualiza a empresa se necessário
+    if (selectedTenant?.companyId !== site.company_id) {
+      const company = { id: site.company_id };
+      handleCompanySelect(company as Company);
+    }
+    // O SiteSelectorModal já atualiza o siteStore internamente
+  };
 
   const handleCompanySelect = async (company: Company) => {
     const nextTenant = {
@@ -208,6 +231,43 @@ function DashboardShell({
             </button>
           </div>
         )}
+        {/* Banner de obra selecionada - para todos os usuários */}
+        {selectedTenant && !selectedSite && (
+          <div className="sticky top-0 z-30 flex min-h-10 items-center justify-between border-b border-blue-200 bg-blue-50 px-5 py-2 dark:border-blue-800 dark:bg-blue-950/30">
+            <div className="flex min-w-0 items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+              <span className="min-w-0 truncate font-medium">
+                Nenhuma obra selecionada
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSiteSelectorOpen(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+            >
+              Selecionar obra
+            </button>
+          </div>
+        )}
+        {/* Banner de obra ativa */}
+        {selectedTenant && selectedSite && (
+          <div className="sticky top-0 z-30 flex min-h-10 items-center justify-between border-b border-amber-200 bg-amber-50 px-5 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="flex min-w-0 items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+              <HardHat className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 whitespace-nowrap">
+                Obra:{' '}
+                <span className="font-semibold">{selectedSite.siteName}</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSiteSelectorOpen(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900"
+            >
+              <ChevronsUpDown className="h-3 w-3" />
+              Trocar obra
+            </button>
+          </div>
+        )}
         <ApiStatusBanner />
         <OfflineCapabilityBanner />
         <main
@@ -215,6 +275,7 @@ function DashboardShell({
           className={cn(
             'ds-dashboard-content flex-1 overflow-y-auto px-4 py-4 sm:px-5 md:px-6 md:py-5 xl:px-8',
             isAdminGeral && 'pt-12 md:pt-12',
+            selectedSite && 'pt-10 md:pt-10',
           )}
         >
           {children}
@@ -230,6 +291,13 @@ function DashboardShell({
         onLogout={logout}
         currentCompanyId={selectedTenant?.companyId}
         onClose={() => setSelectorOpen(false)}
+      />
+      <SiteSelectorModal
+        open={siteSelectorOpen}
+        onSelect={handleSiteSelect}
+        currentCompanyId={selectedTenant?.companyId || ''}
+        currentSiteId={selectedSite?.siteId}
+        onClose={() => setSiteSelectorOpen(false)}
       />
       <OnboardingModal userId={user?.id} />
     </div>

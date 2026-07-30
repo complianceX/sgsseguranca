@@ -1,4 +1,5 @@
 import { clearSensitiveBrowserStorage } from "./browser-sensitive-storage";
+import { siteStore } from "./siteStore";
 
 type SelectedTenant = {
   companyId: string;
@@ -65,6 +66,8 @@ export const selectedTenantStore = {
         previousTenant.companyId !== tenant.companyId
       ) {
         await clearSensitiveBrowserStorage();
+        // Quando a empresa muda, limpa a obra selecionada também
+        siteStore.clear();
       }
       current = tenant;
       saveToStorage(tenant);
