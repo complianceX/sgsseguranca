@@ -105,7 +105,7 @@
     "test": "node --max-old-space-size=4096 scripts/run-jest.cjs --runInBand --no-cache",
     "test:clean": "node --max-old-space-size=4096 scripts/run-jest.cjs --runInBand --passWithNoTests --silent",
     "test:smoke": "node --max-old-space-size=4096 scripts/run-jest.cjs --runInBand --config ./test/jest-smoke.json",
-    "test:ci": "node --max-old-space-size=6144 scripts/run-jest.cjs --ci --runInBand --detectOpenHandles --no-cache",
+    "test:ci": "node --max-old-space-size=6144 scripts/run-jest.cjs --ci --runInBand --no-cache",
     "test:watch": "node scripts/run-jest.cjs --watch",
     "test:cov": "node --max-old-space-size=4096 scripts/run-jest.cjs --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
