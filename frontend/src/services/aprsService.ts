@@ -19,6 +19,7 @@ import {
   setOfflineCache,
   CACHE_TTL,
 } from "@/lib/offline-cache";
+import { queryKeys, normalizeQueryFilters } from "@/lib/query-keys";
 import {
   tenantConfigFromPayload,
   tenantHeadersFromPayload,
@@ -358,23 +359,44 @@ export const aprsService = {
     contextFilter?: "minhas" | "vence-hoje" | "preciso-assinar";
     signal?: AbortSignal;
   }) => {
+    const activeCompanyId = opts?.companyId;
+    const activeSiteId = opts?.siteId;
+    if (!activeCompanyId || !activeSiteId) {
+      throw new Error('companyId e siteId são obrigatórios para listar APRs.');
+    }
+    const normalizedFilters = normalizeQueryFilters({
+      search: opts?.search,
+      status: opts?.status,
+      responsibleId: opts?.responsibleId,
+      dueFilter: opts?.dueFilter,
+      sort: opts?.sort,
+      isModeloPadrao: opts?.isModeloPadrao,
+      contextFilter: opts?.contextFilter,
+    });
     const params = {
       page: opts?.page ?? 1,
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.status ? { status: opts.status } : {}),
-      ...(opts?.siteId ? { site_id: opts.siteId } : {}),
+      ...(activeSiteId ? { site_id: activeSiteId } : {}),
       ...(opts?.responsibleId ? { responsible_id: opts.responsibleId } : {}),
       ...(opts?.dueFilter ? { due_filter: opts.dueFilter } : {}),
       ...(opts?.sort ? { sort: opts.sort } : {}),
-      ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      ...(activeCompanyId ? { company_id: activeCompanyId } : {}),
       ...(opts?.isModeloPadrao !== undefined
         ? { is_modelo_padrao: opts.isModeloPadrao }
         : {}),
       ...(opts?.contextFilter ? { context_filter: opts.contextFilter } : {}),
     };
-    const cacheKey = `aprs.paginated.${JSON.stringify(params)}`;
+    const cacheKey = JSON.stringify(queryKeys.aprs.list({
+      companyId: activeCompanyId,
+      siteId: activeSiteId,
+      page: params.page,
+      limit: params.limit,
+      filters: { normalizedFilters },
+    }));
     const cacheContext = createOfflineCacheContext();
+
 
     try {
       const response = await api.get<PaginatedResponse<Apr>>("/aprs", {
@@ -393,19 +415,27 @@ export const aprsService = {
     }
   },
 
-  findAll: async (companyId?: string) => {
-    const cacheKey = "aprs.all";
+  findAll: async (companyId?: string, siteId?: string) => {
+    if (!companyId || !siteId) {
+      throw new Error('companyId e siteId são obrigatórios para listar APRs.');
+    }
+    const cacheKey = JSON.stringify(queryKeys.aprs.list({
+      companyId,
+      siteId,
+      filters: { normalizedFilters: normalizeQueryFilters({ scope: 'all' }) },
+    }));
+    const aggregateCacheKey = cacheKey;
     const cacheContext = createOfflineCacheContext();
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
-          aprsService.findPaginated({ page, limit, companyId }),
+          aprsService.findPaginated({ page, limit, companyId, siteId }),
         limit: 100,
         maxPages: 20,
         batchSize: 3,
-        cacheKey: `GET:/aprs?page=*&limit=100&company_id=${companyId || "current"}`,
+        cacheKey,
       });
-      setOfflineCache(cacheKey, data, CACHE_TTL.CRITICAL, cacheContext);
+      setOfflineCache(aggregateCacheKey, data, CACHE_TTL.CRITICAL, cacheContext);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
@@ -417,8 +447,12 @@ export const aprsService = {
     }
   },
 
-  findOne: async (id: string) => {
-    const cacheKey = `aprs.one.${id}`;
+  findOne: async (id: string, scope?: { companyId?: string; siteId?: string }) => {
+    const cacheKey = JSON.stringify(queryKeys.aprs.detail({
+      aprId: id,
+      companyId: scope?.companyId,
+      siteId: scope?.siteId,
+    }));
     const cacheContext = createOfflineCacheContext();
     try {
       const response = await api.get<Apr>(`/aprs/${id}`);

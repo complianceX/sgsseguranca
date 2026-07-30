@@ -16,6 +16,7 @@ import {
   Camera,
   Trash2,
   FileText,
+  HardHat,
 } from "lucide-react";
 import Link from "next/link";
 import NextImage from "next/image";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
+import { siteStore } from "@/lib/siteStore";
 import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Permission } from '@/lib/permissions';
@@ -402,6 +404,32 @@ export function DdsForm({ id }: DdsFormProps) {
       });
     }
   }, [isAdminGeral, selectedCompanyId, setValue]);
+
+  // Sincronizar site_id com o siteStore global
+  useEffect(() => {
+    const activeSite = siteStore.get();
+    if (activeSite) {
+      const currentSiteId = watch('site_id');
+      if (!currentSiteId || currentSiteId !== activeSite.siteId) {
+        setValue('site_id', activeSite.siteId, { shouldValidate: false });
+      }
+    }
+  }, [setValue, selectedSiteId, watch]);
+
+  // Inscrição para mudanças de obra
+  useEffect(() => {
+    const unsubscribe = siteStore.subscribe((site) => {
+      if (site) {
+        // Se mudou de obra, limpa participantes
+        if (selectedSiteId && selectedSiteId !== site.siteId) {
+          setValue('participants', [], { shouldValidate: false });
+        }
+        setValue('site_id', site.siteId, { shouldValidate: false });
+      }
+    });
+    return () => { unsubscribe(); };
+  }, [setValue, selectedSiteId]);
+
   const documentVideos = useDocumentVideos({
     documentId: id,
     enabled: Boolean(id),
