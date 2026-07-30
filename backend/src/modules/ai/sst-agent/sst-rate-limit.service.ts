@@ -133,9 +133,15 @@ export class SstRateLimitService {
 
     if (!allowed) {
       const minuteExceeded = minuteCount >= LIMITS.REQUESTS_PER_MINUTE;
+      const dayExceeded = dayCount >= LIMITS.REQUESTS_PER_DAY;
       return {
         allowed: false,
-        retryAfterSeconds: minuteExceeded ? minuteTtl : dayTtl,
+        retryAfterSeconds:
+          minuteExceeded && dayExceeded
+            ? Math.max(minuteTtl, dayTtl)
+            : minuteExceeded
+              ? minuteTtl
+              : dayTtl,
         remaining: {
           perMinute: Math.max(0, LIMITS.REQUESTS_PER_MINUTE - minuteCount),
           perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - dayCount),
@@ -245,8 +251,15 @@ export class SstRateLimitService {
 
   private secondsUntilMidnight(): number {
     const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
-    return Math.ceil((midnight.getTime() - now.getTime()) / 1_000);
+    const nextUtcMidnight = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0,
+    );
+    return Math.ceil((nextUtcMidnight - now.getTime()) / 1_000);
   }
 }

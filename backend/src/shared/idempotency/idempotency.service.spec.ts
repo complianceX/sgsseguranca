@@ -15,6 +15,7 @@ describe('IdempotencyService', () => {
         return Promise.resolve('OK');
       }),
       get: jest.fn().mockResolvedValue(null),
+      exists: jest.fn().mockResolvedValue(1),
       del: jest.fn().mockResolvedValue(1),
       incr: jest.fn().mockResolvedValue(1),
       decr: jest.fn().mockResolvedValue(0),
@@ -69,6 +70,37 @@ describe('IdempotencyService', () => {
       'idempotency:tenant:t:user:u:POST:/reports:key-1',
     );
     expect(redis.decr).toHaveBeenCalledWith(quotaKey('tenant:t:user:u'));
+  });
+
+  it('não decrementa quota se o incremento falhar antes de aplicar contador', async () => {
+    const { redis, service } = createService();
+    redis.incr.mockRejectedValue(new Error('redis down'));
+
+    await expect(
+      service.markProcessing(
+        'tenant:t:user:u',
+        'POST',
+        '/reports',
+        'key-3',
+        'a'.repeat(64),
+      ),
+    ).rejects.toThrow('redis down');
+
+    expect(redis.del).toHaveBeenCalledWith(
+      'idempotency:tenant:t:user:u:POST:/reports:key-3',
+    );
+    expect(redis.decr).not.toHaveBeenCalled();
+  });
+
+  it('não cria contador negativo ao remover registro quando a quota expirou', async () => {
+    const { redis, service } = createService();
+    redis.del.mockResolvedValue(1);
+    redis.exists.mockResolvedValue(0);
+
+    await service.deleteRecord('tenant:t:user:u', 'POST', '/reports', 'key-4');
+
+    expect(redis.exists).toHaveBeenCalledWith(quotaKey('tenant:t:user:u'));
+    expect(redis.decr).not.toHaveBeenCalled();
   });
 
   it('não armazena corpo de resposta acima do limite configurado', async () => {

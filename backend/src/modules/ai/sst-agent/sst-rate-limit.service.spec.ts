@@ -73,4 +73,21 @@ describe('SstRateLimitService', () => {
       ServiceUnavailableException,
     );
   });
+
+  it('usa a maior janela de retry quando minuto e dia estouram juntos', async () => {
+    const redis = {
+      eval: jest.fn().mockResolvedValue([0, 10, 200, 60, 1_200]),
+      incrby: jest.fn(),
+    };
+    const service = new SstRateLimitService(redis as never);
+
+    await expect(service.checkAndConsume('tenant-both')).resolves.toEqual({
+      allowed: false,
+      retryAfterSeconds: 1_200,
+      remaining: {
+        perMinute: 0,
+        perDay: 0,
+      },
+    });
+  });
 });

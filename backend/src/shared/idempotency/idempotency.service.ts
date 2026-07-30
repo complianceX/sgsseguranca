@@ -95,7 +95,9 @@ export class IdempotencyService {
   /**
    * Marca a chave como "em processamento".
    * Usa SET NX para garantir que apenas uma request concurrent vence a corrida.
-   * Retorna true se conseguiu marcar (primeira requisição), false se já existe.
+   * Retorna 'acquired' quando a chave foi reservada, 'exists' quando já havia
+   * uma request ativa para a mesma chave e 'quota_exceeded' quando o escopo
+   * excede o limite configurado de chaves simultâneas.
    */
   async markProcessing(
     scopeId: string,
@@ -125,20 +127,26 @@ export class IdempotencyService {
     }
 
     const quotaKey = this.buildQuotaKey(scopeId);
+    let quotaIncremented = false;
     try {
       const currentCount = await this.redis.incr(quotaKey);
+      quotaIncremented = true;
       if (currentCount === 1) {
         await this.redis.expire(quotaKey, this.ttlSeconds);
       }
 
       if (currentCount > this.maxKeysPerScope) {
-        await this.redis.del(key);
-        await this.redis.decr(quotaKey).catch(() => undefined);
+        const removed = await this.redis.del(key);
+        if (removed > 0) {
+          await this.redis.decr(quotaKey).catch(() => undefined);
+        }
         return 'quota_exceeded';
       }
     } catch (error) {
-      await this.redis.del(key).catch(() => undefined);
-      await this.redis.decr(quotaKey).catch(() => undefined);
+      const removed = await this.redis.del(key).catch(() => 0);
+      if (quotaIncremented && removed > 0) {
+        await this.redis.decr(quotaKey).catch(() => undefined);
+      }
       throw error;
     }
 
@@ -191,7 +199,11 @@ export class IdempotencyService {
     const key = this.buildKey(scopeId, method, path, idempotencyKey);
     const removed = await this.redis.del(key);
     if (removed > 0) {
-      await this.redis.decr(this.buildQuotaKey(scopeId)).catch(() => undefined);
+      const quotaKey = this.buildQuotaKey(scopeId);
+      const quotaExists = await this.redis.exists(quotaKey).catch(() => 0);
+      if (quotaExists > 0) {
+        await this.redis.decr(quotaKey).catch(() => undefined);
+      }
     }
   }
 
