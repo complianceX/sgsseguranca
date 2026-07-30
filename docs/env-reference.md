@@ -38,8 +38,10 @@
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
 | `REDIS_AUTH_URL` | Sim (prod) | Sessões, refresh tokens |
+| `REDIS_RATE_LIMIT_URL` | Sim (prod) | Rate limiting e idempotência; política `noeviction` |
 | `REDIS_CACHE_URL` | Sim (prod) | Cache de dashboard, RBAC |
 | `REDIS_QUEUE_URL` | Sim (prod) | BullMQ job queues |
+| `REDIS_<TIER>_HOST/PORT/USERNAME/PASSWORD` | Alternativa | Configuração separada quando o provedor não entrega URL completa |
 | `REDIS_URL` | Não | Legado (compatibilidade) |
 | `REDIS_DISABLED` | Não | `false` — modo degradado |
 | `REDIS_FAIL_OPEN` | Não | `false` em produção |
@@ -80,6 +82,10 @@
 | `FIELD_ENCRYPTION_ENABLED` | Sim (prod) | `true` em produção |
 | `FIELD_ENCRYPTION_KEY` | Sim (prod) | 32 bytes (64 hex / 32 UTF-8 / base64) |
 | `FIELD_ENCRYPTION_HASH_KEY` | Sim (prod) | Chave HMAC para lookup de CPF |
+| `SECURITY_AUDIT_HMAC_KEY` | Sim (prod) | Chave exclusiva de 32+ caracteres para pseudônimos em logs; não reutilizar outras chaves |
+| `IDEMPOTENCY_TTL_SECONDS` | Não | `3600`; intervalo permitido de 60 a 86400 segundos |
+| `IDEMPOTENCY_MAX_RESPONSE_BYTES` | Não | `65536`; respostas maiores não são copiadas para Redis nem reexecutadas |
+| `IDEMPOTENCY_MAX_KEYS_PER_SCOPE` | Não | `100`; quota por tenant e usuário dentro do TTL |
 
 ---
 
@@ -213,6 +219,7 @@
 - [ ] `DATABASE_SSL=true`
 - [ ] `FIELD_ENCRYPTION_ENABLED=true`
 - [ ] `FIELD_ENCRYPTION_KEY` = 32 bytes válidos
+- [ ] `SECURITY_AUDIT_HMAC_KEY` = segredo exclusivo com 32+ caracteres
 - [ ] `ANTIVIRUS_PROVIDER=clamav`
 - [ ] `ADMIN_GERAL_MFA_REQUIRED=true`
 - [ ] `MFA_ENABLED=true`

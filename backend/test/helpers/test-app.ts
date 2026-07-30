@@ -74,6 +74,14 @@ function sanitizeCookie(rawCookies: string[] | undefined, cookieName: string) {
   return tokenCookie ? tokenCookie.split(';')[0] : '';
 }
 
+function readSetCookies(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return typeof value === 'string' ? [value] : [];
+}
+
 function resolveCookieParser(): CookieParserFactory | null {
   if (typeof cookieParserModule === 'function') {
     return cookieParserModule;
@@ -331,11 +339,11 @@ export class TestApp {
       loginBody.accessToken || loginBody.access_token || '',
     );
     const refreshCookie = sanitizeCookie(
-      response.headers['set-cookie'] as string[] | undefined,
+      readSetCookies(response.headers['set-cookie']),
       'refresh_token',
     );
     const refreshCsrfCookie = sanitizeCookie(
-      response.headers['set-cookie'] as string[] | undefined,
+      readSetCookies(response.headers['set-cookie']),
       'refresh_csrf',
     );
     const refreshCsrfToken = refreshCsrfCookie.split('=').slice(1).join('=');
@@ -378,7 +386,7 @@ export class TestApp {
     const csrfToken = String(response.body?.csrfToken || '').trim();
     const csrfCookie =
       sanitizeCookie(
-        response.headers['set-cookie'] as string[] | undefined,
+        readSetCookies(response.headers['set-cookie']),
         'csrf-token',
       ) || (csrfToken ? `csrf-token=${csrfToken}` : '');
 

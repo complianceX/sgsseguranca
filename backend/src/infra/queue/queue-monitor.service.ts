@@ -6,10 +6,43 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class QueueMonitorService {
   private readonly logger = new Logger(QueueMonitorService.name);
+  private readonly dlqAlertState = new Map<
+    string,
+    { waiting: number; emittedAt: number }
+  >();
+
   private getQueueWaitingThreshold(): number {
     const raw = process.env.ALERTS_QUEUE_WAITING_THRESHOLD;
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) ? n : 20;
+  }
+
+  private getDlqAlertCooldownMs(): number {
+    const raw = Number(process.env.ALERTS_DLQ_COOLDOWN_MS);
+    if (!Number.isFinite(raw)) {
+      return 15 * 60 * 1000;
+    }
+    return Math.min(Math.max(Math.floor(raw), 60_000), 24 * 60 * 60 * 1000);
+  }
+
+  private shouldEmitDlqAlert(queue: string, waiting: number): boolean {
+    if (waiting <= 0) {
+      this.dlqAlertState.delete(queue);
+      return false;
+    }
+
+    const previous = this.dlqAlertState.get(queue);
+    const now = Date.now();
+    if (
+      previous &&
+      previous.waiting === waiting &&
+      now - previous.emittedAt < this.getDlqAlertCooldownMs()
+    ) {
+      return false;
+    }
+
+    this.dlqAlertState.set(queue, { waiting, emittedAt: now });
+    return true;
   }
 
   constructor(
@@ -140,7 +173,9 @@ export class QueueMonitorService {
         });
       }
 
-      if ((pdfDlqStats.wait || 0) > 0) {
+      if (
+        this.shouldEmitDlqAlert('pdf-generation-dlq', pdfDlqStats.wait || 0)
+      ) {
         this.logger.warn({
           alert: 'DLQ_NOT_EMPTY',
           queue: 'pdf-generation-dlq',
@@ -151,7 +186,7 @@ export class QueueMonitorService {
         });
       }
 
-      if ((mailDlqStats.wait || 0) > 0) {
+      if (this.shouldEmitDlqAlert('mail-dlq', mailDlqStats.wait || 0)) {
         this.logger.warn({
           alert: 'DLQ_NOT_EMPTY',
           queue: 'mail-dlq',
@@ -162,7 +197,12 @@ export class QueueMonitorService {
         });
       }
 
-      if ((documentImportDlqStats.wait || 0) > 0) {
+      if (
+        this.shouldEmitDlqAlert(
+          'document-import-dlq',
+          documentImportDlqStats.wait || 0,
+        )
+      ) {
         this.logger.warn({
           alert: 'DLQ_NOT_EMPTY',
           queue: 'document-import-dlq',

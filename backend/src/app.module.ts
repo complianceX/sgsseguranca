@@ -10,7 +10,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { CacheModule } from '@nestjs/cache-manager';
+import { CacheModule, type CacheModuleOptions } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
@@ -18,21 +18,10 @@ import type { Redis } from 'ioredis';
 import { ThrottlerRedisStorageService } from './shared/throttler/throttler-redis-storage.service';
 import {
   REDIS_CLIENT_BULLMQ,
-  REDIS_CLIENT_CACHE,
+  REDIS_CLIENT_RATE_LIMIT,
 } from './shared/redis/redis.constants';
 import { RedisModule } from './shared/redis/redis.module';
 import * as Joi from 'joi';
-import * as redisStore from 'cache-manager-redis-store';
-import type { RedisClientOptions } from 'redis';
-interface RedisCacheConfig {
-  store: unknown;
-  host: string;
-  port: number;
-  password?: string;
-  ttl: number;
-  max: number;
-  tls?: Record<string, unknown>;
-}
 
 function isConnectionAcceptableWithoutPassword(
   connection: ResolvedRedisConnection | null,
@@ -47,6 +36,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SeedService } from './modules/seed/seed.service';
 import { CacheWarmingService } from './shared/cache/cache-warming.service';
+import {
+  createRedisKeyvCache,
+  DEFAULT_CACHE_TTL_MS,
+} from './shared/cache/redis-keyv-cache.util';
 
 // Feature modules — agrupados por domínio em config/modules.config.ts
 // Para adicionar um novo módulo, edite aquele arquivo.
@@ -288,21 +281,30 @@ export const validationSchema = Joi.object({
   REDIS_AUTH_PASSWORD: Joi.string().optional().allow(''),
   REDIS_AUTH_USERNAME: Joi.string().optional().allow(''),
   REDIS_AUTH_TLS: Joi.boolean().default(false),
-  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   REDIS_CACHE_URL: Joi.string().optional().allow(''),
   REDIS_CACHE_HOST: Joi.string().optional().allow(''),
   REDIS_CACHE_PORT: Joi.number().optional(),
   REDIS_CACHE_PASSWORD: Joi.string().optional().allow(''),
   REDIS_CACHE_USERNAME: Joi.string().optional().allow(''),
   REDIS_CACHE_TLS: Joi.boolean().default(false),
-  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
+  REDIS_RATE_LIMIT_URL: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_HOST: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_PORT: Joi.number().optional(),
+  REDIS_RATE_LIMIT_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_USERNAME: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_TLS: Joi.boolean().default(false),
+  REDIS_RATE_LIMIT_TLS_ALLOW_INSECURE: Joi.boolean()
+    .valid(false)
+    .default(false),
   REDIS_QUEUE_URL: Joi.string().optional().allow(''),
   REDIS_QUEUE_HOST: Joi.string().optional().allow(''),
   REDIS_QUEUE_PORT: Joi.number().optional(),
   REDIS_QUEUE_PASSWORD: Joi.string().optional().allow(''),
   REDIS_QUEUE_USERNAME: Joi.string().optional().allow(''),
   REDIS_QUEUE_TLS: Joi.boolean().default(false),
-  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
   REDIS_HOST: Joi.string().when('REDIS_DISABLED', {
     is: 'true',
@@ -320,6 +322,33 @@ export const validationSchema = Joi.object({
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
+  ALERTS_DLQ_COOLDOWN_MS: Joi.number().integer().min(60_000).default(900_000),
+  AI_RECOVERY_MAX_AGE_MS: Joi.number()
+    .integer()
+    .min(60_000)
+    .default(86_400_000),
+  IDEMPOTENCY_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(60)
+    .max(86_400)
+    .default(3_600),
+  IDEMPOTENCY_MAX_RESPONSE_BYTES: Joi.number()
+    .integer()
+    .min(1_024)
+    .max(1_048_576)
+    .default(65_536),
+  IDEMPOTENCY_MAX_KEYS_PER_SCOPE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1_000)
+    .default(100),
+  SECURITY_AUDIT_HMAC_KEY: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('development-security-audit-hmac-key'),
+  }),
   JWT_SECRET: Joi.string().min(64).required(),
   MFA_ENABLED: Joi.boolean().default(true),
   MFA_ISSUER: Joi.string().optional().allow(''),
@@ -969,7 +998,7 @@ export const validationSchema = Joi.object({
 
     // 2. ThrottlerModule para rate limiting — storage Redis para multi-instância
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService, REDIS_CLIENT_CACHE],
+      inject: [ConfigService, REDIS_CLIENT_RATE_LIMIT],
       useFactory: (
         config: ConfigService,
         redis: Redis,
@@ -986,7 +1015,7 @@ export const validationSchema = Joi.object({
     }),
 
     // 3. CacheModule com Redis em produção, memória em dev
-    CacheModule.registerAsync<RedisClientOptions>({
+    CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -1015,20 +1044,14 @@ export const validationSchema = Joi.object({
             }`,
           );
 
-          const redisConfig: RedisCacheConfig = {
-            store: redisStore,
-            host: redisConnection.host,
-            port: redisConnection.port,
-            password: redisConnection.password,
-            ttl: 300, // 5 minutos default
-            max: 1000, // Máximo de itens no cache
+          const redisConfig: CacheModuleOptions = {
+            stores: [createRedisKeyvCache(redisConnection)],
+            ttl: DEFAULT_CACHE_TTL_MS,
           };
 
-          if (redisConnection.tls) {
-            logger.log('🔒 Redis TLS habilitado');
-            redisConfig.tls = redisConnection.tls;
-          }
-
+          logger.log(
+            `🔒 Redis Cache distribuído com TLS=${Boolean(redisConnection.tls)}`,
+          );
           return redisConfig;
         }
 
@@ -1052,8 +1075,7 @@ export const validationSchema = Joi.object({
           logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
         }
         return {
-          ttl: 300,
-          max: 100,
+          ttl: DEFAULT_CACHE_TTL_MS,
         };
       },
     }),
@@ -1459,9 +1481,14 @@ export class AppModule implements OnModuleInit {
       this.configService.get<string>('BANCO_DE_DADOS_SSL'),
     );
     const redisAuthConn = resolveRedisConnection(this.configService, 'auth');
+    const redisRateLimitConn = resolveRedisConnection(
+      this.configService,
+      'rateLimit',
+    );
     const redisCacheConn = resolveRedisConnection(this.configService, 'cache');
     const redisQueueConn = resolveRedisConnection(this.configService, 'queue');
     const redisAuthConfigured = Boolean(redisAuthConn);
+    const redisRateLimitConfigured = Boolean(redisRateLimitConn);
     const redisCacheConfigured = Boolean(redisCacheConn);
     const redisQueueConfigured = Boolean(redisQueueConn);
     // Redis sem autenticação em produção expõe tokens JWT, sessions e filas
@@ -1478,6 +1505,13 @@ export class AppModule implements OnModuleInit {
       isConnectionAcceptableWithoutPassword(redisCacheConn) ||
       Boolean(
         redisCacheConn.password ||
+        this.configService.get<string>('REDIS_PASSWORD'),
+      );
+    const redisRateLimitHasPassword =
+      !redisRateLimitConn ||
+      isConnectionAcceptableWithoutPassword(redisRateLimitConn) ||
+      Boolean(
+        redisRateLimitConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
       );
     const redisQueueHasPassword =
@@ -1603,15 +1637,19 @@ export class AppModule implements OnModuleInit {
         name: 'REDIS_TIER_CONNECTIONS',
         valid:
           redisDisabled ||
-          (redisAuthConfigured && redisCacheConfigured && redisQueueConfigured),
+          (redisAuthConfigured &&
+            redisRateLimitConfigured &&
+            redisCacheConfigured &&
+            redisQueueConfigured),
         message:
-          'Configure REDIS_AUTH_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL em produção, ou defina REDIS_DISABLED=true apenas fora de produção.',
+          'Configure REDIS_AUTH_URL, REDIS_RATE_LIMIT_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL em produção, ou defina REDIS_DISABLED=true apenas fora de produção.',
       },
       {
         name: 'REDIS_AUTH_REQUIRED',
         valid:
           redisDisabled ||
           (redisAuthHasPassword &&
+            redisRateLimitHasPassword &&
             redisCacheHasPassword &&
             redisQueueHasPassword),
         message:

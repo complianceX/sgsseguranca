@@ -185,7 +185,8 @@ function matchesWhere(
       return true;
     }
 
-    return (record as Record<string, unknown>)[key] === value;
+    const typedKey = key as keyof DocumentImport;
+    return record[typedKey] === value;
   });
 }
 

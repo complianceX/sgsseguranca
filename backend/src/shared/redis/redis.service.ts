@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT_AUTH, REDIS_CLIENT_CACHE } from './redis.constants';
+import {
+  REDIS_CLIENT_AUTH,
+  REDIS_CLIENT_CACHE,
+  REDIS_CLIENT_RATE_LIMIT,
+} from './redis.constants';
 
 @Injectable()
 export class RedisService {
@@ -290,6 +294,13 @@ export class RedisService {
 @Injectable()
 export class AuthRedisService extends RedisService {
   constructor(@Inject(REDIS_CLIENT_AUTH) client: Redis) {
+    super(client);
+  }
+}
+
+@Injectable()
+export class RateLimitRedisService extends RedisService {
+  constructor(@Inject(REDIS_CLIENT_RATE_LIMIT) client: Redis) {
     super(client);
   }
 }

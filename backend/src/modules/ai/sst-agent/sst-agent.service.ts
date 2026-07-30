@@ -18,6 +18,7 @@ import {
   HttpStatus,
   ServiceUnavailableException,
   BadGatewayException,
+  NotFoundException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -56,6 +57,7 @@ import {
   isOpenAiCircuitBreakerUnavailableError,
 } from '../../../shared/resilience/openai-circuit-breaker.service';
 import { MetricsService } from '../../../shared/observability/metrics.service';
+import { ConsentsService } from '../../consents/consents.service';
 import {
   SstAgentResponse,
   SstChatResponse,
@@ -143,6 +145,7 @@ export class SstAgentService {
     private readonly sophieLocalChatService: SophieLocalChatService,
     private readonly integration: IntegrationResilienceService,
     private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
+    private readonly consentsService: ConsentsService,
     @Optional()
     @InjectQueue('ai-recovery')
     private readonly aiRecoveryQueue?: Queue,
@@ -558,10 +561,7 @@ export class SstAgentService {
       if (isOpenAiCircuitBreakerUnavailableError(err)) {
         await this.enqueueQuestionForRecovery({
           tenantId,
-          userId: authenticatedUserId,
           interactionId: interaction.id,
-          question,
-          history,
         });
         this.recordAiBusinessMetrics({
           companyId: tenantId,
@@ -591,6 +591,91 @@ export class SstAgentService {
         interaction.id,
         AiInteractionStatus.ERROR,
       );
+    }
+  }
+
+  async recoverInteraction(interactionId: string): Promise<void> {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Tenant nao identificado para recovery da Sophie.',
+      );
+    }
+
+    const interaction = await this.interactionRepo.findOne({
+      where: {
+        id: interactionId,
+        company_id: tenantId,
+      },
+    });
+    if (!interaction) {
+      throw new NotFoundException(
+        'Interação da Sophie não encontrada para o tenant informado.',
+      );
+    }
+    if (
+      interaction.status === AiInteractionStatus.SUCCESS ||
+      interaction.status === AiInteractionStatus.NEEDS_REVIEW
+    ) {
+      return;
+    }
+
+    const hasActiveConsent = await this.consentsService.hasActiveConsent(
+      interaction.user_id,
+      'ai_processing',
+    );
+    if (!hasActiveConsent) {
+      interaction.status = AiInteractionStatus.ERROR;
+      interaction.error_message =
+        'Recovery cancelado: consentimento de IA ausente, revogado ou desatualizado.';
+      await this.interactionRepo.save(interaction);
+      return;
+    }
+
+    const startedAt = Date.now();
+    try {
+      const { result, inputTokens, outputTokens, toolsUsed } =
+        await this.runOpenAiAgentLoop(interaction.question, []);
+      const reviewReasons = this.detectHumanReviewReasons(
+        result,
+        interaction.question,
+        toolsUsed,
+      );
+
+      interaction.response = result;
+      interaction.tools_called = toolsUsed;
+      interaction.status =
+        reviewReasons.length > 0
+          ? AiInteractionStatus.NEEDS_REVIEW
+          : AiInteractionStatus.SUCCESS;
+      interaction.error_message = null;
+      interaction.latency_ms = Date.now() - startedAt;
+      interaction.token_usage_input = inputTokens;
+      interaction.token_usage_output = outputTokens;
+      interaction.tokens_used = inputTokens + outputTokens;
+      interaction.estimated_cost_usd = this.estimateCost(
+        inputTokens,
+        outputTokens,
+        this.provider,
+      );
+      interaction.confidence = result.confidence;
+      interaction.needs_human_review = result.needsHumanReview;
+      interaction.human_review_reasons =
+        reviewReasons.length > 0 ? reviewReasons : null;
+      interaction.human_review_reason = result.humanReviewReason ?? null;
+
+      await this.interactionRepo.save(interaction);
+      void this.rateLimitService.recordTokenUsage(
+        tenantId,
+        inputTokens + outputTokens,
+      );
+    } catch (error) {
+      interaction.status = AiInteractionStatus.ERROR;
+      interaction.error_message =
+        error instanceof Error ? error.message.slice(0, 1000) : String(error);
+      interaction.latency_ms = Date.now() - startedAt;
+      await this.interactionRepo.save(interaction);
+      throw error;
     }
   }
 
@@ -1670,10 +1755,7 @@ export class SstAgentService {
 
   private async enqueueQuestionForRecovery(params: {
     tenantId: string;
-    userId: string;
     interactionId: string;
-    question: string;
-    history: ConversationMessage[];
   }): Promise<void> {
     if (!this.aiRecoveryQueue) {
       return;
@@ -1684,16 +1766,19 @@ export class SstAgentService {
         'reprocess-sst-chat',
         {
           tenantId: params.tenantId,
-          userId: params.userId,
           interactionId: params.interactionId,
-          question: params.question,
-          history: params.history,
           queuedAt: new Date().toISOString(),
           reason: 'openai_circuit_breaker_open',
         },
         {
-          removeOnComplete: 100,
-          removeOnFail: 100,
+          removeOnComplete: {
+            age: 24 * 60 * 60,
+            count: 100,
+          },
+          removeOnFail: {
+            age: 7 * 24 * 60 * 60,
+            count: 100,
+          },
           attempts: 3,
           backoff: { type: 'exponential', delay: 10_000 },
         },

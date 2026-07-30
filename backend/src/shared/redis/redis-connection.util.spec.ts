@@ -1,4 +1,5 @@
 import {
+  assertSecureRedisConnection,
   isRedisExplicitlyDisabled,
   isLocalRedisConnection,
   isLoopbackHostname,
@@ -62,6 +63,26 @@ describe('redis-connection.util', () => {
       username: undefined,
       password: 'queue-secret',
       tls: undefined,
+    });
+  });
+
+  it('resolve tier RATE_LIMIT a partir de REDIS_RATE_LIMIT_URL', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_RATE_LIMIT_URL:
+          'rediss://rate-user:REDACTED@rate.redis.local:6382',
+      },
+      'rateLimit',
+    );
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'rediss://rate-user:REDACTED@rate.redis.local:6382',
+      host: 'rate.redis.local',
+      port: 6382,
+      username: 'rate-user',
+      password: 'rate-secret',
+      tls: { rejectUnauthorized: true },
     });
   });
 
@@ -147,11 +168,98 @@ describe('redis-connection.util', () => {
     });
   });
 
+  it('aplica credenciais por variável quando a URL do tier não as contém', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_AUTH_URL: 'rediss://auth.redis.local:6381',
+        REDIS_AUTH_USERNAME: 'auth-user',
+        REDIS_AUTH_PASSWORD: 'auth-secret',
+      },
+      'auth',
+    );
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'rediss://auth.redis.local:6381',
+      host: 'auth.redis.local',
+      port: 6381,
+      username: 'auth-user',
+      password: 'auth-secret',
+      tls: { rejectUnauthorized: true },
+    });
+  });
+
+  it('rejeita protocolo que não seja redis ou rediss', () => {
+    expect(() =>
+      resolveRedisConnection({
+        REDIS_URL: 'https://redis.example.com:6380',
+      }),
+    ).toThrow('Protocolo Redis inválido');
+  });
+
   it('reconhece host loopback como redis local', () => {
     expect(isLoopbackHostname('localhost')).toBe(true);
     expect(isLoopbackHostname('127.0.0.1')).toBe(true);
     expect(isLoopbackHostname('::1')).toBe(true);
     expect(isLoopbackHostname('redis.internal')).toBe(false);
     expect(isLocalRedisConnection({ host: 'localhost' } as never)).toBe(true);
+  });
+
+  it('bloqueia Redis remoto sem TLS em produção', () => {
+    expect(() =>
+      assertSecureRedisConnection(
+        {
+          source: 'url',
+          url: 'redis://default:REDACTED@redis.example.com:6379',
+          host: 'redis.example.com',
+          port: 6379,
+        },
+        'production',
+      ),
+    ).toThrow('Redis remoto em produção exige TLS');
+  });
+
+  it('aceita Redis remoto com TLS em produção', () => {
+    expect(() =>
+      assertSecureRedisConnection(
+        {
+          source: 'url',
+          url: 'redis://default:REDACTED@redis.example.com:6380',
+          host: 'redis.example.com',
+          port: 6380,
+          password: 'secret',
+          tls: { rejectUnauthorized: true },
+        },
+        'production',
+      ),
+    ).not.toThrow();
+  });
+
+  it('bloqueia Redis remoto sem autenticação em produção', () => {
+    expect(() =>
+      assertSecureRedisConnection(
+        {
+          source: 'url',
+          url: 'rediss://redis.example.com:6380',
+          host: 'redis.example.com',
+          port: 6380,
+          tls: { rejectUnauthorized: true },
+        },
+        'production',
+      ),
+    ).toThrow('Redis remoto em produção exige autenticação');
+  });
+
+  it('aceita Redis local sem TLS fora de produção', () => {
+    expect(() =>
+      assertSecureRedisConnection(
+        {
+          source: 'host',
+          host: '127.0.0.1',
+          port: 6379,
+        },
+        'development',
+      ),
+    ).not.toThrow();
   });
 });

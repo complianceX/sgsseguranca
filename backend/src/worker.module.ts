@@ -1,5 +1,5 @@
 import { Module, Logger } from '@nestjs/common';
-import { CacheModule } from '@nestjs/cache-manager';
+import { CacheModule, type CacheModuleOptions } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
@@ -7,8 +7,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import type { Redis } from 'ioredis';
 import * as Joi from 'joi';
-import * as redisStore from 'cache-manager-redis-store';
-import type { RedisClientOptions } from 'redis';
 import { DatabaseLogger } from './shared/logging/database.logger';
 import { RedisModule } from './shared/redis/redis.module';
 import { REDIS_CLIENT_BULLMQ } from './shared/redis/redis.constants';
@@ -39,16 +37,11 @@ import { PostgresApplicationNameService } from './shared/database/postgres-appli
 import { DashboardWorkerModule } from './modules/dashboard/dashboard.worker.module';
 import { DisasterRecoveryWorkerModule } from './modules/disaster-recovery/disaster-recovery.worker.module';
 import { TasksWorkerModule } from './modules/tasks/tasks.worker.module';
-
-interface RedisCacheConfig {
-  store: unknown;
-  host: string;
-  port: number;
-  password?: string;
-  ttl: number;
-  max: number;
-  tls?: Record<string, unknown>;
-}
+import { AiRecoveryWorkerModule } from './modules/ai/sst-agent/ai-recovery.worker.module';
+import {
+  createRedisKeyvCache,
+  DEFAULT_CACHE_TTL_MS,
+} from './shared/cache/redis-keyv-cache.util';
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -173,21 +166,30 @@ const validationSchema = Joi.object({
   REDIS_AUTH_PASSWORD: Joi.string().optional().allow(''),
   REDIS_AUTH_USERNAME: Joi.string().optional().allow(''),
   REDIS_AUTH_TLS: Joi.boolean().default(false),
-  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   REDIS_CACHE_URL: Joi.string().optional().allow(''),
   REDIS_CACHE_HOST: Joi.string().optional().allow(''),
   REDIS_CACHE_PORT: Joi.number().optional(),
   REDIS_CACHE_PASSWORD: Joi.string().optional().allow(''),
   REDIS_CACHE_USERNAME: Joi.string().optional().allow(''),
   REDIS_CACHE_TLS: Joi.boolean().default(false),
-  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
+  REDIS_RATE_LIMIT_URL: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_HOST: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_PORT: Joi.number().optional(),
+  REDIS_RATE_LIMIT_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_USERNAME: Joi.string().optional().allow(''),
+  REDIS_RATE_LIMIT_TLS: Joi.boolean().default(false),
+  REDIS_RATE_LIMIT_TLS_ALLOW_INSECURE: Joi.boolean()
+    .valid(false)
+    .default(false),
   REDIS_QUEUE_URL: Joi.string().optional().allow(''),
   REDIS_QUEUE_HOST: Joi.string().optional().allow(''),
   REDIS_QUEUE_PORT: Joi.number().optional(),
   REDIS_QUEUE_PASSWORD: Joi.string().optional().allow(''),
   REDIS_QUEUE_USERNAME: Joi.string().optional().allow(''),
   REDIS_QUEUE_TLS: Joi.boolean().default(false),
-  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
   URL_REDIS: Joi.string().optional().allow(''),
   REDIS_PUBLIC_URL: Joi.string().optional().allow(''),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
@@ -195,6 +197,18 @@ const validationSchema = Joi.object({
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
+  ALERTS_DLQ_COOLDOWN_MS: Joi.number().integer().min(60_000).default(900_000),
+  AI_RECOVERY_MAX_AGE_MS: Joi.number()
+    .integer()
+    .min(60_000)
+    .default(86_400_000),
+  SECURITY_AUDIT_HMAC_KEY: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('development-security-audit-hmac-key'),
+  }),
   DATABASE_URL: Joi.string().optional(),
   DATABASE_ADMIN_URL: Joi.string().optional(),
   DATABASE_HOST: Joi.string().optional(),
@@ -316,7 +330,7 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
-    CacheModule.registerAsync<RedisClientOptions>({
+    CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -337,8 +351,7 @@ const validationSchema = Joi.object({
             '💾 Configurando Memory Cache para worker em desenvolvimento',
           );
           return {
-            ttl: 300,
-            max: 100,
+            ttl: DEFAULT_CACHE_TTL_MS,
           };
         }
 
@@ -346,20 +359,14 @@ const validationSchema = Joi.object({
           `Configurando Redis Cache do worker (${redisConnection.source})`,
         );
 
-        const redisConfig: RedisCacheConfig = {
-          store: redisStore,
-          host: redisConnection.host,
-          port: redisConnection.port,
-          password: redisConnection.password,
-          ttl: 300,
-          max: 1000,
+        const redisConfig: CacheModuleOptions = {
+          stores: [createRedisKeyvCache(redisConnection)],
+          ttl: DEFAULT_CACHE_TTL_MS,
         };
 
-        if (redisConnection.tls) {
-          logger.log('Redis Cache do worker com TLS habilitado');
-          redisConfig.tls = redisConnection.tls;
-        }
-
+        logger.log(
+          `Redis Cache distribuído do worker com TLS=${Boolean(redisConnection.tls)}`,
+        );
         return redisConfig;
       },
     }),
@@ -504,6 +511,7 @@ const validationSchema = Joi.object({
     ExpiryNotificationsWorkerModule,
     DocumentRetentionWorkerModule,
     TasksWorkerModule,
+    AiRecoveryWorkerModule,
   ],
   providers: [WorkerHeartbeatReporterService, PostgresApplicationNameService],
 })

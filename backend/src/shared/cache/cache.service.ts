@@ -1,6 +1,12 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { randomUUID } from 'node:crypto';
 import { RedisService } from '../redis/redis.service';
 
 type ResettableCache = Cache & {
@@ -26,6 +32,8 @@ const GET_OR_SET_LOCK_POLL_MS = 50;
  * (fallback seguro: prefere duplicar trabalho a bloquear a requisição).
  */
 const GET_OR_SET_LOCK_MAX_ATTEMPTS = 60; // 60 × 50ms = 3s
+const USER_PROFILE_CACHE_TTL_SECONDS = 5 * 60;
+const COMPANY_CACHE_TTL_SECONDS = 15 * 60;
 
 @Injectable()
 export class CacheService {
@@ -46,8 +54,12 @@ export class CacheService {
   /**
    * Set value in cache with TTL
    */
-  async set<T>(key: string, value: T, ttl?: number): Promise<void> {
-    await this.cacheManager.set(key, value, ttl);
+  async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    await this.cacheManager.set(
+      key,
+      value,
+      this.toCacheManagerTtlMs(ttlSeconds),
+    );
   }
 
   /**
@@ -86,7 +98,7 @@ export class CacheService {
   async getOrSet<T>(
     key: string,
     factory: () => Promise<T>,
-    ttl?: number,
+    ttlSeconds?: number,
   ): Promise<T> {
     // 1. Cache hit — caminho feliz, sem lock necessário
     const cached = await this.get<T>(key);
@@ -96,11 +108,12 @@ export class CacheService {
 
     const redis = this.redisService.getClient();
     const lockKey = `lock:getOrSet:${key}`;
+    const lockToken = randomUUID();
 
     // 2. Tentar adquirir lock (SET NX PX = atômico, sem race condition)
     const acquired = await redis.set(
       lockKey,
-      '1',
+      lockToken,
       'PX',
       GET_OR_SET_LOCK_TTL_MS,
       'NX',
@@ -110,7 +123,7 @@ export class CacheService {
       // 3. Somos o único a executar a factory
       try {
         const value = await factory();
-        await this.set(key, value, ttl);
+        await this.set(key, value, ttlSeconds);
         return value;
       } catch (err) {
         this.logger.error(
@@ -118,8 +131,7 @@ export class CacheService {
         );
         throw err;
       } finally {
-        // Liberar lock sempre — mesmo em caso de erro
-        await redis.del(lockKey).catch(() => undefined);
+        await this.releaseDistributedLock(redis, lockKey, lockToken);
       }
     }
 
@@ -139,7 +151,7 @@ export class CacheService {
       if (!lockExists) {
         // Lock sumiu mas cache ainda vazio — tentar novamente recursivamente
         // (evita loop infinito: a próxima chamada vai adquirir ou fazer polling)
-        return this.getOrSet(key, factory, ttl);
+        return this.getOrSet(key, factory, ttlSeconds);
       }
     }
 
@@ -149,6 +161,44 @@ export class CacheService {
       `getOrSet polling esgotou para key="${key}" — executando factory como fallback`,
     );
     return factory();
+  }
+
+  private toCacheManagerTtlMs(ttlSeconds?: number): number | undefined {
+    if (ttlSeconds === undefined) {
+      return undefined;
+    }
+    if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+      throw new BadRequestException(
+        'TTL do cache deve ser um número positivo em segundos.',
+      );
+    }
+    return Math.floor(ttlSeconds * 1000);
+  }
+
+  private async releaseDistributedLock(
+    redis: ReturnType<RedisService['getClient']>,
+    lockKey: string,
+    lockToken: string,
+  ): Promise<void> {
+    const releaseScript = `
+      if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+      end
+      return 0
+    `;
+
+    try {
+      await redis.eval(releaseScript, 1, lockKey, lockToken);
+    } catch (error) {
+      this.logger.debug(
+        `releaseDistributedLock falhou para lockKey="${lockKey}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      // Nunca usar GET seguido de DEL como fallback: entre as duas operações o
+      // lock pode expirar e ser adquirido por outro processo. O TTL garante a
+      // liberação eventual sem remover o lock de outro proprietário.
+    }
   }
 
   /**
@@ -170,7 +220,7 @@ export class CacheService {
    */
   tenantKey(companyId: string, ...parts: Array<string | number>): string {
     if (!companyId) {
-      throw new Error(
+      throw new BadRequestException(
         'CacheService.tenantKey: companyId é obrigatório para chave com escopo de tenant.',
       );
     }
@@ -180,30 +230,40 @@ export class CacheService {
   /**
    * Cache user profile
    */
-  async cacheUserProfile<T>(userId: string, profile: T): Promise<void> {
-    await this.set(`user:profile:${userId}`, profile, 300); // 5 min
+  async cacheUserProfile<T>(
+    companyId: string,
+    userId: string,
+    profile: T,
+  ): Promise<void> {
+    await this.set(
+      this.tenantKey(companyId, 'user', 'profile', userId),
+      profile,
+      USER_PROFILE_CACHE_TTL_SECONDS,
+    );
   }
 
   /**
    * Get cached user profile
    */
-  async getUserProfile<T>(userId: string): Promise<T | undefined> {
-    return this.get<T>(`user:profile:${userId}`);
+  async getUserProfile<T>(
+    companyId: string,
+    userId: string,
+  ): Promise<T | undefined> {
+    return this.get<T>(this.tenantKey(companyId, 'user', 'profile', userId));
   }
 
   /**
    * Invalidate user cache
    */
-  async invalidateUserCache(userId: string): Promise<void> {
-    await this.del(`user:profile:${userId}`);
-    await this.invalidatePattern(`user:${userId}:*`);
+  async invalidateUserCache(companyId: string, userId: string): Promise<void> {
+    await this.del(this.tenantKey(companyId, 'user', 'profile', userId));
   }
 
   /**
    * Cache company data
    */
   async cacheCompany<T>(companyId: string, company: T): Promise<void> {
-    await this.set(`company:${companyId}`, company, 900); // 15 min
+    await this.set(`company:${companyId}`, company, COMPANY_CACHE_TTL_SECONDS);
   }
 
   /**

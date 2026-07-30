@@ -197,6 +197,25 @@ describe('ConsentsService', () => {
       await expect(
         service.hasActiveConsent('user-1', 'ai_processing'),
       ).resolves.toBe(true);
+      expect(userConsentsRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            user_id: 'user-1',
+            company_id: 'company-1',
+            type: 'ai_processing',
+          },
+        }),
+      );
+    });
+
+    it('falha fechado sem contexto tenant', async () => {
+      versionsRepo.findOne.mockResolvedValue(ACTIVE_VERSION);
+      tenantService.getTenantId.mockReturnValue(null);
+
+      await expect(
+        service.hasActiveConsent('user-1', 'ai_processing'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(userConsentsRepo.findOne).not.toHaveBeenCalled();
     });
   });
 
