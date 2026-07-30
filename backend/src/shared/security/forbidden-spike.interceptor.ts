@@ -15,7 +15,8 @@ import { throwError, from } from 'rxjs';
 import { catchError, mergeMap } from 'rxjs/operators';
 import type { Request } from 'express';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT_AUTH } from '../redis/redis.constants';
+import { isIP } from 'node:net';
+import { REDIS_CLIENT_RATE_LIMIT } from '../redis/redis.constants';
 import {
   SecurityAuditService,
   SecuritySeverity,
@@ -58,7 +59,7 @@ export class ForbiddenSpikeInterceptor implements NestInterceptor {
   private readonly logger = new Logger(ForbiddenSpikeInterceptor.name);
 
   constructor(
-    @Inject(REDIS_CLIENT_AUTH) private readonly redis: Redis,
+    @Inject(REDIS_CLIENT_RATE_LIMIT) private readonly redis: Redis,
     private readonly securityAudit: SecurityAuditService,
   ) {}
 
@@ -197,12 +198,17 @@ export class ForbiddenSpikeInterceptor implements NestInterceptor {
   }
 
   private extractIp(request: Request): string | null {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      const first = forwarded.split(',')[0]?.trim();
-      if (first) return first;
+    const normalizedIp = request.ip?.trim();
+    if (normalizedIp && isIP(normalizedIp) !== 0) {
+      return normalizedIp;
     }
-    return request.ip ?? request.socket?.remoteAddress ?? null;
+
+    const remoteAddress = request.socket?.remoteAddress?.trim();
+    if (remoteAddress && isIP(remoteAddress) !== 0) {
+      return remoteAddress;
+    }
+
+    return null;
   }
 
   private counterKey(ip: string): string {

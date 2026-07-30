@@ -11,6 +11,7 @@ import {
   REDIS_CLIENT_AUTH,
   REDIS_CLIENT_CACHE,
   REDIS_CLIENT_QUEUE,
+  REDIS_CLIENT_RATE_LIMIT,
 } from './redis.constants';
 
 type ClosableRedisClient = Redis & {
@@ -49,6 +50,7 @@ export class RedisShutdownService
     @Inject(REDIS_CLIENT_AUTH) private readonly authClient: Redis,
     @Inject(REDIS_CLIENT_CACHE) private readonly cacheClient: Redis,
     @Inject(REDIS_CLIENT_QUEUE) private readonly queueClient: Redis,
+    @Inject(REDIS_CLIENT_RATE_LIMIT) private readonly rateLimitClient: Redis,
     @Inject(REDIS_CLIENT_BULLMQ) private readonly bullmqClient: Redis,
   ) {}
 
@@ -74,6 +76,7 @@ export class RedisShutdownService
       this.authClient,
       this.cacheClient,
       this.queueClient,
+      this.rateLimitClient,
       this.bullmqClient,
     ] as ClosableRedisClient[];
 

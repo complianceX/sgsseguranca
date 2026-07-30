@@ -27,6 +27,7 @@ describe('AppModule production environment validation', () => {
     BULL_BOARD_PASS: 'admin-secure-pass',
     ANTIVIRUS_PROVIDER: 'clamav',
     AUTH_DUMMY_PASSWORD_HASH: 'a'.repeat(64),
+    SECURITY_AUDIT_HMAC_KEY: 'd'.repeat(32),
   };
 
   const originalEnv = process.env;
@@ -76,6 +77,16 @@ describe('AppModule production environment validation', () => {
     const result = await validate(productionEnv);
 
     expect(result.error).toBeUndefined();
+  });
+
+  it('bloqueia produção sem chave HMAC exclusiva para auditoria', async () => {
+    const result = await validate({
+      ...productionEnv,
+      SECURITY_AUDIT_HMAC_KEY: '',
+    });
+
+    expect(result.error).toBeDefined();
+    expect(result.error?.message).toContain('SECURITY_AUDIT_HMAC_KEY');
   });
 
   it('bloqueia produção sem bucket ou credenciais do storage documental', async () => {

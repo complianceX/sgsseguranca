@@ -1,5 +1,12 @@
-export type DashboardQueryType =
-  'summary' | 'kpis' | 'pending-queue' | 'heatmap' | 'tst-day';
+export const DASHBOARD_QUERY_TYPES = [
+  'summary',
+  'kpis',
+  'pending-queue',
+  'heatmap',
+  'tst-day',
+] as const;
+
+export type DashboardQueryType = (typeof DASHBOARD_QUERY_TYPES)[number];
 
 export type DashboardMetaSource = 'redis' | 'snapshot' | 'live';
 

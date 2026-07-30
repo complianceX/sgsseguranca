@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { Inject } from '@nestjs/common';
-import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
+import { REDIS_CLIENT_RATE_LIMIT } from '../redis/redis.constants';
 import { MetricsService } from '../observability/metrics.service';
 import {
   extractResilienceErrorCode,
@@ -59,7 +59,7 @@ export class OpenAiCircuitBreakerService {
   private localTrips: number[] = [];
 
   constructor(
-    @Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis,
+    @Inject(REDIS_CLIENT_RATE_LIMIT) private readonly redis: Redis,
     private readonly metricsService: MetricsService,
   ) {
     this.metricsService.recordOpenAiCircuitBreakerState(
@@ -188,7 +188,7 @@ export class OpenAiCircuitBreakerService {
   private async recordSuccessWithMode(mode: 'redis' | 'local'): Promise<void> {
     const current = await this.readState(mode);
     if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
-      await this.releaseHalfOpenProbeLock(mode);
+      this.releaseHalfOpenProbeLock(mode);
       await this.transitionState(
         mode,
         OpenAiCircuitBreakerState.HALF_OPEN,
@@ -219,7 +219,7 @@ export class OpenAiCircuitBreakerService {
     const now = Date.now();
 
     if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
-      await this.releaseHalfOpenProbeLock(mode);
+      this.releaseHalfOpenProbeLock(mode);
       await this.writeState(
         {
           state: OpenAiCircuitBreakerState.OPEN,
@@ -358,15 +358,16 @@ export class OpenAiCircuitBreakerService {
     return result === REDIS_SET_OK;
   }
 
-  private async releaseHalfOpenProbeLock(
-    mode: 'redis' | 'local',
-  ): Promise<void> {
+  private releaseHalfOpenProbeLock(mode: 'redis' | 'local'): void {
     if (mode === 'local') {
       this.localProbeLockExpiresAt = 0;
       return;
     }
 
-    await this.redis.del(OPENAI_BREAKER_PROBE_LOCK_KEY);
+    // O lock Redis não possui token vinculado à request que abriu o probe.
+    // Removê-lo aqui poderia apagar um lock novo adquirido por outra instância
+    // após a expiração do lock original. Deixamos o PX liberar a chave; quando
+    // o estado volta a CLOSED, o lock residual não bloqueia requisições.
   }
 
   private async readState(mode: 'redis' | 'local'): Promise<BreakerRedisState> {

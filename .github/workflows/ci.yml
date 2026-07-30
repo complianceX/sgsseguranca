@@ -66,8 +66,11 @@ jobs:
       - name: Type-check backend
         run: npm run type-check
 
-      - name: Test backend
-        run: npm run test:ci
+      - name: Test backend (shard 1/2)
+        run: npm run test:ci -- --shard=1/2
+
+      - name: Test backend (shard 2/2)
+        run: npm run test:ci -- --shard=2/2
 
       - name: Smoke backend
         run: npm run test:smoke

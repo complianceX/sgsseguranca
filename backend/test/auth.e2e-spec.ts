@@ -6,6 +6,14 @@ import { E2EHelper } from './helpers/e2e.helper';
 const describeE2E =
   process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
 
+const readSetCookies = (value: string | string[] | undefined): string[] => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return typeof value === 'string' ? [value] : [];
+};
+
 describeE2E('Authentication (e2e)', () => {
   let app: INestApplication;
   const getHttpServer = (): Parameters<typeof request>[0] =>
@@ -74,7 +82,7 @@ describeE2E('Authentication (e2e)', () => {
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'password123' });
 
-      const cookies = loginRes.headers['set-cookie'] as string[];
+      const cookies = readSetCookies(loginRes.headers['set-cookie']);
 
       return request(getHttpServer())
         .post('/auth/refresh')
@@ -92,7 +100,7 @@ describeE2E('Authentication (e2e)', () => {
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'password123' });
 
-      const cookies = loginRes.headers['set-cookie'] as string[];
+      const cookies = readSetCookies(loginRes.headers['set-cookie']);
 
       return request(getHttpServer())
         .post('/auth/change-password')

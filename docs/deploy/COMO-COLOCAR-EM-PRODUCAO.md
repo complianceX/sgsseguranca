@@ -9,6 +9,9 @@
 Detalhe de configuração do Coolify (env vars, recursos, domínios):
 [`coolify-vultr-backend-web-worker.md`](./coolify-vultr-backend-web-worker.md).
 
+Para mudanças de Redis/TLS, use também:
+[`redis-hardening-rollout.md`](./redis-hardening-rollout.md).
+
 ---
 
 ## Mapa rápido

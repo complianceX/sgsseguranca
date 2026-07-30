@@ -5,7 +5,7 @@ import { RolesGuard } from '../../modules/auth/roles.guard';
 import { Roles } from '../../modules/auth/roles.decorator';
 import { Role } from '../../modules/auth/enums/roles.enum';
 import { Authorize } from '../../modules/auth/authorize.decorator';
-import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
+import { REDIS_CLIENT_RATE_LIMIT } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 import { TenantOptional } from '../decorators/tenant-optional.decorator';
 
@@ -23,7 +23,7 @@ export class RateLimitsAdminController {
   private static readonly MAX_SCAN_ITERATIONS = 20;
   private static readonly MAX_SCANNED_KEYS = 2000;
 
-  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_RATE_LIMIT) private readonly redis: Redis) {}
 
   /**
    * GET /admin/rate-limits/status

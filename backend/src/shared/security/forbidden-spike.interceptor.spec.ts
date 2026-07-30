@@ -190,7 +190,7 @@ describe('ForbiddenSpikeInterceptor', () => {
       });
   });
 
-  it('should use X-Forwarded-For header as IP', (done) => {
+  it('ignora X-Forwarded-For bruto e usa apenas o IP normalizado pelo Express', (done) => {
     mockRedis.get.mockResolvedValue(null);
     mockRedis.eval.mockResolvedValue(1);
 
@@ -207,13 +207,44 @@ describe('ForbiddenSpikeInterceptor', () => {
       }),
     } as unknown as ExecutionContext;
 
-    interceptor.intercept(ctx, makeHandler(of({}))).subscribe({
-      next: () => {
-        // The counter key uses the forwarded IP, not the internal proxy IP
-        const evalArgs = mockRedis.eval.mock.calls;
-        expect(evalArgs.length).toBe(0); // no error → no tracking
-        done();
-      },
-    });
+    interceptor
+      .intercept(ctx, makeHandler(throwError(() => new ForbiddenException())))
+      .subscribe({
+        error: () => {
+          setImmediate(() => {
+            expect(mockRedis.eval).toHaveBeenCalledWith(
+              expect.any(String),
+              1,
+              'security:forbidden_spike:counter:10.0.0.1',
+              expect.any(String),
+            );
+            done();
+          });
+        },
+      });
+  });
+
+  it('não cria controle para endereço inválido', (done) => {
+    const ctx = {
+      switchToHttp: () => ({
+        getRequest: () => ({
+          ip: 'not-an-ip',
+          path: '/test',
+          method: 'POST',
+          headers: { 'x-forwarded-for': '203.0.113.1' },
+          socket: { remoteAddress: 'also-invalid' },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    interceptor
+      .intercept(ctx, makeHandler(throwError(() => new ForbiddenException())))
+      .subscribe({
+        error: () => {
+          expect(mockRedis.get).not.toHaveBeenCalled();
+          expect(mockRedis.eval).not.toHaveBeenCalled();
+          done();
+        },
+      });
   });
 });

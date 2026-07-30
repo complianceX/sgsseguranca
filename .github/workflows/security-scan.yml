@@ -15,6 +15,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   secret-scanning:
@@ -132,15 +133,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Skip CodeQL upload on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Code scanning upload is disabled for pull_request runs in this repository." >> $GITHUB_STEP_SUMMARY
+          echo "The branch remains covered by TruffleHog, Gitleaks, Semgrep, Snyk, npm audit and CI gates." >> $GITHUB_STEP_SUMMARY
+
       - name: Initialize CodeQL
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
       - name: Autobuild
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/analyze@v4
 
   lockfile-integrity:
@@ -227,7 +237,13 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
 
+      - name: Skip SARIF upload on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "SARIF upload is skipped on pull_request runs because code scanning is unavailable in this repository." >> $GITHUB_STEP_SUMMARY
+
       - name: Upload Trivy results to GitHub Security
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
