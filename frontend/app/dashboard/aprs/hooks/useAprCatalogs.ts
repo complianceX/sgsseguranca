@@ -1,4 +1,6 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { siteStore } from "@/lib/siteStore";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import type { UseFormSetValue } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -252,15 +254,17 @@ export function useAprCatalogs({
 
   useEffect(() => {
     let cancelled = false;
+    const activeCompanyId = selectedTenantStore.get()?.companyId || selectedCompanyId;
+    const activeSiteId = siteStore.get()?.siteId;
 
     async function loadUsersForSite() {
-      if (!selectedCompanyId) {
+      if (!activeCompanyId || !activeSiteId) {
         if (cancelled) return;
         setUsers([]);
         return;
       }
 
-      if (!isUuidLike(selectedCompanyId)) {
+      if (!isUuidLike(activeCompanyId) || !isUuidLike(activeSiteId)) {
         if (cancelled) return;
         setUsers([]);
         return;
@@ -268,8 +272,8 @@ export function useAprCatalogs({
 
       try {
         const usersResult = await usersService.findAll(
-          selectedCompanyId,
-          selectedSiteId || undefined,
+          activeCompanyId,
+          activeSiteId,
         );
         if (cancelled) {
           return;
@@ -293,11 +297,12 @@ export function useAprCatalogs({
 
   useEffect(() => {
     if (id || selectedCompanyId) return;
-    const companyId = user?.company_id;
+    const companyId = selectedTenantStore.get()?.companyId || user?.company_id;
+    const activeSiteId = siteStore.get()?.siteId;
     if (!isUuidLike(companyId)) return;
     setValue("company_id", String(companyId));
-    if (isUuidLike(user?.site_id)) {
-      setValue("site_id", String(user?.site_id));
+    if (isUuidLike(activeSiteId)) {
+      setValue("site_id", String(activeSiteId));
     }
     if (isUuidLike(user?.id)) {
       setValue("elaborador_id", String(user?.id));

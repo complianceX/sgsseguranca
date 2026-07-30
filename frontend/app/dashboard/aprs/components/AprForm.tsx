@@ -59,6 +59,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
+import { siteStore } from "@/lib/siteStore";
 import { AuditSection } from "@/components/AuditSection";
 import { InlineLoadingState } from "@/components/ui/state";
 import { MobileActionBar } from "@/components/ui/mobile-action-bar";
@@ -553,7 +554,9 @@ export function AprForm({ id }: AprFormProps) {
 
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
+  const activeSite = siteStore.get();
   const selectedElaboradorId = watch("elaborador_id");
+  const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedTipoAtividade = watch("tipo_atividade");
   const tituloApr = watch("titulo");
   const descricaoApr = watch("descricao");
@@ -741,7 +744,6 @@ export function AprForm({ id }: AprFormProps) {
   const selectedCompany = companies.find(
     (company) => company.id === selectedCompanyId,
   );
-  const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find(
     (user) => user.id === selectedElaboradorId,
   );
@@ -2277,11 +2279,24 @@ export function AprForm({ id }: AprFormProps) {
 
   useEffect(() => {
     if (id || isReadOnly) return;
-    const onlySite = filteredSites[0];
-    if (filteredSites.length === 1 && selectedCompanyId && !selectedSiteId && onlySite) {
-      setValue("site_id", onlySite.id, { shouldDirty: false });
+    if (!activeSite?.siteId) return;
+    if (selectedSiteId !== activeSite.siteId) {
+      setValue("site_id", activeSite.siteId, { shouldDirty: false, shouldValidate: true });
     }
-  }, [filteredSites, id, isReadOnly, selectedCompanyId, selectedSiteId, setValue]);
+  }, [activeSite?.siteId, id, isReadOnly, selectedSiteId, setValue]);
+
+  useEffect(() => {
+    if (!activeSite?.siteId && !id) {
+      setValue("site_id", "", { shouldDirty: false, shouldValidate: true });
+    }
+  }, [activeSite?.siteId, id, setValue]);
+
+  useEffect(() => {
+    if (id || !activeSite?.siteId) return;
+    if (selectedSiteId !== activeSite.siteId) {
+      setValue("site_id", activeSite.siteId, { shouldDirty: false, shouldValidate: true });
+    }
+  }, [activeSite?.siteId, id, selectedSiteId, setValue]);
 
   // M03 — Força re-render a cada 10s para manter o timestamp relativo do draft atualizado
   useEffect(() => {

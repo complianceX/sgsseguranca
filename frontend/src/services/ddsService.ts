@@ -12,6 +12,7 @@ import type {
 } from "@/lib/videos/documentVideos";
 import type { Signature } from "@/services/signaturesService";
 import { omitCompanyId, tenantConfigFromPayload } from "./tenantWriteScope";
+import { siteStore } from "@/lib/siteStore";
 
 export type DdsStatus = "rascunho" | "publicado" | "auditado" | "arquivado";
 
@@ -321,7 +322,12 @@ export const ddsService = {
     search?: string;
     kind?: "all" | "model" | "regular";
     status?: DdsStatus | "all";
+    siteId?: string; // Permite override do siteId automático
   }): Promise<PaginatedResponse<Dds>> => {
+    // Usa o siteId do store se não for fornecido explicitamente
+    const activeSite = siteStore.get();
+    const siteId = opts?.siteId ?? activeSite?.siteId;
+
     const response = await api.get<PaginatedResponse<Dds>>("/dds", {
       params: {
         page: opts?.page ?? 1,
@@ -329,6 +335,7 @@ export const ddsService = {
         ...(opts?.search ? { search: opts.search } : {}),
         ...(opts?.kind && opts.kind !== "all" ? { kind: opts.kind } : {}),
         ...(opts?.status && opts.status !== "all" ? { status: opts.status } : {}),
+        ...(siteId ? { site_id: siteId } : {}),
       },
     });
     return response.data;
