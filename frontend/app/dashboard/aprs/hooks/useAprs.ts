@@ -12,6 +12,9 @@ import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled, isAprAnalyticsEnabled } from "@/lib/featureFlags";
 import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
 import { AprDueFilter, AprSortOption } from "../components/aprListingUtils";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { siteStore } from "@/lib/siteStore";
+import { queryKeys } from "@/lib/query-keys";
 
 type AprContextFilter = "minhas" | "vence-hoje" | "preciso-assinar" | "";
 
@@ -97,6 +100,9 @@ export function useAprs(options?: UseAprsOptions) {
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const activeRequestIdRef = useRef(0);
+  const activeControllerRef = useRef<AbortController | null>(null);
+  const lastAppliedContextRef = useRef<{ companyId?: string; siteId?: string; key?: string } | null>(null);
   const [overviewMetrics, setOverviewMetrics] =
     useState<AprOverviewMetrics | null>(null);
   const [searchTerm, setSearchTerm] = useState(
@@ -112,6 +118,12 @@ export function useAprs(options?: UseAprsOptions) {
   const [responsibleFilter, setResponsibleFilter] = useState(
     options?.initialResponsibleFilter || "",
   );
+  const [tenantContext, setTenantContext] = useState(() => ({
+    companyId: selectedTenantStore.get()?.companyId || undefined,
+    siteId: siteStore.get()?.siteId || undefined,
+  }));
+  const activeCompanyId = tenantContext.companyId;
+  const activeSiteId = tenantContext.siteId;
   const [dueFilter, setDueFilter] = useState<AprDueFilter>(
     options?.initialDueFilter || "",
   );
@@ -152,40 +164,101 @@ export function useAprs(options?: UseAprsOptions) {
   );
 
   const loadAprs = useCallback(async () => {
+    const companyId = activeCompanyId;
+    const siteId = activeSiteId;
+    const requestId = ++activeRequestIdRef.current;
+
+    if (!companyId || !siteId) {
+      activeControllerRef.current?.abort();
+      activeControllerRef.current = null;
+      lastAppliedContextRef.current = null;
+      setAprs([]);
+      setTotal(0);
+      setLastPage(1);
+      setLoadError(null);
+      setLoading(false);
+      setRefetching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = controller;
+
+    const requestFilters = {
+      page,
+      limit,
+      search: deferredSearchTerm || undefined,
+      status: statusFilter || undefined,
+      responsibleId: responsibleFilter || undefined,
+      dueFilter: dueFilter || undefined,
+      sort: sortBy,
+      contextFilter: contextFilter || undefined,
+    };
+    const requestKey = JSON.stringify(
+      queryKeys.aprs.list({
+        companyId,
+        siteId,
+        ...requestFilters,
+      }),
+    );
+
     try {
-      // Se ja temos dados (refetch), usa indicator de refetching ao inves de skeleton de loading inicial
       setLoading((prev) => {
         setRefetching(aprsCountRef.current > 0 && !prev);
         return true;
       });
       setLoadError(null);
+
       const res = await aprsService.findPaginated({
-        page,
-        limit,
-        search: deferredSearchTerm || undefined,
-        status: statusFilter || undefined,
-        siteId: siteFilter || undefined,
-        responsibleId: responsibleFilter || undefined,
-        dueFilter: dueFilter || undefined,
-        sort: sortBy,
-        contextFilter: contextFilter || undefined,
+        ...requestFilters,
+        companyId,
+        siteId,
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const latestContext = {
+        companyId,
+        siteId,
+        key: requestKey,
+      };
+
+      if (
+        requestId !== activeRequestIdRef.current ||
+        controller.signal.aborted ||
+        selectedTenantStore.get()?.companyId !== companyId ||
+        siteStore.get()?.siteId !== siteId ||
+        lastAppliedContextRef.current?.key === latestContext.key
+      ) {
+        return;
+      }
+
+      lastAppliedContextRef.current = latestContext;
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
-      setLoadError(resolveLoadError(error));
-      // Não duplica toast — resolveLoadError já fornece mensagem para o ErrorState na UI
+      const cancelled = controller.signal.aborted || (isAxiosError(error) && error.code === "ERR_CANCELED");
+      if (!cancelled && requestId === activeRequestIdRef.current) {
+        setLoadError(resolveLoadError(error));
+      }
     } finally {
-      setLoading(false);
-      setRefetching(false);
+      if (requestId === activeRequestIdRef.current) {
+        setLoading(false);
+        setRefetching(false);
+      }
     }
   }, [
+    activeCompanyId,
+    activeSiteId,
     page,
     limit,
     deferredSearchTerm,
     statusFilter,
-    siteFilter,
     responsibleFilter,
     dueFilter,
     sortBy,
@@ -245,7 +318,45 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
+    const unsubscribeTenant = selectedTenantStore.subscribe((tenant) => {
+      const nextCompanyId = tenant?.companyId || undefined;
+      const nextSiteId = siteStore.get()?.siteId || undefined;
+      setTenantContext({ companyId: nextCompanyId, siteId: nextSiteId });
+      activeControllerRef.current?.abort();
+      activeRequestIdRef.current += 1;
+      lastAppliedContextRef.current = null;
+      setAprs([]);
+      setTotal(0);
+      setLastPage(1);
+      setLoadError(null);
+      setLoading(Boolean(nextCompanyId && nextSiteId));
+      setRefetching(false);
+      if (!nextCompanyId || !nextSiteId) {
+        return;
+      }
+    });
+
+    const unsubscribeSite = siteStore.subscribe((site) => {
+      const nextCompanyId = selectedTenantStore.get()?.companyId || undefined;
+      const nextSiteId = site?.siteId || undefined;
+      setTenantContext({ companyId: nextCompanyId, siteId: nextSiteId });
+      activeControllerRef.current?.abort();
+      activeRequestIdRef.current += 1;
+      lastAppliedContextRef.current = null;
+      setAprs([]);
+      setTotal(0);
+      setLastPage(1);
+      setLoadError(null);
+      setLoading(Boolean(nextCompanyId && nextSiteId));
+      setRefetching(false);
+    });
+
     loadAprs();
+    return () => {
+      unsubscribeTenant();
+      unsubscribeSite();
+      activeControllerRef.current?.abort();
+    };
   }, [loadAprs]);
 
   useEffect(() => {
