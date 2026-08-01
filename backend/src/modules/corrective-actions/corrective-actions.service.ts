@@ -318,8 +318,9 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
         site_id: nc.site_id,
         due_date:
           nc.acao_definitiva_data_prevista || nc.acao_definitiva_prazo
-            ? (nc.acao_definitiva_data_prevista ||
-                nc.acao_definitiva_prazo)!.toISOString()
+            ? new Date(
+                nc.acao_definitiva_data_prevista || nc.acao_definitiva_prazo!,
+              ).toISOString()
             : this.addDays(7).toISOString(),
         responsible_name:
           nc.acao_definitiva_responsavel || nc.responsavel_area || undefined,
