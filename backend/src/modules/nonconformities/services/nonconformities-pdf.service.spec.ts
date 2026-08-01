@@ -21,6 +21,7 @@ describe('NonConformitiesPdfService', () => {
 
   let ncRepository: {
     findOne: jest.Mock;
+    update: jest.Mock;
     manager: { getRepository: jest.Mock };
   };
   let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
@@ -33,7 +34,7 @@ describe('NonConformitiesPdfService', () => {
     | 'downloadFileBuffer'
   >;
   let storageService: Pick<StorageService, 'getPresignedInlineViewUrl'>;
-  let pdfService: Pick<PdfService, 'generateFromHtml'>;
+  let pdfService: Pick<PdfService, 'generateFromHtml' | 'computeHash'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument'
@@ -70,6 +71,7 @@ describe('NonConformitiesPdfService', () => {
 
     ncRepository = {
       findOne: jest.fn(),
+      update: jest.fn(() => Promise.resolve()),
       manager: {
         getRepository: jest.fn(() => ({ update })),
       },
@@ -99,6 +101,7 @@ describe('NonConformitiesPdfService', () => {
     };
     pdfService = {
       generateFromHtml: jest.fn(() => Promise.resolve(Buffer.from('%PDF-1.4'))),
+      computeHash: jest.fn(() => 'hash-regenerated'),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(
@@ -198,6 +201,19 @@ describe('NonConformitiesPdfService', () => {
       'documents/company-1/nonconformities/nc-1/old.pdf',
     );
     expect(result.generated).toBe(true);
+    // Regeneração não deve tentar re-registrar no document_registry
+    // (o registry rejeitaria: documento já finalizado na 1ª emissão).
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).not.toHaveBeenCalled();
+    expect(ncRepository.update).toHaveBeenCalledWith(
+      { id: 'nc-1' },
+      expect.objectContaining({
+        pdf_file_key:
+          'documents/company-1/nonconformities/sites/site-1/nc-1/nc-final.pdf',
+        final_pdf_hash_sha256: 'hash-regenerated',
+      }),
+    );
   });
 
   it('generateFinalPdf remove o arquivo recém-enviado quando a governança falha', async () => {
