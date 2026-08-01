@@ -12,6 +12,7 @@ const cloneAction = (
 function makeService(overrides: {
   correctiveActionsRepository?: Partial<Repository<CorrectiveAction>>;
   tenantId?: string;
+  nonConformitiesService?: { findOne: jest.Mock };
 }) {
   const repo = {
     find: jest.fn().mockResolvedValue([]),
@@ -54,7 +55,8 @@ function makeService(overrides: {
   const tenantService = {
     getTenantId: jest.fn().mockReturnValue(overrides.tenantId ?? 'company-1'),
   } as unknown as TenantService;
-  const nonConformitiesService = {} as never;
+  const nonConformitiesService = (overrides.nonConformitiesService ??
+    {}) as never;
   const auditsService = {} as never;
   const notificationsService = {} as never;
 
@@ -140,6 +142,51 @@ describe('CorrectiveActionsService', () => {
 
       expect(saved.escalation_level).toBe(0);
       expect(saved.status).toBe('open');
+    });
+  });
+
+  describe('createFromNonConformity()', () => {
+    it('aceita acao_definitiva_data_prevista como string (retorno real do TypeORM para colunas type: "date")', async () => {
+      // Regressão: colunas @Column({ type: 'date' }) voltam do TypeORM como
+      // string ('2026-08-15'), não como instância de Date, apesar do tipo
+      // TS declarar `Date` na entity — a chamada direta a .toISOString()
+      // sem envolver em `new Date(...)` quebrava com TypeError em produção
+      // toda vez que uma NC com prazo definitivo preenchido virava CAPA.
+      const saved: Partial<CorrectiveAction> = {};
+      const repo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        create: jest.fn((dto: Partial<CorrectiveAction>) => cloneAction(dto)),
+        save: jest.fn((entity: Partial<CorrectiveAction>) => {
+          Object.assign(saved, entity);
+          return Promise.resolve(entity as CorrectiveAction);
+        }),
+      };
+      const nonConformitiesService = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'nc-1',
+          codigo_nc: 'NC-001',
+          descricao: 'Desvio de teste',
+          site_id: 'site-1',
+          risco_nivel: 'baixo',
+          acao_definitiva_data_prevista: '2026-08-15',
+          acao_definitiva_prazo: null,
+          acao_definitiva_responsavel: 'Fulano',
+        }),
+      };
+      const service = makeService({
+        correctiveActionsRepository: repo as unknown as Partial<
+          Repository<CorrectiveAction>
+        >,
+        nonConformitiesService,
+      });
+
+      const result = await service.createFromNonConformity('nc-1');
+
+      expect(result).toBeDefined();
+      expect(saved.due_date).toBeInstanceOf(Date);
+      expect((saved.due_date as Date).toISOString()).toBe(
+        '2026-08-15T00:00:00.000Z',
+      );
     });
   });
 
