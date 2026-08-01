@@ -219,12 +219,14 @@ export class NonConformitiesService {
     return this.normalizeRequiredText(value).toUpperCase();
   }
 
-  private assertNcDocumentMutable(
-    nc: Pick<NonConformity, 'pdf_file_key'>,
-  ): void {
-    if (nc.pdf_file_key) {
+  private assertNcDocumentMutable(nc: Pick<NonConformity, 'status'>): void {
+    // Comparação direta (não normalizeStatus, que lança para status
+    // ausente/malformado): o valor persistido já é sempre canônico
+    // (gravado via normalizeStatus em create/update), então checar a
+    // trava não deve exigir um status válido só para permitir edição.
+    if (nc.status === (NcStatus.ENCERRADA as string)) {
       throw new BadRequestException(
-        'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
+        'Não conformidade encerrada. Edição bloqueada. Reabra a NC (status) para alterar o documento ou o PDF final.',
       );
     }
   }

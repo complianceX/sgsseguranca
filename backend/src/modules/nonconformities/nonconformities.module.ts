@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NonConformitiesService } from './nonconformities.service';
+import { NonConformitiesPdfService } from './services/nonconformities-pdf.service';
 import { NonConformitiesController } from './nonconformities.controller';
 import { NonConformity } from './entities/nonconformity.entity';
 import { CommonModule } from '../../shared/common.module';
@@ -18,7 +19,7 @@ import { Checklist } from '../checklists/entities/checklist.entity';
     DocumentRegistryModule,
   ],
   controllers: [NonConformitiesController],
-  providers: [NonConformitiesService],
-  exports: [NonConformitiesService],
+  providers: [NonConformitiesService, NonConformitiesPdfService],
+  exports: [NonConformitiesService, NonConformitiesPdfService],
 })
 export class NonConformitiesModule {}
