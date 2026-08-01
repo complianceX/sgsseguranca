@@ -191,8 +191,41 @@ porque **nenhum container sensível está publicado no host** — `sgs-redis` (6
 interna `coolify`, nunca por `0.0.0.0`. As únicas portas publicadas no host são as que o ufw já
 libera de propósito (80/443 via `coolify-proxy`, 8000/6001/6002 via `coolify`).
 **Se no futuro algum `docker run -p` publicar uma porta nova no host, ela pode escapar do ufw** —
-revisar `docker ps --format '{{.Names}} | {{.Ports}}'` regularmente, ou aplicar o fix formal da
-cadeia `DOCKER-USER` (script `ufw-docker`) se isso passar a ser uma preocupação real.
+revisar `docker ps --format '{{.Names}} | {{.Ports}}'` regularmente.
+
+**Tentativa de restringir 80/443 aos IPs da Cloudflare via `ufw-docker` — CAUSOU INDISPONIBILIDADE
+REAL, revertida (2026-08-01).** Motivação: `getRequestIp()` (`backend/src/shared/utils/request-ip.util.ts`)
+usa só `request.ip` (via `trust proxy=1` do Express) e deliberadamente ignora headers como
+`CF-Connecting-IP`/`X-Forwarded-For` por serem forjáveis por quem conectar direto na origem — então
+hoje o IP logado em `login_failed` (e usado por brute-force/throttling/fail2ban) é o **IP de borda da
+Cloudflare**, não o do visitante real. Só seria seguro confiar em `CF-Connecting-IP` se a origem só
+aceitasse conexão vinda da própria Cloudflare — daí a tentativa de travar `80/443` no ufw aos ranges
+oficiais da Cloudflare via `ufw-docker` (necessário porque `docker run -p` fura o ufw puro, ver acima).
+
+O que aconteceu: `ufw-docker install` + `systemctl restart ufw` cria a chain `ufw-user-forward` e
+reordena o processamento de `DOCKER-USER` — e por algum motivo não totalmente diagnosticado (a
+hipótese mais provável é a cadeia `FORWARD` do ufw, política `DROP`, passar a interceptar o tráfego
+Docker-encaminhado antes de alcançar o veredito `ACCEPT` da própria chain `DOCKER`, já que nunca
+foram adicionadas regras `ufw route allow` — só `ufw allow` comum, que afeta a chain `INPUT`, não
+`FORWARD`), tanto acesso direto por IP quanto o próprio proxy da Cloudflare (`522` no
+`api.sgsseguranca.com.br`) pararam de alcançar a origem. Revertido em poucos minutos: `iptables -F
+DOCKER-USER` (+ `ufw6`) restaurou o estado anterior (chain vazia, igual a antes da instalação);
+`/etc/ufw/after.rules`/`after6.rules` restaurados dos backups que o próprio `ufw-docker install`
+criou (`/etc/ufw/after.rules-ufw-docker~<timestamp>~`); binário `/usr/local/bin/ufw-docker` removido.
+Produção confirmada saudável (`/health` 200, frontend 200, SSH com conexão nova) minutos depois.
+
+**Estado atual: NÃO restringido.** As 21 regras `ufw allow from <cidr-cloudflare> to any port
+80,443` continuam no `ufw status` (linhas 5-19 e 24-30 aproximadamente) — são **inofensivas mas sem
+efeito nenhum** (mesma limitação de sempre: `docker run -p` fura o ufw puro). `getRequestIp()`
+continua como estava, sem confiar em `CF-Connecting-IP`. O jail `sgs-login` do fail2ban funciona
+tecnicamente (filtro casa, IP é extraído corretamente do log), mas bane o IP de borda da Cloudflare
+compartilhado, não o atacante real — reforço fraco na prática, não perigoso.
+
+**Se for retentar no futuro:** investigar com `iptables -v -L FORWARD` durante o teste (contadores de
+pacote por regra, pra ver exatamente onde o tráfego está sendo dropado) antes de reverter às cegas;
+considerar alternativa mais segura de testar — restringir no nível do **Traefik** (middleware de IP
+allowlist, `ipwhitelist`/`ipAllowList`) em vez de iptables direto, já que isso roda dentro do próprio
+pipeline de request do Traefik e não arrisca derrubar o FORWARD chain do host inteiro.
 
 ### fail2ban
 
