@@ -192,7 +192,7 @@ describe('DocumentDownloadGrantService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('consome download user-bound via posse do token quando não há sessão viva (link aberto direto no navegador)', async () => {
+  it('rejeita download user-bound quando uid vem do token mas usuário consumidor está ausente', async () => {
     const grant = buildGrant({
       id: 'grant-public-user-bound',
       company_id: 'company-1',
@@ -208,9 +208,9 @@ describe('DocumentDownloadGrantService', () => {
       uid: 'user-allowed',
     });
 
-    const result = await harness.service.consumeToken(token);
-    expect(result.id).toBe(grant.id);
-    expect(result.consumed_at).toBeInstanceOf(Date);
+    await expect(harness.service.consumeToken(token)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('executa consumo dentro do contexto de tenant restrito', async () => {

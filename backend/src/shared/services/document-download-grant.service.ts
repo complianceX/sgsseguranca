@@ -181,16 +181,11 @@ export class DocumentDownloadGrantService {
               );
             }
 
-            // Esta rota é pública de propósito — o link é aberto direto no
-            // navegador (nova aba/impressão), que nunca anexa o header
-            // Authorization. Na ausência de uma sessão viva (o caso comum),
-            // a posse de um token assinado, não expirado e ainda não
-            // consumido já é prova suficiente de autorização — o uid dentro
-            // do token (checado acima) já garante que ele foi emitido para
-            // este usuário. Se uma sessão viva acompanhar a requisição
-            // mesmo assim, ela precisa bater com quem recebeu o grant.
             const consumerUserId = options?.consumerUserId?.trim();
-            if (consumerUserId && consumerUserId !== grant.issued_for_user_id) {
+            if (
+              !consumerUserId ||
+              consumerUserId !== grant.issued_for_user_id
+            ) {
               throw new ForbiddenException(
                 'Token de download inválido, expirado ou já consumido.',
               );
