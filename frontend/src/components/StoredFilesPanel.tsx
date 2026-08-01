@@ -32,12 +32,40 @@ import {
 } from '@/components/ui/table';
 import {
   openPdfForPrint,
-  openUrlInNewTab,
   preparePdfPrintWindow,
   resolveSafeBrowserUrl,
 } from '@/lib/print-utils';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 import { logger } from '@/lib/logger';
+import api from '@/lib/api';
+
+/**
+ * O link de download é assinado e de uso único, vinculado à sessão que o
+ * emitiu (backend exige o header Authorization na requisição que consome o
+ * token — ver document-download-grant.service.ts). Uma navegação crua
+ * (window.open direto na URL) nunca carrega esse header, então o token é
+ * sempre rejeitado. Por isso buscamos com o client autenticado (`api`,
+ * que anexa o Bearer token) e trabalhamos com o PDF como blob local.
+ */
+async function fetchPdfBlob(
+  url: string,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const response = await api.get<Blob>(url, { responseType: 'blob' });
+  const contentDisposition = response.headers?.['content-disposition'];
+  const match =
+    typeof contentDisposition === 'string'
+      ? contentDisposition.match(/filename="([^"]+)"/)
+      : null;
+  let filename: string | null = null;
+  if (match?.[1]) {
+    try {
+      filename = decodeURIComponent(match[1]);
+    } catch {
+      filename = match[1];
+    }
+  }
+  return { blob: response.data, filename };
+}
 
 export interface StoredFileItem {
   entityId: string;
@@ -173,7 +201,15 @@ function StoredFilesPanelComponent({
         if (!access.url) {
           throw new Error(access.message || 'PDF indisponível para download.');
         }
-        openUrlInNewTab(access.url);
+        const { blob, filename } = await fetchPdfBlob(access.url);
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename || 'documento.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
       } catch (error) {
         logger.error('Erro ao abrir PDF:', error);
         toast.error('Não foi possível abrir o PDF.');
@@ -217,8 +253,10 @@ function StoredFilesPanelComponent({
         if (!access.url) {
           throw new Error(access.message || 'PDF indisponível para impressão.');
         }
+        const { blob } = await fetchPdfBlob(access.url);
+        const objectUrl = URL.createObjectURL(blob);
         openPdfForPrint(
-          access.url,
+          objectUrl,
           () => {
             toast.error(
               'Pop-up bloqueado. Permita pop-ups para imprimir sem sair do sistema.',
