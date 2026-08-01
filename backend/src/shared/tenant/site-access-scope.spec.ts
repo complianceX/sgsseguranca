@@ -4,8 +4,8 @@ import {
   isCompanyWideProfile,
   type ResolvedSiteAccessScope,
 } from './site-access-scope.util';
+import type { TenantContext } from './tenant.service';
 import { Role } from '../../modules/auth/enums/roles.enum';
-import { RequestContext } from '../middleware/request-context.middleware';
 
 // Helper para verificar se um site é visível para o escopo
 function isSiteVisibleToScope(
@@ -20,15 +20,18 @@ function isSiteVisibleToScope(
 
 describe('site-access-scope.util', () => {
   describe('resolveSiteAccessScope', () => {
-    const makeTenantContext = (overrides: {
-      companyId: string;
-      isSuperAdmin?: boolean;
-      userId?: string;
-      siteId?: string;
-      siteIds?: string[];
-      siteScope?: 'single' | 'all';
-    } = { companyId: 'company-1' }) => ({
+    const makeTenantContext = (
+      overrides: {
+        companyId?: string;
+        isSuperAdmin?: boolean;
+        userId?: string;
+        siteId?: string;
+        siteIds?: string[];
+        siteScope?: 'single' | 'all';
+      } = {},
+    ): TenantContext => ({
       companyId: 'company-1',
+      isSuperAdmin: false,
       ...overrides,
     });
 
@@ -91,7 +94,10 @@ describe('site-access-scope.util', () => {
 
     it('retorna escopo com siteIds específicos', () => {
       const scope = resolveSiteAccessScope(
-        makeTenantContext({ siteIds: ['site-x', 'site-y'], siteScope: 'single' }),
+        makeTenantContext({
+          siteIds: ['site-x', 'site-y'],
+          siteScope: 'single',
+        }),
         'APR',
       );
       expect(scope.hasCompanyWideAccess).toBe(false);
@@ -121,7 +127,7 @@ describe('site-access-scope.util', () => {
     });
 
     it('isCompanyWideProfile retorna false para outros perfis', () => {
-      expect(isCompanyWideProfile(Role.TECHNICAL)).toBe(false);
+      expect(isCompanyWideProfile(Role.SUPERVISOR)).toBe(false);
       expect(isCompanyWideProfile(Role.TST)).toBe(false);
       expect(isCompanyWideProfile(undefined)).toBe(false);
       expect(isCompanyWideProfile(null)).toBe(false);
