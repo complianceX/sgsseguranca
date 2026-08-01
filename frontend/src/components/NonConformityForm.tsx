@@ -171,6 +171,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     handleSubmit,
     control,
     reset,
+    trigger,
     setFocus,
     watch,
     formState: { errors, isValid, isSubmitting },
@@ -384,6 +385,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             verificacao_data: toInputDateValue(nonConformity.verificacao_data) || undefined,
             anexos: (nonConformity.anexos || []).map((url) => ({ url })),
           });
+          // react-hook-form com resolver (zod) não computa formState.isValid
+          // automaticamente após reset() — só roda validação em resposta a
+          // interação do usuário (mode: "onBlur"). Sem isso, o botão Salvar
+          // fica preso em disabled mesmo com todos os dados carregados do
+          // servidor já válidos, até o usuário tocar em algum campo.
+          await trigger();
         }
       } catch (error) {
         logger.error("Error loading data:", error);
@@ -394,7 +401,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     };
 
     loadData();
-  }, [activeCompanyId, id, reset]);
+  }, [activeCompanyId, id, reset, trigger]);
 
   useEffect(() => {
     if (!id) {
