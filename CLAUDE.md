@@ -388,6 +388,7 @@ Testes de carga em `backend/test/load/` com k6.
 | `docs/database-schema.md` | Schema completo do banco (todas as tabelas, colunas, tipos, relacionamentos) |
 | `docs/troubleshooting.md` | Guia de problemas comuns e soluções |
 | `docs/component-library.md` | Catálogo completo de componentes React (55+) |
+| `docs/frontend-cache-strategy.md` | Quando usar useCachedFetch vs fetchAllPages vs offline-cache vs localStorage |
 | `docs/state-machines.md` | Máquinas de estado de todas as entidades (APR, DDS, PT, etc.) |
 | `docs/env-reference.md` | Referência rápida das 400+ variáveis de ambiente |
 | `docs/test-patterns.md` | Padrões de teste: unit, E2E, load, mocks, factories |
