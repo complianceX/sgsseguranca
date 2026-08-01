@@ -5,6 +5,7 @@ import { Building, Search, Loader2, HardHat } from 'lucide-react';
 import { toast } from 'sonner';
 import { sitesService, Site } from '@/services/sitesService';
 import { siteStore } from '@/lib/siteStore';
+import { logger } from '@/lib/logger';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { StatusPill } from './ui/status-pill';
@@ -70,7 +71,7 @@ export default function SiteSelectorModal({
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Falha ao carregar obras:', error);
+          logger.error('Falha ao carregar obras:', error);
           setLoadFailed(true);
           toast.error('Não foi possível carregar a lista de obras.');
         }

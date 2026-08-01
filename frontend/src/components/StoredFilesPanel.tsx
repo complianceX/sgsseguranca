@@ -37,6 +37,7 @@ import {
   resolveSafeBrowserUrl,
 } from '@/lib/print-utils';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import { logger } from '@/lib/logger';
 
 export interface StoredFileItem {
   entityId: string;
@@ -148,7 +149,7 @@ function StoredFilesPanelComponent({
         }
       } catch (error) {
         if (requestId === requestSequenceRef.current) {
-          console.error('Erro ao carregar arquivos do storage:', error);
+          logger.error('Erro ao carregar arquivos do storage:', error);
           toast.error('Erro ao carregar arquivos salvos.');
         }
       } finally {
@@ -174,7 +175,7 @@ function StoredFilesPanelComponent({
         }
         openUrlInNewTab(access.url);
       } catch (error) {
-        console.error('Erro ao abrir PDF:', error);
+        logger.error('Erro ao abrir PDF:', error);
         toast.error('Não foi possível abrir o PDF.');
       }
     },
@@ -186,7 +187,7 @@ function StoredFilesPanelComponent({
       await navigator.clipboard.writeText(folderPath);
       toast.success('Caminho da pasta copiado.');
     } catch (error) {
-      console.error('Erro ao copiar caminho:', error);
+      logger.error('Erro ao copiar caminho:', error);
       toast.error('Não foi possível copiar o caminho.');
     }
   }, []);
@@ -201,7 +202,7 @@ function StoredFilesPanelComponent({
         await navigator.clipboard.writeText(resolveSafeBrowserUrl(access.url));
         toast.success('Link do PDF copiado.');
       } catch (error) {
-        console.error('Erro ao copiar link:', error);
+        logger.error('Erro ao copiar link:', error);
         toast.error('Não foi possível copiar o link do PDF.');
       }
     },
@@ -227,7 +228,7 @@ function StoredFilesPanelComponent({
         );
       } catch (error) {
         printWindow?.close();
-        console.error('Erro ao imprimir PDF arquivado:', error);
+        logger.error('Erro ao imprimir PDF arquivado:', error);
         toast.error('Não foi possível abrir o PDF para impressão.');
       }
     },
@@ -298,7 +299,7 @@ function StoredFilesPanelComponent({
       URL.revokeObjectURL(url);
       toast.success('Pacote semanal gerado com sucesso.');
     } catch (error) {
-      console.error('Erro ao baixar pacote semanal:', error);
+      logger.error('Erro ao baixar pacote semanal:', error);
       toast.error('Não foi possível gerar o pacote semanal.');
     }
   }, [companyId, downloadWeeklyBundle, parsedWeek, parsedYear, title]);
@@ -329,7 +330,7 @@ function StoredFilesPanelComponent({
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       printWindow?.close();
-      console.error('Erro ao imprimir pacote semanal:', error);
+      logger.error('Erro ao imprimir pacote semanal:', error);
       toast.error('Não foi possível abrir o pacote semanal para impressão.');
     }
   }, [companyId, downloadWeeklyBundle, parsedWeek, parsedYear]);

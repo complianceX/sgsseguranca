@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { secureOfflineDB } from "@/lib/offline-db-secure";
+import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 
 interface UseFormAutosaveOptions<T> {
@@ -32,7 +33,7 @@ export function useFormAutosave<T>({
           setHasDraft(true);
         }
       } catch (err) {
-        console.warn("Erro ao buscar rascunho de formulario:", err);
+        logger.warn("Erro ao buscar rascunho de formulario:", err);
       }
     }
     void checkDraft();
@@ -54,7 +55,7 @@ export function useFormAutosave<T>({
         // Voltar ao estado idle após um tempo visual
         setTimeout(() => setSaveStatus("idle"), 2000);
       } catch (err) {
-        console.warn("Erro ao gravar rascunho automaticamente:", err);
+        logger.warn("Erro ao gravar rascunho automaticamente:", err);
         setSaveStatus("idle");
       }
     }, 1500); // 1.5s debounce
@@ -79,7 +80,7 @@ export function useFormAutosave<T>({
       draftRef.current = null;
       toast.info("Rascunho descartado.");
     } catch (err) {
-      console.warn("Erro ao descartar rascunho:", err);
+      logger.warn("Erro ao descartar rascunho:", err);
     }
   };
 
@@ -90,7 +91,7 @@ export function useFormAutosave<T>({
       setHasDraft(false);
       draftRef.current = null;
     } catch (err) {
-      console.warn("Erro ao limpar rascunho:", err);
+      logger.warn("Erro ao limpar rascunho:", err);
     }
   };
 
