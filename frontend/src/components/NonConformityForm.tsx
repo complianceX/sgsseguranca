@@ -143,6 +143,16 @@ function resolveRiskLevelClass(riskLevel?: string) {
   }
 }
 
+function nullsToUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result = { ...obj };
+  for (const key of Object.keys(result) as Array<keyof T>) {
+    if (result[key] === null) {
+      result[key] = undefined as T[keyof T];
+    }
+  }
+  return result;
+}
+
 // Refactor backlog: dividir em blocos menores (dados, evidências, fluxo) após fechamento do hardening emergencial.
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
@@ -174,7 +184,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     trigger,
     setFocus,
     watch,
-    formState: { errors, isValid, isSubmitting, isValidating },
+    formState: { errors, isValid, isSubmitting },
   } = useForm<NonConformityFormData>({
     resolver: zodResolver(nonConformitySchema),
     mode: "onBlur",
@@ -374,7 +384,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
         if (nonConformity) {
           reset({
-            ...nonConformity,
+            ...nullsToUndefined(nonConformity as unknown as Record<string, unknown>),
             checklist_id: nonConformity.checklist_id ?? undefined,
             status: normalizeNcStatus(nonConformity.status),
             data_identificacao: toInputDateValue(nonConformity.data_identificacao),
@@ -1746,29 +1756,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           </div>
         </div>
       </div>
-
-      {process.env.NODE_ENV !== "production" || true ? (
-        <div className="rounded-lg border border-dashed border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-3 text-xs text-[var(--ds-color-warning)]">
-          <strong>DEBUG (temporário):</strong> isValid={String(isValid)} isValidating=
-          {String(isValidating)} isSubmitting={String(isSubmitting)} loading={String(loading)}{" "}
-          canManageNc={String(canManageNc)} | erros=
-          {JSON.stringify(Object.keys(errors))}
-          {Object.keys(errors).length > 0 && (
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">
-              {JSON.stringify(
-                Object.fromEntries(
-                  Object.entries(errors).map(([k, v]) => [
-                    k,
-                    (v as { message?: string })?.message,
-                  ]),
-                ),
-                null,
-                2,
-              )}
-            </pre>
-          )}
-        </div>
-      ) : null}
 
       <div className="flex items-center justify-end space-x-3">
         <button
