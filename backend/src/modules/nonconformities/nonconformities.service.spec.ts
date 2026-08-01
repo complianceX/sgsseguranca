@@ -305,6 +305,22 @@ describe('NonConformitiesService', () => {
     expect(repository.save).toHaveBeenCalled();
   });
 
+  it('permite reabrir (ENCERRADA -> ABERTA) mesmo com PDF final já emitido', async () => {
+    const entity = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      status: NcStatus.ENCERRADA,
+      pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(entity);
+
+    await expect(
+      service.updateStatus('nc-1', NcStatus.ABERTA),
+    ).resolves.toBeDefined();
+
+    expect(repository.save).toHaveBeenCalled();
+  });
+
   it('filtra arquivos semanais pela data documental da NC', async () => {
     (
       documentGovernanceService.listFinalDocuments as jest.Mock

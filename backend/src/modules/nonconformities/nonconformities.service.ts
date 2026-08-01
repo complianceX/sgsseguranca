@@ -1721,7 +1721,11 @@ export class NonConformitiesService {
     newStatus: NcStatus,
   ): Promise<NonConformityResponseDto> {
     const nc = await this.findOneEntity(id);
-    this.assertNcDocumentMutable(nc);
+    // Sem assertNcDocumentMutable aqui: ALLOWED_TRANSITIONS já governa o que é
+    // válido, e a única transição permitida a partir de ENCERRADA é justamente
+    // reabrir para ABERTA — bloquear isso deixaria a NC encerrada presa para
+    // sempre, contradizendo a própria mensagem de erro do guard ("reabra a NC
+    // via status para alterar o documento").
     const before = { ...nc };
     const current = this.normalizeStatus(nc.status);
     const allowed = ALLOWED_TRANSITIONS[current] ?? [];
