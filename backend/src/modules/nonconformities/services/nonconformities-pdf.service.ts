@@ -184,16 +184,38 @@ export class NonConformitiesPdfService {
 
     const originalName = this.buildFinalPdfOriginalName(nc);
     const previousFileKey = nc.pdf_file_key || null;
+    const isFirstEmission = !previousFileKey;
 
-    await this.storeFinalPdfBuffer(nc, {
-      buffer,
-      originalName,
-      mimeType: 'application/pdf',
-      userId,
-      verificationCode,
-      generatedAt,
-      documentCode,
-    });
+    // O document_registry compartilhado (usado por APR/PT/DDS/etc.) trava
+    // qualquer documento após o primeiro registro: `finalized_at` é setado
+    // na primeira chamada e uma segunda chamada de registerFinalDocument
+    // para a mesma (empresa, módulo, entidade) é sempre rejeitada — proteção
+    // deliberada contra alteração silenciosa de documento já finalizado.
+    // Por isso só a PRIMEIRA emissão passa pela governança completa
+    // (document_registry + trilha forense + integridade de hash).
+    // Regenerações subsequentes (permitidas enquanto a NC não está
+    // Encerrada) só atualizam as colunas de PDF da própria NC — sem criar
+    // novo registro na governança, que continua apontando para a versão
+    // originalmente finalizada.
+    if (isFirstEmission) {
+      await this.storeFinalPdfBuffer(nc, {
+        buffer,
+        originalName,
+        mimeType: 'application/pdf',
+        userId,
+        verificationCode,
+        generatedAt,
+        documentCode,
+      });
+    } else {
+      await this.replaceFinalPdfBuffer(nc, {
+        buffer,
+        originalName,
+        mimeType: 'application/pdf',
+        verificationCode,
+        generatedAt,
+      });
+    }
 
     if (previousFileKey) {
       try {
@@ -274,6 +296,77 @@ export class NonConformitiesPdfService {
           );
         },
       });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `nonconformity:${nc.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+
+    return { fileKey, folderPath, originalName: input.originalName };
+  }
+
+  /**
+   * Regenera o PDF de uma NC que já teve a primeira emissão governada
+   * (document_registry já tem `finalized_at`). Não chama
+   * DocumentGovernanceService.registerFinalDocument de novo — o registry
+   * rejeitaria com "Documento finalizado/assinado não pode ser alterado
+   * silenciosamente" — apenas troca o arquivo no storage e atualiza as
+   * colunas de PDF da própria NC. O registro de governança continua
+   * apontando para a versão originalmente finalizada.
+   */
+  private async replaceFinalPdfBuffer(
+    nc: NonConformity,
+    input: {
+      buffer: Buffer;
+      originalName: string;
+      mimeType: string;
+      verificationCode: string;
+      generatedAt: Date;
+    },
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const documentDate =
+      coerceDocumentDate(nc.data_identificacao) || new Date();
+    const year = documentDate.getFullYear();
+    const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
+
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      nc.company_id,
+      'nonconformities',
+      nc.id,
+      input.originalName,
+      {
+        folderSegments: [
+          ...(nc.site_id ? ['sites', nc.site_id] : []),
+          String(year),
+          `week-${week}`,
+        ],
+      },
+    );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      input.buffer,
+      input.mimeType,
+    );
+
+    try {
+      const hash = this.pdfService.computeHash(input.buffer);
+      await this.nonConformitiesRepository.update(
+        { id: nc.id },
+        {
+          pdf_file_key: fileKey,
+          pdf_folder_path: folderPath,
+          pdf_original_name: input.originalName,
+          final_pdf_hash_sha256: hash,
+          verification_code: input.verificationCode,
+          pdf_generated_at: input.generatedAt,
+        },
+      );
     } catch (error) {
       await cleanupUploadedFile(
         this.logger,
