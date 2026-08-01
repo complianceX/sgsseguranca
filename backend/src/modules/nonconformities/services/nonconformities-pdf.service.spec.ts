@@ -7,10 +7,14 @@ import type { DocumentGovernanceService } from '../../document-registry/document
 import { NonConformity } from '../entities/nonconformity.entity';
 import { NcStatus } from '../nonconformities.service';
 import { NonConformitiesPdfService } from './nonconformities-pdf.service';
+import type { DocumentRegistryEntry } from '../../document-registry/entities/document-registry.entity';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
 >[0];
+type RegisterFinalDocumentResult = Awaited<
+  ReturnType<DocumentGovernanceService['registerFinalDocument']>
+>;
 
 describe('NonConformitiesPdfService', () => {
   let service: NonConformitiesPdfService;
@@ -100,12 +104,15 @@ describe('NonConformitiesPdfService', () => {
       registerFinalDocument: jest.fn(
         async (
           input: RegisterFinalDocumentInput,
-        ): Promise<{ hash: string; registryEntry: { id: string } }> => {
+        ): Promise<RegisterFinalDocumentResult> => {
           await input.persistEntityMetadata?.(
             ncRepository.manager as unknown as EntityManager,
             'hash-1',
           );
-          return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
+          return {
+            hash: 'hash-1',
+            registryEntry: { id: 'registry-1' } as DocumentRegistryEntry,
+          };
         },
       ),
     };
