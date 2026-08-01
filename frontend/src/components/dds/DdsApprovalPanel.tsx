@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
+import { logger } from "@/lib/logger";
 
 type DdsApprovalPanelProps = {
   dds: Dds | null;
@@ -108,7 +109,7 @@ export function DdsApprovalPanel({
       setLoading(true);
       setFlow(await ddsService.getApprovalFlow(ddsId));
     } catch (error) {
-      console.error("Erro ao carregar aprovações DDS:", error);
+      logger.error("Erro ao carregar aprovações DDS:", error);
       toast.error("Não foi possível carregar o fluxo de aprovação do DDS.");
     } finally {
       setLoading(false);
