@@ -370,7 +370,7 @@ export class UsersService {
         description: 'Interações de IA associadas ao titular.',
         likelyLegalBasis: 'consentimento_ou_execucao_contrato',
         sensitivity: 'potencialmente_sensivel',
-        sql: 'SELECT COUNT(*)::int AS count FROM ai_interactions WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+        sql: 'SELECT COUNT(*)::int AS count FROM ai_interactions WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL',
         params: [userId, tenantId],
       },
       {
@@ -379,7 +379,7 @@ export class UsersService {
           'Documentos governados criados ou registrados pelo titular.',
         likelyLegalBasis: 'execucao_contrato_ou_obrigacao_legal',
         sensitivity: 'documental_ocupacional',
-        sql: 'SELECT COUNT(*)::int AS count FROM document_registry WHERE created_by_id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        sql: 'SELECT COUNT(*)::int AS count FROM document_registry WHERE created_by = $1 AND company_id = $2 AND deleted_at IS NULL',
         params: [userId, tenantId],
       },
       {
@@ -439,7 +439,7 @@ export class UsersService {
         sensitivity: 'seguranca_operacional',
         sql: `
           SELECT (
-            (SELECT COUNT(*) FROM audit_logs WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL) +
+            (SELECT COUNT(*) FROM audit_logs WHERE user_id = $1 AND company_id = $2) +
             (SELECT COUNT(*) FROM forensic_trail_events WHERE user_id = $1 AND company_id = $2)
           )::int AS count
         `,
