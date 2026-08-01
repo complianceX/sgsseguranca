@@ -18,6 +18,7 @@ import {
 } from "@/services/nonConformitiesService";
 import { sitesService, Site } from "@/services/sitesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
+import { logger } from "@/lib/logger";
 import { attachPdfIfProvided } from "@/lib/document-upload";
 import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
 import { useAuth } from "@/context/AuthContext";
@@ -287,7 +288,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         toast.info(result.message);
       }
     } catch (error) {
-      console.error("Erro ao anexar evidência governada:", error);
+      logger.error("Erro ao anexar evidência governada:", error);
       toast.error("Não foi possível salvar o anexo governado.");
     } finally {
       setUploadingGovernedAttachment(false);
@@ -330,7 +331,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           `O anexo governado ${metadata.originalName} está registrado, mas indisponível para abertura no momento.`,
       );
     } catch (error) {
-      console.error("Erro ao abrir anexo governado:", error);
+      logger.error("Erro ao abrir anexo governado:", error);
       toast.error("Não foi possível abrir o anexo governado.");
     }
   };
@@ -385,7 +386,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           });
         }
       } catch (error) {
-        console.error("Error loading data:", error);
+        logger.error("Error loading data:", error);
         toast.error("Erro ao carregar dados");
       } finally {
         setFetching(false);
@@ -442,7 +443,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       await clearDraft();
       router.push("/dashboard/nonconformities");
     } catch (error) {
-      console.error("Error saving non conformity:", error);
+      logger.error("Error saving non conformity:", error);
       const errorMessage = getFormErrorMessage(error, {
         badRequest: "Dados inválidos. Revise os campos obrigatórios.",
         unauthorized: "Sessão expirada. Faça login novamente.",

@@ -8,6 +8,7 @@ import {
   extractMailDispatchErrorMessage,
   mailService,
 } from '@/services/mailService';
+import { logger } from '@/lib/logger';
 import {
   ModalBody,
   ModalFooter,
@@ -100,7 +101,7 @@ function SendMailModalComponent({
         onClose();
         setEmail('');
       } catch (error) {
-        console.error('Erro ao enviar e-mail:', error);
+        logger.error('Erro ao enviar e-mail:', error);
         toast.error(await extractMailDispatchErrorMessage(error));
       } finally {
         setSending(false);
