@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Edit,
   FileSpreadsheet,
+  FileText,
   Mail,
   Plus,
   Search,
@@ -294,6 +295,32 @@ export default function NonConformitiesPage() {
     } catch (error) {
       logger.error("Erro ao criar CAPA:", error);
       toast.error(ncActionErrorMessage(error, "Nao foi possivel criar CAPA."));
+    }
+  };
+
+  const handleGenerateFinalPdf = async (item: NonConformity) => {
+    if (!canManageNc) {
+      toast.error(
+        "Você não tem permissão para gerar o PDF oficial desta não conformidade.",
+      );
+      return;
+    }
+    try {
+      toast.info("Gerando PDF oficial...");
+      const access = await nonConformitiesService.generateFinalPdf(item.id);
+      if (access.generated) {
+        toast.success("PDF oficial gerado com sucesso a partir dos dados da NC.");
+      } else {
+        toast.info(
+          access.message ||
+            "A não conformidade está encerrada; o PDF oficial já emitido não pode ser regenerado.",
+        );
+      }
+    } catch (error) {
+      logger.error("Erro ao gerar PDF oficial da NC:", error);
+      toast.error(
+        ncActionErrorMessage(error, "Não foi possível gerar o PDF oficial."),
+      );
     }
   };
 
@@ -583,6 +610,15 @@ export default function NonConformitiesPage() {
                               ))}
                             </StatusSelect>
                           ) : null}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleGenerateFinalPdf(item)}
+                            title="Gerar PDF oficial"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
                           <Button
                             type="button"
                             size="icon"

@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { TIMEOUT_PDF } from "@/lib/api";
 import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from "axios";
 import { Site } from "./sitesService";
@@ -343,6 +343,15 @@ export const nonConformitiesService = {
   getPdfAccess: async (id: string) => {
     const response = await api.get<NonConformityPdfAccessResponse>(
       `/nonconformities/${id}/pdf`,
+    );
+    return response.data;
+  },
+
+  generateFinalPdf: async (id: string) => {
+    const response = await api.post<NonConformityPdfAccessResponse & { generated: boolean }>(
+      `/nonconformities/${id}/generate-final-pdf`,
+      undefined,
+      { timeout: TIMEOUT_PDF },
     );
     return response.data;
   },
