@@ -153,7 +153,26 @@ function DashboardShell({
     window.location.assign('/login?expired=1');
   };
 
-  if (loading || !isMounted) {
+  // Mesma checagem do useEffect acima (linhas 102-127), calculada de forma
+  // síncrona durante o render. Sem isso, {children} monta no mesmo ciclo em
+  // que o usuário ainda está numa rota que ele não deveria ver — a página
+  // filha pode chegar a disparar suas próprias chamadas de API antes do
+  // router.push (assíncrono, dentro do useEffect) redirecionar. O backend é
+  // a defesa real (RBAC), mas isso evita o flash de conteúdo e a chamada
+  // desnecessária no frontend.
+  const isCurrentRouteAuthorized = (() => {
+    if (isHiddenRoute(pathname)) return false;
+    const permissionException = getRoutePermissionException(pathname);
+    const hasExceptionPermission = permissionException
+      ? hasPermission(permissionException)
+      : false;
+    if (isAdminRoute(pathname) && !isAdminGeral && !hasExceptionPermission) {
+      return false;
+    }
+    return true;
+  })();
+
+  if (loading || !isMounted || (user && !isCurrentRouteAuthorized)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-12 w-12 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
