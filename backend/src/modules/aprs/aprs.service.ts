@@ -399,9 +399,14 @@ export class AprsService {
       return null;
     }
 
+    // Teto de segurança: lista de IDs permitidos usada só como allow-list em
+    // memória para filtrar documentos (document_registry não tem site_id).
+    // Não deveria ser atingido na prática — mesma técnica de
+    // ProfilesService.findAll / findAllForExport.
     const scopedAprs = await this.aprsRepository.find({
       select: ['id'],
       where: { company_id: companyId, site_id: In(siteIds) },
+      take: 50000,
     });
 
     return new Set(scopedAprs.map((apr) => apr.id));
