@@ -174,7 +174,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     trigger,
     setFocus,
     watch,
-    formState: { errors, isValid, isSubmitting },
+    formState: { errors, isValid, isSubmitting, isValidating },
   } = useForm<NonConformityFormData>({
     resolver: zodResolver(nonConformitySchema),
     mode: "onBlur",
@@ -1746,6 +1746,29 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           </div>
         </div>
       </div>
+
+      {process.env.NODE_ENV !== "production" || true ? (
+        <div className="rounded-lg border border-dashed border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-3 text-xs text-[var(--ds-color-warning)]">
+          <strong>DEBUG (temporário):</strong> isValid={String(isValid)} isValidating=
+          {String(isValidating)} isSubmitting={String(isSubmitting)} loading={String(loading)}{" "}
+          canManageNc={String(canManageNc)} | erros=
+          {JSON.stringify(Object.keys(errors))}
+          {Object.keys(errors).length > 0 && (
+            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">
+              {JSON.stringify(
+                Object.fromEntries(
+                  Object.entries(errors).map(([k, v]) => [
+                    k,
+                    (v as { message?: string })?.message,
+                  ]),
+                ),
+                null,
+                2,
+              )}
+            </pre>
+          )}
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-end space-x-3">
         <button
