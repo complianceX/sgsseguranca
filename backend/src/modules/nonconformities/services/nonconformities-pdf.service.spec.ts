@@ -98,15 +98,14 @@ describe('NonConformitiesPdfService', () => {
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(
-        async (input: RegisterFinalDocumentInput) => {
+        async (
+          input: RegisterFinalDocumentInput,
+        ): Promise<{ hash: string; registryEntry: { id: string } }> => {
           await input.persistEntityMetadata?.(
             ncRepository.manager as unknown as EntityManager,
             'hash-1',
           );
-          return {
-            hash: 'hash-1',
-            registryEntry: { id: 'registry-1' },
-          } as never;
+          return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
         },
       ),
     };
@@ -137,11 +136,11 @@ describe('NonConformitiesPdfService', () => {
       pdf_original_name: 'NC-001.pdf',
     });
 
-    await expect(service.getPdfAccess('nc-1')).resolves.toMatchObject({
-      hasFinalPdf: true,
-      availability: 'ready',
-      url: expect.stringContaining('https://signed.example/'),
-    });
+    const access = await service.getPdfAccess('nc-1');
+
+    expect(access.hasFinalPdf).toBe(true);
+    expect(access.availability).toBe('ready');
+    expect(access.url).toContain('https://signed.example/');
   });
 
   it('generateFinalPdf gera o PDF oficial e registra no storage governado', async () => {
