@@ -28,7 +28,10 @@ export class ProfilesService {
       return cached;
     }
 
-    const profiles = await this.profilesRepository.find();
+    // Profile é uma tabela global de papéis RBAC (sem company_id), criada só
+    // por administração — não cresce com uso operacional. Teto de segurança
+    // defensivo, não paginação real (não deveria ser atingido na prática).
+    const profiles = await this.profilesRepository.find({ take: 1000 });
 
     // Cache por 24 horas (perfis mudam muito raramente)
     await this.cacheManager.set('profiles:all', profiles, 24 * 60 * 60 * 1000);

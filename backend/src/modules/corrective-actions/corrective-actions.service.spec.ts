@@ -28,7 +28,17 @@ function makeService(overrides: {
       andWhere: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
       addGroupBy: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
+      getRawOne: jest.fn().mockResolvedValue({
+        total: '0',
+        overdue: '0',
+        done: '0',
+        dueSoon: '0',
+        criticalOpen: '0',
+        highOpen: '0',
+      }),
+      getMany: jest.fn().mockResolvedValue([]),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
@@ -186,36 +196,26 @@ describe('CorrectiveActionsService', () => {
   });
 
   describe('getSlaOverview()', () => {
-    it('counts overdue and done correctly from action list', async () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 86400000);
-
-      const actions = [
-        {
-          status: 'overdue',
-          priority: 'high',
-          due_date: past,
-          closed_at: null,
-          created_at: now,
-        },
-        {
-          status: 'done',
-          priority: 'low',
-          due_date: past,
-          closed_at: now,
-          created_at: past,
-        },
-        {
-          status: 'open',
-          priority: 'medium',
-          due_date: new Date(now.getTime() + 86400000),
-          closed_at: null,
-          created_at: now,
-        },
-      ] as unknown as CorrectiveAction[];
-
+    it('counts overdue and done correctly from aggregated counters', async () => {
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        setParameters: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          total: '3',
+          overdue: '1',
+          done: '1',
+          dueSoon: '0',
+          criticalOpen: '1',
+          highOpen: '0',
+        }),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
       const repo = {
-        find: jest.fn().mockResolvedValue(actions),
+        createQueryBuilder: jest.fn().mockReturnValue(qb),
       };
       const service = makeService({
         correctiveActionsRepository: repo,
@@ -229,8 +229,25 @@ describe('CorrectiveActionsService', () => {
     });
 
     it('returns avgResolutionDays 0.0 when no closed actions', async () => {
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        setParameters: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          total: '0',
+          overdue: '0',
+          done: '0',
+          dueSoon: '0',
+          criticalOpen: '0',
+          highOpen: '0',
+        }),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
       const repo = {
-        find: jest.fn().mockResolvedValue([]),
+        createQueryBuilder: jest.fn().mockReturnValue(qb),
       };
       const service = makeService({
         correctiveActionsRepository: repo,
@@ -239,6 +256,44 @@ describe('CorrectiveActionsService', () => {
       const result = await service.getSlaOverview();
 
       expect(result.avgResolutionDays).toBe('0.0');
+    });
+
+    it('calcula avgResolutionDays a partir da amostra de ações concluídas', async () => {
+      const now = new Date('2026-03-20T00:00:00.000Z');
+      const closedActions = [
+        {
+          id: 'ca-1',
+          created_at: new Date(now.getTime() - 2 * 86400000),
+          closed_at: now,
+        },
+      ] as unknown as CorrectiveAction[];
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        setParameters: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          total: '1',
+          overdue: '0',
+          done: '1',
+          dueSoon: '0',
+          criticalOpen: '0',
+          highOpen: '0',
+        }),
+        getMany: jest.fn().mockResolvedValue(closedActions),
+      };
+      const repo = {
+        createQueryBuilder: jest.fn().mockReturnValue(qb),
+      };
+      const service = makeService({
+        correctiveActionsRepository: repo,
+      });
+
+      const result = await service.getSlaOverview();
+
+      expect(result.avgResolutionDays).toBe('2.0');
     });
   });
 
@@ -258,11 +313,11 @@ describe('CorrectiveActionsService', () => {
             siteName: 'Obra Central',
             total: '2',
             overdue: '1',
+            criticalOpen: '1',
           },
         ]),
       };
       const repo = {
-        find: jest.fn().mockResolvedValue([]),
         createQueryBuilder: jest.fn().mockReturnValue(qb),
       };
       const service = makeService({
@@ -278,6 +333,7 @@ describe('CorrectiveActionsService', () => {
         site: 'Obra Central',
         total: 2,
         overdue: 1,
+        criticalOpen: 1,
       });
     });
   });
