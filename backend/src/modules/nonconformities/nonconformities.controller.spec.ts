@@ -15,6 +15,7 @@ import { FileInspectionService } from '../../shared/security/file-inspection.ser
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { NonConformitiesController } from './nonconformities.controller';
 import { NonConformitiesService } from './nonconformities.service';
+import { NonConformitiesPdfService } from './services/nonconformities-pdf.service';
 import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
 
 describe('NonConformitiesController (http)', () => {
@@ -26,10 +27,15 @@ describe('NonConformitiesController (http)', () => {
     getWeeklyBundle: jest.fn(),
   };
 
+  const nonConformitiesPdfService = {
+    generateFinalPdf: jest.fn(),
+  };
+
   beforeEach(() => {
     nonConformitiesService.findPaginated.mockReset();
     nonConformitiesService.listStoredFiles.mockReset();
     nonConformitiesService.getWeeklyBundle.mockReset();
+    nonConformitiesPdfService.generateFinalPdf.mockReset();
   });
 
   beforeAll(async () => {
@@ -39,6 +45,10 @@ describe('NonConformitiesController (http)', () => {
         {
           provide: NonConformitiesService,
           useValue: nonConformitiesService,
+        },
+        {
+          provide: NonConformitiesPdfService,
+          useValue: nonConformitiesPdfService,
         },
         {
           provide: FileInspectionService,

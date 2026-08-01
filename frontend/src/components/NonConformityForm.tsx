@@ -168,6 +168,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || "",
   );
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [generatingFinalPdf, setGeneratingFinalPdf] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
   const [uploadingGovernedAttachment, setUploadingGovernedAttachment] =
@@ -304,6 +305,34 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     } finally {
       setUploadingGovernedAttachment(false);
       event.target.value = "";
+    }
+  };
+
+  const handleGenerateFinalPdf = async () => {
+    if (!id) {
+      toast.info("Salve a não conformidade primeiro para gerar o PDF oficial.");
+      return;
+    }
+    if (!canManageNc) {
+      toast.error("Você não tem permissão para gerar o PDF oficial desta NC.");
+      return;
+    }
+
+    try {
+      setGeneratingFinalPdf(true);
+      const access = await nonConformitiesService.generateFinalPdf(id);
+      if (access.generated) {
+        toast.success("PDF oficial gerado com sucesso a partir dos dados da NC.");
+      } else {
+        toast.info(
+          access.message || "A não conformidade está encerrada; o PDF oficial já emitido não pode ser regenerado.",
+        );
+      }
+    } catch (error) {
+      logger.error("Erro ao gerar PDF oficial da NC:", error);
+      toast.error("Não foi possível gerar o PDF oficial.");
+    } finally {
+      setGeneratingFinalPdf(false);
     }
   };
 
@@ -937,7 +966,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               </p>
             )}
           </div>
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
             <label
               htmlFor="nc-pdf-file"
               className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
@@ -953,6 +982,31 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               className="w-full rounded-md border px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-3 file:py-1.5 file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]"
             />
           </div>
+          {id && (
+            <div className="md:col-span-1">
+              <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
+                PDF oficial gerado pelo sistema
+              </label>
+              <button
+                type="button"
+                onClick={handleGenerateFinalPdf}
+                disabled={generatingFinalPdf || !canManageNc}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
+              >
+                {generatingFinalPdf ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Gerando...</span>
+                  </>
+                ) : (
+                  <span>Gerar PDF oficial</span>
+                )}
+              </button>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Monta o PDF com todos os dados preenchidos (descrição, riscos, ações e fotos).
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

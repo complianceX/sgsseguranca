@@ -1,5 +1,5 @@
 ﻿import { Repository } from 'typeorm';
-import { NonConformitiesService } from './nonconformities.service';
+import { NonConformitiesService, NcStatus } from './nonconformities.service';
 import { NonConformity } from './entities/nonconformity.entity';
 import { NonConformityResponseDto } from './dto/nonconformity-response.dto';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -270,20 +270,39 @@ describe('NonConformitiesService', () => {
     );
   });
 
-  it('bloqueia edicao quando a NC já possui PDF final emitido', async () => {
+  it('bloqueia edicao quando a NC está encerrada', async () => {
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({
       id: 'nc-1',
       company_id: 'company-1',
+      status: NcStatus.ENCERRADA,
       pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
     } as unknown as NonConformity);
 
     await expect(
       service.update('nc-1', { descricao: 'Novo texto' }),
     ).rejects.toThrow(
-      'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
+      'Não conformidade encerrada. Edição bloqueada. Reabra a NC (status) para alterar o documento ou o PDF final.',
     );
 
     expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('permite edicao mesmo com PDF final já emitido, desde que a NC não esteja encerrada', async () => {
+    const entity = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      status: NcStatus.EM_ANDAMENTO,
+      pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
+      anexos: [],
+      descricao: 'Texto antigo',
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(entity);
+
+    await expect(
+      service.update('nc-1', { descricao: 'Novo texto' }),
+    ).resolves.toBeDefined();
+
+    expect(repository.save).toHaveBeenCalled();
   });
 
   it('filtra arquivos semanais pela data documental da NC', async () => {

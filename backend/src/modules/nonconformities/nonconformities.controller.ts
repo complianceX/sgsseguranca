@@ -15,8 +15,10 @@ import {
   Query,
   Header,
   StreamableFile,
+  Req,
 } from '@nestjs/common';
 import { NonConformitiesService, NcStatus } from './nonconformities.service';
+import { NonConformitiesPdfService } from './services/nonconformities-pdf.service';
 import {
   CreateNonConformityDto,
   UpdateNonConformityDto,
@@ -43,6 +45,14 @@ import {
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../../shared/decorators/audit-action.decorator';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
+import { PdfRequestTimeout } from '../../shared/decorators/pdf-request-timeout.decorator';
+import type { Request } from 'express';
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+  };
+}
 
 @Controller('nonconformities')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -50,6 +60,7 @@ import { FileInspectionService } from '../../shared/security/file-inspection.ser
 export class NonConformitiesController {
   constructor(
     private readonly nonConformitiesService: NonConformitiesService,
+    private readonly nonConformitiesPdfService: NonConformitiesPdfService,
     private readonly fileInspectionService: FileInspectionService,
   ) {}
 
@@ -138,6 +149,17 @@ export class NonConformitiesController {
   @Authorize('can_view_nc')
   getPdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.nonConformitiesService.getPdfAccess(id);
+  }
+
+  @Post(':id/generate-final-pdf')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_nc')
+  @PdfRequestTimeout()
+  generateFinalPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.nonConformitiesPdfService.generateFinalPdf(id, req.user?.id);
   }
 
   @Get(':id/validation-context')
