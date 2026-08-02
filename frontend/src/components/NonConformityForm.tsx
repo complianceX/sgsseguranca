@@ -9,6 +9,7 @@ import * as z from "zod";
 import { Save, Plus, Trash2, Loader2, Camera, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import {
+  NC_ALLOWED_TRANSITIONS,
   NC_STATUS_LABEL,
   type NonConformity,
   NcStatus,
@@ -168,6 +169,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || "",
   );
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [loadedStatus, setLoadedStatus] = useState<NcStatus | null>(null);
   const [generatingFinalPdf, setGeneratingFinalPdf] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
@@ -412,10 +414,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         }
 
         if (nonConformity) {
+          const currentStatus = normalizeNcStatus(nonConformity.status);
+          setLoadedStatus(currentStatus);
           reset({
             ...nullsToUndefined(nonConformity as unknown as Record<string, unknown>),
             checklist_id: nonConformity.checklist_id ?? undefined,
-            status: normalizeNcStatus(nonConformity.status),
+            status: currentStatus,
             data_identificacao: toInputDateValue(nonConformity.data_identificacao),
             acao_imediata_data: toInputDateValue(nonConformity.acao_imediata_data) || undefined,
             acao_definitiva_prazo: toInputDateValue(nonConformity.acao_definitiva_prazo) || undefined,
@@ -568,7 +572,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
   const tiposNc = ["Crítica", "Maior", "Menor"];
   const niveisRisco = ["Baixo", "Médio", "Alto", "Crítico"];
-  const statusOptions = Object.values(NcStatus);
+  // Em edição, o status só pode ficar como está ou seguir para uma transição
+  // permitida (mesma regra de ALLOWED_TRANSITIONS aplicada no backend e já
+  // usada no combo "Mover status" da listagem) — evita que o formulário
+  // completo deixe o usuário pular etapas do fluxo (ex.: Aberta -> Encerrada
+  // direto) e só descobrir isso com um erro 422 ao salvar. Em criação (sem
+  // NC carregada ainda) todas as opções seguem disponíveis.
+  const statusOptions = loadedStatus
+    ? Array.from(
+        new Set([loadedStatus, ...(NC_ALLOWED_TRANSITIONS[loadedStatus] || [])]),
+      )
+    : Object.values(NcStatus);
   const statusAcao = ["Implementada", "Em andamento", "Não implementada"];
   const resultadoEficacia = ["Sim", "Parcialmente", "Não"];
 

@@ -36,6 +36,16 @@ type GovernedAttachmentReferencePayload = {
 const GOVERNED_ATTACHMENT_REF_PREFIX = 'gst:nc-attachment:';
 const MAX_EMBEDDED_PHOTOS = 12;
 
+// Espelha NC_STATUS_LABEL do frontend (nonConformitiesService.ts) — o PDF
+// oficial deve mostrar o rótulo em português usado no resto do sistema, não
+// o valor bruto do enum (ex.: "Aberta", não "ABERTA").
+const NC_STATUS_LABEL_PT: Record<string, string> = {
+  [NcStatus.ABERTA]: 'Aberta',
+  [NcStatus.EM_ANDAMENTO]: 'Em Andamento',
+  [NcStatus.AGUARDANDO_VALIDACAO]: 'Aguardando Validação',
+  [NcStatus.ENCERRADA]: 'Encerrada',
+};
+
 @Injectable()
 export class NonConformitiesPdfService {
   private readonly logger = new Logger(NonConformitiesPdfService.name);
@@ -158,13 +168,15 @@ export class NonConformitiesPdfService {
       }
     }
 
-    const images = await this.resolveEmbeddablePhotos(nc);
+    const { images, unembeddedAttachments } =
+      await this.resolveAttachmentPresentation(nc);
 
     const html = this.renderNcFinalPdfHtml({
       nc,
+      images,
+      unembeddedAttachments,
       documentCode,
       logoUrl,
-      images,
       authenticity: {
         verificationCode,
         generatedAt,
@@ -403,27 +415,40 @@ export class NonConformitiesPdfService {
   }
 
   /**
-   * Resolve fotos incorporáveis dos anexos da NC como data URIs base64.
+   * Resolve os anexos da NC em duas listas: fotos incorporáveis (data URIs
+   * base64) e anexos não incorporados (texto descritivo). Todo anexo
+   * registrado no formulário aparece de alguma forma no PDF final — imagem
+   * incorporada, ou, quando não é possível/seguro incorporar (PDF de
+   * evidência, imagem que falhou ao carregar, URL manual), ao menos como
+   * item de texto — nunca desaparece silenciosamente do documento oficial.
    *
    * Segurança: NUNCA busca URL externa arbitrária (o Puppeteer já bloqueia
    * requisições de rede em `PdfService`, isto é defesa em profundidade contra
-   * SSRF). Só duas origens são consideradas seguras para incorporação:
+   * SSRF). Só duas origens são consideradas seguras para incorporação como
+   * imagem:
    *  - `data:image/...` já embutido pelo cliente (captura de câmera);
    *  - referência de anexo governado (`gst:nc-attachment:...`) cujo fileKey
    *    aponta para o storage interno do próprio tenant — baixado via
    *    downloadFileBuffer, com o prefixo `documents/{companyId}/` conferido
    *    antes do download.
-   * Qualquer outra URL manual (http/https digitado pelo usuário) é ignorada
-   * na incorporação e listada apenas como texto no PDF.
+   * Qualquer outra URL manual (http/https digitado pelo usuário) nunca é
+   * baixada — só listada como texto.
    */
-  private async resolveEmbeddablePhotos(
+  private async resolveAttachmentPresentation(
     nc: Pick<NonConformity, 'anexos' | 'company_id'>,
-  ): Promise<Array<{ dataUri: string; label: string }>> {
+  ): Promise<{
+    images: Array<{ dataUri: string; label: string }>;
+    unembeddedAttachments: string[];
+  }> {
     const entries = (nc.anexos || []).slice(0, MAX_EMBEDDED_PHOTOS * 2);
     const images: Array<{ dataUri: string; label: string }> = [];
+    const unembeddedAttachments: string[] = [];
 
     for (const entry of entries) {
       if (images.length >= MAX_EMBEDDED_PHOTOS) {
+        unembeddedAttachments.push(
+          'Fotos adicionais anexadas além do limite de exibição deste PDF (disponíveis no storage oficial).',
+        );
         break;
       }
 
@@ -433,29 +458,43 @@ export class NonConformitiesPdfService {
       }
 
       const governed = this.parseGovernedAttachmentReference(entry);
-      if (!governed || !governed.mimeType.startsWith('image/')) {
-        continue;
-      }
-      if (!governed.fileKey.startsWith(`documents/${nc.company_id}/`)) {
+      if (governed) {
+        const label = governed.originalName || 'Anexo governado';
+        if (
+          governed.mimeType.startsWith('image/') &&
+          governed.fileKey.startsWith(`documents/${nc.company_id}/`)
+        ) {
+          try {
+            const buffer = await this.documentStorageService.downloadFileBuffer(
+              governed.fileKey,
+            );
+            images.push({
+              dataUri: `data:${governed.mimeType};base64,${buffer.toString('base64')}`,
+              label,
+            });
+          } catch (error) {
+            this.logger.warn(
+              `Falha ao incorporar anexo governado no PDF (${governed.fileKey}): ${error instanceof Error ? error.message : 'unknown'}`,
+            );
+            unembeddedAttachments.push(
+              `${label} (falha ao carregar a pré-visualização; disponível no storage oficial da não conformidade)`,
+            );
+          }
+        } else {
+          unembeddedAttachments.push(
+            `${label} (arquivo ${governed.mimeType}, disponível no storage oficial da não conformidade)`,
+          );
+        }
         continue;
       }
 
-      try {
-        const buffer = await this.documentStorageService.downloadFileBuffer(
-          governed.fileKey,
-        );
-        images.push({
-          dataUri: `data:${governed.mimeType};base64,${buffer.toString('base64')}`,
-          label: governed.originalName || 'Anexo governado',
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Falha ao incorporar anexo governado no PDF (${governed.fileKey}): ${error instanceof Error ? error.message : 'unknown'}`,
-        );
+      const trimmed = String(entry || '').trim();
+      if (trimmed) {
+        unembeddedAttachments.push(`Referência manual: ${trimmed}`);
       }
     }
 
-    return images;
+    return { images, unembeddedAttachments };
   }
 
   private parseGovernedAttachmentReference(
@@ -559,14 +598,24 @@ export class NonConformitiesPdfService {
     documentCode: string;
     logoUrl: string | null;
     images: Array<{ dataUri: string; label: string }>;
+    unembeddedAttachments: string[];
     authenticity: {
       verificationCode: string;
       generatedAt: Date;
       hashLabel: string;
     };
   }): string {
-    const { nc, documentCode, logoUrl, images, authenticity } = input;
+    const {
+      nc,
+      documentCode,
+      logoUrl,
+      images,
+      unembeddedAttachments,
+      authenticity,
+    } = input;
     const esc = (v: unknown) => this.escapeHtml(v);
+    const statusLabel = (value?: string | null) =>
+      NC_STATUS_LABEL_PT[value || ''] || this.textOr(value);
 
     const gridField = (label: string, value: string) => `
       <div class="grid-field">
@@ -582,50 +631,38 @@ export class NonConformitiesPdfService {
       </div>
     `;
 
+    const actionCard = (title: string, fields: Array<[string, string]>) => `
+      <div class="card">
+        <div class="card-title-strip">${esc(title)}</div>
+        <div class="grid-2">
+          ${fields.map(([label, value]) => gridField(label, value)).join('')}
+        </div>
+      </div>
+    `;
+
     const listOrDash = (values?: string[] | null) =>
       values && values.length > 0 ? values.join(', ') : '-';
 
-    const actionsRows: string[] = [];
-    if (nc.acao_imediata_descricao) {
-      actionsRows.push(`
-        <tr>
-          <td>Imediata</td>
-          <td>${esc(nc.acao_imediata_descricao)}</td>
-          <td>${esc(this.textOr(nc.acao_imediata_responsavel))}</td>
-          <td>${esc(this.formatDisplayDate(nc.acao_imediata_data))}</td>
-          <td>${esc(this.textOr(nc.acao_imediata_status, 'Pendente'))}</td>
-        </tr>
-      `);
-    }
-    if (nc.acao_definitiva_descricao) {
-      actionsRows.push(`
-        <tr>
-          <td>Definitiva</td>
-          <td>${esc(nc.acao_definitiva_descricao)}</td>
-          <td>${esc(this.textOr(nc.acao_definitiva_responsavel))}</td>
-          <td>${esc(this.formatDisplayDate(nc.acao_definitiva_prazo || nc.acao_definitiva_data_prevista))}</td>
-          <td>${esc(nc.status)}</td>
-        </tr>
-      `);
-    }
-    const preventivaItens = [
-      nc.acao_preventiva_medidas,
-      nc.acao_preventiva_treinamento,
-      nc.acao_preventiva_revisao_procedimento,
-      nc.acao_preventiva_melhoria_processo,
+    const hasImediata = Boolean(
+      nc.acao_imediata_descricao ||
+      nc.acao_imediata_responsavel ||
+      nc.acao_imediata_data ||
+      nc.acao_imediata_status,
+    );
+    const hasDefinitiva = Boolean(
+      nc.acao_definitiva_descricao ||
+      nc.acao_definitiva_responsavel ||
+      nc.acao_definitiva_recursos ||
+      nc.acao_definitiva_prazo ||
+      nc.acao_definitiva_data_prevista,
+    );
+    const hasPreventiva = Boolean(
+      nc.acao_preventiva_medidas ||
+      nc.acao_preventiva_treinamento ||
+      nc.acao_preventiva_revisao_procedimento ||
+      nc.acao_preventiva_melhoria_processo ||
       nc.acao_preventiva_epc_epi,
-    ].filter(Boolean);
-    if (preventivaItens.length > 0) {
-      actionsRows.push(`
-        <tr>
-          <td>Preventiva</td>
-          <td>${esc(preventivaItens.join(' | '))}</td>
-          <td>-</td>
-          <td>-</td>
-          <td>-</td>
-        </tr>
-      `);
-    }
+    );
 
     const photosHtml =
       images.length > 0
@@ -643,6 +680,21 @@ export class NonConformitiesPdfService {
               `,
                 )
                 .join('')}
+            </div>
+          </div>
+        `
+        : '';
+
+    const unembeddedAttachmentsHtml =
+      unembeddedAttachments.length > 0
+        ? `
+          ${images.length === 0 ? '<div class="section-title"><span class="bar"></span><h2>Anexos referenciados</h2></div>' : ''}
+          <div class="card">
+            <div class="card-title-strip">${images.length > 0 ? 'Outros anexos (não incorporados a este PDF)' : 'Anexos referenciados (não incorporados a este PDF)'}</div>
+            <div class="card-body">
+              <ul class="attachment-list">
+                ${unembeddedAttachments.map((item) => `<li>${esc(item)}</li>`).join('')}
+              </ul>
             </div>
           </div>
         `
@@ -715,14 +767,13 @@ export class NonConformitiesPdfService {
             .grid-field .label { font-size: 7pt; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; }
             .grid-field .value { font-size: 9.2pt; color: var(--ink); margin-top: 0.8mm; }
 
-            table.plan-table { width: 100%; border-collapse: collapse; }
-            .plan-table th { background: var(--surface-muted); color: var(--text-secondary); font-size: 7.3pt; text-transform: uppercase; letter-spacing: .02em; text-align: left; padding: 2.2mm 3mm; border: 0.25mm solid var(--border); }
-            .plan-table td { border: 0.25mm solid var(--border); padding: 2.2mm 3mm; font-size: 8.8pt; color: var(--ink); vertical-align: top; }
-
             .photo-grid { display: flex; flex-wrap: wrap; gap: 3mm; padding: 3mm 4mm 3.5mm 5.5mm; }
             .photo-item { width: 29%; border: 0.3mm solid var(--border); border-radius: 2mm; padding: 1.5mm; background: #fff; }
             .photo-item img { width: 100%; height: 26mm; object-fit: cover; border-radius: 1mm; }
             .photo-item figcaption { font-size: 6.8pt; color: var(--text-muted); text-align: center; margin-top: 1mm; }
+
+            .attachment-list { margin: 0; padding-left: 4mm; font-size: 8.8pt; color: var(--ink); }
+            .attachment-list li { margin-bottom: 1.2mm; }
 
             .gov-card { background: var(--surface); border: 0.35mm solid var(--border-strong); border-radius: 2.8mm; position: relative; overflow: hidden; margin-top: 2mm; }
             .gov-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.5mm; background: var(--brand); }
@@ -751,7 +802,7 @@ export class NonConformitiesPdfService {
             <div class="header-code-box">
               <div class="header-code-label">Identificador</div>
               <div class="header-code-value">${esc(documentCode)}</div>
-              <div class="header-code-status">Status: ${esc(nc.status)}</div>
+              <div class="header-code-status">Status: ${esc(statusLabel(nc.status))}</div>
             </div>
           </div>
 
@@ -797,18 +848,76 @@ export class NonConformitiesPdfService {
             </div>
 
             ${
-              actionsRows.length > 0
-                ? `
-              <div class="section-title"><span class="bar"></span><h2>Plano de ação</h2></div>
-              <table class="plan-table">
-                <thead>
-                  <tr><th>Tipo</th><th>Descrição</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  ${actionsRows.join('')}
-                </tbody>
-              </table>
-            `
+              hasImediata || hasDefinitiva || hasPreventiva
+                ? '<div class="section-title"><span class="bar"></span><h2>Plano de ação</h2></div>'
+                : ''
+            }
+            ${
+              hasImediata
+                ? actionCard('Ação corretiva imediata', [
+                    ['Medida adotada', this.textOr(nc.acao_imediata_descricao)],
+                    ['Responsável', this.textOr(nc.acao_imediata_responsavel)],
+                    [
+                      'Data da ação',
+                      this.formatDisplayDate(nc.acao_imediata_data),
+                    ],
+                    [
+                      'Status',
+                      this.textOr(nc.acao_imediata_status, 'Pendente'),
+                    ],
+                  ])
+                : ''
+            }
+            ${
+              hasDefinitiva
+                ? actionCard('Ação corretiva definitiva', [
+                    [
+                      'Descrição detalhada',
+                      this.textOr(nc.acao_definitiva_descricao),
+                    ],
+                    [
+                      'Responsável pela execução',
+                      this.textOr(nc.acao_definitiva_responsavel),
+                    ],
+                    [
+                      'Prazo para implementação',
+                      this.formatDisplayDate(nc.acao_definitiva_prazo),
+                    ],
+                    [
+                      'Data prevista de conclusão',
+                      this.formatDisplayDate(nc.acao_definitiva_data_prevista),
+                    ],
+                    [
+                      'Recursos necessários',
+                      this.textOr(nc.acao_definitiva_recursos),
+                    ],
+                  ])
+                : ''
+            }
+            ${
+              hasPreventiva
+                ? actionCard('Ação preventiva', [
+                    [
+                      'Medidas para evitar reincidência',
+                      this.textOr(nc.acao_preventiva_medidas),
+                    ],
+                    [
+                      'Treinamento necessário',
+                      this.textOr(nc.acao_preventiva_treinamento),
+                    ],
+                    [
+                      'Revisão de procedimento',
+                      this.textOr(nc.acao_preventiva_revisao_procedimento),
+                    ],
+                    [
+                      'Melhoria de processo',
+                      this.textOr(nc.acao_preventiva_melhoria_processo),
+                    ],
+                    [
+                      'Implementação de EPC/EPI',
+                      this.textOr(nc.acao_preventiva_epc_epi),
+                    ],
+                  ])
                 : ''
             }
 
@@ -818,12 +927,15 @@ export class NonConformitiesPdfService {
                 ${gridField('Resultado da verificação', this.textOr(nc.verificacao_resultado))}
                 ${gridField('Responsável pela verificação', this.textOr(nc.verificacao_responsavel))}
                 ${gridField('Data da verificação', this.formatDisplayDate(nc.verificacao_data))}
+                ${gridField('Status atual', statusLabel(nc.status))}
+                ${nc.closed_at ? gridField('Data de encerramento', this.formatDisplayDate(nc.closed_at)) : ''}
               </div>
             </div>
             ${nc.verificacao_evidencias ? narrativeCard('Evidências da verificação', nc.verificacao_evidencias) : ''}
             ${nc.observacoes_gerais ? narrativeCard('Observações gerais', nc.observacoes_gerais) : ''}
 
             ${photosHtml}
+            ${unembeddedAttachmentsHtml}
 
             <div class="section-title"><span class="bar"></span><h2>Governança, autenticidade e rastreabilidade</h2></div>
             <div class="gov-card">

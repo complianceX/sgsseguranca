@@ -323,6 +323,65 @@ describe('NonConformitiesService', () => {
     expect(repository.save).toHaveBeenCalled();
   });
 
+  it('update() rejeita transição de status fora do fluxo permitido (pula etapas)', async () => {
+    const entity = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      status: NcStatus.ABERTA,
+      anexos: [],
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(entity);
+
+    await expect(
+      service.update('nc-1', { status: NcStatus.ENCERRADA }),
+    ).rejects.toThrow('Transição de "ABERTA" para "ENCERRADA" não permitida');
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('update() carimba closed_at/resolved_by ao encerrar por uma transição válida', async () => {
+    const entity = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      status: NcStatus.AGUARDANDO_VALIDACAO,
+      anexos: [],
+      closed_at: null,
+      resolved_by: null,
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(entity);
+
+    const result = await service.update('nc-1', {
+      status: NcStatus.ENCERRADA,
+    });
+
+    expect(result.status).toBe(NcStatus.ENCERRADA);
+    const [savedArg] = repository.save.mock.calls[0] as [NonConformity];
+    expect(savedArg.status).toBe(NcStatus.ENCERRADA);
+    expect(savedArg.closed_at).toBeInstanceOf(Date);
+  });
+
+  it('update() não reprocessa transição quando o status enviado é igual ao atual', async () => {
+    const entity = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      status: NcStatus.EM_ANDAMENTO,
+      anexos: [],
+      descricao: 'Texto antigo',
+    } as unknown as NonConformity;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(entity);
+
+    await expect(
+      service.update('nc-1', {
+        status: NcStatus.EM_ANDAMENTO,
+        descricao: 'Texto novo',
+      }),
+    ).resolves.toBeDefined();
+
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: NcStatus.EM_ANDAMENTO }),
+    );
+  });
+
   it('filtra arquivos semanais pela data documental da NC', async () => {
     (
       documentGovernanceService.listFinalDocuments as jest.Mock
