@@ -230,4 +230,51 @@ describe('NonConformitiesPdfService', () => {
       'documents/company-1/nonconformities/sites/site-1/nc-1/nc-final.pdf',
     );
   });
+
+  it('generateFinalPdf inclui recursos/prazo/data prevista da ação definitiva e status em português', async () => {
+    const governedPdfAttachmentRef =
+      'gst:nc-attachment:' +
+      Buffer.from(
+        JSON.stringify({
+          v: 1,
+          kind: 'governed-storage',
+          fileKey: 'documents/company-1/nonconformities/nc-1/laudo.pdf',
+          originalName: 'laudo-tecnico.pdf',
+          mimeType: 'application/pdf',
+          uploadedAt: '2026-03-10T00:00:00.000Z',
+        }),
+      ).toString('base64url');
+
+    ncRepository.findOne.mockResolvedValue({
+      ...baseNc,
+      status: NcStatus.EM_ANDAMENTO,
+      acao_definitiva_descricao: 'Reciclar treinamento da equipe',
+      acao_definitiva_responsavel: 'Fernanda Lopes',
+      acao_definitiva_recursos: 'Sala de treinamento e instrutor externo',
+      acao_definitiva_prazo: new Date('2026-08-15T00:00:00.000Z'),
+      acao_definitiva_data_prevista: new Date('2026-08-20T00:00:00.000Z'),
+      anexos: [governedPdfAttachmentRef],
+    });
+
+    await service.generateFinalPdf('nc-1', 'user-1');
+
+    const [html] = (pdfService.generateFromHtml as jest.Mock).mock.calls[0] as [
+      string,
+    ];
+
+    // Bug: "Recursos necessários" era preenchido no formulário mas nunca
+    // aparecia no PDF final.
+    expect(html).toContain('Sala de treinamento e instrutor externo');
+    // Bug: prazo e data prevista são duas perguntas distintas do formulário;
+    // o PDF só mostrava uma (a outra era descartada silenciosamente).
+    expect(html).toContain('15/08/2026');
+    expect(html).toContain('20/08/2026');
+    // Bug: status aparecia como valor bruto do enum ("EM_ANDAMENTO") em vez
+    // do rótulo em português usado no resto do sistema.
+    expect(html).toContain('Em Andamento');
+    expect(html).not.toContain('>EM_ANDAMENTO<');
+    // Bug: anexo governado não-imagem (ex.: laudo em PDF) desaparecia do
+    // PDF final sem nenhuma menção.
+    expect(html).toContain('laudo-tecnico.pdf');
+  });
 });

@@ -1257,7 +1257,21 @@ export class NonConformitiesService {
         nonConformity.id,
       );
     }
+    // Status é aplicado à parte (via applyValidatedStatusTransition) em vez
+    // de deixar o Object.assign abaixo sobrescrevê-lo diretamente: o
+    // formulário completo de edição envia o status atual em toda gravação
+    // (campo obrigatório), então só validamos/transicionamos quando o valor
+    // realmente muda — evita reprocessar uma "transição" para o mesmo status
+    // a cada Salvar.
+    const requestedStatus = payload.status as NcStatus | undefined;
+    delete payload.status;
     Object.assign(nonConformity, payload);
+    if (
+      requestedStatus !== undefined &&
+      requestedStatus !== (before.status as NcStatus)
+    ) {
+      this.applyValidatedStatusTransition(nonConformity, requestedStatus);
+    }
     let saved: NonConformity;
     try {
       saved = await this.nonConformitiesRepository.save(nonConformity);
@@ -1743,17 +1757,19 @@ export class NonConformitiesService {
     };
   }
 
-  async updateStatus(
-    id: string,
+  /**
+   * Valida a transição de status contra ALLOWED_TRANSITIONS e carimba
+   * closed_at/resolved_by de forma consistente. Usado tanto por
+   * updateStatus() (ação rápida "Mover status" da listagem) quanto por
+   * update() (formulário completo de edição) — sem isso, o formulário
+   * completo conseguia pular o fluxo de aprovação (ex.: Aberta -> Encerrada
+   * direto) e encerrar a NC sem preencher closed_at/resolved_by, já que só
+   * updateStatus() aplicava essas regras.
+   */
+  private applyValidatedStatusTransition(
+    nc: NonConformity,
     newStatus: NcStatus,
-  ): Promise<NonConformityResponseDto> {
-    const nc = await this.findOneEntity(id);
-    // Sem assertNcDocumentMutable aqui: ALLOWED_TRANSITIONS já governa o que é
-    // válido, e a única transição permitida a partir de ENCERRADA é justamente
-    // reabrir para ABERTA — bloquear isso deixaria a NC encerrada presa para
-    // sempre, contradizendo a própria mensagem de erro do guard ("reabra a NC
-    // via status para alterar o documento").
-    const before = { ...nc };
+  ): void {
     const current = this.normalizeStatus(nc.status);
     const allowed = ALLOWED_TRANSITIONS[current] ?? [];
     if (!allowed.includes(newStatus)) {
@@ -1769,6 +1785,20 @@ export class NonConformitiesService {
       nc.closed_at = null;
       nc.resolved_by = null;
     }
+  }
+
+  async updateStatus(
+    id: string,
+    newStatus: NcStatus,
+  ): Promise<NonConformityResponseDto> {
+    const nc = await this.findOneEntity(id);
+    // Sem assertNcDocumentMutable aqui: ALLOWED_TRANSITIONS já governa o que é
+    // válido, e a única transição permitida a partir de ENCERRADA é justamente
+    // reabrir para ABERTA — bloquear isso deixaria a NC encerrada presa para
+    // sempre, contradizendo a própria mensagem de erro do guard ("reabra a NC
+    // via status para alterar o documento").
+    const before = { ...nc };
+    this.applyValidatedStatusTransition(nc, newStatus);
     const saved = await this.nonConformitiesRepository.save(nc);
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
     return this.toNonConformityResponse(saved);
