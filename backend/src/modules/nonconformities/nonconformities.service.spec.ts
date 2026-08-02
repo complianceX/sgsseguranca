@@ -23,6 +23,7 @@ describe('NonConformitiesService', () => {
   let repository: {
     create: jest.Mock;
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
     createQueryBuilder: jest.Mock;
@@ -53,6 +54,7 @@ describe('NonConformitiesService', () => {
     repository = {
       create: jest.fn((input: Partial<NonConformity>) => input),
       findOne: jest.fn(),
+      find: jest.fn(() => Promise.resolve([])),
       save: jest.fn((input) =>
         Promise.resolve(input as unknown as NonConformity),
       ),
@@ -337,6 +339,14 @@ describe('NonConformitiesService', () => {
         module: 'nonconformity',
       },
     ]);
+    repository.find.mockResolvedValue([
+      {
+        id: 'nc-1',
+        pdf_file_key: 'nonconformities/company-1/2025/week-01/nc-1.pdf',
+        pdf_folder_path: 'nonconformities/company-1/2025/week-01',
+        pdf_original_name: 'nc-1.pdf',
+      },
+    ]);
 
     const files = await service.listStoredFiles({ year: 2025 });
 
@@ -346,6 +356,41 @@ describe('NonConformitiesService', () => {
       'nonconformity',
       { year: 2025 },
     );
+  });
+
+  it('lista de arquivos semanais reflete o PDF atual da NC, não o congelado no document_registry', async () => {
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
+      {
+        entityId: 'nc-1',
+        id: 'nc-1',
+        title: 'NC-001',
+        date: new Date('2026-03-10T00:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey: 'nonconformities/company-1/2026/week-11/old-emissao.pdf',
+        folderPath: 'nonconformities/company-1/2026/week-11',
+        originalName: 'old-emissao.pdf',
+        module: 'nonconformity',
+      },
+    ]);
+    repository.find.mockResolvedValue([
+      {
+        id: 'nc-1',
+        pdf_file_key:
+          'nonconformities/company-1/2026/week-11/regenerado-mais-recente.pdf',
+        pdf_folder_path: 'nonconformities/company-1/2026/week-11',
+        pdf_original_name: 'regenerado-mais-recente.pdf',
+      },
+    ]);
+
+    const files = await service.listStoredFiles({ year: 2026 });
+
+    expect(files).toHaveLength(1);
+    expect(files[0].fileKey).toBe(
+      'nonconformities/company-1/2026/week-11/regenerado-mais-recente.pdf',
+    );
+    expect(files[0].originalName).toBe('regenerado-mais-recente.pdf');
   });
 
   it('retorna metadados do PDF mesmo quando a URL assinada falha', async () => {

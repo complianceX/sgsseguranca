@@ -1330,28 +1330,55 @@ export class NonConformitiesService {
       'nonconformity',
       filters,
     );
+    if (files.length === 0) {
+      return files;
+    }
+
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'nao conformidades',
     );
-    if (scope.hasCompanyWideAccess || files.length === 0) {
-      return files;
-    }
-
-    const visibleNonConformities = await this.nonConformitiesRepository.find({
-      select: { id: true },
+    const relevantNonConformities = await this.nonConformitiesRepository.find({
+      select: {
+        id: true,
+        pdf_file_key: true,
+        pdf_folder_path: true,
+        pdf_original_name: true,
+      },
       where: {
         id: In(files.map((file) => file.entityId)),
         company_id: scope.companyId,
-        site_id: scope.siteId,
         deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
       },
     });
-    const visibleIds = new Set(
-      visibleNonConformities.map((nonConformity) => nonConformity.id),
+    const byId = new Map(
+      relevantNonConformities.map((nonConformity) => [
+        nonConformity.id,
+        nonConformity,
+      ]),
     );
 
-    return files.filter((file) => visibleIds.has(file.entityId));
+    // O document_registry fica congelado no arquivo da 1ª emissão do PDF
+    // oficial (a NC permite regenerar o PDF livremente enquanto não estiver
+    // Encerrada, sem re-registrar a governança — ver NonConformitiesPdfService).
+    // A própria NC é sempre a fonte da verdade do arquivo atual; sobrepomos
+    // aqui para o painel de arquivos e o pacote semanal nunca servirem uma
+    // versão desatualizada.
+    return files
+      .filter((file) => byId.has(file.entityId))
+      .map((file) => {
+        const nonConformity = byId.get(file.entityId);
+        if (!nonConformity?.pdf_file_key) {
+          return file;
+        }
+        return {
+          ...file,
+          fileKey: nonConformity.pdf_file_key,
+          folderPath: nonConformity.pdf_folder_path || file.folderPath,
+          originalName: nonConformity.pdf_original_name || file.originalName,
+        };
+      });
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
