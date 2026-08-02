@@ -533,15 +533,27 @@ export class NonConformitiesPdfService {
     generatedAt: Date;
   }): string {
     return `
-      <div style="width: 100%; font-size: 8px; color: #355070; padding: 0 12mm; box-sizing: border-box; font-family: Arial, sans-serif;">
-        <div style="border-top: 1px solid #dbe7f2; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <span>Não Conformidade &middot; Código ${this.escapeHtml(input.documentCode)}</span>
-          <span>Gerado em ${this.escapeHtml(this.formatDisplayDateTime(input.generatedAt))} &middot; Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+      <div style="width: 100%; font-size: 7.3pt; color: #374151; padding: 0 16mm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif;">
+        <div style="border-top: 0.25mm solid #D3DCE6; padding-top: 1.6mm; display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+          <div>
+            <div style="font-weight: 700;">SGS &mdash; Sistema de Gestão de Segurança</div>
+            <div>Gerado em ${this.escapeHtml(this.formatDisplayDateTime(input.generatedAt))}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 700;">ID: ${this.escapeHtml(input.documentCode)}</div>
+            <div>Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>
+          </div>
         </div>
       </div>
     `;
   }
 
+  /**
+   * Paleta e tipografia espelham os tokens do design system de PDF do SGS
+   * (frontend/src/lib/pdf-system/tokens — pdfColors/visualTokens/pdfTypography)
+   * usado por APR/PT/DDS/Checklist, para o PDF da NC ficar visualmente
+   * consistente com os demais documentos oficiais do sistema.
+   */
   private renderNcFinalPdfHtml(input: {
     nc: NonConformity;
     documentCode: string;
@@ -556,18 +568,18 @@ export class NonConformitiesPdfService {
     const { nc, documentCode, logoUrl, images, authenticity } = input;
     const esc = (v: unknown) => this.escapeHtml(v);
 
-    const metaField = (label: string, value: string) => `
-      <div class="meta-field">
-        <span class="meta-label">${esc(label)}</span>
-        <span class="meta-value">${esc(value)}</span>
+    const gridField = (label: string, value: string) => `
+      <div class="grid-field">
+        <div class="label">${esc(label)}</div>
+        <div class="value">${esc(value)}</div>
       </div>
     `;
 
-    const narrative = (title: string, content?: string | null) => `
-      <section class="narrative">
-        <h3>${esc(title)}</h3>
-        <p>${esc(this.textOr(content))}</p>
-      </section>
+    const narrativeCard = (title: string, content?: string | null) => `
+      <div class="card">
+        <div class="card-title-strip">${esc(title)}</div>
+        <div class="card-body"><p>${esc(this.textOr(content))}</p></div>
+      </div>
     `;
 
     const listOrDash = (values?: string[] | null) =>
@@ -618,8 +630,8 @@ export class NonConformitiesPdfService {
     const photosHtml =
       images.length > 0
         ? `
-          <section class="narrative">
-            <h3>Fotos e evidências anexadas</h3>
+          <div class="section-title"><span class="bar"></span><h2>Fotos e evidências anexadas</h2></div>
+          <div class="card">
             <div class="photo-grid">
               ${images
                 .map(
@@ -632,9 +644,16 @@ export class NonConformitiesPdfService {
                 )
                 .join('')}
             </div>
-          </section>
+          </div>
         `
         : '';
+
+    const signRow = (role: string, name?: string | null) => `
+      <div class="sign-row">
+        <div class="role">${esc(role)}</div>
+        <div class="name">${esc(this.textOr(name))}</div>
+      </div>
+    `;
 
     return `
       <!DOCTYPE html>
@@ -644,118 +663,186 @@ export class NonConformitiesPdfService {
           <style>
             @page { margin: 0; }
             * { box-sizing: border-box; }
-            body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; margin: 0; padding: 14mm 12mm; font-size: 11px; }
-            h1 { font-size: 18px; margin: 0 0 2px; color: #1a2b3c; }
-            h2 { font-size: 13px; margin: 18px 0 8px; color: #355070; border-bottom: 1px solid #dbe7f2; padding-bottom: 4px; }
-            h3 { font-size: 11.5px; margin: 0 0 4px; color: #355070; }
-            p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #355070; padding-bottom: 10px; margin-bottom: 14px; }
-            .header img { max-height: 40px; max-width: 160px; object-fit: contain; }
-            .header-title p.subtitle { color: #5c7893; font-size: 10px; margin-top: 2px; }
-            .header-code { text-align: right; font-size: 10px; color: #5c7893; }
-            .header-code strong { display: block; font-size: 13px; color: #1a2b3c; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 6px; }
-            .meta-field { display: flex; justify-content: space-between; border-bottom: 1px dotted #dbe7f2; padding: 3px 0; }
-            .meta-label { color: #5c7893; font-weight: bold; }
-            .meta-value { text-align: right; }
-            .narrative { margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-            th, td { border: 1px solid #dbe7f2; padding: 5px 6px; font-size: 10px; text-align: left; vertical-align: top; }
-            th { background: #f2f6fa; color: #355070; }
-            .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-            .photo-item { width: 31%; margin: 0; border: 1px solid #dbe7f2; padding: 4px; border-radius: 4px; }
-            .photo-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 2px; }
-            .photo-item figcaption { font-size: 8px; color: #5c7893; margin-top: 2px; text-align: center; }
-            .authenticity { margin-top: 18px; border: 1px solid #dbe7f2; border-radius: 6px; padding: 10px 12px; background: #f8fafc; font-size: 9.5px; color: #5c7893; }
-            .authenticity strong { color: #1a2b3c; }
+            :root {
+              --brand: #18517C;
+              --brand-strong: #0F2036;
+              --brand-on: #FFFFFF;
+              --info: #1865B0;
+              --ink: #111827;
+              --text-secondary: #374151;
+              --text-muted: #6B7280;
+              --border: #D3DCE6;
+              --border-strong: #8694A6;
+              --surface: #FFFFFF;
+              --surface-muted: #EEF3F8;
+              --page-bg: #F6F8FB;
+              --success: #1B5E3E;
+            }
+            body { margin: 0; background: var(--page-bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: 9.2pt; line-height: 1.45; }
+            h1, h2, h3, p { margin: 0; }
+            .page-content { padding: 0 16mm 8mm; }
+
+            .header-band { background: var(--brand); padding: 6mm 16mm 5mm; display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1.4mm solid var(--brand-strong); }
+            .header-left { display: flex; align-items: flex-start; gap: 5mm; }
+            .header-logo { max-width: 30mm; max-height: 16mm; object-fit: contain; background: #fff; border-radius: 1.5mm; padding: 1.5mm; }
+            .header-title h1 { font-size: 15.2pt; color: var(--brand-on); font-weight: 700; letter-spacing: .01em; text-transform: uppercase; }
+            .header-title p { font-size: 9pt; color: #DFE7EF; margin-top: 1.6mm; }
+            .header-code-box { background: var(--surface); border: 0.35mm solid var(--border-strong); border-radius: 2.8mm; min-width: 46mm; overflow: hidden; }
+            .header-code-label { background: var(--info); color: #fff; font-size: 7pt; font-weight: 700; text-align: center; padding: 1.3mm 2mm; letter-spacing: .04em; text-transform: uppercase; }
+            .header-code-value { text-align: center; font-weight: 700; font-size: 9.5pt; color: var(--ink); padding: 2.2mm 3mm 1mm; }
+            .header-code-status { text-align: center; font-size: 7pt; color: var(--text-secondary); padding: 0 3mm 2.2mm; }
+
+            .meta-cards { display: flex; gap: 2.4mm; padding: 4mm 16mm 0; }
+            .meta-card { flex: 1; background: var(--surface); border: 0.3mm solid var(--border); border-radius: 2.8mm; padding: 2.6mm 3.2mm 2.6mm 4.2mm; position: relative; overflow: hidden; }
+            .meta-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.2mm; background: var(--brand); }
+            .meta-card .label { font-size: 7pt; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+            .meta-card .value { font-size: 9.2pt; font-weight: 700; color: var(--ink); margin-top: 1mm; }
+
+            .section-title { display: flex; align-items: center; gap: 2mm; margin: 7mm 0 3mm; }
+            .section-title .bar { width: 2.4mm; height: 5.5mm; background: var(--brand); border-radius: 1mm; display: inline-block; }
+            .section-title h2 { font-size: 9.5pt; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: .02em; }
+
+            .card { background: var(--surface); border: 0.3mm solid var(--border); border-radius: 2.8mm; position: relative; overflow: hidden; margin-bottom: 4mm; }
+            .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.4mm; background: var(--brand); }
+            .card-title-strip { background: var(--surface-muted); margin: 1.2mm 1.2mm 0; border-radius: 1.6mm 1.6mm 0 0; padding: 2mm 4mm 2mm 5.5mm; font-size: 9.5pt; font-weight: 700; color: var(--ink); }
+            .card-body { padding: 3mm 4mm 3.5mm 5.5mm; }
+            .card-body p { white-space: pre-wrap; font-size: 9.2pt; color: var(--ink); }
+
+            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; margin-left: 1.2mm; }
+            .grid-field { padding: 2.6mm 3mm 2.6mm 4.3mm; border-top: 0.25mm solid var(--border); }
+            .grid-field:nth-child(-n+2) { border-top: 0; }
+            .grid-field:nth-child(odd) { border-right: 0.25mm solid var(--border); }
+            .grid-field .label { font-size: 7pt; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; }
+            .grid-field .value { font-size: 9.2pt; color: var(--ink); margin-top: 0.8mm; }
+
+            table.plan-table { width: 100%; border-collapse: collapse; }
+            .plan-table th { background: var(--surface-muted); color: var(--text-secondary); font-size: 7.3pt; text-transform: uppercase; letter-spacing: .02em; text-align: left; padding: 2.2mm 3mm; border: 0.25mm solid var(--border); }
+            .plan-table td { border: 0.25mm solid var(--border); padding: 2.2mm 3mm; font-size: 8.8pt; color: var(--ink); vertical-align: top; }
+
+            .photo-grid { display: flex; flex-wrap: wrap; gap: 3mm; padding: 3mm 4mm 3.5mm 5.5mm; }
+            .photo-item { width: 29%; border: 0.3mm solid var(--border); border-radius: 2mm; padding: 1.5mm; background: #fff; }
+            .photo-item img { width: 100%; height: 26mm; object-fit: cover; border-radius: 1mm; }
+            .photo-item figcaption { font-size: 6.8pt; color: var(--text-muted); text-align: center; margin-top: 1mm; }
+
+            .gov-card { background: var(--surface); border: 0.35mm solid var(--border-strong); border-radius: 2.8mm; position: relative; overflow: hidden; margin-top: 2mm; }
+            .gov-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.5mm; background: var(--brand); }
+            .gov-title { font-size: 9.5pt; font-weight: 700; color: var(--ink); padding: 3mm 4mm 0 5.5mm; }
+            .gov-body { display: flex; gap: 3mm; padding: 3mm 4mm 4mm 5.5mm; }
+            .sign-panel { flex: 1; }
+            .sign-row { background: #fff; border: 0.25mm solid var(--border); border-radius: 1.6mm; padding: 2mm 3mm; margin-bottom: 2mm; }
+            .sign-row .role { font-size: 7pt; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+            .sign-row .name { font-size: 8.8pt; font-weight: 700; color: var(--ink); margin-top: 0.6mm; }
+            .auth-panel { width: 68mm; background: var(--surface-muted); border: 0.25mm solid var(--border); border-radius: 1.8mm; padding: 2.6mm 3mm; position: relative; }
+            .auth-panel .heading { font-size: 7pt; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 1.8mm; }
+            .auth-panel .code { font-size: 8.8pt; font-weight: 700; color: var(--ink); margin-top: 1mm; }
+            .auth-panel .hash { font-size: 6.8pt; color: var(--text-muted); margin-top: 1.5mm; word-break: break-all; }
+            .badge-valid { position: absolute; right: 2.6mm; bottom: 2.6mm; background: var(--success); color: #fff; font-size: 7pt; font-weight: 700; border-radius: 1.5mm; padding: 1mm 2.6mm; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="header-title">
-              ${logoUrl ? `<img src="${esc(logoUrl)}" alt="Logo" />` : ''}
-              <h1>RELATÓRIO DE NÃO CONFORMIDADE</h1>
-              <p class="subtitle">Documento oficial de registro, tratativa e encerramento de desvio</p>
+          <div class="header-band">
+            <div class="header-left">
+              ${logoUrl ? `<img class="header-logo" src="${esc(logoUrl)}" alt="Logo" />` : ''}
+              <div class="header-title">
+                <h1>Relatório de Não Conformidade</h1>
+                <p>Documento oficial de registro, tratativa e encerramento de desvio</p>
+              </div>
             </div>
-            <div class="header-code">
-              <strong>${esc(documentCode)}</strong>
-              Status: ${esc(nc.status)}<br />
-              ${esc(this.formatDisplayDate(nc.data_identificacao))}
+            <div class="header-code-box">
+              <div class="header-code-label">Identificador</div>
+              <div class="header-code-value">${esc(documentCode)}</div>
+              <div class="header-code-status">Status: ${esc(nc.status)}</div>
             </div>
           </div>
 
-          <h2>Identificação</h2>
-          <div class="meta-grid">
-            ${metaField('Código', this.textOr(nc.codigo_nc))}
-            ${metaField('Tipo', this.textOr(nc.tipo))}
-            ${metaField('Data de identificação', this.formatDisplayDate(nc.data_identificacao))}
-            ${metaField('Local/Setor/Área', this.textOr(nc.local_setor_area))}
-            ${metaField('Atividade envolvida', this.textOr(nc.atividade_envolvida))}
-            ${metaField('Responsável pela área', this.textOr(nc.responsavel_area))}
-            ${metaField('Auditor/Técnico responsável', this.textOr(nc.auditor_responsavel))}
-            ${metaField('Classificação', listOrDash(nc.classificacao))}
+          <div class="meta-cards">
+            <div class="meta-card"><div class="label">Empresa</div><div class="value">${esc(this.textOr(nc.company?.razao_social))}</div></div>
+            <div class="meta-card"><div class="label">Local/Setor</div><div class="value">${esc(this.textOr(nc.local_setor_area))}</div></div>
+            <div class="meta-card"><div class="label">Data de identificação</div><div class="value">${esc(this.formatDisplayDate(nc.data_identificacao))}</div></div>
           </div>
 
-          <h2>Descrição do desvio</h2>
-          ${narrative('Descrição', nc.descricao)}
-          ${narrative('Evidência observada', nc.evidencia_observada)}
-          ${narrative('Condição insegura', nc.condicao_insegura)}
-          ${nc.ato_inseguro ? narrative('Ato inseguro', nc.ato_inseguro) : ''}
+          <div class="page-content">
+            <div class="section-title"><span class="bar"></span><h2>Identificação</h2></div>
+            <div class="card">
+              <div class="grid-2">
+                ${gridField('Código', this.textOr(nc.codigo_nc))}
+                ${gridField('Tipo', this.textOr(nc.tipo))}
+                ${gridField('Atividade envolvida', this.textOr(nc.atividade_envolvida))}
+                ${gridField('Responsável pela área', this.textOr(nc.responsavel_area))}
+                ${gridField('Auditor/Técnico responsável', this.textOr(nc.auditor_responsavel))}
+                ${gridField('Classificação', listOrDash(nc.classificacao))}
+              </div>
+            </div>
 
-          <h2>Requisito e classificação de risco</h2>
-          <div class="meta-grid">
-            ${metaField('Norma regulamentadora (NR)', this.textOr(nc.requisito_nr))}
-            ${metaField('Item do requisito', this.textOr(nc.requisito_item))}
-            ${metaField('Procedimento', this.textOr(nc.requisito_procedimento))}
-            ${metaField('Política', this.textOr(nc.requisito_politica))}
-            ${metaField('Perigo', this.textOr(nc.risco_perigo))}
-            ${metaField('Risco associado', this.textOr(nc.risco_associado))}
-            ${metaField('Consequências', listOrDash(nc.risco_consequencias))}
-            ${metaField('Nível de risco', this.textOr(nc.risco_nivel))}
-            ${metaField('Causa', listOrDash(nc.causa))}
-            ${metaField('Causa (outro)', this.textOr(nc.causa_outro))}
-          </div>
+            <div class="section-title"><span class="bar"></span><h2>Descrição do desvio</h2></div>
+            ${narrativeCard('Descrição', nc.descricao)}
+            ${narrativeCard('Evidência observada', nc.evidencia_observada)}
+            ${narrativeCard('Condição insegura', nc.condicao_insegura)}
+            ${nc.ato_inseguro ? narrativeCard('Ato inseguro', nc.ato_inseguro) : ''}
 
-          ${
-            actionsRows.length > 0
-              ? `
-            <h2>Plano de ação</h2>
-            <table>
-              <thead>
-                <tr><th>Tipo</th><th>Descrição</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                ${actionsRows.join('')}
-              </tbody>
-            </table>
-          `
-              : ''
-          }
+            <div class="section-title"><span class="bar"></span><h2>Requisito e classificação de risco</h2></div>
+            <div class="card">
+              <div class="grid-2">
+                ${gridField('Norma regulamentadora (NR)', this.textOr(nc.requisito_nr))}
+                ${gridField('Item do requisito', this.textOr(nc.requisito_item))}
+                ${gridField('Procedimento', this.textOr(nc.requisito_procedimento))}
+                ${gridField('Política', this.textOr(nc.requisito_politica))}
+                ${gridField('Perigo', this.textOr(nc.risco_perigo))}
+                ${gridField('Risco associado', this.textOr(nc.risco_associado))}
+                ${gridField('Consequências', listOrDash(nc.risco_consequencias))}
+                ${gridField('Nível de risco', this.textOr(nc.risco_nivel))}
+                ${gridField('Causa', listOrDash(nc.causa))}
+                ${gridField('Causa (outro)', this.textOr(nc.causa_outro))}
+              </div>
+            </div>
 
-          <h2>Verificação e encerramento</h2>
-          <div class="meta-grid">
-            ${metaField('Resultado da verificação', this.textOr(nc.verificacao_resultado))}
-            ${metaField('Responsável pela verificação', this.textOr(nc.verificacao_responsavel))}
-            ${metaField('Data da verificação', this.formatDisplayDate(nc.verificacao_data))}
-          </div>
-          ${nc.verificacao_evidencias ? narrative('Evidências da verificação', nc.verificacao_evidencias) : ''}
-          ${nc.observacoes_gerais ? narrative('Observações gerais', nc.observacoes_gerais) : ''}
+            ${
+              actionsRows.length > 0
+                ? `
+              <div class="section-title"><span class="bar"></span><h2>Plano de ação</h2></div>
+              <table class="plan-table">
+                <thead>
+                  <tr><th>Tipo</th><th>Descrição</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  ${actionsRows.join('')}
+                </tbody>
+              </table>
+            `
+                : ''
+            }
 
-          ${photosHtml}
+            <div class="section-title"><span class="bar"></span><h2>Verificação e encerramento</h2></div>
+            <div class="card">
+              <div class="grid-2">
+                ${gridField('Resultado da verificação', this.textOr(nc.verificacao_resultado))}
+                ${gridField('Responsável pela verificação', this.textOr(nc.verificacao_responsavel))}
+                ${gridField('Data da verificação', this.formatDisplayDate(nc.verificacao_data))}
+              </div>
+            </div>
+            ${nc.verificacao_evidencias ? narrativeCard('Evidências da verificação', nc.verificacao_evidencias) : ''}
+            ${nc.observacoes_gerais ? narrativeCard('Observações gerais', nc.observacoes_gerais) : ''}
 
-          <h2>Responsáveis e assinaturas</h2>
-          <div class="meta-grid">
-            ${metaField('Responsável da área', this.textOr(nc.assinatura_responsavel_area, this.textOr(nc.responsavel_area)))}
-            ${metaField('Técnico/Auditor', this.textOr(nc.assinatura_tecnico_auditor, this.textOr(nc.auditor_responsavel)))}
-            ${metaField('Gestão', this.textOr(nc.assinatura_gestao))}
-          </div>
+            ${photosHtml}
 
-          <div class="authenticity">
-            <strong>Governança e autenticidade</strong><br />
-            Código do documento: <strong>${esc(documentCode)}</strong> &middot;
-            Código de verificação: <strong>${esc(authenticity.verificationCode)}</strong><br />
-            Hash SHA-256: ${esc(authenticity.hashLabel)}<br />
-            Emitido em ${esc(this.formatDisplayDateTime(authenticity.generatedAt))}. Valide a autenticidade deste documento no portal público do SGS.
+            <div class="section-title"><span class="bar"></span><h2>Governança, autenticidade e rastreabilidade</h2></div>
+            <div class="gov-card">
+              <div class="gov-body">
+                <div class="sign-panel">
+                  ${signRow('Responsável da área', nc.assinatura_responsavel_area || nc.responsavel_area)}
+                  ${signRow('Técnico/Auditor', nc.assinatura_tecnico_auditor || nc.auditor_responsavel)}
+                  ${signRow('Gestão', nc.assinatura_gestao)}
+                </div>
+                <div class="auth-panel">
+                  <div class="heading">Autenticidade</div>
+                  <div class="code">Código: ${esc(documentCode)}</div>
+                  <div class="code">Verificação: ${esc(authenticity.verificationCode)}</div>
+                  <div class="hash">Hash SHA-256: ${esc(authenticity.hashLabel)}</div>
+                  <div class="hash">Emitido em ${esc(this.formatDisplayDateTime(authenticity.generatedAt))}</div>
+                  <div class="badge-valid">Válido</div>
+                </div>
+              </div>
+            </div>
           </div>
         </body>
       </html>
