@@ -23,9 +23,9 @@ export const OFFLINE_CAPABILITY_MATRIX: Readonly<
   apr: "read-write",
   pt: "read-write",
   checklists: "read-write",
-  // Mutações passam pela barreira coarse aqui. O controle granular por ação
-  // fica em NONCONFORMITY_OFFLINE_ACTIONS (assertNonConformityActionAvailable).
-  nonconformities: "read-write",
+  // A NC contém evidências, anexos e transições de status que não possuem uma
+  // fila idempotente/segura. Nunca anuncie persistência offline para esse fluxo.
+  nonconformities: "online-required",
   arr: "read-only",
   did: "read-only",
   sites: "read-only",
