@@ -135,8 +135,8 @@ function formToCreatePayload(form: ReportFormState): CreatePhotographicReportDto
     shift: form.shift,
     start_date: form.start_date.trim(),
     end_date: toNullableString(form.end_date),
-    start_time: form.start_time.trim(),
-    end_time: form.end_time.trim(),
+    start_time: form.start_time.trim().slice(0, 5),
+    end_time: form.end_time.trim().slice(0, 5),
     responsible_name: form.responsible_name.trim(),
     ...sstFieldsFromForm(form),
     general_observations: toNullableString(form.general_observations),
@@ -182,8 +182,8 @@ function formToUpdatePayload(form: ReportFormState): UpdatePhotographicReportDto
     shift: form.shift,
     start_date: form.start_date.trim(),
     end_date: toNullableString(form.end_date),
-    start_time: form.start_time.trim(),
-    end_time: form.end_time.trim(),
+    start_time: form.start_time.trim().slice(0, 5),
+    end_time: form.end_time.trim().slice(0, 5),
     responsible_name: form.responsible_name.trim(),
     ...sstFieldsFromForm(form),
     general_observations: toNullableString(form.general_observations),
@@ -559,7 +559,7 @@ export function PhotographicReportWorkspace({
       setSaving(true);
       const created = await photographicReportsService.create(formToCreatePayload(form));
       toast.success("Relatório fotográfico criado.");
-      router.push(`/dashboard/relatorios/fotografico/${created.id}?step=2`);
+      router.push(`/dashboard/photographic-reports/${created.id}`);
     } catch (err) {
       toast.error(await extractApiErrorMessage(err, "Não foi possível criar o relatório fotográfico."));
     } finally {
