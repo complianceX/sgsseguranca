@@ -185,7 +185,7 @@ describe('UsersService.gdprErasure', () => {
       cpf_ciphertext: null,
       funcao: null,
       status: false,
-      deletedAt: expect.any(Date),
+      deletedAt: expect.any(Date) as Date,
     });
     expect(softDeleteMock).toHaveBeenCalledWith(user.id);
     expect(auditRepoCreateMock).toHaveBeenCalledWith(
