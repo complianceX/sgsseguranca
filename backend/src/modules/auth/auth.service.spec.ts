@@ -21,6 +21,7 @@ import { SecurityAuditService } from '../../shared/security/security-audit.servi
 import { LoginAnomalyService } from './services/login-anomaly.service';
 import { PwnedPasswordService } from './services/pwned-password.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { AuthPrincipalService } from './auth-principal.service';
 
 type UserSessionRepositoryMock = {
   insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
@@ -242,6 +243,13 @@ describe('AuthService', () => {
             run: jest.fn((_ctx: unknown, callback: () => unknown) =>
               callback(),
             ),
+          },
+        },
+        {
+          provide: AuthPrincipalService,
+          useValue: {
+            resolveCurrentUserContext: jest.fn().mockResolvedValue(null),
+            invalidateBridgeCache: jest.fn(),
           },
         },
       ],
