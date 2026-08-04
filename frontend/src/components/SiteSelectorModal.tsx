@@ -95,7 +95,7 @@ export default function SiteSelectorModal({
     const searchLower = deferredSearch.toLowerCase();
     return sites.filter(
       (site) =>
-        site.nome.toLowerCase().includes(searchLower) ||
+        (site.nome ?? '').toLowerCase().includes(searchLower) ||
         site.cidade?.toLowerCase().includes(searchLower) ||
         site.endereco?.toLowerCase().includes(searchLower)
     );

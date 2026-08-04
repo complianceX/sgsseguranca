@@ -1545,7 +1545,7 @@ export class UsersService {
       }
     }
 
-    await this.usersRepository.remove(user);
+    await this.usersRepository.softRemove(user);
     await this.rbacService.invalidateUserAccess(id);
     await this.invalidateAuthSessionUserCache(id);
   }
@@ -1577,6 +1577,7 @@ export class UsersService {
         cpf_ciphertext: null,
         funcao: null,
         status: false,
+        deletedAt: new Date(),
       });
 
       await userRepo.softDelete(user.id);
