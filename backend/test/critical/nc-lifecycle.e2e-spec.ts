@@ -29,7 +29,7 @@ function buildNcPayload(input: { siteId: string; suffix: string }) {
     requisito_item: '12.38',
     risco_perigo: 'Contato com parte móvel',
     risco_associado: 'Corte e amputação',
-    risco_nivel: 'ALTO',
+    risco_nivel: 'Alto',
     status: NcStatus.ABERTA,
     site_id: input.siteId,
   };
