@@ -41,6 +41,7 @@ import {
   hashSensitiveValue,
 } from '../../shared/security/field-encryption.util';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { AuthPrincipalService } from './auth-principal.service';
 import { isLegacyCpfPlaintextLookupEnabled } from '../privacy/cpf-plaintext-migration.util';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
@@ -138,6 +139,7 @@ export class AuthService {
     private readonly loginAnomalyService: LoginAnomalyService,
     private readonly pwnedPasswordService: PwnedPasswordService,
     private readonly tenantService: TenantService,
+    private readonly authPrincipalService: AuthPrincipalService,
   ) {
     const _envDummyHash = this.configService.get<string>(
       'AUTH_DUMMY_PASSWORD_HASH',
@@ -1294,12 +1296,32 @@ export class AuthService {
 
     // Gera e registra o novo par de tokens.
     const companyId = this.normalizeSessionCompanyId(payload.company_id);
+    // Re-resolve o contexto atual do usuário no banco (fonte da verdade).
+    // Se o admin moveu o usuário para outra obra enquanto a sessão estava ativa
+    // (ex.: obra X -> Y), o refresh re-emite o token com a obra NOVA — sem isso,
+    // o site_id antigo do payload seria perpetuado por até 30 dias, mantendo o
+    // usuário "preso" na obra antiga e gerando 401 por divergência de contexto.
+    let freshSiteId: string | null | undefined;
+    try {
+      const freshContext =
+        await this.authPrincipalService.resolveCurrentUserContext({
+          appUserId: payload.app_user_id ?? payload.sub,
+          authUserId: payload.auth_uid,
+        });
+      freshSiteId = freshContext?.siteId;
+    } catch {
+      this.logger.warn({
+        event: 'refresh_site_context_lookup_failed',
+        userId: payload.sub,
+        action: 'falling_back_to_payload_site',
+      });
+    }
     const newPayload = {
       sub: payload.sub,
       app_user_id: payload.app_user_id ?? payload.sub,
       auth_uid: payload.auth_uid,
       company_id: companyId,
-      site_id: payload.site_id ?? undefined,
+      site_id: freshSiteId ?? payload.site_id ?? undefined,
       profile: payload.profile,
       isAdminGeral: payload.isAdminGeral === true,
       jti: crypto.randomUUID(),
