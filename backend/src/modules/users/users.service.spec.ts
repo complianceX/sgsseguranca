@@ -116,6 +116,7 @@ describe('UsersService.gdprErasure', () => {
       findOne: jest.fn(),
       update: updateMock,
       softDelete: softDeleteMock,
+      softRemove: jest.fn().mockResolvedValue(undefined),
       manager: {
         transaction: jest.fn(
           <T>(cb: (manager: typeof transactionManager) => Promise<T> | T) =>
@@ -184,6 +185,7 @@ describe('UsersService.gdprErasure', () => {
       cpf_ciphertext: null,
       funcao: null,
       status: false,
+      deletedAt: expect.any(Date) as Date,
     });
     expect(softDeleteMock).toHaveBeenCalledWith(user.id);
     expect(auditRepoCreateMock).toHaveBeenCalledWith(
@@ -215,6 +217,80 @@ describe('UsersService.gdprErasure', () => {
     await expect(service.gdprErasure('missing')).rejects.toThrow(
       /Usuário com ID missing não encontrado/,
     );
+  });
+});
+
+describe('UsersService.remove (soft delete)', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let tenantService: Partial<TenantService>;
+  let rbacService: Partial<RbacService>;
+  let softRemoveMock: jest.Mock;
+  let hardRemoveMock: jest.Mock;
+
+  function buildService() {
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(true),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn().mockResolvedValue(undefined),
+    };
+    softRemoveMock = jest.fn().mockResolvedValue(undefined);
+    hardRemoveMock = jest.fn().mockResolvedValue(undefined);
+    repo = {
+      findOne: jest.fn(),
+      softRemove: softRemoveMock,
+      remove: hardRemoveMock,
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<User>>;
+
+    service = new UsersService(
+      repo,
+      buildUserSitesRepositoryMock(),
+      {
+        findOne: jest.fn(),
+      } as unknown as jest.Mocked<Repository<Profile>>,
+      tenantService as TenantService,
+      {} as PasswordService,
+      {
+        assertNotPwned: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PwnedPasswordService,
+      { log: jest.fn() } as unknown as AuditService,
+      rbacService as RbacService,
+      {
+        getClient: jest.fn().mockReturnValue({
+          scan: jest.fn().mockResolvedValue(['0', []]),
+          del: jest.fn(),
+        }),
+      } as unknown as AuthRedisService,
+      { get: jest.fn() } as unknown as ConfigService,
+      { invalidateBridgeCache: jest.fn() } as unknown as AuthPrincipalService,
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(RequestContext, 'getUserId').mockReturnValue('actor-1');
+    buildService();
+  });
+
+  it('usa softRemove (não remove) para preservar histórico e evitar FK violations', async () => {
+    const user = {
+      id: 'user-1',
+      nome: 'Colaborador',
+      company_id: 'company-1',
+      profile_id: 'profile-1',
+      profile: { nome: 'colaborador' },
+    } as unknown as User;
+
+    repo.findOne.mockResolvedValue(user);
+
+    await service.remove('user-1');
+
+    expect(softRemoveMock).toHaveBeenCalledWith(user);
+    expect(hardRemoveMock).not.toHaveBeenCalled();
+    expect(rbacService.invalidateUserAccess).toHaveBeenCalledWith('user-1');
   });
 });
 
