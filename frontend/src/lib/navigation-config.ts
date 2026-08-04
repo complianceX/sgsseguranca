@@ -67,7 +67,7 @@ export const navigationSections = [
   { id: 'saude-ocupacional', label: 'Saúde ocupacional', defaultOpen: false },
   { id: 'cadastros-operacionais', label: 'Cadastros operacionais', defaultOpen: false },
   { id: 'checklists', label: 'Checklists', defaultOpen: false },
-  { id: 'principal', label: 'Leitura e Gestão', defaultOpen: false },
+  { id: 'principal', label: 'Conformidade', defaultOpen: false },
   { id: 'sistema', label: 'Sistema', defaultOpen: false },
 ] as const;
 
@@ -182,7 +182,7 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: CalendarDays,
     section: 'operacao',
     permission: Permission.CAN_VIEW_DIDS,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 31,
   }),
   item({
@@ -192,7 +192,7 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: AlertTriangle,
     section: 'operacao',
     permission: Permission.CAN_VIEW_ARRS,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 32,
   }),
   item({
@@ -285,7 +285,7 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: FileText,
     section: 'relatorios',
     permission: Permission.CAN_VIEW_DASHBOARD,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 41,
   }),
   item({
@@ -295,7 +295,7 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: BookOpen,
     section: 'relatorios',
     permission: Permission.CAN_VIEW_DASHBOARD,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 42,
   }),
 
@@ -495,23 +495,13 @@ export const navigationItems: readonly NavigationItem[] = [
     priority: 83,
   }),
   item({
-    id: 'document-import',
-    label: 'Importar com IA',
-    href: '/dashboard/documentos/importar',
-    icon: Upload,
-    section: 'principal',
-    featureFlag: 'ai',
-    surfaces: S,
-    priority: 84,
-  }),
-  item({
     id: 'kpis',
     label: 'Indicadores',
     href: '/dashboard/kpis',
     icon: BarChart3,
     section: 'principal',
     permission: Permission.CAN_VIEW_DASHBOARD,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 85,
   }),
   item({
@@ -521,8 +511,18 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: LineChart,
     section: 'principal',
     permission: Permission.CAN_VIEW_DASHBOARD,
-    surfaces: S,
+    surfaces: ['command'],
     priority: 86,
+  }),
+  item({
+    id: 'document-import',
+    label: 'Importar com IA',
+    href: '/dashboard/documentos/importar',
+    icon: Upload,
+    section: 'sistema',
+    featureFlag: 'ai',
+    surfaces: S,
+    priority: 89,
   }),
   item({
     id: 'settings',
