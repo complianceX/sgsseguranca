@@ -209,7 +209,8 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .set(testApp.authHeaders(adminTenantA))
       .set(csrfHeaders)
       .send({
-        acao_definitiva_descricao: 'Instalação de guarda de proteção na máquina',
+        acao_definitiva_descricao:
+          'Instalação de guarda de proteção na máquina',
         acao_definitiva_responsavel: 'Técnico de Manutenção',
         acao_definitiva_prazo: '2026-04-01',
         verificacao_resultado: 'Sim',
