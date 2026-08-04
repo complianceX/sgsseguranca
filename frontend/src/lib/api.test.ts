@@ -32,6 +32,7 @@ describe('api client', () => {
     it.each([
       ['/dashboard/relatorios/rdos', 'patch', 'online-required'],
       ['/dashboard/medical-exams', 'delete', 'online-required'],
+      ['/dashboard/nonconformities', 'post', 'online-required'],
       ['/dashboard/arrs', 'post', 'read-only'],
       ['/dashboard/unknown', 'put', 'unsupported'],
     ])(
