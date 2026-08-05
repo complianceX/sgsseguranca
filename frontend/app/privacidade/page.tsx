@@ -23,8 +23,6 @@ export const metadata: Metadata = {
     'Política de privacidade e tratamento de dados pessoais do SGS - Sistema de Gestão de Segurança.',
 };
 
-export const dynamic = 'force-dynamic';
-
 type PurposeRow = readonly [purpose: string, legalBasis: string];
 
 type SubprocessorRow = Readonly<{
