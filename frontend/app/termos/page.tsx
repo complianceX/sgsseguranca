@@ -23,8 +23,6 @@ export const metadata: Metadata = {
     'Termos e condições para acesso e uso corporativo do SGS - Sistema de Gestão de Segurança.',
 };
 
-export const dynamic = 'force-dynamic';
-
 type TextItem = string;
 
 type ExecutivePoint = {
