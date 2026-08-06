@@ -176,7 +176,7 @@ export class PhotographicReportsController {
     FilesInterceptor(
       'files',
       30,
-      createTemporaryUploadOptions({ maxFileSize: 15 * 1024 * 1024 }),
+      createTemporaryUploadOptions({ maxFileSize: 15 * 1024 * 1024, maxFiles: 30 }),
     ),
   )
   uploadImages(
