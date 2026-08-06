@@ -70,6 +70,6 @@ export class PhotographicReportImage extends BaseAuditEntity {
   @Column({ type: 'text', nullable: true })
   ai_condition_classification: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   ai_recommendations: string[] | null;
 }
