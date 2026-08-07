@@ -1190,11 +1190,12 @@ export class PhotographicReportsService {
       this.logger.log(`[uploadImages] INSERT ok (${createdImages.length} imgs)`);
 
       try {
-        this.markEditingIfNeeded(
-          report,
-          PhotographicReportStatus.AGUARDANDO_ANALISE,
-        );
-        await this.reportRepository.save(report);
+        const nextStatus =
+          report.status === PhotographicReportStatus.FINALIZADO ||
+          report.status === PhotographicReportStatus.EXPORTADO
+            ? PhotographicReportStatus.EM_EDICAO
+            : PhotographicReportStatus.AGUARDANDO_ANALISE;
+        await this.reportRepository.update({ id: report.id }, { status: nextStatus });
       } catch (saveErr) {
         const e = saveErr as Record<string, unknown>;
         this.logger.error(`[uploadImages] SAVE REPORT failed: code=${e?.['code']} msg=${e?.['message']}`);
