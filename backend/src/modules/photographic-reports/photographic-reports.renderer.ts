@@ -104,6 +104,21 @@ function renderDetailField(
   `;
 }
 
+function classificationBadgeClass(value: string | null | undefined): string {
+  switch (value) {
+    case 'Satisfatória':
+      return 'classification classification-satisfatoria';
+    case 'Muito satisfatória':
+      return 'classification classification-muito-satisfatoria';
+    case 'Ponto de atenção preventivo':
+      return 'classification classification-preventivo';
+    case 'Atenção necessária':
+      return 'classification classification-atencao';
+    default:
+      return 'classification';
+  }
+}
+
 function renderBulletList(items: string[] | null | undefined): string {
   const list = (items || [])
     .map((item) => `<li>${escapeHtml(item)}</li>`)
@@ -171,7 +186,7 @@ function renderPhotoCard(image: PhotographicReportRenderableImage): string {
             <p class="photo-kicker">Registro fotográfico ${String(image.image_order).padStart(2, '0')} · ${escapeHtml(image.activity_date_label || 'Sem data')}</p>
             <h3>${escapeHtml(image.ai_title || image.manual_caption || 'Registro fotográfico')}</h3>
           </div>
-          <span class="classification">${escapeHtml(image.ai_condition_classification || 'Satisfatória')}</span>
+          <span class="${escapeHtml(classificationBadgeClass(image.ai_condition_classification))}">${escapeHtml(image.ai_condition_classification || 'Satisfatória')}</span>
         </div>
 
         <p class="photo-text">${escapeHtml(image.ai_description || image.manual_caption || 'Sem descrição informada.')}</p>
@@ -179,6 +194,12 @@ function renderPhotoCard(image: PhotographicReportRenderableImage): string {
         ${
           image.manual_caption
             ? `<p class="manual-caption"><strong>Legenda manual:</strong> ${escapeHtml(image.manual_caption)}</p>`
+            : ''
+        }
+
+        ${
+          (image.photo_conditions || []).length > 0
+            ? `<div class="conditions-row"><span class="conditions-label">Condições observadas:</span><span class="conditions-chips">${(image.photo_conditions || []).map((c) => `<span class="condition-chip">${escapeHtml(c)}</span>`).join('')}</span></div>`
             : ''
         }
 
@@ -217,6 +238,7 @@ function renderPhotoDetail(image: PhotographicReportRenderableImage): string {
         ${renderDetailField('Pontos positivos', points.join(' · ') || 'Sem itens registrados.')}
         ${renderDetailField('Avaliação técnica', image.ai_technical_assessment || 'Avaliação técnica não informada.')}
         ${renderDetailField('Classificação', image.ai_condition_classification || 'Satisfatória')}
+        ${renderDetailField('Condições observadas', (image.photo_conditions || []).join(' · ') || 'Nenhuma condição marcada.')}
         ${renderDetailField('Recomendação preventiva', recommendations.join(' · ') || 'Sem recomendação preventiva.')}
       </div>
     </section>
@@ -530,15 +552,7 @@ export function buildPhotographicReportHtml(
         margin: 0;
         font-size: 15px;
       }
-      .classification {
-        font-size: 11px;
-        font-weight: 700;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #f1f5f9;
-        color: #17324c;
-        white-space: nowrap;
-      }
+      /* base .classification — colors set by subclass variants below */
       .photo-text,
       .tech-text {
         margin: 0;
@@ -638,6 +652,43 @@ export function buildPhotographicReportHtml(
       .page-break {
         break-before: page;
         page-break-before: always;
+      }
+      .classification { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+      .classification-satisfatoria { background: #e7f7ec; color: #176b37; }
+      .classification-muito-satisfatoria { background: #dbeafe; color: #1d4ed8; }
+      .classification-preventivo { background: #fff4df; color: #a16207; }
+      .classification-atencao { background: #fef2f2; color: #b91c1c; }
+      .conditions-row {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .conditions-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #6a7e91;
+        line-height: 22px;
+        margin-right: 4px;
+        white-space: nowrap;
+      }
+      .conditions-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .condition-chip {
+        display: inline-flex;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: #eef4f8;
+        border: 1px solid #D3DCE6;
+        color: #17324c;
+        font-size: 10px;
+        font-weight: 600;
       }
     </style>
   `;

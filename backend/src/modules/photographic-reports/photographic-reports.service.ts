@@ -376,6 +376,7 @@ export class PhotographicReportsService {
       ai_technical_assessment: image.ai_technical_assessment,
       ai_condition_classification: image.ai_condition_classification,
       ai_recommendations: image.ai_recommendations,
+      photo_conditions: image.photo_conditions,
       created_at: image.created_at.toISOString(),
       updated_at: image.updated_at.toISOString(),
       day: image.report_day_id ? dayMap.get(image.report_day_id) || null : null,

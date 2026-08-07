@@ -30,6 +30,7 @@ export type PhotographicReportImageResponse = {
   ai_technical_assessment: string | null;
   ai_condition_classification: string | null;
   ai_recommendations: string[] | null;
+  photo_conditions: string[] | null;
   created_at: string;
   updated_at: string;
   day?: PhotographicReportDayResponse | null;
