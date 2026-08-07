@@ -1165,7 +1165,23 @@ export class PhotographicReportsService {
         );
       }
 
-      await this.imageRepository.save(createdImages);
+      await this.imageRepository.insert(
+        createdImages.map((img) => ({
+          company_id: img.company_id,
+          report_id: img.report_id,
+          report_day_id: img.report_day_id,
+          image_url: img.image_url,
+          image_order: img.image_order,
+          manual_caption: img.manual_caption,
+          ai_title: null,
+          ai_description: null,
+          ai_positive_points: null,
+          ai_technical_assessment: null,
+          ai_condition_classification: null,
+          ai_recommendations: null,
+          photo_conditions: null,
+        })),
+      );
       this.markEditingIfNeeded(
         report,
         PhotographicReportStatus.AGUARDANDO_ANALISE,
