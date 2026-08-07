@@ -1165,28 +1165,50 @@ export class PhotographicReportsService {
         );
       }
 
-      await this.imageRepository.insert(
-        createdImages.map((img) => ({
-          company_id: img.company_id,
-          report_id: img.report_id,
-          report_day_id: img.report_day_id,
-          image_url: img.image_url,
-          image_order: img.image_order,
-          manual_caption: img.manual_caption,
-          ai_title: null,
-          ai_description: null,
-          ai_positive_points: null,
-          ai_technical_assessment: null,
-          ai_condition_classification: null,
-          ai_recommendations: null,
-        })),
-      );
-      this.markEditingIfNeeded(
-        report,
-        PhotographicReportStatus.AGUARDANDO_ANALISE,
-      );
-      await this.reportRepository.save(report);
-      return this.findOne(report.id);
+      try {
+        await this.imageRepository.insert(
+          createdImages.map((img) => ({
+            company_id: img.company_id,
+            report_id: img.report_id,
+            report_day_id: img.report_day_id,
+            image_url: img.image_url,
+            image_order: img.image_order,
+            manual_caption: img.manual_caption,
+            ai_title: null,
+            ai_description: null,
+            ai_positive_points: null,
+            ai_technical_assessment: null,
+            ai_condition_classification: null,
+            ai_recommendations: null,
+          })),
+        );
+      } catch (insertErr) {
+        const e = insertErr as Record<string, unknown>;
+        this.logger.error(`[uploadImages] INSERT failed: code=${e?.['code']} msg=${e?.['message']}`);
+        throw insertErr;
+      }
+      this.logger.log(`[uploadImages] INSERT ok (${createdImages.length} imgs)`);
+
+      try {
+        this.markEditingIfNeeded(
+          report,
+          PhotographicReportStatus.AGUARDANDO_ANALISE,
+        );
+        await this.reportRepository.save(report);
+      } catch (saveErr) {
+        const e = saveErr as Record<string, unknown>;
+        this.logger.error(`[uploadImages] SAVE REPORT failed: code=${e?.['code']} msg=${e?.['message']}`);
+        throw saveErr;
+      }
+      this.logger.log(`[uploadImages] SAVE REPORT ok`);
+
+      try {
+        return await this.findOne(report.id);
+      } catch (findErr) {
+        const e = findErr as Record<string, unknown>;
+        this.logger.error(`[uploadImages] FIND ONE failed: code=${e?.['code']} msg=${e?.['message']}`);
+        throw findErr;
+      }
     } catch (error) {
       for (const image of createdImages) {
         try {
