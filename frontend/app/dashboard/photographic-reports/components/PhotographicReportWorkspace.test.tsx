@@ -64,6 +64,7 @@ const report: PhotographicReport = {
       ai_technical_assessment: null,
       ai_condition_classification: null,
       ai_recommendations: null,
+      photo_conditions: null,
       created_at: "2026-07-15T08:00:00.000Z",
       updated_at: "2026-07-15T08:00:00.000Z",
     },

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -49,4 +50,11 @@ export class UpdatePhotographicReportImageDto {
   @IsString({ each: true })
   @ArrayMaxSize(5)
   ai_recommendations?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  @ArrayMaxSize(20)
+  photo_conditions?: string[] | null;
 }

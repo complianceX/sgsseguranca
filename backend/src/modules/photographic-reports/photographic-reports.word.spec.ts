@@ -41,6 +41,7 @@ function buildSampleReport(): PhotographicReportResponse {
       'Condição técnica satisfatória para execução da atividade.',
     ai_condition_classification: 'Muito satisfatória',
     ai_recommendations: ['Manter a organização atual'],
+    photo_conditions: ['EPIs em uso pelos trabalhadores', 'Área devidamente sinalizada'],
     created_at: '2026-05-15T10:10:00.000Z',
     updated_at: '2026-05-15T10:12:00.000Z',
     day,
