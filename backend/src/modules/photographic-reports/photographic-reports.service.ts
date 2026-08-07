@@ -1179,7 +1179,6 @@ export class PhotographicReportsService {
           ai_technical_assessment: null,
           ai_condition_classification: null,
           ai_recommendations: null,
-          photo_conditions: null,
         })),
       );
       this.markEditingIfNeeded(
