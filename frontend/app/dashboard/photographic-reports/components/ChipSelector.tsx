@@ -18,7 +18,7 @@ export function ChipSelector<T extends string>({
   return (
     <div>
       {label && (
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <p className="mb-1.5 text-xs font-medium text-[var(--ds-color-text-muted)] uppercase tracking-wide">
           {label}
         </p>
       )}
@@ -34,8 +34,8 @@ export function ChipSelector<T extends string>({
               className={[
                 'px-3 py-1.5 rounded-full text-sm font-medium transition-all border',
                 active
-                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground',
+                  ? 'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] border-[var(--ds-color-action-primary)] shadow-sm'
+                  : 'bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)] border-[var(--ds-color-border-subtle)] hover:border-[var(--ds-color-action-primary)]/60 hover:text-[var(--ds-color-text-primary)]',
                 disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
               ].join(' ')}
             >

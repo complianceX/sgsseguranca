@@ -5,6 +5,9 @@ import { PhotographicReportWorkspace } from "./PhotographicReportWorkspace";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  // O workspace lê o passo inicial do wizard via query string; sem este mock o
+  // render quebra com "useSearchParams is not a function".
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 jest.mock("@/context/AuthContext", () => ({

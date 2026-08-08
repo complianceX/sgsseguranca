@@ -111,16 +111,16 @@ export function PhotoCard({
   const imageSrc = safeExternalArtifactUrl(image.download_url || image.image_url);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+    <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Foto {String(image.image_order).padStart(2, '0')}
           </span>
           {image.ai_condition_classification && (
             <span
-              className={`h-2 w-2 rounded-full ${CLASSIFICATION_COLOR[image.ai_condition_classification] ?? 'bg-muted'}`}
+              className={`h-2 w-2 rounded-full ${CLASSIFICATION_COLOR[image.ai_condition_classification] ?? 'bg-[var(--ds-color-surface-muted)]'}`}
               title={image.ai_condition_classification}
             />
           )}
@@ -130,14 +130,14 @@ export function PhotoCard({
           aria-label={`Excluir foto ${String(image.image_order).padStart(2, '0')}`}
           onClick={() => onDelete(image.id)}
           disabled={!canManage}
-          className="text-muted-foreground hover:text-destructive disabled:opacity-40 transition-colors"
+          className="text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-danger)] disabled:opacity-40 transition-colors"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
       {/* Thumbnail */}
-      <div className="overflow-hidden rounded-lg border border-border bg-muted">
+      <div className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
         {imageSrc ? (
           <Image
             src={imageSrc}
@@ -148,7 +148,7 @@ export function PhotoCard({
             unoptimized
           />
         ) : (
-          <div className="flex h-48 items-center justify-center text-muted-foreground">
+          <div className="flex h-48 items-center justify-center text-[var(--ds-color-text-muted)]">
             <ImageIcon className="h-8 w-8" />
           </div>
         )}
@@ -156,7 +156,7 @@ export function PhotoCard({
 
       {/* Legenda */}
       <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
+        <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
           Legenda (opcional)
         </label>
         <input
@@ -165,13 +165,13 @@ export function PhotoCard({
           onChange={(e) => setCaption(e.target.value)}
           disabled={!canManage}
           placeholder="Descreva o que é mostrado nesta foto..."
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          className="w-full rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm placeholder:text-[var(--ds-color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
         />
       </div>
 
       {/* Condições SST */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2">
+        <p className="text-xs font-medium text-[var(--ds-color-text-muted)] mb-2">
           Condições observadas
         </p>
         <div className="space-y-1.5">
@@ -185,9 +185,9 @@ export function PhotoCard({
                 checked={conditions.includes(cond)}
                 onChange={() => toggleCondition(cond)}
                 disabled={!canManage}
-                className="h-4 w-4 rounded border-input text-primary focus:ring-ring disabled:opacity-50"
+                className="h-4 w-4 rounded border-[var(--ds-color-border-input)] text-[var(--ds-color-action-primary)] focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
-              <span className="text-sm text-foreground group-hover:text-foreground/80">
+              <span className="text-sm text-[var(--ds-color-text-primary)] group-hover:text-[var(--ds-color-text-primary)]/80">
                 {cond}
               </span>
             </label>
@@ -197,7 +197,7 @@ export function PhotoCard({
 
       {/* Classificação */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2">
+        <p className="text-xs font-medium text-[var(--ds-color-text-muted)] mb-2">
           Classificação da condição
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -212,13 +212,13 @@ export function PhotoCard({
                 className={[
                   'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all',
                   active
-                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                    : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                    ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/10 text-[var(--ds-color-action-primary)] shadow-sm'
+                    : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)] hover:border-[var(--ds-color-action-primary)]/40 hover:text-[var(--ds-color-text-primary)]',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
                 ].join(' ')}
               >
                 <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${CLASSIFICATION_COLOR[opt.value] ?? 'bg-muted'}`}
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${CLASSIFICATION_COLOR[opt.value] ?? 'bg-[var(--ds-color-surface-muted)]'}`}
                 />
                 {opt.label}
               </button>
@@ -230,14 +230,14 @@ export function PhotoCard({
       {/* Seletor de data (só se houver múltiplos dias) */}
       {sortedDays.length > 1 && (
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
+          <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
             Data da atividade
           </label>
           <select
             value={dayId}
             onChange={(e) => setDayId(e.target.value)}
             disabled={!canManage}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            className="w-full rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
           >
             <option value="">Sem data</option>
             {sortedDays.map((day) => (
@@ -254,7 +254,7 @@ export function PhotoCard({
         <button
           type="button"
           onClick={() => setAiExpanded((v) => !v)}
-          className="flex w-full items-center justify-between rounded-md border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="flex w-full items-center justify-between rounded-md border border-dashed border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] transition-colors"
         >
           <span className="flex items-center gap-1.5">
             <BrainCircuit className="h-3.5 w-3.5" />
@@ -265,9 +265,9 @@ export function PhotoCard({
           />
         </button>
         {aiExpanded && (
-          <div className="mt-3 space-y-3 rounded-md border border-border bg-muted/30 p-3">
+          <div className="mt-3 space-y-3 rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/30 p-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
                 Título
               </label>
               <input
@@ -275,11 +275,11 @@ export function PhotoCard({
                 type="text"
                 defaultValue={image.ai_title ?? ''}
                 disabled={!canManage}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
                 Descrição
               </label>
               <textarea
@@ -287,11 +287,11 @@ export function PhotoCard({
                 defaultValue={image.ai_description ?? ''}
                 disabled={!canManage}
                 rows={3}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full resize-none rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
                 Pontos positivos (um por linha)
               </label>
               <textarea
@@ -299,11 +299,11 @@ export function PhotoCard({
                 defaultValue={joinLines(image.ai_positive_points)}
                 disabled={!canManage}
                 rows={3}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full resize-none rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
                 Avaliação técnica
               </label>
               <textarea
@@ -311,11 +311,11 @@ export function PhotoCard({
                 defaultValue={image.ai_technical_assessment ?? ''}
                 disabled={!canManage}
                 rows={3}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full resize-none rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-[var(--ds-color-text-muted)] mb-1">
                 Recomendações (uma por linha)
               </label>
               <textarea
@@ -323,7 +323,7 @@ export function PhotoCard({
                 defaultValue={joinLines(image.ai_recommendations)}
                 disabled={!canManage}
                 rows={3}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full resize-none rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
               />
             </div>
           </div>
