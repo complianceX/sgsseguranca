@@ -5,11 +5,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash, createHmac } from 'crypto';
+import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import pLimit from 'p-limit';
 import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { cleanupUploadedFile } from '../../../shared/storage/storage-compensation.util';
+import {
+  hashDeviceId,
+  maskIpAddress,
+  roundCoordinate,
+} from '../../../shared/security/evidence-integrity.util';
 import { DocumentStorageService } from '../../../shared/services/document-storage.service';
 import { TenantService } from '../../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../../shared/tenant/site-access-scope.util';
@@ -61,28 +66,21 @@ export class AprsEvidenceService {
     private readonly documentStorageService: DocumentStorageService,
   ) {}
 
+  // Os três normalizadores abaixo vivem em shared/security/evidence-integrity.util.ts
+  // desde que o Relatório Fotográfico passou a gravar os mesmos metadados. São
+  // mantidos como métodos privados delegando para o util: os call sites e
+  // qualquer teste que os alcance continuam válidos, e a implementação passa a
+  // ter uma fonte única.
   private maskIpAddress(ip: string | null | undefined): string | null {
-    if (!ip) return null;
-    // Reduz IPv4 para /24 (último octeto zerado). IPv6: trunca ao /48.
-    const ipv4 = ip.replace(/^(\d+\.\d+\.\d+\.)\d+$/, '$10');
-    if (ipv4 !== ip) return ipv4;
-    // IPv6: manter só os primeiros 3 grupos
-    const ipv6 = ip.replace(/^([0-9a-fA-F:]+:){3}[0-9a-fA-F:]+$/, (m) => {
-      const parts = m.split(':');
-      return parts.slice(0, 3).join(':') + '::';
-    });
-    return ipv6 !== ip ? ipv6 : ip.replace(/[^:]+$/, '0');
+    return maskIpAddress(ip);
   }
 
   private hashDeviceId(deviceId: string | null | undefined): string | null {
-    if (!deviceId?.trim()) return null;
-    const key = process.env.FIELD_ENCRYPTION_KEY ?? 'default-device-hash-key';
-    return createHmac('sha256', key).update(deviceId.trim()).digest('hex');
+    return hashDeviceId(deviceId);
   }
 
   private roundCoordinate(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-    return Math.round(value * 100) / 100; // 2 casas decimais (~1km precision)
+    return roundCoordinate(value);
   }
 
   private ensureAprStatus(status: string): AprStatus {
