@@ -61,30 +61,42 @@ function toneLabel(tone: PhotographicReportTone): string {
   }
 }
 
-function classificationTagClass(value: string | null | undefined): string {
+function shiftLabel(shift: PhotographicReportShift | string): string {
+  return String(shift ?? '-');
+}
+
+/**
+ * Tom visual da classificação, alinhado às status-tag do PDF de APR.
+ */
+function classificationTone(value: string | null | undefined): string {
   switch (value) {
     case 'Muito satisfatória':
-      return 'status-tag status-tag--success';
+      return 'success';
     case 'Satisfatória':
-      return 'status-tag status-tag--info';
+      return 'info';
     case 'Ponto de atenção preventivo':
-      return 'status-tag status-tag--warning';
+      return 'warning';
     case 'Atenção necessária':
-      return 'status-tag status-tag--critical';
+      return 'critical';
     default:
-      return 'status-tag status-tag--neutral';
+      return 'neutral';
   }
 }
 
 function renderBulletList(items: string[] | null | undefined): string {
-  if (!items || items.length === 0) return '<span class="muted">—</span>';
-  return `<ul class="bullets">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+  if (!items || items.length === 0) return '<span class="muted">-</span>';
+  return `<ul class="bullets">${items
+    .map((i) => `<li>${escapeHtml(i)}</li>`)
+    .join('')}</ul>`;
 }
 
 function groupImagesByDay(
   days: PhotographicReportDayResponse[],
   images: PhotographicReportRenderableImage[],
-): { day: PhotographicReportDayResponse | null; items: PhotographicReportRenderableImage[] }[] {
+): {
+  day: PhotographicReportDayResponse | null;
+  items: PhotographicReportRenderableImage[];
+}[] {
   const dayMap = new Map(days.map((d) => [d.id, d]));
   const buckets = new Map<string, PhotographicReportRenderableImage[]>();
 
@@ -111,66 +123,125 @@ function groupImagesByDay(
   }));
 }
 
-function renderPhotoCard(image: PhotographicReportRenderableImage, seq: number): string {
+function summarizeClassifications(
+  images: PhotographicReportRenderableImage[],
+): Record<string, number> {
+  const summary = {
+    total: images.length,
+    muitoSatisfatoria: 0,
+    satisfatoria: 0,
+    preventiva: 0,
+    atencao: 0,
+    semAnalise: 0,
+  };
+
+  for (const image of images) {
+    switch (image.ai_condition_classification) {
+      case 'Muito satisfatória':
+        summary.muitoSatisfatoria += 1;
+        break;
+      case 'Satisfatória':
+        summary.satisfatoria += 1;
+        break;
+      case 'Ponto de atenção preventivo':
+        summary.preventiva += 1;
+        break;
+      case 'Atenção necessária':
+        summary.atencao += 1;
+        break;
+      default:
+        summary.semAnalise += 1;
+        break;
+    }
+  }
+
+  return summary;
+}
+
+function renderPhotoCard(
+  image: PhotographicReportRenderableImage,
+  seq: number,
+): string {
   const points = (image.ai_positive_points || []).slice(0, 5);
   const recommendations = (image.ai_recommendations || []).slice(0, 5);
   const conditions = image.photo_conditions || [];
   const source = image.data_url;
   const orderLabel = String(seq).padStart(2, '0');
-  const classification = image.ai_condition_classification || 'Satisfatória';
+  const classification = image.ai_condition_classification;
+  const tone = classificationTone(classification);
+
+  const title = image.ai_title || image.manual_caption || null;
+  const description = image.ai_description || null;
+  const caption =
+    image.manual_caption && image.manual_caption !== title
+      ? image.manual_caption
+      : null;
+  const assessment = image.ai_technical_assessment || null;
 
   const conditionsHtml =
     conditions.length > 0
-      ? conditions
-          .map((c) => `<span class="cond-chip">${escapeHtml(c)}</span>`)
-          .join('')
-      : '<span class="muted">Nenhuma condição marcada.</span>';
+      ? `<div class="chip-row">${conditions
+          .map((c) => `<span class="chip">${escapeHtml(c)}</span>`)
+          .join('')}</div>`
+      : '<span class="muted">Nenhuma condição registrada.</span>';
 
-  const captionText = image.ai_title || image.manual_caption || '—';
-  const descText = image.ai_description || image.manual_caption || '—';
+  const detailRows = [
+    title
+      ? `<div class="kv-box"><div class="kv-label">Título</div><div class="kv-value">${escapeHtml(title)}</div></div>`
+      : '',
+    `<div class="kv-box"><div class="kv-label">Classificação</div><div class="kv-value"><span class="status-tag status-tag--${escapeHtml(tone)}">${escapeHtml(classification || 'Sem análise')}</span></div></div>`,
+  ]
+    .filter(Boolean)
+    .join('');
 
   return `
-    <div class="photo-card">
-      <div class="photo-card-header">
-        <span class="photo-seq">FOTO ${escapeHtml(orderLabel)}</span>
+    <article class="photo-card">
+      <div class="photo-card-bar">
+        <span class="photo-seq">Foto ${escapeHtml(orderLabel)}</span>
         <span class="photo-date">${escapeHtml(image.activity_date_label || 'Sem data')}</span>
-        <span class="${escapeHtml(classificationTagClass(classification))}">${escapeHtml(classification)}</span>
+        <span class="status-tag status-tag--${escapeHtml(tone)}">${escapeHtml(classification || 'Sem análise')}</span>
       </div>
 
-      ${source
-        ? `<div class="photo-img-wrap"><img src="${escapeHtml(source)}" alt="Foto ${orderLabel}" /></div>`
-        : '<div class="photo-no-img">Imagem indisponível</div>'
+      ${
+        source
+          ? `<figure class="photo-figure"><img src="${escapeHtml(source)}" alt="Registro fotográfico ${escapeHtml(orderLabel)}" /></figure>`
+          : '<div class="photo-figure photo-figure--empty">Imagem indisponível</div>'
       }
 
-      <table class="photo-meta-table">
-        <tr>
-          <td class="label-cell" style="width:16%">Título</td>
-          <td colspan="3">${escapeHtml(captionText)}</td>
-        </tr>
-        ${descText !== captionText ? `<tr>
-          <td class="label-cell">Descrição</td>
-          <td colspan="3">${escapeHtml(descText)}</td>
-        </tr>` : ''}
-        ${image.manual_caption && image.manual_caption !== captionText ? `<tr>
-          <td class="label-cell">Legenda</td>
-          <td colspan="3">${escapeHtml(image.manual_caption)}</td>
-        </tr>` : ''}
-        <tr>
-          <td class="label-cell" style="vertical-align:top">Pontos positivos</td>
-          <td style="width:38%;vertical-align:top">${renderBulletList(points)}</td>
-          <td class="label-cell" style="width:16%;vertical-align:top">Avaliação técnica</td>
-          <td style="vertical-align:top">${escapeHtml(image.ai_technical_assessment || '—')}</td>
-        </tr>
-        ${recommendations.length > 0 ? `<tr>
-          <td class="label-cell" style="vertical-align:top">Recomendação</td>
-          <td colspan="3" style="vertical-align:top">${renderBulletList(recommendations)}</td>
-        </tr>` : ''}
-        <tr>
-          <td class="label-cell" style="vertical-align:top">Condições</td>
-          <td colspan="3"><div class="cond-row">${conditionsHtml}</div></td>
-        </tr>
-      </table>
-    </div>
+      <div class="photo-body">
+        ${detailRows ? `<div class="kv-grid kv-grid--2">${detailRows}</div>` : ''}
+
+        ${
+          description
+            ? `<div class="notes-block"><div class="kv-label">Descrição técnica</div><div class="notes-content">${escapeHtml(description)}</div></div>`
+            : ''
+        }
+        ${
+          caption
+            ? `<div class="notes-block"><div class="kv-label">Legenda do responsável</div><div class="notes-content">${escapeHtml(caption)}</div></div>`
+            : ''
+        }
+        ${
+          assessment
+            ? `<div class="notes-block"><div class="kv-label">Avaliação técnica</div><div class="notes-content">${escapeHtml(assessment)}</div></div>`
+            : ''
+        }
+        ${
+          points.length > 0
+            ? `<div class="notes-block"><div class="kv-label">Pontos positivos</div>${renderBulletList(points)}</div>`
+            : ''
+        }
+        ${
+          recommendations.length > 0
+            ? `<div class="notes-block"><div class="kv-label">Recomendações</div>${renderBulletList(recommendations)}</div>`
+            : ''
+        }
+        <div class="notes-block">
+          <div class="kv-label">Condições observadas</div>
+          <div class="notes-content">${conditionsHtml}</div>
+        </div>
+      </div>
+    </article>
   `;
 }
 
@@ -188,13 +259,20 @@ export function buildPhotographicReportHtml(
   const generatedAtLabel = options.generatedAt
     ? formatDateTime(options.generatedAt)
     : formatDateTime(new Date().toISOString());
+  const documentCode = String(report.id || '')
+    .replace(/-/g, '')
+    .slice(0, 8)
+    .toUpperCase();
+  const summary = summarizeClassifications(renderableImages);
+  const dayCount = groupedImages.filter((g) => g.items.length > 0).length;
 
-  const exportsList = (report.exports || [])
+  const exportsRows = (report.exports || [])
     .slice()
     .sort((a, b) => a.generated_at.localeCompare(b.generated_at))
     .map(
-      (entry) => `
+      (entry, index) => `
         <tr>
+          <td style="text-align:center">${index + 1}</td>
           <td>${escapeHtml(entry.export_type.toUpperCase())}</td>
           <td>${escapeHtml(formatDateTime(entry.generated_at))}</td>
         </tr>
@@ -215,494 +293,559 @@ export function buildPhotographicReportHtml(
         : 'Sem data vinculada';
       const daySummary = group.day ? daySummaryMap.get(group.day.id) : '';
       return `
-        <div class="day-block">
-          <div class="day-header">
-            <span>DATA: ${escapeHtml(dateLabel)}</span>
-            <span>${group.items.length} foto(s)${daySummary ? ' · ' + escapeHtml(daySummary) : ''}</span>
+        <section class="section-card">
+          <div class="section-banner section-banner--teal">
+            <span>${escapeHtml(dateLabel)}</span>
+            <span class="banner-meta">${group.items.length} registro(s)</span>
           </div>
-          ${group.items.map((img) => renderPhotoCard(img, ++seqCounter)).join('')}
-        </div>
+          <div class="section-body">
+            ${
+              daySummary
+                ? `<div class="notes-block" style="margin-top:0"><div class="kv-label">Resumo do dia</div><div class="notes-content">${escapeHtml(daySummary)}</div></div>`
+                : ''
+            }
+            ${group.items.map((img) => renderPhotoCard(img, ++seqCounter)).join('')}
+          </div>
+        </section>
       `;
     })
     .join('');
 
-  const aiSummaryText =
-    report.ai_summary && report.ai_summary.trim()
-      ? report.ai_summary
-      : null;
-
-  const finalConclusionText =
-    report.final_conclusion && report.final_conclusion.trim()
-      ? report.final_conclusion
-      : null;
+  const aiSummaryText = report.ai_summary?.trim() ? report.ai_summary : null;
+  const finalConclusionText = report.final_conclusion?.trim()
+    ? report.final_conclusion
+    : null;
 
   const style = `
     <style>
-      @page { size: A4 portrait; margin: 0; }
-      * { box-sizing: border-box; }
-
+      @page {
+        size: A4 portrait;
+        margin: 10mm 11mm 12mm 11mm;
+      }
       :root {
         color-scheme: light;
         --paper: #ffffff;
         --ink: #0f172a;
-        --muted: #4a6785;
-        --muted-light: #7a9ab8;
+        --muted: #2a455e;
         --line: #0d3457;
         --soft-line: #9cbdd8;
         --teal: #1d5b8d;
-        --teal-dark: #18517C;
-        --teal-bright: #1865B0;
-        --teal-mid: #1e6ba0;
         --teal-soft: #eaf4fb;
         --header-gray: #d7e6f3;
+        --acceptable: #15803d;
+        --attention: #1d5b8d;
+        --substantial: #d97706;
+        --critical: #b3261e;
         --row-soft: #f8fbff;
-        --label-bg: #1d5b8d;
       }
-
-      html, body {
+      * { box-sizing: border-box; }
+      body {
         margin: 0;
-        padding: 0;
         background: var(--paper);
         color: var(--ink);
         font-family: Arial, Helvetica, sans-serif;
         font-size: 10px;
-        line-height: 1.4;
+        line-height: 1.35;
       }
-      h1, h2, h3, h4, p { margin: 0; }
-
-      /* ── WRAPPER COM MARGENS ───────────────────────────── */
-      .page-wrap {
-        padding: 12mm 14mm 14mm 14mm;
-      }
+      h1, h2, h3, p { margin: 0; }
+      .page { width: 100%; }
+      .stack > * + * { margin-top: 8px; }
+      .muted { color: var(--muted); }
 
       /* ── CABEÇALHO TÉCNICO ─────────────────────────────── */
       .tech-header {
-        border-radius: 8px;
+        border: 1px solid var(--soft-line);
+        border-radius: 12px;
+        background: linear-gradient(180deg,
+          #1865B0 0px, #1865B0 5px,
+          #18517C 5px, #18517C 7px,
+          #ffffff 7px, #ffffff 100%);
         overflow: hidden;
-        margin-bottom: 14px;
-        border: 1px solid var(--teal-dark);
+        box-shadow: 0 2px 6px rgba(9,30,66,0.08), 0 0 1px rgba(9,30,66,0.08);
       }
-      .header-stripe {
-        height: 6px;
-        background: linear-gradient(90deg,
-          var(--teal-bright) 0%, var(--teal-bright) 60%,
-          var(--teal-dark)   60%, var(--teal-dark)   100%);
-      }
-      .header-table {
+      .doc-title-row { border-bottom: 1px solid var(--line); }
+      .doc-title-table,
+      .tech-table,
+      .support-table {
         width: 100%;
         border-collapse: collapse;
         table-layout: fixed;
-        background: var(--teal);
       }
-      .header-table td {
-        padding: 8px 12px;
+      .doc-title-table td {
+        border-right: 1px solid var(--soft-line);
+        padding: 8px 10px;
         vertical-align: middle;
-        color: #ffffff;
       }
-      .header-td-logo {
-        width: 12%;
+      .doc-title-table td:last-child { border-right: 0; }
+      .logo-box {
+        width: 14%;
         text-align: center;
-        border-right: 1px solid rgba(255,255,255,.2);
+        padding: 4px !important;
       }
-      .header-td-logo img {
+      .logo-img {
         max-width: 100%;
-        max-height: 32px;
+        max-height: 42px;
         object-fit: contain;
-        filter: brightness(0) invert(1);
+        display: block;
+        margin: 0 auto;
       }
-      .header-td-logo .logo-fallback {
-        font-size: 14px;
-        font-weight: 900;
-        letter-spacing: .1em;
-        color: #ffffff;
-      }
-      .header-td-title {
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: .07em;
-        text-transform: uppercase;
+      .doc-title-main {
         text-align: center;
-        color: #ffffff;
+        font-weight: 800;
+        font-size: 15px;
+        letter-spacing: .05em;
+        color: var(--teal);
+        text-transform: uppercase;
       }
-      .header-td-title small {
+      .doc-title-main small {
         display: block;
         font-size: 8px;
         font-weight: 400;
         letter-spacing: .03em;
         text-transform: none;
-        color: rgba(255,255,255,.75);
-        margin-top: 2px;
+        color: var(--muted);
+        margin-top: 3px;
       }
-      .header-td-code {
-        width: 20%;
+      .doc-code-box {
+        width: 16%;
         font-size: 8px;
-        text-align: right;
-        color: rgba(255,255,255,.85);
-        border-left: 1px solid rgba(255,255,255,.2);
+        text-align: center;
+        background: linear-gradient(180deg, #eef6fd 0%, #e4f0f9 100%);
       }
-      .header-td-code strong {
-        display: block;
-        font-size: 10px;
-        color: #ffffff;
-        font-weight: 700;
-        margin-bottom: 2px;
-      }
-
-      /* ── TABELA DE METADADOS ───────────────────────────── */
-      .meta-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-        font-size: 10px;
-        margin-bottom: 12px;
-      }
-      .meta-table td {
+      .tech-table td,
+      .support-table td,
+      .support-table th {
         border: 1px solid var(--soft-line);
-        padding: 5px 8px;
+        padding: 4px 6px;
         vertical-align: top;
         word-break: break-word;
       }
-      .meta-table .label-cell {
+      .teal-cell {
         background: var(--teal);
-        color: #ffffff;
+        color: #fff;
         font-weight: 700;
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: .05em;
-        width: 18%;
-        vertical-align: middle;
-        white-space: nowrap;
+        width: 15%;
       }
-      .meta-table .value-cell {
-        background: #fdfefe;
-        width: 32%;
-        font-weight: 600;
-        color: var(--ink);
-      }
-
-      /* ── SEÇÕES ────────────────────────────────────────── */
-      .section {
-        margin-bottom: 12px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .section-title {
-        background: var(--teal);
-        color: #ffffff;
-        font-size: 9px;
-        font-weight: 800;
-        letter-spacing: .07em;
-        text-transform: uppercase;
-        padding: 5px 10px;
-        border-radius: 4px 4px 0 0;
-      }
-      .section-body {
-        border: 1px solid var(--soft-line);
-        border-top: 0;
-        padding: 10px 12px;
-        border-radius: 0 0 4px 4px;
-        font-size: 10px;
-        line-height: 1.65;
-        color: var(--ink);
-        background: #fafcff;
-      }
+      .tech-value { background: #fdfefe; }
 
       /* ── STATUS TAGS ───────────────────────────────────── */
       .status-tag {
         display: inline-block;
         padding: 2px 8px;
-        border: 1px solid;
+        border: 1px solid var(--soft-line);
         border-radius: 999px;
-        font-size: 9px;
+        font-size: 8px;
         font-weight: 700;
         white-space: nowrap;
       }
-      .status-tag--success  { background: #e8f5e9; color: #166534; border-color: #86c99b; }
+      .status-tag--success  { background: #e8f5e9; color: #166534; border-color: #a7d7b4; }
       .status-tag--critical { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
-      .status-tag--warning  { background: #fffbeb; color: #78350f; border-color: #fde68a; }
-      .status-tag--info     { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
-      .status-tag--neutral  { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+      .status-tag--warning  { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+      .status-tag--info     { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+      .status-tag--neutral  { background: #f9fafb; color: #374151; border-color: #e5e7eb; }
 
-      /* ── FOTOS ─────────────────────────────────────────── */
-      .day-block {
-        margin-bottom: 16px;
+      /* ── MÉTRICAS ──────────────────────────────────────── */
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
       }
-      .day-header {
+      .metric-card {
+        border: 1px solid var(--soft-line);
+        border-radius: 10px;
+        background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+        padding: 8px 10px;
+        box-shadow: 0 1px 3px rgba(9,30,66,0.05);
+      }
+      .metric-bar {
+        height: 4px;
+        border-radius: 999px;
+        margin-bottom: 7px;
+        background: var(--teal);
+        box-shadow: 0 1px 2px rgba(29,91,141,0.25);
+      }
+      .metric-card--acceptable .metric-bar { background: var(--acceptable); box-shadow: 0 1px 2px rgba(21,128,61,0.25); }
+      .metric-card--attention .metric-bar  { background: var(--attention); box-shadow: 0 1px 2px rgba(29,91,141,0.25); }
+      .metric-card--substantial .metric-bar { background: var(--substantial); box-shadow: 0 1px 2px rgba(217,119,6,0.25); }
+      .metric-card--critical .metric-bar   { background: var(--critical); box-shadow: 0 1px 2px rgba(179,38,30,0.25); }
+      .metric-label {
+        font-size: 7.5px;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .metric-value {
+        margin-top: 3px;
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--ink);
+        line-height: 1.1;
+      }
+
+      /* ── CARDS DE SEÇÃO ────────────────────────────────── */
+      .section-card {
+        border: 1px solid var(--soft-line);
+        border-radius: 12px;
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 1px 4px rgba(9,30,66,0.06), 0 0 1px rgba(9,30,66,0.07);
+      }
+      .section-banner {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: var(--header-gray);
-        border: 1px solid var(--soft-line);
-        border-radius: 4px;
-        padding: 5px 10px;
-        font-size: 9px;
-        font-weight: 800;
-        color: var(--teal-dark);
+        padding: 7px 12px;
+        font-size: 10px;
+        font-weight: 700;
+        border-bottom: 1px solid var(--soft-line);
+        color: var(--teal);
+        letter-spacing: .04em;
+      }
+      .section-banner--teal {
+        background: linear-gradient(90deg, #ddf0fa 0%, #eef8fd 100%);
+        border-left: 6px solid var(--teal);
+      }
+      .section-banner--amber {
+        background: linear-gradient(90deg, #fef3e2 0%, #fffcf7 100%);
+        border-left: 6px solid var(--substantial);
+        color: var(--substantial);
+      }
+      .banner-meta {
+        font-size: 8px;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: .06em;
-        margin-bottom: 8px;
+        color: var(--muted);
       }
+      .section-body { padding: 8px 10px 10px; }
+
+      /* ── KEY / VALUE ───────────────────────────────────── */
+      .kv-grid { display: grid; gap: 6px; }
+      .kv-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .kv-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .kv-box {
+        min-height: 46px;
+        border: 1px solid #dbe7f2;
+        border-left: 3px solid #b0cfe8;
+        padding: 7px 8px 7px 10px;
+        background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(9,30,66,0.04);
+      }
+      .kv-label {
+        font-size: 7.5px;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        color: #355070;
+        font-weight: 700;
+      }
+      .kv-value {
+        margin-top: 4px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .notes-block {
+        margin-top: 6px;
+        border-top: 1px solid #dbe7f2;
+        padding: 7px 0 0;
+        background: transparent;
+      }
+      .notes-content {
+        margin-top: 4px;
+        white-space: pre-wrap;
+      }
+
+      /* ── FOTOS ─────────────────────────────────────────── */
       .photo-card {
         border: 1px solid var(--soft-line);
-        border-radius: 6px;
+        border-radius: 10px;
         overflow: hidden;
-        margin-bottom: 12px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(9,30,66,0.05);
         break-inside: avoid;
         page-break-inside: avoid;
-        background: #ffffff;
       }
-      .photo-card-header {
+      .photo-card + .photo-card { margin-top: 8px; }
+      .photo-card-bar {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 6px 10px;
-        background: var(--teal);
-        color: #ffffff;
+        background: linear-gradient(90deg, #ddf0fa 0%, #eef8fd 100%);
+        border-bottom: 1px solid var(--soft-line);
+        border-left: 6px solid var(--teal);
       }
       .photo-seq {
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 800;
-        letter-spacing: .1em;
+        color: var(--teal);
+        letter-spacing: .05em;
+        text-transform: uppercase;
       }
       .photo-date {
-        font-size: 9px;
-        color: rgba(255,255,255,.8);
         flex: 1;
+        font-size: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--muted);
       }
-      .photo-img-wrap {
-        width: 100%;
-        background: #eef4f8;
-        border-bottom: 1px solid var(--soft-line);
+      .photo-figure {
+        margin: 0;
+        padding: 8px;
+        background: #f4f9ff;
+        border-bottom: 1px solid #dbe7f2;
         text-align: center;
-        padding: 6px 0;
       }
-      .photo-img-wrap img {
+      .photo-figure img {
         max-width: 100%;
-        max-height: 110mm;
+        max-height: 105mm;
         object-fit: contain;
         display: block;
         margin: 0 auto;
+        border: 1px solid #dbe7f2;
+        border-radius: 6px;
+        background: #fff;
       }
-      .photo-no-img {
-        padding: 18px;
+      .photo-figure--empty {
+        padding: 20px;
         color: var(--muted);
         font-size: 10px;
-        text-align: center;
       }
-      .photo-meta-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
-      }
-      .photo-meta-table td {
-        border: 1px solid var(--soft-line);
-        padding: 5px 8px;
-        vertical-align: top;
-        word-break: break-word;
-      }
-      .photo-meta-table .label-cell {
-        background: var(--teal);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-        white-space: nowrap;
-        vertical-align: middle;
-      }
+      .photo-body { padding: 8px 10px 10px; }
+      .photo-body .notes-block:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
 
-      /* ── CONDIÇÕES ─────────────────────────────────────── */
-      .cond-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        padding: 2px 0;
-      }
-      .cond-chip {
-        display: inline-flex;
+      /* ── CHIPS ─────────────────────────────────────────── */
+      .chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+      .chip {
+        display: inline-block;
         padding: 2px 8px;
         border-radius: 999px;
         background: var(--teal-soft);
         border: 1px solid var(--soft-line);
         color: var(--teal);
-        font-size: 9px;
-        font-weight: 600;
+        font-size: 8px;
+        font-weight: 700;
       }
 
       /* ── LISTAS ────────────────────────────────────────── */
-      .bullets {
-        margin: 0;
-        padding-left: 14px;
-        color: var(--ink);
-      }
-      .bullets li {
-        margin-bottom: 3px;
-        line-height: 1.5;
-        font-size: 10px;
-      }
-      .muted { color: var(--muted-light); font-style: italic; }
+      .bullets { margin: 4px 0 0; padding-left: 14px; }
+      .bullets li { margin-bottom: 2px; line-height: 1.4; }
 
-      /* ── TABELA DE EXPORTAÇÕES ─────────────────────────── */
-      .export-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
-      }
-      .export-table th, .export-table td {
-        border: 1px solid var(--soft-line);
-        padding: 5px 8px;
+      /* ── TABELA DE APOIO ───────────────────────────────── */
+      .support-table th {
+        background: linear-gradient(180deg, #e4f0f9 0%, #edf4fa 100%);
+        text-transform: uppercase;
+        font-size: 8px;
+        letter-spacing: .05em;
+        color: var(--teal);
+        font-weight: 700;
         text-align: left;
       }
-      .export-table th {
-        background: var(--teal);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: .05em;
-      }
-      .export-table tr:nth-child(even) td {
-        background: var(--row-soft);
-      }
+      .support-table tbody tr:nth-child(even) td { background: var(--row-soft); }
 
-      /* ── PAGE BREAK ────────────────────────────────────── */
-      .break-before {
-        break-before: page;
-        page-break-before: always;
+      /* ── RODAPÉ ────────────────────────────────────────── */
+      .doc-footer {
+        margin-top: 10px;
+        border-top: 1px solid var(--soft-line);
+        padding-top: 6px;
+        font-size: 7.5px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
       }
     </style>
   `;
 
   const logoHtml = options.logoDataUrl
-    ? `<img src="${escapeHtml(options.logoDataUrl)}" alt="Logo" />`
-    : `<div class="logo-fallback">SGS</div>`;
+    ? `<td class="logo-box"><img src="${escapeHtml(options.logoDataUrl)}" class="logo-img" alt="Logo" /></td>`
+    : '';
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <title>Relatório Fotográfico</title>
+    <meta charset="utf-8" />
+    <title>Relatório Fotográfico - ${escapeHtml(report.project_name)}</title>
     ${style}
   </head>
   <body>
-    <div class="page-wrap">
+    <div class="page stack">
 
-      <!-- CABEÇALHO TÉCNICO -->
-      <div class="tech-header">
-        <div class="header-stripe"></div>
-        <table class="header-table">
-          <tr>
-            <td class="header-td-logo">${logoHtml}</td>
-            <td class="header-td-title">
-              RELATÓRIO FOTOGRÁFICO
-              <small>Sistema de Gestão de Segurança · SGS</small>
-            </td>
-            <td class="header-td-code">
-              <strong>${escapeHtml(buildPeriodLabel(report))}</strong>
-              Emitido em ${escapeHtml(generatedAtLabel)}
-            </td>
-          </tr>
+      <section class="tech-header">
+        <div class="doc-title-row">
+          <table class="doc-title-table">
+            <tr>
+              ${logoHtml}
+              <td class="doc-title-main" style="width: ${options.logoDataUrl ? '70%' : '84%'}">
+                RELATÓRIO FOTOGRÁFICO
+                <small>Registro técnico de inspeção — Sistema de Gestão de Segurança</small>
+              </td>
+              <td class="doc-code-box">
+                <div><strong>Código</strong></div>
+                <div>${escapeHtml(documentCode || '-')}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <table class="tech-table">
+          <tbody>
+            <tr>
+              <td class="teal-cell">Cliente:</td>
+              <td class="tech-value">${escapeHtml(report.client_name)}</td>
+              <td class="teal-cell">Obra / projeto:</td>
+              <td class="tech-value">${escapeHtml(report.project_name)}</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">Atividade:</td>
+              <td class="tech-value">${escapeHtml(report.activity_type)}</td>
+              <td class="teal-cell">Empresa executora:</td>
+              <td class="tech-value">${escapeHtml(report.contractor_company)}</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">Responsável:</td>
+              <td class="tech-value">${escapeHtml(report.responsible_name)}</td>
+              <td class="teal-cell">Período:</td>
+              <td class="tech-value">${escapeHtml(buildPeriodLabel(report))} · ${escapeHtml(formatTime(report.start_time))} às ${escapeHtml(formatTime(report.end_time))}</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">Unidade:</td>
+              <td class="tech-value">${escapeHtml(report.unit_name || '-')}</td>
+              <td class="teal-cell">Local específico:</td>
+              <td class="tech-value">${escapeHtml(report.location || '-')}</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">Turno:</td>
+              <td class="tech-value">${escapeHtml(shiftLabel(report.shift))}</td>
+              <td class="teal-cell">Condição da área:</td>
+              <td class="tech-value">${escapeHtml(report.area_status)}</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">Abordagem:</td>
+              <td class="tech-value">${escapeHtml(toneLabel(report.report_tone))}</td>
+              <td class="teal-cell">Emitido em:</td>
+              <td class="tech-value">${escapeHtml(generatedAtLabel)}</td>
+            </tr>
+          </tbody>
         </table>
-      </div>
+      </section>
 
-      <!-- 1. IDENTIFICAÇÃO -->
-      <div class="section">
-        <div class="section-title">1. Identificação do relatório</div>
-        <div class="section-body" style="padding:0">
-          <table class="meta-table" style="margin:0">
-            <tr>
-              <td class="label-cell">Cliente</td>
-              <td class="value-cell">${escapeHtml(report.client_name)}</td>
-              <td class="label-cell">Obra / Projeto</td>
-              <td class="value-cell">${escapeHtml(report.project_name)}</td>
-            </tr>
-            <tr>
-              <td class="label-cell">Unidade</td>
-              <td class="value-cell">${escapeHtml(report.unit_name || '—')}</td>
-              <td class="label-cell">Local específico</td>
-              <td class="value-cell">${escapeHtml(report.location || '—')}</td>
-            </tr>
-            <tr>
-              <td class="label-cell">Responsável</td>
-              <td class="value-cell">${escapeHtml(report.responsible_name)}</td>
-              <td class="label-cell">Empresa executora</td>
-              <td class="value-cell">${escapeHtml(report.contractor_company)}</td>
-            </tr>
-            <tr>
-              <td class="label-cell">Atividade</td>
-              <td class="value-cell">${escapeHtml(report.activity_type)}</td>
-              <td class="label-cell">Período</td>
-              <td class="value-cell">${escapeHtml(buildPeriodLabel(report))} · ${escapeHtml(formatTime(report.start_time))}–${escapeHtml(formatTime(report.end_time))}</td>
-            </tr>
-            <tr>
-              <td class="label-cell">Turno</td>
-              <td class="value-cell">${escapeHtml(report.shift)}</td>
-              <td class="label-cell">Condição da área</td>
-              <td class="value-cell">${escapeHtml(report.area_status)}</td>
-            </tr>
-            <tr>
-              <td class="label-cell">Tom</td>
-              <td class="value-cell">${escapeHtml(toneLabel(report.report_tone))}</td>
-              <td class="label-cell">Total de fotos</td>
-              <td class="value-cell">${renderableImages.length}</td>
-            </tr>
-          </table>
+      <section class="metrics-grid">
+        <article class="metric-card">
+          <div class="metric-bar"></div>
+          <div class="metric-label">Registros</div>
+          <div class="metric-value">${summary.total}</div>
+        </article>
+        <article class="metric-card metric-card--acceptable">
+          <div class="metric-bar"></div>
+          <div class="metric-label">Muito satisf.</div>
+          <div class="metric-value">${summary.muitoSatisfatoria}</div>
+        </article>
+        <article class="metric-card metric-card--attention">
+          <div class="metric-bar"></div>
+          <div class="metric-label">Satisfatória</div>
+          <div class="metric-value">${summary.satisfatoria}</div>
+        </article>
+        <article class="metric-card metric-card--substantial">
+          <div class="metric-bar"></div>
+          <div class="metric-label">Preventiva</div>
+          <div class="metric-value">${summary.preventiva}</div>
+        </article>
+        <article class="metric-card metric-card--critical">
+          <div class="metric-bar"></div>
+          <div class="metric-label">Atenção</div>
+          <div class="metric-value">${summary.atencao}</div>
+        </article>
+      </section>
+
+      ${
+        report.general_observations
+          ? `
+      <section class="section-card">
+        <div class="section-banner section-banner--teal">
+          <span>Observações gerais</span>
         </div>
-      </div>
-
-      <!-- 2. OBSERVAÇÕES GERAIS -->
-      ${report.general_observations ? `
-      <div class="section">
-        <div class="section-title">2. Observações gerais</div>
-        <div class="section-body">${escapeHtml(report.general_observations)}</div>
-      </div>
-      ` : ''}
-
-      <!-- 3. SÍNTESE TÉCNICA (IA) -->
-      ${aiSummaryText ? `
-      <div class="section">
-        <div class="section-title">3. Síntese técnica (IA)</div>
-        <div class="section-body">${escapeHtml(aiSummaryText)}</div>
-      </div>
-      ` : ''}
-
-      <!-- 4. REGISTRO FOTOGRÁFICO -->
-      <div class="section break-before">
-        <div class="section-title">4. Registro fotográfico</div>
-        <div class="section-body" style="padding: 10px 0 0">
-          ${photoSections || '<p class="muted" style="padding:10px">Nenhuma fotografia vinculada ao relatório.</p>'}
+        <div class="section-body">
+          <div class="notes-content">${escapeHtml(report.general_observations)}</div>
         </div>
-      </div>
+      </section>
+      `
+          : ''
+      }
 
-      <!-- 5. CONCLUSÃO / PARECER TÉCNICO -->
-      ${finalConclusionText ? `
-      <div class="section break-before">
-        <div class="section-title">5. Parecer técnico e conclusão</div>
-        <div class="section-body">${escapeHtml(finalConclusionText)}</div>
-      </div>
-      ` : ''}
-
-      <!-- 6. HISTÓRICO DE EXPORTAÇÕES -->
-      <div class="section">
-        <div class="section-title">6. Histórico de exportações</div>
-        <div class="section-body" style="padding:0">
-          <table class="export-table">
-            <thead>
-              <tr>
-                <th style="width:18%">Tipo</th>
-                <th>Gerado em</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${exportsList || '<tr><td colspan="2" class="muted" style="padding:8px 10px">Nenhuma exportação registrada.</td></tr>'}
-            </tbody>
-          </table>
+      ${
+        aiSummaryText
+          ? `
+      <section class="section-card">
+        <div class="section-banner section-banner--teal">
+          <span>Síntese técnica</span>
+          <span class="banner-meta">Gerada por IA</span>
         </div>
+        <div class="section-body">
+          <div class="notes-content">${escapeHtml(aiSummaryText)}</div>
+        </div>
+      </section>
+      `
+          : ''
+      }
+
+      <section class="section-card">
+        <div class="section-banner section-banner--teal">
+          <span>Registro fotográfico</span>
+          <span class="banner-meta">${summary.total} foto(s) · ${dayCount} dia(s)</span>
+        </div>
+        <div class="section-body">
+          ${
+            photoSections ||
+            '<div class="muted" style="text-align:center;padding:10px">Nenhuma fotografia vinculada ao relatório.</div>'
+          }
+        </div>
+      </section>
+
+      ${
+        finalConclusionText
+          ? `
+      <section class="section-card">
+        <div class="section-banner section-banner--amber">
+          <span>Parecer técnico e conclusão</span>
+        </div>
+        <div class="section-body">
+          <div class="notes-content">${escapeHtml(finalConclusionText)}</div>
+        </div>
+      </section>
+      `
+          : ''
+      }
+
+      <section class="section-card">
+        <div class="section-banner section-banner--teal">
+          <span>Histórico de exportações</span>
+        </div>
+        <table class="support-table">
+          <thead>
+            <tr>
+              <th style="width:8%;text-align:center">#</th>
+              <th style="width:22%">Formato</th>
+              <th>Gerado em</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              exportsRows ||
+              '<tr><td colspan="3" class="muted" style="text-align:center;padding:8px">Nenhuma exportação registrada.</td></tr>'
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <div class="doc-footer">
+        <span>${escapeHtml(options.companyName)} · Relatório ${escapeHtml(documentCode || '-')}</span>
+        <span>Documento gerado pelo SGS em ${escapeHtml(generatedAtLabel)}</span>
       </div>
 
     </div>
   </body>
 </html>`;
-
-  return html;
 }
