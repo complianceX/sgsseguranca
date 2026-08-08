@@ -28,18 +28,14 @@ function escapeHtml(value: string | number | null | undefined): string {
 function formatDate(value?: string | null): string {
   if (!value) return '-';
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString('pt-BR');
 }
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '-';
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString('pt-BR');
 }
 
@@ -55,67 +51,29 @@ function buildPeriodLabel(report: PhotographicReportListItemResponse): string {
   return start === end ? start : `${start} a ${end}`;
 }
 
-function buildCoverHighlight(
-  report: PhotographicReportListItemResponse,
-): string {
-  if (
-    report.area_status === PhotographicReportAreaStatus.LOJA_FECHADA ||
-    report.area_status === PhotographicReportAreaStatus.AREA_CONTROLADA ||
-    report.shift === PhotographicReportShift.NOTURNO
-  ) {
-    return 'ATIVIDADE REGISTRADA COM CONTROLE OPERACIONAL, MENOR INTERFERÊNCIA EXTERNA E CONDIÇÕES FAVORÁVEIS PARA EXECUÇÃO SEGURA.';
-  }
-
-  return 'ATIVIDADE REGISTRADA COM ORGANIZAÇÃO OPERACIONAL, CONTROLE DA FRENTE DE SERVIÇO E BOAS CONDIÇÕES DE EXECUÇÃO.';
-}
-
-function toneClass(tone: PhotographicReportTone): string {
+function toneLabel(tone: PhotographicReportTone): string {
   switch (tone) {
     case PhotographicReportTone.TECNICO:
-      return 'tone-tecnico';
+      return 'Técnico';
     case PhotographicReportTone.PREVENTIVO:
-      return 'tone-preventivo';
+      return 'Preventivo';
     default:
-      return 'tone-positivo';
+      return 'Positivo';
   }
 }
 
-function renderKeyValue(
-  label: string,
-  value: string | null | undefined,
-): string {
-  return `
-    <div class="kv">
-      <span class="k">${escapeHtml(label)}</span>
-      <span class="v">${escapeHtml(value || '-')}</span>
-    </div>
-  `;
-}
-
-function renderDetailField(
-  label: string,
-  value: string | null | undefined,
-): string {
-  return `
-    <div class="kv">
-      <span class="k">${escapeHtml(label)}</span>
-      <span class="v">${escapeHtml(value || '-')}</span>
-    </div>
-  `;
-}
-
-function classificationBadgeClass(value: string | null | undefined): string {
+function classificationTagClass(value: string | null | undefined): string {
   switch (value) {
-    case 'Satisfatória':
-      return 'classification classification-satisfatoria';
     case 'Muito satisfatória':
-      return 'classification classification-muito-satisfatoria';
+      return 'status-tag status-tag--success';
+    case 'Satisfatória':
+      return 'status-tag status-tag--info';
     case 'Ponto de atenção preventivo':
-      return 'classification classification-preventivo';
+      return 'status-tag status-tag--warning';
     case 'Atenção necessária':
-      return 'classification classification-atencao';
+      return 'status-tag status-tag--critical';
     default:
-      return 'classification';
+      return 'status-tag status-tag--neutral';
   }
 }
 
@@ -123,9 +81,7 @@ function renderBulletList(items: string[] | null | undefined): string {
   const list = (items || [])
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join('');
-  if (!list) {
-    return '<p class="muted">Sem itens registrados.</p>';
-  }
+  if (!list) return '<span class="muted">—</span>';
   return `<ul class="bullets">${list}</ul>`;
 }
 
@@ -151,17 +107,15 @@ function groupImagesByDay(
   const orderedDayIds = [
     ...days
       .slice()
-      .sort((left, right) =>
-        left.activity_date.localeCompare(right.activity_date),
-      )
-      .map((day) => day.id),
+      .sort((a, b) => a.activity_date.localeCompare(b.activity_date))
+      .map((d) => d.id),
     ...(buckets.has('unassigned') ? ['unassigned'] : []),
   ];
 
   return orderedDayIds.map((dayId) => ({
-    day: dayId === 'unassigned' ? null : dayMap.get(dayId) || null,
+    day: dayId === 'unassigned' ? null : (dayMap.get(dayId) ?? null),
     items: (buckets.get(dayId) || []).sort(
-      (left, right) => left.image_order - right.image_order,
+      (a, b) => a.image_order - b.image_order,
     ),
   }));
 }
@@ -169,79 +123,68 @@ function groupImagesByDay(
 function renderPhotoCard(image: PhotographicReportRenderableImage): string {
   const points = (image.ai_positive_points || []).slice(0, 5);
   const recommendations = (image.ai_recommendations || []).slice(0, 5);
+  const conditions = image.photo_conditions || [];
   const source = image.data_url;
+  const orderLabel = String(image.image_order).padStart(2, '0');
+  const classification = image.ai_condition_classification || 'Satisfatória';
+
+  const conditionsHtml =
+    conditions.length > 0
+      ? conditions
+          .map((c) => `<span class="cond-chip">${escapeHtml(c)}</span>`)
+          .join('')
+      : '<span class="muted">Nenhuma condição registrada.</span>';
 
   return `
-    <article class="photo-card">
-      <div class="photo-media">
+    <div class="photo-card">
+      <div class="photo-card-header">
+        <span class="photo-seq">Foto ${orderLabel}</span>
+        <span class="photo-date">${escapeHtml(image.activity_date_label || 'Sem data')}</span>
+        <span class="${escapeHtml(classificationTagClass(classification))}">${escapeHtml(classification)}</span>
+      </div>
+
+      <div class="photo-img-wrap">
         ${
           source
-            ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(image.ai_title || image.manual_caption || 'Foto do relatório')}" />`
-            : '<div class="photo-placeholder">Imagem indisponível</div>'
+            ? `<img src="${escapeHtml(source)}" alt="Foto ${orderLabel}" />`
+            : '<div class="photo-no-img">Imagem indisponível</div>'
         }
       </div>
-      <div class="photo-body">
-        <div class="photo-head">
-          <div>
-            <p class="photo-kicker">Registro fotográfico ${String(image.image_order).padStart(2, '0')} · ${escapeHtml(image.activity_date_label || 'Sem data')}</p>
-            <h3>${escapeHtml(image.ai_title || image.manual_caption || 'Registro fotográfico')}</h3>
-          </div>
-          <span class="${escapeHtml(classificationBadgeClass(image.ai_condition_classification))}">${escapeHtml(image.ai_condition_classification || 'Satisfatória')}</span>
-        </div>
 
-        <p class="photo-text">${escapeHtml(image.ai_description || image.manual_caption || 'Sem descrição informada.')}</p>
-
+      <table class="photo-meta-table">
+        <tr>
+          <td class="label-cell" style="width:15%">Título</td>
+          <td colspan="3">${escapeHtml(image.ai_title || image.manual_caption || '—')}</td>
+        </tr>
+        <tr>
+          <td class="label-cell">Descrição</td>
+          <td colspan="3">${escapeHtml(image.ai_description || image.manual_caption || '—')}</td>
+        </tr>
         ${
           image.manual_caption
-            ? `<p class="manual-caption"><strong>Legenda manual:</strong> ${escapeHtml(image.manual_caption)}</p>`
+            ? `<tr><td class="label-cell">Legenda manual</td><td colspan="3">${escapeHtml(image.manual_caption)}</td></tr>`
             : ''
         }
-
-        ${
-          (image.photo_conditions || []).length > 0
-            ? `<div class="conditions-row"><span class="conditions-label">Condições observadas:</span><span class="conditions-chips">${(image.photo_conditions || []).map((c) => `<span class="condition-chip">${escapeHtml(c)}</span>`).join('')}</span></div>`
-            : ''
-        }
-
-        <div class="photo-grid">
-          <div>
-            <h4>Pontos positivos observados</h4>
-            ${renderBulletList(points)}
-          </div>
-          <div>
-            <h4>Avaliação técnica</h4>
-            <p class="tech-text">${escapeHtml(image.ai_technical_assessment || 'Avaliação técnica não informada.')}</p>
-          </div>
-        </div>
-
+        <tr>
+          <td class="label-cell" style="width:15%;vertical-align:top">Pontos positivos</td>
+          <td style="width:40%;vertical-align:top">${renderBulletList(points)}</td>
+          <td class="label-cell" style="width:15%;vertical-align:top">Avaliação técnica</td>
+          <td style="width:30%;vertical-align:top">${escapeHtml(image.ai_technical_assessment || '—')}</td>
+        </tr>
         ${
           recommendations.length > 0
-            ? `<div class="recommendation"><h4>Recomendação preventiva</h4>${renderBulletList(recommendations)}</div>`
+            ? `<tr>
+                <td class="label-cell" style="vertical-align:top">Recomendação</td>
+                <td colspan="3" style="vertical-align:top">${renderBulletList(recommendations)}</td>
+               </tr>`
             : ''
         }
-      </div>
-    </article>
-  `;
-}
-
-function renderPhotoDetail(image: PhotographicReportRenderableImage): string {
-  const points = (image.ai_positive_points || []).slice(0, 5);
-  const recommendations = (image.ai_recommendations || []).slice(0, 5);
-
-  return `
-    <section class="detail-block">
-      <h3>Registro Fotográfico ${String(image.image_order).padStart(2, '0')}</h3>
-      <div class="detail-grid">
-        ${renderDetailField('Data', image.activity_date_label)}
-        ${renderDetailField('Título', image.ai_title || image.manual_caption || 'Sem título')}
-        ${renderDetailField('Descrição', image.ai_description || image.manual_caption || 'Sem descrição informada.')}
-        ${renderDetailField('Pontos positivos', points.join(' · ') || 'Sem itens registrados.')}
-        ${renderDetailField('Avaliação técnica', image.ai_technical_assessment || 'Avaliação técnica não informada.')}
-        ${renderDetailField('Classificação', image.ai_condition_classification || 'Satisfatória')}
-        ${renderDetailField('Condições observadas', (image.photo_conditions || []).join(' · ') || 'Nenhuma condição marcada.')}
-        ${renderDetailField('Recomendação preventiva', recommendations.join(' · ') || 'Sem recomendação preventiva.')}
-      </div>
-    </section>
+        <tr>
+          <td class="label-cell" style="vertical-align:top">Condições observadas</td>
+          <td colspan="3"><div class="cond-row">${conditionsHtml}</div></td>
+        </tr>
+      </table>
+    </div>
   `;
 }
 
@@ -258,16 +201,16 @@ export function buildPhotographicReportHtml(
   const groupedImages = groupImagesByDay(report.days || [], renderableImages);
   const generatedAtLabel = options.generatedAt
     ? formatDateTime(options.generatedAt)
-    : '-';
+    : formatDateTime(new Date().toISOString());
+
   const exportsList = (report.exports || [])
     .slice()
-    .sort((left, right) => left.generated_at.localeCompare(right.generated_at))
+    .sort((a, b) => a.generated_at.localeCompare(b.generated_at))
     .map(
       (entry) => `
         <tr>
           <td>${escapeHtml(entry.export_type.toUpperCase())}</td>
           <td>${escapeHtml(formatDateTime(entry.generated_at))}</td>
-          <td>${escapeHtml(entry.download_url || entry.file_url)}</td>
         </tr>
       `,
     )
@@ -279,573 +222,506 @@ export function buildPhotographicReportHtml(
 
   const photoSections = groupedImages
     .map((group) => {
-      const title = group.day
-        ? `Registro da data ${escapeHtml(formatDate(group.day.activity_date))}`
-        : 'Registros sem data vinculada';
+      const dateLabel = group.day
+        ? formatDate(group.day.activity_date)
+        : 'Sem data vinculada';
       const daySummary = group.day ? daySummaryMap.get(group.day.id) : '';
       return `
-        <section class="day-section">
-          <div class="section-head">
-            <div>
-              <h2>${title}</h2>
-              ${
-                group.day
-                  ? `<p class="muted">Resumo do dia: ${escapeHtml(daySummary || 'Sem resumo informado.')}</p>`
-                  : '<p class="muted">Fotos ainda não vinculadas a uma data específica.</p>'
-              }
-            </div>
-            <span class="badge">${group.items.length} foto(s)</span>
+        <div class="day-block">
+          <div class="day-header">
+            <span>DATA: ${escapeHtml(dateLabel)}</span>
+            <span>${group.items.length} foto(s)${daySummary ? ' · ' + escapeHtml(daySummary) : ''}</span>
           </div>
-          <div class="photos">
-            ${group.items.map((image) => renderPhotoCard(image)).join('')}
-          </div>
-        </section>
+          ${group.items.map((img) => renderPhotoCard(img)).join('')}
+        </div>
       `;
     })
     .join('');
 
-  const photoDetails = renderableImages
-    .map((image) => renderPhotoDetail(image))
-    .join('');
-
   const style = `
     <style>
-      @page { size: A4 portrait; margin: 18mm 14mm 18mm 14mm; }
+      @page { size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }
       * { box-sizing: border-box; }
+
+      :root {
+        color-scheme: light;
+        --paper: #ffffff;
+        --ink: #0f172a;
+        --muted: #2a455e;
+        --line: #0d3457;
+        --soft-line: #9cbdd8;
+        --teal: #1d5b8d;
+        --teal-dark: #18517C;
+        --teal-bright: #1865B0;
+        --teal-soft: #eaf4fb;
+        --header-gray: #d7e6f3;
+        --row-soft: #f8fbff;
+        --label-bg: #1d5b8d;
+      }
+
       body {
-        font-family: Arial, Helvetica, sans-serif;
         margin: 0;
-        color: #15222f;
-        background: #f4f6f8;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10px;
+        line-height: 1.4;
       }
-      .page {
-        padding: 0;
-      }
-      .sheet {
-        background: #fff;
-        padding: 0;
-      }
-      .cover {
-        min-height: 250mm;
-        border: 1px solid #D3DCE6;
-        border-radius: 18px;
+      h1, h2, h3, h4, p { margin: 0; }
+
+      /* ── CABEÇALHO TÉCNICO ─────────────────────────────── */
+      .tech-header {
+        border: 1px solid var(--soft-line);
+        border-radius: 10px;
+        background: linear-gradient(180deg,
+          var(--teal-bright) 0px, var(--teal-bright) 5px,
+          var(--teal-dark)   5px, var(--teal-dark)   7px,
+          #ffffff            7px, #ffffff            100%);
         overflow: hidden;
-        background:
-          radial-gradient(circle at top right, rgba(24, 92, 151, 0.12), transparent 28%),
-          linear-gradient(180deg, #f8fbff 0%, #ffffff 42%, #eef5fb 100%);
-        padding: 18mm 16mm;
+        box-shadow: 0 2px 6px rgba(9,30,66,0.08);
+        margin-bottom: 10px;
       }
-      .brand {
-        font-size: 11px;
-        letter-spacing: .18em;
-        text-transform: uppercase;
-        color: #5c7185;
-        font-weight: 700;
+      .header-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
       }
-      .cover-logo {
-        max-height: 14mm;
-        max-width: 36mm;
+      .header-table td {
+        border-right: 1px solid var(--soft-line);
+        padding: 8px 10px;
+        vertical-align: middle;
+      }
+      .header-table td:last-child { border-right: 0; }
+      .logo-cell {
+        width: 13%;
+        text-align: center;
+      }
+      .logo-cell img {
+        max-width: 100%;
+        max-height: 36px;
         object-fit: contain;
-        flex-shrink: 0;
+        display: block;
+        margin: 0 auto;
       }
-      .cover-top {
+      .logo-cell .logo-fallback {
+        font-size: 8px;
+        font-weight: 800;
+        color: var(--teal);
+        letter-spacing: .04em;
+      }
+      .title-cell {
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        color: var(--teal);
+        text-transform: uppercase;
+      }
+      .title-cell small {
+        display: block;
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--muted);
+        text-transform: none;
+        letter-spacing: 0;
+        margin-top: 2px;
+      }
+      .code-cell {
+        width: 18%;
+        font-size: 8px;
+        text-align: center;
+        background: linear-gradient(180deg, #eef6fd 0%, #e4f0f9 100%);
+        color: var(--muted);
+      }
+      .code-cell strong {
+        display: block;
+        font-size: 10px;
+        color: var(--teal);
+      }
+
+      /* ── TABELA DE METADADOS ───────────────────────────── */
+      .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 10px;
+        margin-bottom: 10px;
+      }
+      .meta-table td {
+        border: 1px solid var(--soft-line);
+        padding: 5px 8px;
+        vertical-align: top;
+        word-break: break-word;
+      }
+      .meta-table .label-cell {
+        background: var(--teal);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        width: 18%;
+        vertical-align: middle;
+      }
+      .meta-table .value-cell {
+        background: #fdfefe;
+        width: 32%;
+      }
+
+      /* ── SEÇÕES ────────────────────────────────────────── */
+      .section {
+        margin-bottom: 10px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .section-title {
+        background: var(--teal);
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        padding: 5px 10px;
+        border-radius: 6px 6px 0 0;
+      }
+      .section-body {
+        border: 1px solid var(--soft-line);
+        border-top: 0;
+        padding: 10px;
+        border-radius: 0 0 6px 6px;
+        font-size: 10px;
+        line-height: 1.6;
+        color: var(--ink);
+        background: #fafcff;
+      }
+
+      /* ── STATUS TAGS ───────────────────────────────────── */
+      .status-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid var(--soft-line);
+        border-radius: 999px;
+        font-size: 9px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .status-tag--success    { background: #e8f5e9; color: #166534; border-color: #a7d7b4; }
+      .status-tag--critical   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+      .status-tag--warning    { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+      .status-tag--info       { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+      .status-tag--neutral    { background: #f9fafb; color: #374151; border-color: #e5e7eb; }
+
+      /* ── FOTOS ─────────────────────────────────────────── */
+      .day-block {
+        margin-bottom: 14px;
+      }
+      .day-header {
         display: flex;
-        align-items: flex-start;
         justify-content: space-between;
-        gap: 16px;
+        background: var(--teal-soft);
+        border: 1px solid var(--soft-line);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--teal);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        margin-bottom: 8px;
       }
-      .cover-tag {
-        display: inline-flex;
+      .photo-card {
+        border: 1px solid var(--soft-line);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        background: #ffffff;
+      }
+      .photo-card-header {
+        display: flex;
         align-items: center;
         gap: 8px;
-        padding: 7px 12px;
-        border-radius: 999px;
-        background: rgba(20, 50, 75, 0.08);
-        color: #17324c;
-        font-size: 10px;
+        padding: 5px 10px;
+        background: var(--teal);
+        color: #ffffff;
+      }
+      .photo-seq {
+        font-size: 9px;
         font-weight: 800;
         letter-spacing: .08em;
         text-transform: uppercase;
       }
-      .cover-hero {
-        margin-top: 8mm;
-        display: grid;
-        grid-template-columns: 1.6fr .9fr;
-        gap: 14px;
-        align-items: stretch;
+      .photo-date {
+        font-size: 9px;
+        color: rgba(255,255,255,.78);
+        flex: 1;
       }
-      .cover-main {
-        padding: 18px 20px;
-        border-radius: 18px;
-        background: rgba(255,255,255,.78);
-        border: 1px solid rgba(219,227,234,.95);
-        box-shadow: 0 14px 30px rgba(18, 43, 68, 0.08);
-      }
-      .title {
-        margin: 4mm 0 3mm;
-        font-size: 31px;
-        line-height: 1.02;
-        letter-spacing: -0.03em;
-      }
-      .subtitle {
-        font-size: 13px;
-        color: #567086;
-        margin-bottom: 8mm;
-        line-height: 1.6;
-      }
-      .cover-side {
-        padding: 18px 18px 16px;
-        border-radius: 18px;
-        background: linear-gradient(180deg, rgba(20,50,75,.96), rgba(20,50,75,.88));
-        color: #ffffff;
-        box-shadow: 0 14px 30px rgba(18, 43, 68, 0.12);
-      }
-      .cover-side .k,
-      .cover-side .v {
-        color: #fff;
-      }
-      .cover-side .kv {
-        border-color: rgba(255,255,255,.16);
-        background: rgba(255,255,255,.08);
-      }
-      .cover-highlight {
-        margin-top: 14px;
-        padding: 14px 16px;
-        border-radius: 14px;
-        background: #14324b;
-        color: #ffffff;
-        font-weight: 700;
-        letter-spacing: .03em;
-        line-height: 1.5;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .kv {
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(255,255,255,.78);
-        border: 1px solid #D3DCE6;
-      }
-      .k {
-        display: block;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        color: #6a7e91;
-        margin-bottom: 5px;
-      }
-      .v {
-        display: block;
-        font-size: 13px;
-        font-weight: 700;
-        color: #15222f;
-        line-height: 1.35;
-      }
-      .section {
-        margin-top: 14mm;
-        padding: 14mm 14mm 0;
-      }
-      .section-panel {
-        border: 1px solid #D3DCE6;
-        border-radius: 18px;
-        background: #ffffff;
-        box-shadow: 0 10px 24px rgba(18, 43, 68, 0.05);
-        padding: 14mm 14mm 12mm;
-      }
-      .section-title {
-        margin: 0 0 8px;
-        font-size: 18px;
-      }
-      .section-text {
-        margin: 0 0 10px;
-        font-size: 11.5px;
-        line-height: 1.7;
-        color: #31465a;
-      }
-      .muted {
-        color: #5c7185;
-        font-size: 11px;
-        line-height: 1.6;
-      }
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #e8eff7;
-        color: #17324c;
-        font-size: 11px;
-        font-weight: 700;
-      }
-      .tone-positivo { background: #e7f7ec; color: #176b37; }
-      .tone-tecnico { background: #eef2ff; color: #3246a8; }
-      .tone-preventivo { background: #fff4df; color: #a16207; }
-      .day-section {
-        margin-top: 14mm;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .section-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 10px;
-      }
-      .photos {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-      .photo-card {
-        border: 1px solid #D3DCE6;
-        border-radius: 16px;
-        overflow: hidden;
-        background: #ffffff;
-        box-shadow: 0 8px 24px rgba(18, 43, 68, 0.05);
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .photo-media {
+      .photo-img-wrap {
         width: 100%;
-        min-height: 88mm;
         background: #eef4f8;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        border-bottom: 1px solid var(--soft-line);
+        text-align: center;
       }
-      .photo-media img {
-        width: 100%;
-        max-height: 90mm;
-        object-fit: cover;
+      .photo-img-wrap img {
+        max-width: 100%;
+        max-height: 100mm;
+        object-fit: contain;
         display: block;
+        margin: 0 auto;
       }
-      .photo-placeholder {
-        color: #6a7e91;
-        font-size: 13px;
+      .photo-no-img {
         padding: 20px;
-      }
-      .photo-body {
-        padding: 12px 14px 14px;
-      }
-      .photo-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        align-items: flex-start;
-        margin-bottom: 8px;
-      }
-      .photo-kicker {
-        margin: 0 0 4px;
+        color: var(--muted);
         font-size: 10px;
-        font-weight: 700;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #6a7e91;
       }
-      .photo-head h3 {
-        margin: 0;
-        font-size: 15px;
-      }
-      /* base .classification — colors set by subclass variants below */
-      .photo-text,
-      .tech-text {
-        margin: 0;
-        font-size: 11.5px;
-        line-height: 1.7;
-        color: #31465a;
-      }
-      .document-footer {
-        margin-top: 10mm;
-        padding: 10px 14px;
-        border-radius: 12px;
-        border: 1px solid #D3DCE6;
-        background: #f8fbff;
-        color: #5c7185;
-        font-size: 10px;
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .manual-caption,
-      .recommendation {
-        margin-top: 10px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: #f8fbff;
-        border: 1px solid #D3DCE6;
-      }
-      .photo-grid {
-        margin-top: 10px;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .detail-block {
-        margin-top: 14px;
-        padding: 12px 14px;
-        border: 1px solid #D3DCE6;
-        border-radius: 14px;
-        background: #f8fbff;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .detail-block h3 {
-        margin: 0 0 10px;
-        font-size: 14px;
-      }
-      .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .photo-grid h4,
-      .recommendation h4 {
-        margin: 0 0 6px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        color: #5c7185;
-      }
-      .bullets {
-        margin: 0;
-        padding-left: 16px;
-        color: #31465a;
-      }
-      .bullets li {
-        margin-bottom: 4px;
-        line-height: 1.55;
-        font-size: 11px;
-      }
-      .summary-box {
-        margin-top: 10px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        border: 1px solid #D3DCE6;
-        background: #f7fafc;
-      }
-      table {
+      .photo-meta-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11px;
+        font-size: 10px;
       }
-      th, td {
-        border: 1px solid #D3DCE6;
-        padding: 8px 10px;
-        text-align: left;
+      .photo-meta-table td {
+        border: 1px solid var(--soft-line);
+        padding: 5px 8px;
         vertical-align: top;
+        word-break: break-word;
       }
-      th {
-        background: #edf4fb;
+      .photo-meta-table .label-cell {
+        background: var(--teal-soft);
+        color: var(--teal);
+        font-weight: 700;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        white-space: nowrap;
       }
-      .footer-space {
-        height: 14mm;
+
+      /* ── CONDIÇÕES ─────────────────────────────────────── */
+      .cond-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
       }
-      .export-history {
+      .cond-chip {
+        display: inline-flex;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--teal-soft);
+        border: 1px solid var(--soft-line);
+        color: var(--teal);
+        font-size: 9px;
+        font-weight: 600;
+      }
+
+      /* ── LISTAS ────────────────────────────────────────── */
+      .bullets {
+        margin: 0;
+        padding-left: 14px;
+        color: var(--ink);
+      }
+      .bullets li {
+        margin-bottom: 3px;
+        line-height: 1.5;
+        font-size: 10px;
+      }
+      .muted { color: var(--muted); }
+
+      /* ── TABELA DE EXPORTAÇÕES ─────────────────────────── */
+      .export-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+      }
+      .export-table th, .export-table td {
+        border: 1px solid var(--soft-line);
+        padding: 5px 8px;
+        text-align: left;
+      }
+      .export-table th {
+        background: var(--header-gray);
+        color: var(--teal);
+        font-weight: 700;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }
+      .export-table tr:nth-child(even) td {
+        background: var(--row-soft);
+      }
+
+      /* ── RODAPÉ ────────────────────────────────────────── */
+      .doc-footer {
         margin-top: 10mm;
+        padding: 6px 10px;
+        border-top: 2px solid var(--teal);
+        display: flex;
+        justify-content: space-between;
+        font-size: 8px;
+        color: var(--muted);
       }
+
       .page-break {
         break-before: page;
         page-break-before: always;
       }
-      .classification { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
-      .classification-satisfatoria { background: #e7f7ec; color: #176b37; }
-      .classification-muito-satisfatoria { background: #dbeafe; color: #1d4ed8; }
-      .classification-preventivo { background: #fff4df; color: #a16207; }
-      .classification-atencao { background: #fef2f2; color: #b91c1c; }
-      .conditions-row {
-        margin-top: 10px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        gap: 6px;
-      }
-      .conditions-label {
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        color: #6a7e91;
-        line-height: 22px;
-        margin-right: 4px;
-        white-space: nowrap;
-      }
-      .conditions-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-      }
-      .condition-chip {
-        display: inline-flex;
-        padding: 3px 9px;
-        border-radius: 999px;
-        background: #eef4f8;
-        border: 1px solid #D3DCE6;
-        color: #17324c;
-        font-size: 10px;
-        font-weight: 600;
-      }
     </style>
   `;
 
-  const exportHistory =
-    exportsList ||
-    '<tr><td colspan="3">Nenhuma exportação registrada até o momento.</td></tr>';
+  const logoHtml = options.logoDataUrl
+    ? `<img src="${escapeHtml(options.logoDataUrl)}" alt="Logo" />`
+    : `<div class="logo-fallback">SGS</div>`;
 
-  const sections = `
-    <section class="sheet cover">
-      <div class="cover-top">
-        <div class="brand">SGS · Sistema de Gestão de Segurança</div>
-        ${options.logoDataUrl ? `<img class="cover-logo" src="${escapeHtml(options.logoDataUrl)}" alt="Logo" />` : ''}
-        <div class="cover-tag">Gerado em ${escapeHtml(generatedAtLabel)}</div>
-      </div>
+  const aiSummaryText =
+    report.ai_summary ||
+    'Avaliação consolidada pendente de geração automática ou edição manual.';
 
-      <div class="cover-hero">
-        <div class="cover-main">
-          <h1 class="title">RELATÓRIO FOTOGRÁFICO</h1>
-          <div class="subtitle">
-            ${escapeHtml(options.companyName)} · documento profissional de registro visual, análise técnica e histórico operacional.
-          </div>
+  const finalConclusionText =
+    report.final_conclusion ||
+    'Parecer técnico em edição. Utilize a tela de edição para concluir a redação.';
 
-          <div class="grid">
-            ${renderKeyValue('Cliente', report.client_name)}
-            ${renderKeyValue('Obra', report.project_name)}
-            ${renderKeyValue('Unidade', report.unit_name)}
-            ${renderKeyValue('Local', report.location)}
-            ${renderKeyValue('Data', buildPeriodLabel(report))}
-            ${renderKeyValue('Período', `${formatTime(report.start_time)} às ${formatTime(report.end_time)}`)}
-            ${renderKeyValue('Tipo de atividade', report.activity_type)}
-            ${renderKeyValue('Responsável', report.responsible_name)}
-            ${renderKeyValue('Empresa executora', report.contractor_company)}
-            ${renderKeyValue('Turno', report.shift)}
-            ${renderKeyValue('Condição da área', report.area_status)}
-            ${renderKeyValue('Tom do relatório', report.report_tone)}
-          </div>
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Relatório Fotográfico</title>
+    ${style}
+  </head>
+  <body>
+    <div class="page">
 
-          <div class="cover-highlight ${toneClass(report.report_tone)}">
-            ${escapeHtml(buildCoverHighlight(report))}
-          </div>
-        </div>
-
-        <aside class="cover-side">
-          <div class="grid">
-            ${renderKeyValue('Resumo', report.ai_summary || 'Consolidação técnica em andamento')}
-            ${renderKeyValue('Conclusão', report.final_conclusion || 'Em edição')}
-            ${renderKeyValue('Fotos', String(renderableImages.length))}
-            ${renderKeyValue('Datas', String((report.days || []).length))}
-          </div>
-        </aside>
-      </div>
-
-      <div class="document-footer">
-        <span>Relatório fotográfico consolidado para leitura técnica e operacional.</span>
-        <span>Uso interno SGS</span>
-      </div>
-    </section>
-
-    <section class="section section-panel page-break">
-      <h2 class="section-title">2. Dados da obra</h2>
-      <div class="grid">
-        ${renderKeyValue('Cliente', report.client_name)}
-        ${renderKeyValue('Obra', report.project_name)}
-        ${renderKeyValue('Unidade', report.unit_name)}
-        ${renderKeyValue('Local específico', report.location)}
-        ${renderKeyValue('Responsável', report.responsible_name)}
-        ${renderKeyValue('Empresa executora', report.contractor_company)}
-      </div>
-    </section>
-
-    <section class="section section-panel">
-      <h2 class="section-title">3. Objetivo do relatório</h2>
-      <p class="section-text">${escapeHtml(
-        'O presente relatório fotográfico tem por objetivo documentar visualmente a atividade executada, organizar as evidências por data e apresentar leitura técnica objetiva, com linguagem profissional e compatível com o contexto operacional registrado.',
-      )}</p>
-    </section>
-
-    <section class="section section-panel">
-      <h2 class="section-title">4. Descrição geral da atividade</h2>
-      <p class="section-text">${escapeHtml(
-        report.general_observations ||
-          `Atividade de ${report.activity_type.toLowerCase()} executada com registro fotográfico da frente de serviço, evidenciando organização operacional, rastreabilidade e acompanhamento do cenário de campo.`,
-      )}</p>
-    </section>
-
-    <section class="section section-panel">
-      <h2 class="section-title">5. Condições gerais observadas</h2>
-      <p class="section-text">${escapeHtml(report.ai_summary || buildCoverHighlight(report))}</p>
-    </section>
-
-    <section class="section section-panel page-break">
-      <h2 class="section-title">6. Registro fotográfico separado por data</h2>
-      <p class="section-text">As imagens estão agrupadas por data de atividade para facilitar a leitura operacional e a rastreabilidade do documento.</p>
-      ${photoSections || '<p class="muted">Nenhuma fotografia vinculada ao relatório.</p>'}
-    </section>
-
-    <section class="section section-panel page-break">
-      <h2 class="section-title">7. Detalhamento de cada foto</h2>
-      <p class="section-text">Cada registro fotográfico apresenta legenda, análise técnica, classificação da condição observada e, quando necessário, recomendação preventiva leve.</p>
-      ${photoDetails || '<p class="muted">Nenhuma fotografia vinculada ao relatório.</p>'}
-    </section>
-
-    <section class="section section-panel page-break">
-      <h2 class="section-title">8. Avaliação consolidada</h2>
-      <p class="section-text">${escapeHtml(
-        report.ai_summary ||
-          'Avaliação consolidada pendente de geração automática ou edição manual.',
-      )}</p>
-    </section>
-
-    <section class="section section-panel">
-      <h2 class="section-title">9. Parecer técnico</h2>
-      <p class="section-text">${escapeHtml(
-        report.final_conclusion ||
-          'Parecer técnico em edição. Utilize a tela de edição para concluir a redação final.',
-      )}</p>
-    </section>
-
-    <section class="section section-panel">
-      <h2 class="section-title">10. Conclusão final</h2>
-      <p class="section-text">${escapeHtml(
-        report.final_conclusion ||
-          'Conclusão final em aberto. Registre ou regenere a síntese antes da finalização.',
-      )}</p>
-    </section>
-
-    <section class="section section-panel page-break export-history">
-      <h2 class="section-title">Histórico de exportações</h2>
-      <table>
-        <thead>
+      <!-- CABEÇALHO TÉCNICO -->
+      <div class="tech-header">
+        <table class="header-table">
           <tr>
-            <th>Tipo</th>
-            <th>Gerado em</th>
-            <th>Arquivo / URL</th>
+            <td class="logo-cell">${logoHtml}</td>
+            <td class="title-cell">
+              RELATÓRIO FOTOGRÁFICO
+              <small>${escapeHtml(options.companyName)}</small>
+            </td>
+            <td class="code-cell">
+              <strong>${escapeHtml(buildPeriodLabel(report))}</strong>
+              Emitido em<br />${escapeHtml(generatedAtLabel)}
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          ${exportHistory}
-        </tbody>
-      </table>
-    </section>
-  `;
-
-  return `<!DOCTYPE html>
-  <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8" />
-      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Relatório Fotográfico</title>
-      ${style}
-    </head>
-    <body>
-      <div class="page">
-        ${sections}
+        </table>
       </div>
-    </body>
-  </html>`;
+
+      <!-- 1. IDENTIFICAÇÃO -->
+      <div class="section">
+        <div class="section-title">1. Identificação do relatório</div>
+        <div class="section-body" style="padding:0">
+          <table class="meta-table" style="margin:0">
+            <tr>
+              <td class="label-cell">Cliente</td>
+              <td class="value-cell">${escapeHtml(report.client_name)}</td>
+              <td class="label-cell">Obra / Projeto</td>
+              <td class="value-cell">${escapeHtml(report.project_name)}</td>
+            </tr>
+            <tr>
+              <td class="label-cell">Unidade</td>
+              <td class="value-cell">${escapeHtml(report.unit_name || '—')}</td>
+              <td class="label-cell">Local específico</td>
+              <td class="value-cell">${escapeHtml(report.location || '—')}</td>
+            </tr>
+            <tr>
+              <td class="label-cell">Responsável</td>
+              <td class="value-cell">${escapeHtml(report.responsible_name)}</td>
+              <td class="label-cell">Empresa executora</td>
+              <td class="value-cell">${escapeHtml(report.contractor_company)}</td>
+            </tr>
+            <tr>
+              <td class="label-cell">Tipo de atividade</td>
+              <td class="value-cell">${escapeHtml(report.activity_type)}</td>
+              <td class="label-cell">Período</td>
+              <td class="value-cell">${escapeHtml(buildPeriodLabel(report))} · ${escapeHtml(formatTime(report.start_time))}–${escapeHtml(formatTime(report.end_time))}</td>
+            </tr>
+            <tr>
+              <td class="label-cell">Turno</td>
+              <td class="value-cell">${escapeHtml(report.shift)}</td>
+              <td class="label-cell">Condição da área</td>
+              <td class="value-cell">${escapeHtml(report.area_status)}</td>
+            </tr>
+            <tr>
+              <td class="label-cell">Tom do relatório</td>
+              <td class="value-cell">${escapeHtml(toneLabel(report.report_tone))}</td>
+              <td class="label-cell">Total de fotos</td>
+              <td class="value-cell">${renderableImages.length}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. OBSERVAÇÕES GERAIS -->
+      <div class="section">
+        <div class="section-title">2. Observações gerais</div>
+        <div class="section-body">
+          ${escapeHtml(
+            report.general_observations ||
+              `Atividade de ${report.activity_type.toLowerCase()} executada com registro fotográfico da frente de serviço, evidenciando organização operacional e acompanhamento do cenário de campo.`,
+          )}
+        </div>
+      </div>
+
+      <!-- 3. SÍNTESE DA IA -->
+      <div class="section">
+        <div class="section-title">3. Síntese técnica (gerada por IA)</div>
+        <div class="section-body">${escapeHtml(aiSummaryText)}</div>
+      </div>
+
+      <!-- 4. REGISTRO FOTOGRÁFICO (nova página) -->
+      <div class="page-break"></div>
+      <div class="section">
+        <div class="section-title">4. Registro fotográfico</div>
+        <div class="section-body" style="padding: 10px 0 0">
+          ${
+            photoSections ||
+            '<p class="muted" style="padding:10px">Nenhuma fotografia vinculada ao relatório.</p>'
+          }
+        </div>
+      </div>
+
+      <!-- 5. AVALIAÇÃO CONSOLIDADA -->
+      <div class="section page-break">
+        <div class="section-title">5. Avaliação consolidada</div>
+        <div class="section-body">${escapeHtml(aiSummaryText)}</div>
+      </div>
+
+      <!-- 6. PARECER TÉCNICO -->
+      <div class="section">
+        <div class="section-title">6. Parecer técnico / Conclusão</div>
+        <div class="section-body">${escapeHtml(finalConclusionText)}</div>
+      </div>
+
+      <!-- 7. HISTÓRICO DE EXPORTAÇÕES -->
+      <div class="section">
+        <div class="section-title">7. Histórico de exportações</div>
+        <div class="section-body" style="padding:0">
+          <table class="export-table">
+            <thead>
+              <tr>
+                <th style="width:20%">Tipo</th>
+                <th>Gerado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                exportsList ||
+                '<tr><td colspan="2" class="muted" style="padding:8px 10px">Nenhuma exportação registrada.</td></tr>'
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RODAPÉ -->
+      <div class="doc-footer">
+        <span>SGS · Sistema de Gestão de Segurança · Relatório Fotográfico · ${escapeHtml(options.companyName)}</span>
+        <span>Gerado em ${escapeHtml(generatedAtLabel)}</span>
+      </div>
+
+    </div>
+  </body>
+</html>`;
+
+  return html;
 }
