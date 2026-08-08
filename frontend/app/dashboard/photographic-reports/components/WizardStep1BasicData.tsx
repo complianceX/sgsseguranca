@@ -41,9 +41,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-foreground mb-1">
+      <label className="block text-sm font-medium text-[var(--ds-color-text-primary)] mb-1">
         {label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
+        {required && <span className="ml-0.5 text-[var(--ds-color-danger)]">*</span>}
       </label>
       <input
         type={type}
@@ -51,7 +51,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+        className="w-full rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm placeholder:text-[var(--ds-color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
       />
     </div>
   );
@@ -72,13 +72,13 @@ function TextArea({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+      <label className="block text-sm font-medium text-[var(--ds-color-text-primary)] mb-1">{label}</label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         rows={rows}
-        className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+        className="w-full resize-none rounded-md border border-[var(--ds-color-border-input)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm placeholder:text-[var(--ds-color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:opacity-50"
       />
     </div>
   );
@@ -118,8 +118,8 @@ export function WizardStep1BasicData({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Dados do relatório</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Dados do relatório</h2>
+        <p className="text-sm text-[var(--ds-color-text-muted)] mt-0.5">
           Informações básicas sobre a inspeção ou atividade realizada.
         </p>
       </div>
@@ -206,7 +206,7 @@ export function WizardStep1BasicData({
         <button
           type="button"
           onClick={() => setAdvancedOpen((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-sm text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] transition-colors"
         >
           <ChevronDown
             className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
@@ -215,7 +215,7 @@ export function WizardStep1BasicData({
         </button>
 
         {advancedOpen && (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 rounded-lg border border-dashed border-border p-4 bg-muted/30">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] p-4 bg-[var(--ds-color-surface-muted)]/30">
             <Field
               label="Unidade / seção"
               value={form.unit_name}

@@ -210,17 +210,17 @@ function WizardProgressBar({
                 onClick={() => done && onStepClick?.(step)}
                 className={[
                   "flex items-center gap-2 text-sm font-medium transition-colors",
-                  active ? "text-primary" : done ? "cursor-pointer text-muted-foreground hover:text-foreground" : "text-muted-foreground/50 cursor-default",
+                  active ? "text-[var(--ds-color-action-primary)]" : done ? "cursor-pointer text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" : "text-[var(--ds-color-text-muted)]/50 cursor-default",
                 ].join(" ")}
               >
                 <span
                   className={[
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all",
                     active
-                      ? "border-primary bg-primary text-primary-foreground"
+                      ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)]"
                       : done
-                        ? "border-primary bg-background text-primary"
-                        : "border-muted-foreground/30 bg-background text-muted-foreground/50",
+                        ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-action-primary)]"
+                        : "border-muted-foreground/30 bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)]/50",
                   ].join(" ")}
                 >
                   {done ? <CheckCircle2 className="h-4 w-4" /> : step}
@@ -231,7 +231,7 @@ function WizardProgressBar({
                 <div
                   className={[
                     "mx-2 flex-1 h-px transition-all",
-                    step < currentStep ? "bg-primary" : "bg-border",
+                    step < currentStep ? "bg-[var(--ds-color-action-primary)]" : "bg-border",
                   ].join(" ")}
                 />
               )}
@@ -721,7 +721,7 @@ export function PhotographicReportWorkspace({
 
   if (loading) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center text-muted-foreground">
+      <div className="flex min-h-[320px] items-center justify-center text-[var(--ds-color-text-muted)]">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
