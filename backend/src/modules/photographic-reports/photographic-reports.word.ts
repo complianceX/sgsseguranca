@@ -16,6 +16,11 @@ export type PhotographicReportWordImage = PhotographicReportImageResponse & {
 
 type BuildPhotographicReportWordBufferOptions = {
   companyName: string;
+  /**
+   * Mesmo identificador do PDF e do Document Registry, vindo de
+   * `buildPhotographicReportCode`. Ver photographic-reports.document-code.ts.
+   */
+  documentCode: string;
   generatedAt?: string;
   renderableImages: PhotographicReportWordImage[];
 };
@@ -394,6 +399,7 @@ function buildDocumentBody(
   body.push(
     makeTable(
       [
+        ['Código do documento', options.documentCode],
         ['Cliente', report.client_name],
         ['Obra', report.project_name],
         ['Unidade', report.unit_name || '-'],
