@@ -176,4 +176,89 @@ describe('buildPhotographicReportWordBuffer', () => {
     expect(relationshipsXml).toContain('media/image1.png');
     expect(zip.file('word/media/image1.png')).not.toBeNull();
   });
+
+  it('emite as seções de SST, o manifesto e a identidade correta da empresa', async () => {
+    const report = buildSampleReport();
+    const image = report.images[0];
+    if (!image) {
+      throw new Error('Imagem de teste ausente.');
+    }
+
+    const buffer = await buildPhotographicReportWordBuffer(report, {
+      companyIdentity: {
+        razaoSocial: 'SGS Segurança LTDA',
+        cnpj: '12345678000190',
+      },
+      clientName: 'Cliente Exemplo',
+      documentCode: 'RFP-2026-REPORT01',
+      generatedAt: '2026-05-15T10:45:00.000Z',
+      renderableImages: [
+        {
+          ...image,
+          data_url: null,
+          activity_date_label: '2026-05-15',
+        },
+      ],
+    });
+
+    const zip = await JSZip.loadAsync(buffer);
+    const documentXml = await zip.file('word/document.xml')!.async('string');
+
+    // A empresa EMITENTE é o tenant, não o cliente — era exatamente o bug.
+    expect(documentXml).toContain('SGS Segurança LTDA');
+    expect(documentXml).toContain('RFP-2026-REPORT01');
+
+    // Credencial técnica e escopo normativo.
+    expect(documentXml).toContain('Responsável técnico');
+    expect(documentXml).toContain('CREA-SP 123456');
+    expect(documentXml).toContain('ART-2026-000123');
+    expect(documentXml).toContain('Normas regulamentadoras aplicáveis');
+    expect(documentXml).toContain('NR-06 · NR-12 · NR-35');
+    expect(documentXml).toContain('Metodologia de inspeção');
+    expect(documentXml).toContain('Escopo e limitações');
+
+    // Resumo de NC aparece mesmo sem nenhuma, com estado explícito: o leitor
+    // precisa distinguir "nenhuma encontrada" de "não avaliado".
+    expect(documentXml).toContain('Resumo de não conformidades');
+    expect(documentXml).toContain(
+      'Nenhuma das evidências deste relatório foi marcada como não conformidade',
+    );
+
+    // Manifesto e a ressalva sobre o que o hash prova.
+    expect(documentXml).toContain('Manifesto de evidências');
+    expect(documentXml).toContain('não a autoria original da captura');
+    expect(documentXml).toContain('arredondadas para aproximadamente 1 km');
+
+    expect(documentXml).toContain('Validação pública');
+  });
+
+  it('numera as seções sem furos ao inserir blocos condicionais', async () => {
+    const report = buildSampleReport();
+    // Sem NRs, metodologia nem escopo: três seções condicionais somem e a
+    // numeração precisa continuar contígua.
+    report.applicable_nrs = null;
+    report.inspection_methodology = null;
+    report.scope_and_limitations = null;
+
+    const buffer = await buildPhotographicReportWordBuffer(report, {
+      companyIdentity: { razaoSocial: 'SGS', cnpj: null },
+      clientName: 'Cliente',
+      documentCode: 'RFP-2026-REPORT01',
+      renderableImages: [],
+    });
+
+    const zip = await JSZip.loadAsync(buffer);
+    const documentXml = await zip.file('word/document.xml')!.async('string');
+
+    const numbers = [...documentXml.matchAll(/>(\d+)\.\s[A-ZÁÉÍÓÚÂÊÔÃÕÇ]/g)]
+      .map((match) => Number(match[1]))
+      .filter((value) => Number.isFinite(value));
+
+    expect(numbers.length).toBeGreaterThan(0);
+    // Começa em 2 (a capa não é numerada) e cresce de um em um.
+    expect(numbers[0]).toBe(2);
+    numbers.forEach((value, index) => {
+      expect(value).toBe(index + 2);
+    });
+  });
 });
