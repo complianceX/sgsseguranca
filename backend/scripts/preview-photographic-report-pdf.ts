@@ -25,6 +25,21 @@ import { buildPhotographicReportHtml } from '../src/modules/photographic-reports
 /** Raiz do repositório, resolvida a partir deste arquivo. */
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
+/**
+ * Assinatura manuscrita fictícia como data URI.
+ *
+ * Em produção a imagem vem do storage via `resolveSignatureData` — assinaturas
+ * desenhadas passam de 4 KB e são offloaded para o S3, então `signature_data`
+ * chega nulo. Aqui um SVG inline exercita o mesmo caminho de renderização.
+ */
+const SAMPLE_SIGNATURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 90">
+  <path d="M12 62 C 34 18, 52 20, 58 46 C 63 68, 78 70, 88 50 C 96 34, 108 30, 116 44 C 124 58, 140 60, 152 44 C 166 26, 184 30, 190 50 C 196 70, 214 68, 228 48 C 240 30, 262 30, 276 46 C 286 58, 298 58, 308 48"
+        fill="none" stroke="%230f2036" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M96 74 C 140 66, 200 66, 250 72" fill="none" stroke="%230f2036" stroke-width="1.6" stroke-linecap="round" opacity="0.75"/>
+</svg>`;
+
+const sampleSignatureImage = `data:image/svg+xml;utf8,${SAMPLE_SIGNATURE_SVG.replace(/\n\s*/g, ' ').replace(/#/g, '%23')}`;
+
 /** Sobrescreva com PREVIEW_OUT_DIR para escrever fora do repositório. */
 const OUT_DIR = process.env.PREVIEW_OUT_DIR
   ? path.resolve(process.env.PREVIEW_OUT_DIR)
@@ -276,7 +291,8 @@ async function main() {
         signedAt: '2026-08-08T09:42:00Z',
         signatureHash:
           'b7e2d4f60a1c8395e2f4a6b8c0d2e4f60819a3b5c7d9e1f30527496a8b0c2d4e',
-        signatureImage: null,
+        // Assinatura desenhada: exercita o caminho da imagem no documento.
+        signatureImage: sampleSignatureImage,
       },
     ],
   });

@@ -12,6 +12,7 @@ import QRCode from 'qrcode';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
 import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { SignaturesService } from '../signatures/signatures.service';
+import type { Signature } from '../signatures/entities/signature.entity';
 import {
   buildIntegrityFlags,
   hashDeviceId,
@@ -1943,6 +1944,37 @@ export class PhotographicReportsService {
    * O resolver dedicado (`resolvePhotographicReportSignatureDocumentScope`) é
    * a correção; isto aqui é o cinto de segurança.
    */
+  /**
+   * Imagem da assinatura pronta para o HTML.
+   *
+   * Assinaturas acima de 4 KB (`SIGNATURE_DATA_S3_THRESHOLD_BYTES`) — ou seja,
+   * praticamente toda assinatura DESENHADA — têm `signature_data` nulo e o
+   * payload no storage. Buscar aqui, no serviço, mantém a invariante de que o
+   * Chromium não faz requisição de rede durante o render: quando o HTML é
+   * montado, a imagem já é um data URI.
+   *
+   * Assinaturas do tipo HMAC não têm imagem — a prova é o hash, e o documento
+   * mostra a linha para rubrica manuscrita.
+   */
+  private async resolveSignatureImage(
+    signature: Signature,
+  ): Promise<string | null> {
+    try {
+      const data = await this.signaturesService.resolveSignatureData(signature);
+      if (!data || !data.startsWith('data:image/')) {
+        return null;
+      }
+      return data;
+    } catch (error) {
+      this.logger.warn(
+        `Imagem da assinatura ${signature.id} indisponível na emissão: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
   private async loadReportSignatures(
     reportId: string,
   ): Promise<RenderableSignature[]> {
@@ -1952,24 +1984,18 @@ export class PhotographicReportsService {
         'PHOTOGRAPHIC_REPORT',
       );
 
-      return signatures.map((signature) => ({
-        signerName: signature.user?.nome ?? null,
-        signerRole: signature.user?.funcao ?? null,
-        type: signature.type ?? null,
-        signedAt: signature.signed_at
-          ? signature.signed_at.toISOString()
-          : null,
-        signatureHash: signature.signature_hash ?? null,
-        // Só data URI pequeno vai para o HTML. Acima do limiar o payload está
-        // no S3, e buscá-lo quebraria a invariante de "sem rede durante o
-        // render" do Chromium.
-        signatureImage:
-          signature.signature_data &&
-          signature.signature_data.startsWith('data:image/') &&
-          signature.signature_data.length <= 4096
-            ? signature.signature_data
+      return await Promise.all(
+        signatures.map(async (signature) => ({
+          signerName: signature.user?.nome ?? null,
+          signerRole: signature.user?.funcao ?? null,
+          type: signature.type ?? null,
+          signedAt: signature.signed_at
+            ? signature.signed_at.toISOString()
             : null,
-      }));
+          signatureHash: signature.signature_hash ?? null,
+          signatureImage: await this.resolveSignatureImage(signature),
+        })),
+      );
     } catch (error) {
       this.logger.warn(
         `Assinaturas indisponíveis para o relatório ${reportId} durante a emissão: ${
