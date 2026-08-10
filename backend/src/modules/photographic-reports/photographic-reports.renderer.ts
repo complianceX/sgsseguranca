@@ -403,13 +403,45 @@ function renderIdentityRail(
   return cards ? `<section class="rail">${cards}</section>` : '';
 }
 
+/**
+ * Escolhe entre 2, 3 e 4 colunas a que produz a última linha mais cheia.
+ * Empate resolve pelo menor número de colunas, que dá cards mais largos.
+ */
+function pickMetricColumns(total: number): 2 | 3 | 4 {
+  if (total <= 4) return 2;
+
+  const candidates: Array<2 | 3 | 4> = [4, 3];
+  let best: 2 | 3 | 4 = 3;
+  let bestRemainder = -1;
+
+  for (const columns of candidates) {
+    const remainder = total % columns;
+    // Resto 0 significa última linha cheia — o melhor caso possível.
+    const score = remainder === 0 ? columns : remainder;
+    if (score > bestRemainder) {
+      bestRemainder = score;
+      best = columns;
+    }
+  }
+
+  return best;
+}
+
 /** components/ExecutiveSummaryStrip.ts */
 function renderExecutiveSummary(options: {
   title: string;
   summary: string;
   metrics: { label: string; value: string | number; tone: string }[];
 }): string {
-  const columns = options.metrics.length <= 4 ? 2 : 3;
+  /**
+   * Número de colunas escolhido para não deixar card órfão na última linha.
+   *
+   * O ExecutiveSummaryStrip do pdf-system usa 2 ou 3 colunas, mas ele nunca
+   * recebeu 7 métricas: com 3 colunas o resultado é 3+3+1, e o card sozinho na
+   * última linha lê como erro de layout. Entre 4 e 3 colunas, escolhe a que
+   * deixa a última linha mais cheia.
+   */
+  const columns = pickMetricColumns(options.metrics.length);
   const metrics = options.metrics
     .map(
       (metric) => `
@@ -708,35 +740,36 @@ function renderEvidenceManifest(
 function renderSignatures(signatures?: RenderableSignature[]): string {
   if (!signatures || signatures.length === 0) return '';
 
-  const rows = signatures
+  const cards = signatures
     .map((signature) => {
       const proof = [
-        signature.type ? `Tipo: ${sanitize(signature.type)}` : '',
-        signature.signedAt
-          ? `Assinado em ${formatDateTime(signature.signedAt)}`
-          : '',
-        signature.signatureHash
-          ? `Prova ${signature.signatureHash.slice(0, 16)}`
-          : '',
+        signature.type ? sanitize(signature.type).toUpperCase() : '',
+        signature.signedAt ? formatDateTime(signature.signedAt) : '',
       ]
         .filter(Boolean)
         .join(' · ');
 
       return `
-        <div class="sig-row">
-          <div class="sig-identity">
-            <div class="sig-name">${escapeHtml(sanitize(signature.signerName))}</div>
+        <div class="sig-card">
+          <div class="sig-area">
             ${
-              signature.signerRole
-                ? `<div class="sig-role">${escapeHtml(signature.signerRole)}</div>`
+              signature.signatureImage
+                ? `<img src="${escapeHtml(signature.signatureImage)}" alt="Assinatura de ${escapeHtml(sanitize(signature.signerName))}" />`
                 : ''
             }
-            <div class="sig-proof mono">${escapeHtml(proof || '—')}</div>
           </div>
+          <div class="sig-rule"></div>
+          <div class="sig-name">${escapeHtml(sanitize(signature.signerName))}</div>
           ${
-            signature.signatureImage
-              ? `<div class="sig-image"><img src="${escapeHtml(signature.signatureImage)}" alt="Assinatura" /></div>`
-              : '<div class="sig-image sig-image--empty"></div>'
+            signature.signerRole
+              ? `<div class="sig-role">${escapeHtml(signature.signerRole)}</div>`
+              : ''
+          }
+          ${proof ? `<div class="sig-proof">${escapeHtml(proof)}</div>` : ''}
+          ${
+            signature.signatureHash
+              ? `<div class="sig-hash mono">Prova ${escapeHtml(signature.signatureHash.slice(0, 24))}</div>`
+              : ''
           }
         </div>
       `;
@@ -749,7 +782,9 @@ function renderSignatures(signatures?: RenderableSignature[]): string {
         <div class="ds-card-accent"></div>
         <div class="ds-card-title">Assinaturas</div>
       </div>
-      <div class="section-body sig-body">${rows}</div>
+      <div class="section-body">
+        <div class="sig-grid">${cards}</div>
+      </div>
     </section>
   `;
 }
@@ -1163,7 +1198,7 @@ export function buildPhotographicReportHtml(
         border-radius: calc(var(--radius) / 2);
       }
       .exec-title {
-        font-size: 9.5pt;
+        font-size: 11.6pt;
         font-weight: 700;
         color: var(--text-primary);
         margin-top: 2.2mm;
@@ -1181,6 +1216,7 @@ export function buildPhotographicReportHtml(
       }
       .metric-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .metric-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .metric-card {
         background: var(--surface);
         border: 0.22mm solid var(--border);
@@ -1189,7 +1225,7 @@ export function buildPhotographicReportHtml(
       }
       .metric-card .ds-label { padding: 0 1.2mm; margin-top: 1.6mm; }
       .metric-value {
-        font-size: 9.5pt;
+        font-size: 15.2pt;
         font-weight: 700;
         color: var(--text-primary);
         margin-top: 1mm;
@@ -1221,7 +1257,7 @@ export function buildPhotographicReportHtml(
         background: var(--brand);
       }
       .ds-card-title {
-        font-size: 9.5pt;
+        font-size: 11.6pt;
         font-weight: 700;
         color: var(--text-primary);
       }
@@ -1315,7 +1351,7 @@ export function buildPhotographicReportHtml(
         gap: 3mm;
       }
       .ev-title {
-        font-size: 9.5pt;
+        font-size: 11.6pt;
         font-weight: 700;
         color: var(--text-primary);
         margin-top: 1.6mm;
@@ -1514,51 +1550,67 @@ export function buildPhotographicReportHtml(
       }
       .mono { font-family: 'Courier New', Courier, monospace; }
 
-      /* ── ASSINATURAS ────────────────────────────────────────────── */
-      .sig-body > * + * { margin-top: 3mm; }
-      .sig-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+      /* ── ASSINATURAS ────────────────────────────────────────────────
+         Formato convencional de documento técnico: área de assinatura no
+         topo, linha, e identificação abaixo dela. Antes era identidade à
+         esquerda e linha à direita, o que deixava um vão morto no meio e
+         não lia como campo de assinatura. */
+      .sig-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 5mm;
+      }
+      .sig-card {
         border: 0.24mm solid var(--border);
         border-radius: 1.8mm;
-        padding: 2.6mm 3mm;
+        padding: 3mm 4mm 3.4mm;
         background: var(--surface);
         break-inside: avoid;
+        text-align: center;
       }
-      .sig-identity { flex: 1 1 auto; min-width: 0; }
+      /* Altura fixa para que cards com e sem imagem alinhem a linha. */
+      .sig-area {
+        height: 16mm;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 1mm;
+      }
+      .sig-area img {
+        max-width: 100%;
+        max-height: 15mm;
+        object-fit: contain;
+      }
+      .sig-rule {
+        border-top: 0.3mm solid var(--border-strong);
+        margin-bottom: 2mm;
+      }
       .sig-name {
         font-size: 9.2pt;
         font-weight: 700;
         color: var(--text-primary);
+        line-height: 1.25;
       }
       .sig-role {
         font-size: 8.3pt;
         color: var(--text-secondary);
         margin-top: 0.6mm;
+        line-height: 1.3;
       }
       .sig-proof {
         font-size: 7pt;
         color: var(--text-muted);
-        margin-top: 1.2mm;
-        word-break: break-word;
+        margin-top: 1.4mm;
+        letter-spacing: .04em;
       }
-      .sig-image {
-        flex: 0 0 34mm;
-        height: 12mm;
-        border-bottom: 0.3mm solid var(--border-strong);
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-      }
-      .sig-image img {
-        max-width: 34mm;
-        max-height: 12mm;
-        object-fit: contain;
+      .sig-hash {
+        font-size: 6.5pt;
+        color: var(--text-muted);
+        margin-top: 0.8mm;
+        word-break: break-all;
       }
       .gov-title {
-        font-size: 9.5pt;
+        font-size: 11.6pt;
         font-weight: 700;
         color: var(--text-primary);
       }
