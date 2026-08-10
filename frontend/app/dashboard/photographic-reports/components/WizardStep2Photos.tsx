@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import {
   BrainCircuit,
   Image as ImageIcon,
+  MapPin,
+  MapPinOff,
   Trash2,
   Upload,
   X,
@@ -39,6 +41,8 @@ interface WizardStep2Props {
   uploadDayId: string;
   uploadActivityDate: string;
   uploadManualCaption: string;
+  /** O último envio saiu sem geolocalização (negada ou indisponível). */
+  geoDenied: boolean;
   processingControllerRef: React.RefObject<AbortController | null>;
   onFilesSelected: (files: File[]) => void;
   onRemovePending: (id: string) => void;
@@ -72,6 +76,7 @@ export function WizardStep2Photos({
   uploadDayId,
   uploadActivityDate,
   uploadManualCaption,
+  geoDenied,
   processingControllerRef,
   onFilesSelected,
   onRemovePending,
@@ -102,6 +107,31 @@ export function WizardStep2Photos({
           Adicione as fotos e marque as condições observadas em cada uma.
         </p>
       </div>
+
+      {/* Aviso de geolocalização.
+          Antes do envio: o que será registrado e com que precisão.
+          Depois de um envio sem localização: aviso de que a evidência ficou
+          mais fraca — degradar em silêncio derrotaria o propósito da feature. */}
+      {geoDenied ? (
+        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--ds-color-warning)]/30 bg-[var(--ds-color-warning)]/8 px-3.5 py-3">
+          <MapPinOff className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-warning)]" />
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">
+            As últimas fotos foram enviadas <strong>sem geolocalização</strong> —
+            o navegador negou a permissão ou não oferece o recurso. O manifesto
+            de evidências do relatório mostrará &ldquo;—&rdquo; na coluna de
+            localização.
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/40 px-3.5 py-3">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-info)]" />
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">
+            A localização do envio será registrada no manifesto de evidências,
+            se o navegador permitir. As coordenadas são arredondadas para
+            aproximadamente 1 km por proteção de privacidade.
+          </p>
+        </div>
+      )}
 
       {/* Upload zone */}
       <div className="space-y-4">
