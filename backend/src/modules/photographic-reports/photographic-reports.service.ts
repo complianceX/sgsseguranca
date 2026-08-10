@@ -377,6 +377,27 @@ export class PhotographicReportsService {
       ai_condition_classification: image.ai_condition_classification,
       ai_recommendations: image.ai_recommendations,
       photo_conditions: image.photo_conditions,
+
+      is_nonconformity: image.is_nonconformity ?? false,
+      recommended_action: image.recommended_action ?? null,
+      action_deadline: image.action_deadline ?? null,
+      action_responsible: image.action_responsible ?? null,
+
+      // `device_id` e `ip_address` NÃO são expostos — ver comentário em
+      // PhotographicReportImageResponse. Só o manifesto do PDF os consome.
+      original_name: image.original_name ?? null,
+      mime_type: image.mime_type ?? null,
+      file_size_bytes: image.file_size_bytes ?? null,
+      hash_sha256: image.hash_sha256 ?? null,
+      captured_at: image.captured_at ? image.captured_at.toISOString() : null,
+      latitude: image.latitude ?? null,
+      longitude: image.longitude ?? null,
+      accuracy_m: image.accuracy_m ?? null,
+      exif_datetime: image.exif_datetime
+        ? image.exif_datetime.toISOString()
+        : null,
+      integrity_flags: image.integrity_flags ?? null,
+
       created_at: image.created_at.toISOString(),
       updated_at: image.updated_at.toISOString(),
       day: image.report_day_id ? dayMap.get(image.report_day_id) || null : null,
@@ -448,6 +469,7 @@ export class PhotographicReportsService {
       end_time: report.end_time,
       responsible_name: report.responsible_name,
       contractor_company: report.contractor_company,
+      ...this.mapReportSstAndGovernanceFields(report),
       general_observations: report.general_observations,
       ai_summary: report.ai_summary,
       final_conclusion: report.final_conclusion,
@@ -465,6 +487,47 @@ export class PhotographicReportsService {
       days: mappedDays,
       images: mappedImages,
       exports: mappedExports,
+    };
+  }
+
+  /**
+   * Campos de SST e governança comuns à resposta de lista e à detalhada.
+   *
+   * Extraído porque os dois mapeadores enumeram o mesmo conjunto: manter duas
+   * listas manuais foi o que fez `photo_conditions` e o INSERT de imagens
+   * divergirem em silêncio.
+   */
+  private mapReportSstAndGovernanceFields(
+    report: PhotographicReport,
+  ): Pick<
+    PhotographicReportListItemResponse,
+    | 'responsible_registration_type'
+    | 'responsible_registration_number'
+    | 'responsible_registration_state'
+    | 'art_number'
+    | 'applicable_nrs'
+    | 'inspection_methodology'
+    | 'scope_and_limitations'
+    | 'verification_code'
+    | 'final_pdf_hash_sha256'
+    | 'pdf_generated_at'
+  > {
+    return {
+      responsible_registration_type:
+        report.responsible_registration_type ?? null,
+      responsible_registration_number:
+        report.responsible_registration_number ?? null,
+      responsible_registration_state:
+        report.responsible_registration_state ?? null,
+      art_number: report.art_number ?? null,
+      applicable_nrs: report.applicable_nrs ?? null,
+      inspection_methodology: report.inspection_methodology ?? null,
+      scope_and_limitations: report.scope_and_limitations ?? null,
+      verification_code: report.verification_code ?? null,
+      final_pdf_hash_sha256: report.final_pdf_hash_sha256 ?? null,
+      pdf_generated_at: report.pdf_generated_at
+        ? report.pdf_generated_at.toISOString()
+        : null,
     };
   }
 
@@ -497,6 +560,7 @@ export class PhotographicReportsService {
       end_time: report.end_time,
       responsible_name: report.responsible_name,
       contractor_company: report.contractor_company,
+      ...this.mapReportSstAndGovernanceFields(report),
       general_observations: report.general_observations,
       ai_summary: report.ai_summary,
       final_conclusion: report.final_conclusion,
@@ -1184,10 +1248,14 @@ export class PhotographicReportsService {
         );
       } catch (insertErr) {
         const e = insertErr as Record<string, unknown>;
-        this.logger.error(`[uploadImages] INSERT failed: code=${e?.['code']} msg=${e?.['message']}`);
+        this.logger.error(
+          `[uploadImages] INSERT failed: code=${e?.['code']} msg=${e?.['message']}`,
+        );
         throw insertErr;
       }
-      this.logger.log(`[uploadImages] INSERT ok (${createdImages.length} imgs)`);
+      this.logger.log(
+        `[uploadImages] INSERT ok (${createdImages.length} imgs)`,
+      );
 
       try {
         const nextStatus =
@@ -1195,10 +1263,15 @@ export class PhotographicReportsService {
           report.status === PhotographicReportStatus.EXPORTADO
             ? PhotographicReportStatus.EM_EDICAO
             : PhotographicReportStatus.AGUARDANDO_ANALISE;
-        await this.reportRepository.update({ id: report.id }, { status: nextStatus });
+        await this.reportRepository.update(
+          { id: report.id },
+          { status: nextStatus },
+        );
       } catch (saveErr) {
         const e = saveErr as Record<string, unknown>;
-        this.logger.error(`[uploadImages] SAVE REPORT failed: code=${e?.['code']} msg=${e?.['message']}`);
+        this.logger.error(
+          `[uploadImages] SAVE REPORT failed: code=${e?.['code']} msg=${e?.['message']}`,
+        );
         throw saveErr;
       }
       this.logger.log(`[uploadImages] SAVE REPORT ok`);
@@ -1207,7 +1280,9 @@ export class PhotographicReportsService {
         return await this.findOne(report.id);
       } catch (findErr) {
         const e = findErr as Record<string, unknown>;
-        this.logger.error(`[uploadImages] FIND ONE failed: code=${e?.['code']} msg=${e?.['message']}`);
+        this.logger.error(
+          `[uploadImages] FIND ONE failed: code=${e?.['code']} msg=${e?.['message']}`,
+        );
         throw findErr;
       }
     } catch (error) {

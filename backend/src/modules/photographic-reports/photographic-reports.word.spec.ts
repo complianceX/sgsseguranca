@@ -41,7 +41,35 @@ function buildSampleReport(): PhotographicReportResponse {
       'Condição técnica satisfatória para execução da atividade.',
     ai_condition_classification: 'Muito satisfatória',
     ai_recommendations: ['Manter a organização atual'],
-    photo_conditions: ['EPIs em uso pelos trabalhadores', 'Área devidamente sinalizada'],
+    photo_conditions: [
+      'EPIs em uso pelos trabalhadores',
+      'Área devidamente sinalizada',
+    ],
+
+    is_nonconformity: false,
+    recommended_action: null,
+    action_deadline: null,
+    action_responsible: null,
+
+    original_name: 'frente-de-servico.jpg',
+    mime_type: 'image/jpeg',
+    file_size_bytes: 248_113,
+    hash_sha256:
+      'a3f1c9d24b7e8051f6c2a90d3e5b71482c6d0f9a1b3e5c7d9f0a2b4c6d8e0f12',
+    captured_at: '2026-05-15T10:08:00.000Z',
+    latitude: -23.56,
+    longitude: -46.64,
+    accuracy_m: 12.5,
+    exif_datetime: null,
+    integrity_flags: {
+      gps: true,
+      accuracy: true,
+      device: false,
+      ip: true,
+      exif: false,
+      client_reencoded: true,
+    },
+
     created_at: '2026-05-15T10:10:00.000Z',
     updated_at: '2026-05-15T10:12:00.000Z',
     day,
@@ -65,7 +93,16 @@ function buildSampleReport(): PhotographicReportResponse {
     start_time: '20:00:00',
     end_time: '22:00:00',
     responsible_name: 'Responsável Técnico',
+    responsible_registration_type: 'CREA',
+    responsible_registration_number: '123456',
+    responsible_registration_state: 'SP',
+    art_number: 'ART-2026-000123',
     contractor_company: 'Empresa Executora LTDA',
+    applicable_nrs: ['NR-06', 'NR-12', 'NR-35'],
+    inspection_methodology:
+      'Inspeção visual da frente de serviço com registro fotográfico sequencial.',
+    scope_and_limitations:
+      'Escopo limitado às áreas acessíveis no turno; não contempla ensaios instrumentais.',
     general_observations: 'Observações gerais do relatório.',
     ai_summary: 'Resumo consolidado do serviço fotográfico.',
     final_conclusion: 'Conclusão final aprovada.',
@@ -77,6 +114,10 @@ function buildSampleReport(): PhotographicReportResponse {
     image_count: 1,
     export_count: 1,
     last_exported_at: '2026-05-15T10:40:00.000Z',
+    verification_code: 'RFP-2026-REPORT01',
+    final_pdf_hash_sha256:
+      'b7e2d4f60a1c8395e2f4a6b8c0d2e4f60819a3b5c7d9e1f30527496a8b0c2d4e',
+    pdf_generated_at: '2026-05-15T10:40:00.000Z',
     days: [day],
     images: [image],
     exports: [
