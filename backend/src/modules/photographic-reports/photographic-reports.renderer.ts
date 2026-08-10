@@ -536,6 +536,13 @@ export function buildPhotographicReportHtml(
   report: PhotographicReportResponse,
   options: {
     companyName: string;
+    /**
+     * Identificador impresso no documento. Vem de
+     * `buildPhotographicReportCode` e é o MESMO valor gravado no Document
+     * Registry e no `verification_code` — derivá-lo aqui foi o que fez o PDF
+     * ostentar um código que não existia no sistema.
+     */
+    documentCode: string;
     generatedAt?: string;
     renderableImages?: PhotographicReportRenderableImage[];
     logoDataUrl?: string | null;
@@ -549,10 +556,7 @@ export function buildPhotographicReportHtml(
   const generatedAtLabel = formatDateTime(
     options.generatedAt || new Date().toISOString(),
   );
-  const documentCode = String(report.id || '')
-    .replace(/-/g, '')
-    .slice(0, 10)
-    .toUpperCase();
+  const documentCode = options.documentCode;
 
   let seq = 0;
   const photoSections = groups

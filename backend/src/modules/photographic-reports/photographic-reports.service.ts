@@ -39,6 +39,7 @@ import { UpdatePhotographicReportDto } from './dto/update-photographic-report.dt
 import { UpdatePhotographicReportImageDto } from './dto/update-photographic-report-image.dto';
 import { ReorderPhotographicReportImagesDto } from './dto/reorder-photographic-report-images.dto';
 import { UploadPhotographicReportImagesDto } from './dto/upload-photographic-report-images.dto';
+import { buildPhotographicReportCode } from './photographic-reports.document-code';
 import {
   buildPhotographicReportHtml,
   type PhotographicReportRenderableImage,
@@ -171,15 +172,6 @@ export class PhotographicReportsService {
       throw new BadRequestException(`Horário inválido em ${fieldLabel}.`);
     }
     return normalized.slice(0, 5);
-  }
-
-  private buildReportCode(
-    report: Pick<PhotographicReport, 'id' | 'start_date'>,
-  ): string {
-    const year =
-      this.normalizeDate(report.start_date)?.slice(0, 4) ||
-      new Date().getFullYear().toString();
-    return `RFP-${year}-${report.id.slice(0, 8).toUpperCase()}`;
   }
 
   private buildFileSlug(
@@ -1643,6 +1635,7 @@ export class PhotographicReportsService {
     const logoDataUrl = await this.resolveCompanyLogoDataUrl(report.company_id);
     const html = buildPhotographicReportHtml(report, {
       companyName: report.client_name,
+      documentCode: buildPhotographicReportCode(report),
       generatedAt: new Date().toISOString(),
       renderableImages,
       logoDataUrl,
@@ -1685,6 +1678,7 @@ export class PhotographicReportsService {
 
     return buildPhotographicReportWordBuffer(report, {
       companyName: report.client_name,
+      documentCode: buildPhotographicReportCode(report),
       generatedAt: new Date().toISOString(),
       renderableImages,
     });
@@ -1713,7 +1707,7 @@ export class PhotographicReportsService {
         mimeType: params.mimeType,
         fileBuffer: params.fileBuffer,
         createdBy: generatedBy,
-        documentCode: this.buildReportCode(params.report),
+        documentCode: buildPhotographicReportCode(params.report),
         documentType: 'pdf',
       });
     }

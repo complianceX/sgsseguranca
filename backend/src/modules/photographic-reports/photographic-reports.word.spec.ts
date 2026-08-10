@@ -144,6 +144,7 @@ describe('buildPhotographicReportWordBuffer', () => {
     }
     const buffer = await buildPhotographicReportWordBuffer(report, {
       companyName: 'SGS',
+      documentCode: 'RFP-2026-REPORT01',
       generatedAt: '2026-05-15T10:45:00.000Z',
       renderableImages: [
         {
