@@ -342,6 +342,7 @@ function summarizeClassifications(
   satisfatoria: number;
   preventiva: number;
   atencao: number;
+  naoConformidades: number;
 } {
   const summary = {
     total: images.length,
@@ -349,9 +350,16 @@ function summarizeClassifications(
     satisfatoria: 0,
     preventiva: 0,
     atencao: 0,
+    naoConformidades: 0,
   };
 
   for (const image of images) {
+    // Independente da classificação: a marcação de NC é decisão do
+    // responsável, não derivada do parecer da IA.
+    if (image.is_nonconformity) {
+      summary.naoConformidades += 1;
+    }
+
     switch (image.ai_condition_classification) {
       case 'Muito satisfatória':
         summary.muitoSatisfatoria += 1;
@@ -461,6 +469,233 @@ function renderNarrative(title: string, content?: string | null): string {
         <div class="ds-card-title">${escapeHtml(title)}</div>
       </div>
       <div class="narrative">${escapeHtml(content)}</div>
+    </section>
+  `;
+}
+
+/** Formata bytes em KB/MB. O manifesto do APR imprime bytes crus, o que não se lê. */
+function formatFileSize(bytes?: number | null): string {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) {
+    return '—';
+  }
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Coordenada arredondada a ~1 km no servidor; a imprecisão é declarada no rodapé. */
+function formatGeo(image: PhotographicReportRenderableImage): string {
+  if (
+    typeof image.latitude !== 'number' ||
+    typeof image.longitude !== 'number'
+  ) {
+    return '—';
+  }
+  const accuracy =
+    typeof image.accuracy_m === 'number'
+      ? ` (±${Math.round(image.accuracy_m)} m)`
+      : '';
+  return `${image.latitude.toFixed(2)}, ${image.longitude.toFixed(2)}${accuracy}`;
+}
+
+/**
+ * Bloco de credencial do responsável técnico.
+ *
+ * Fica logo após os dados da obra de propósito: é por este bloco que um
+ * relatório técnico de SST é julgado, e enterrá-lo no fim do documento
+ * equivaleria a escondê-lo.
+ */
+function renderTechnicalResponsible(
+  report: PhotographicReportResponse,
+): string {
+  const registration = [
+    report.responsible_registration_type,
+    report.responsible_registration_state
+      ? `-${report.responsible_registration_state}`
+      : '',
+    report.responsible_registration_number
+      ? ` ${report.responsible_registration_number}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
+
+  return renderMetadataGrid({
+    title: 'Responsável técnico',
+    fields: [
+      { label: 'Nome', value: report.responsible_name },
+      { label: 'Registro profissional', value: registration || '-' },
+      { label: 'ART', value: report.art_number || '-' },
+      { label: 'Empresa executora', value: report.contractor_company },
+    ],
+  });
+}
+
+/**
+ * NRs aplicáveis como chips. Omitido quando vazio — declarar "nenhuma norma
+ * aplicável" seria uma afirmação técnica que o sistema não tem base para fazer.
+ */
+function renderApplicableNrs(nrs?: string[] | null): string {
+  if (!nrs || nrs.length === 0) return '';
+
+  const chips = nrs
+    .map((nr) => `<span class="chip">${escapeHtml(nr)}</span>`)
+    .join('');
+
+  return `
+    <section class="ds-card">
+      <div class="ds-card-head">
+        <div class="ds-card-accent"></div>
+        <div class="ds-card-title">Normas regulamentadoras aplicáveis</div>
+      </div>
+      <div class="section-body">
+        <div class="chip-row">${chips}</div>
+      </div>
+    </section>
+  `;
+}
+
+/**
+ * Resumo de não conformidades.
+ *
+ * Diferente das demais seções, esta é renderizada MESMO vazia, com um estado
+ * explícito. O leitor precisa conseguir distinguir "nenhuma não conformidade
+ * encontrada" de "não conformidades não foram avaliadas" — a omissão silenciosa
+ * confunde as duas.
+ */
+function renderNonconformitySummary(
+  images: PhotographicReportRenderableImage[],
+): string {
+  const flagged = images.filter((image) => image.is_nonconformity);
+
+  const body = flagged.length
+    ? `<table class="data-table">
+         <thead>
+           <tr>
+             <th style="width:8%">#</th>
+             <th style="width:30%">Evidência</th>
+             <th>Ação recomendada</th>
+             <th style="width:16%">Prazo</th>
+             <th style="width:20%">Responsável</th>
+           </tr>
+         </thead>
+         <tbody>
+           ${flagged
+             .map(
+               (image, index) => `
+             <tr>
+               <td style="text-align:center">${index + 1}</td>
+               <td>${escapeHtml(
+                 sanitize(image.ai_title) !== '-'
+                   ? sanitize(image.ai_title)
+                   : sanitize(image.manual_caption),
+               )}</td>
+               <td>${escapeHtml(sanitize(image.recommended_action))}</td>
+               <td>${escapeHtml(formatDate(image.action_deadline) || '—')}</td>
+               <td>${escapeHtml(sanitize(image.action_responsible))}</td>
+             </tr>
+           `,
+             )
+             .join('')}
+         </tbody>
+       </table>`
+    : `<div class="section-body">
+         <div class="ds-label">Nenhuma não conformidade registrada</div>
+         <p class="empty-note">
+           Nenhuma das evidências deste relatório foi marcada como não
+           conformidade pelo responsável pela inspeção.
+         </p>
+       </div>`;
+
+  return `
+    <section class="ds-card">
+      <div class="ds-card-head">
+        <div class="ds-card-accent ds-card-accent--danger"></div>
+        <div class="ds-card-title">Resumo de não conformidades</div>
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
+/**
+ * Manifesto de evidências — adaptado do "Manifesto de evidências" do PDF de APR.
+ *
+ * A nota de rodapé não é opcional. Um manifesto que exibe hash sem qualificar
+ * o que ele prova induz o leitor a concluir que a foto está atrelada à câmera
+ * de origem, o que é falso: a imagem é re-encodada no navegador antes do envio.
+ * O hash comprova integridade desde o recebimento — afirmação real e útil, mas
+ * diferente. Errar essa frase transforma a feature em passivo.
+ */
+function renderEvidenceManifest(
+  images: PhotographicReportRenderableImage[],
+): string {
+  if (images.length === 0) return '';
+
+  const hasReencoded = images.some(
+    (image) =>
+      (image.integrity_flags as { client_reencoded?: boolean } | null)
+        ?.client_reencoded === true,
+  );
+  const hasLegacyRows = images.some((image) => !image.hash_sha256);
+
+  const rows = images
+    .map(
+      (image, index) => `
+        <tr>
+          <td style="text-align:center">${index + 1}</td>
+          <td>${escapeHtml(formatDate(image.activity_date_label) || '—')}</td>
+          <td>${escapeHtml(sanitize(image.original_name))}</td>
+          <td>${escapeHtml(sanitize(image.mime_type))}</td>
+          <td style="text-align:right">${escapeHtml(formatFileSize(image.file_size_bytes))}</td>
+          <td>${escapeHtml(
+            image.captured_at
+              ? formatDateTime(image.captured_at)
+              : formatDateTime(image.created_at),
+          )}</td>
+          <td class="mono">${escapeHtml(
+            image.hash_sha256 ? `${image.hash_sha256.slice(0, 16)}…` : '—',
+          )}</td>
+          <td>${escapeHtml(formatGeo(image))}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  const notes = [
+    hasReencoded
+      ? 'O hash SHA-256 refere-se ao arquivo recebido e armazenado pelo SGS. Imagens capturadas por dispositivo móvel são otimizadas no navegador antes do envio; o hash comprova a integridade do arquivo desde o recebimento, não a autoria original da captura.'
+      : '',
+    hasLegacyRows
+      ? 'Evidências enviadas antes da adoção do registro de integridade não possuem hash de origem e aparecem com "—".'
+      : '',
+    'Coordenadas são arredondadas para aproximadamente 1 km por proteção de privacidade.',
+  ].filter(Boolean);
+
+  return `
+    <section class="ds-card break-before">
+      <div class="ds-card-head">
+        <div class="ds-card-accent"></div>
+        <div class="ds-card-title">Manifesto de evidências</div>
+      </div>
+      <table class="data-table manifest-table">
+        <thead>
+          <tr>
+            <th style="width:5%">#</th>
+            <th style="width:11%">Data</th>
+            <th style="width:20%">Arquivo</th>
+            <th style="width:11%">Tipo</th>
+            <th style="width:9%">Tamanho</th>
+            <th style="width:16%">Captura</th>
+            <th style="width:14%">Hash SHA-256</th>
+            <th>Geolocalização</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="manifest-notes">
+        ${notes.map((note) => `<p>${escapeHtml(note)}</p>`).join('')}
+      </div>
     </section>
   `;
 }
@@ -581,11 +816,18 @@ function renderEvidenceCard(
       <div class="ev-body">
         <div class="ev-eyebrow">
           <span class="ds-label">EVIDÊNCIA ${index + 1}</span>
-          ${
-            classification
-              ? `<span class="badge badge--${escapeHtml(tone)}">${escapeHtml(classification)}</span>`
-              : ''
-          }
+          <span class="ev-badges">
+            ${
+              image.is_nonconformity
+                ? '<span class="badge badge--danger">Não conformidade</span>'
+                : ''
+            }
+            ${
+              classification
+                ? `<span class="badge badge--${escapeHtml(tone)}">${escapeHtml(classification)}</span>`
+                : ''
+            }
+          </span>
         </div>
         <h3 class="ev-title">${escapeHtml(title)}</h3>
         ${detail('DESCRIÇÃO', image.ai_description)}
@@ -603,6 +845,19 @@ function renderEvidenceCard(
             ? `<div class="ev-detail"><div class="ds-label">CONDIÇÕES OBSERVADAS</div><div class="chip-row">${conditions
                 .map((c) => `<span class="chip">${escapeHtml(c)}</span>`)
                 .join('')}</div></div>`
+            : ''
+        }
+        ${
+          image.is_nonconformity
+            ? `<div class="ev-nc">
+                 ${detail('AÇÃO RECOMENDADA', image.recommended_action)}
+                 ${
+                   image.action_deadline
+                     ? detail('PRAZO', formatDate(image.action_deadline))
+                     : ''
+                 }
+                 ${detail('RESPONSÁVEL', image.action_responsible)}
+               </div>`
             : ''
         }
         <div class="ev-meta">${escapeHtml(meta)}</div>
@@ -1135,6 +1390,74 @@ export function buildPhotographicReportHtml(
         font-weight: 700;
       }
 
+      /* ── TABELAS DE DADOS ───────────────────────────────────────── */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 8.3pt;
+      }
+      .data-table thead th {
+        background: var(--surface-muted);
+        color: var(--text-secondary);
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        text-align: left;
+        padding: 2mm 2.4mm;
+        border-bottom: 0.25mm solid var(--border);
+      }
+      .data-table tbody td {
+        padding: 2mm 2.4mm;
+        border-bottom: 0.2mm solid var(--border);
+        color: var(--text-primary);
+        vertical-align: top;
+        word-break: break-word;
+      }
+      .data-table tbody tr:last-child td { border-bottom: 0; }
+
+      /* O manifesto tem 8 colunas: reduzir o corpo evita quebra feia do hash. */
+      .manifest-table { font-size: 7pt; }
+      .manifest-table .mono { word-break: break-all; }
+      .manifest-notes {
+        padding: 2.4mm 3mm 3mm;
+        border-top: 0.2mm solid var(--border);
+      }
+      .manifest-notes p {
+        font-size: 6.5pt;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+      .manifest-notes p + p { margin-top: 1.2mm; }
+
+      .empty-note {
+        font-size: 8.3pt;
+        color: var(--text-secondary);
+        margin-top: 1.4mm;
+        line-height: 1.45;
+      }
+
+      /* Acento vermelho para o cartão de não conformidades. */
+      .ds-card-accent--danger { background: var(--danger); }
+
+      .ev-badges {
+        display: flex;
+        align-items: center;
+        gap: 1.6mm;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      /* Bloco de tratativa da NC, destacado do restante da evidência. */
+      .ev-nc {
+        margin-top: 2.6mm;
+        padding: 2.4mm 3mm;
+        border-left: 0.8mm solid var(--danger);
+        background: #fbf4f4;
+        border-radius: 1.2mm;
+      }
+      .ev-nc .ev-detail:first-child { margin-top: 0; }
+
       /* ── governança / rodapé ────────────────────────────────────── */
       .gov {
         background: var(--surface);
@@ -1299,6 +1622,11 @@ export function buildPhotographicReportHtml(
       { label: 'Satisfatória', value: summary.satisfatoria, tone: 'info' },
       { label: 'Preventiva', value: summary.preventiva, tone: 'warning' },
       { label: 'Atenção necessária', value: summary.atencao, tone: 'danger' },
+      {
+        label: 'Não conformidades',
+        value: summary.naoConformidades,
+        tone: 'danger',
+      },
     ],
   });
 
@@ -1382,6 +1710,12 @@ export function buildPhotographicReportHtml(
       ${railHtml}
       ${execHtml}
       ${metaHtml}
+      ${renderTechnicalResponsible(report)}
+      ${renderApplicableNrs(report.applicable_nrs)}
+
+      ${renderNarrative('Metodologia de inspeção', report.inspection_methodology)}
+      ${renderNarrative('Escopo e limitações', report.scope_and_limitations)}
+
       ${renderNarrative('Objetivo do relatório', buildReportObjective(report))}
       ${renderNarrative('Descrição geral da atividade', buildGeneralConditions(report))}
       ${renderNarrative('Observações gerais', report.general_observations)}
@@ -1396,7 +1730,11 @@ export function buildPhotographicReportHtml(
         )
       }
 
+      ${renderNonconformitySummary(renderableImages)}
+
       ${renderNarrative('Conclusão final', buildFinalConclusion(report))}
+
+      ${renderEvidenceManifest(renderableImages)}
 
       ${renderSignatures(options.signatures)}
 
