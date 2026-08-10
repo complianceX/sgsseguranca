@@ -143,7 +143,11 @@ describe('buildPhotographicReportWordBuffer', () => {
       throw new Error('Imagem de teste ausente.');
     }
     const buffer = await buildPhotographicReportWordBuffer(report, {
-      companyName: 'SGS',
+      companyIdentity: {
+        razaoSocial: 'SGS Segurança LTDA',
+        cnpj: '12345678000190',
+      },
+      clientName: 'Cliente Exemplo',
       documentCode: 'RFP-2026-REPORT01',
       generatedAt: '2026-05-15T10:45:00.000Z',
       renderableImages: [
