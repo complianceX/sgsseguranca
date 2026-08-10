@@ -15,7 +15,16 @@ export type PhotographicReportWordImage = PhotographicReportImageResponse & {
 };
 
 type BuildPhotographicReportWordBufferOptions = {
-  companyName: string;
+  /**
+   * Empresa EMITENTE (o tenant). Antes chegava aqui preenchido com
+   * `report.client_name`, atribuindo a emissão ao cliente.
+   */
+  companyIdentity: {
+    razaoSocial: string | null;
+    cnpj: string | null;
+  };
+  /** Empresa CLIENTE, para quem o serviço foi prestado. */
+  clientName: string;
   /**
    * Mesmo identificador do PDF e do Document Registry, vindo de
    * `buildPhotographicReportCode`. Ver photographic-reports.document-code.ts.
@@ -383,7 +392,7 @@ function buildDocumentBody(
   );
   body.push(
     makeParagraph(
-      `${options.companyName} · documento profissional de registro visual, análise técnica e histórico operacional.`,
+      `${options.companyIdentity.razaoSocial || '-'} · documento profissional de registro visual, análise técnica e histórico operacional.`,
       { center: true, size: 11, spacingAfter: 150 },
     ),
   );
@@ -400,6 +409,8 @@ function buildDocumentBody(
     makeTable(
       [
         ['Código do documento', options.documentCode],
+        ['Empresa emitente', options.companyIdentity.razaoSocial || '-'],
+        ['CNPJ', options.companyIdentity.cnpj || '-'],
         ['Cliente', report.client_name],
         ['Obra', report.project_name],
         ['Unidade', report.unit_name || '-'],

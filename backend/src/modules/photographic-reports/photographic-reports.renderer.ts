@@ -81,6 +81,22 @@ function formatRange(
   return start || end || '-';
 }
 
+/**
+ * Formata CNPJ como 00.000.000/0000-00.
+ *
+ * Se o valor não tiver 14 dígitos, é devolvido como veio: num documento
+ * técnico, exibir o dado cadastrado é mais honesto do que mascarar um
+ * cadastro incompleto até ele parecer válido.
+ */
+function formatCnpj(value?: string | null): string {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length !== 14) return String(value ?? '').trim();
+  return digits.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    '$1.$2.$3/$4-$5',
+  );
+}
+
 function formatClockRange(
   startTime?: string | null,
   endTime?: string | null,
@@ -535,7 +551,17 @@ function renderEvidenceCard(
 export function buildPhotographicReportHtml(
   report: PhotographicReportResponse,
   options: {
-    companyName: string;
+    /**
+     * Empresa EMITENTE (o tenant). Antes o renderer recebia `companyName` já
+     * preenchido com `report.client_name` — o cliente — e estampava o cliente
+     * como emissor do documento técnico.
+     */
+    companyIdentity: {
+      razaoSocial: string | null;
+      cnpj: string | null;
+    };
+    /** Empresa CLIENTE, para quem o serviço foi prestado. */
+    clientName: string;
     /**
      * Identificador impresso no documento. Vem de
      * `buildPhotographicReportCode` e é o MESMO valor gravado no Document
@@ -712,6 +738,7 @@ export function buildPhotographicReportHtml(
         gap: 2.4mm;
         margin-top: 4mm;
       }
+      .doc-meta--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .doc-meta-card {
         background: var(--surface);
         border: 0.24mm solid var(--border);
@@ -724,6 +751,12 @@ export function buildPhotographicReportHtml(
         font-weight: 700;
         color: var(--text-primary);
         margin-top: 1mm;
+        word-break: break-word;
+      }
+      .doc-meta-sub {
+        font-size: 7pt;
+        color: var(--text-secondary);
+        margin-top: 0.6mm;
       }
 
       /* ── folha de conteúdo (pageMargin) ──────────────────────────── */
@@ -1142,10 +1175,19 @@ export function buildPhotographicReportHtml(
         </div>
       </div>
 
-      <div class="doc-meta">
+      <div class="doc-meta doc-meta--4">
         <div class="doc-meta-card">
-          <div class="ds-label">Empresa</div>
-          <div class="doc-meta-value">${escapeHtml(sanitize(options.companyName))}</div>
+          <div class="ds-label">Empresa emitente</div>
+          <div class="doc-meta-value">${escapeHtml(sanitize(options.companyIdentity.razaoSocial))}</div>
+          ${
+            options.companyIdentity.cnpj
+              ? `<div class="doc-meta-sub">CNPJ ${escapeHtml(formatCnpj(options.companyIdentity.cnpj))}</div>`
+              : ''
+          }
+        </div>
+        <div class="doc-meta-card">
+          <div class="ds-label">Cliente</div>
+          <div class="doc-meta-value">${escapeHtml(sanitize(options.clientName))}</div>
         </div>
         <div class="doc-meta-card">
           <div class="ds-label">Obra / Site</div>
@@ -1189,7 +1231,7 @@ export function buildPhotographicReportHtml(
 
       <div class="doc-footer">
         <span><strong>SGS — Sistema de Gestão de Segurança</strong><br />Gerado em ${escapeHtml(generatedAtLabel)}</span>
-        <span style="text-align:right"><strong>ID: ${escapeHtml(documentCode || '-')}</strong><br />${escapeHtml(sanitize(options.companyName))}</span>
+        <span style="text-align:right"><strong>ID: ${escapeHtml(documentCode || '-')}</strong><br />${escapeHtml(sanitize(options.companyIdentity.razaoSocial))}</span>
       </div>
     </main>
 
