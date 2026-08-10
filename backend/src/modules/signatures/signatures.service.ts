@@ -46,6 +46,7 @@ import { Rdo } from '../rdos/entities/rdo.entity';
 import { Arr } from '../arrs/entities/arr.entity';
 import { Did } from '../dids/entities/did.entity';
 import { Training } from '../trainings/entities/training.entity';
+import { PhotographicReport } from '../photographic-reports/entities/photographic-report.entity';
 import {
   LEGACY_SIGNATURE_TYPES,
   SIGNATURE_LEGAL_ASSURANCE,
@@ -141,6 +142,7 @@ const ACTIVE_SIGNATURE_DOCUMENT_TYPES = new Set([
   'nonconformity',
   'audit',
   'rdo',
+  'photographic_report',
 ]);
 
 @Injectable()
@@ -1201,6 +1203,13 @@ export class SignaturesService {
         });
       }
 
+      if (module === 'photographic_report') {
+        return this.resolvePhotographicReportSignatureDocumentScope({
+          documentId: input.documentId,
+          scope,
+        });
+      }
+
       throw new NotFoundException('Documento não encontrado para assinaturas.');
     }
 
@@ -1247,6 +1256,49 @@ export class SignaturesService {
     return {
       companyId: document.company_id,
       siteId: document.site_id ?? null,
+    };
+  }
+
+  /**
+   * Escopo de assinatura de Relatório Fotográfico.
+   *
+   * Não usa `SITE_SCOPED_SIGNATURE_DOCUMENT_ENTITIES` por dois motivos, nesta
+   * ordem de importância:
+   *
+   * 1. `photographic_reports` NÃO tem coluna `site_id`. Registrar a entidade
+   *    naquele mapa faria o `findOne({ select: [...,'site_id'] })` da linha
+   *    acima estourar `EntityColumnNotFound` em runtime.
+   *
+   * 2. Mesmo que a coluna existisse, aplicar `isSiteVisibleToScope(null, scope)`
+   *    devolveria `false` para usuário restrito a obra — porque a função exige
+   *    `siteId` presente E pertencente ao escopo. Um TST alocado a uma obra
+   *    ficaria impedido de assinar ou de ler assinaturas do relatório.
+   *
+   * O relatório fotográfico é escopado por empresa por natureza: a checagem de
+   * obra não se aplica, e a verificação relevante — o documento pertencer à
+   * empresa do solicitante — é feita no próprio `where`.
+   */
+  private async resolvePhotographicReportSignatureDocumentScope(input: {
+    documentId: string;
+    scope: ReturnType<typeof resolveSiteAccessScopeFromTenantService>;
+  }): Promise<SignatureDocumentScope> {
+    const document = await this.dataSource
+      .getRepository(PhotographicReport)
+      .findOne({
+        where: {
+          id: input.documentId,
+          company_id: input.scope.companyId,
+        },
+        select: ['id', 'company_id'],
+      });
+
+    if (!document) {
+      throw new NotFoundException('Documento não encontrado para assinaturas.');
+    }
+
+    return {
+      companyId: document.company_id,
+      siteId: null,
     };
   }
 
@@ -1517,6 +1569,41 @@ export class SignaturesService {
           status: rdo.status,
           version: null,
           updatedAt: rdo.updated_at,
+        });
+      }
+      case 'photographic_report': {
+        // Sem este case o switch cairia no default, a prova degradaria para
+        // DOCUMENT_IDENTITY e a assinatura deixaria de vincular à revisão do
+        // documento — enfraquecendo em silêncio justamente a afirmação mais
+        // forte da feature.
+        const report = await this.dataSource
+          .getRepository(PhotographicReport)
+          .findOne({
+            where: companyId
+              ? { id: documentId, company_id: companyId }
+              : { id: documentId },
+            select: [
+              'id',
+              'company_id',
+              'verification_code',
+              'status',
+              'updated_at',
+            ],
+          });
+        if (!report) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: report.id,
+          companyId: report.company_id,
+          // Antes da primeira emissão não há verification_code; o id é a
+          // referência estável nesse intervalo.
+          reference: report.verification_code || report.id,
+          status: report.status,
+          version: null,
+          updatedAt: report.updated_at,
         });
       }
       default:
