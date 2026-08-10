@@ -26,6 +26,10 @@ import {
   type UploadPhotographicReportImagesDto,
 } from "@/services/photographicReportsService";
 import type { ReportFormState, WizardStep, PendingPhoto } from "../types";
+import {
+  buildCapturedAtList,
+  captureUploadGeoContext,
+} from "../upload-context";
 import { WizardStep1BasicData } from "./WizardStep1BasicData";
 import { WizardStep2Photos } from "./WizardStep2Photos";
 import { WizardStep3Review } from "./WizardStep3Review";
@@ -49,7 +53,14 @@ const DEFAULT_FORM_STATE: ReportFormState = {
   start_time: "08:00",
   end_time: "17:00",
   responsible_name: "",
+  responsible_registration_type: "",
+  responsible_registration_number: "",
+  responsible_registration_state: "",
+  art_number: "",
   contractor_company: "",
+  applicable_nrs: [],
+  inspection_methodology: "",
+  scope_and_limitations: "",
   general_observations: "",
   ai_summary: "",
   final_conclusion: "",
@@ -93,7 +104,16 @@ function reportToForm(report: PhotographicReport): ReportFormState {
     start_time: (report.start_time || "").slice(0, 5),
     end_time: (report.end_time || "").slice(0, 5),
     responsible_name: report.responsible_name || "",
+    responsible_registration_type: report.responsible_registration_type || "",
+    responsible_registration_number:
+      report.responsible_registration_number || "",
+    responsible_registration_state:
+      report.responsible_registration_state || "",
+    art_number: report.art_number || "",
     contractor_company: report.contractor_company || "",
+    applicable_nrs: report.applicable_nrs || [],
+    inspection_methodology: report.inspection_methodology || "",
+    scope_and_limitations: report.scope_and_limitations || "",
     general_observations: report.general_observations || "",
     ai_summary: report.ai_summary || "",
     final_conclusion: report.final_conclusion || "",
@@ -118,8 +138,33 @@ function formToCreatePayload(form: ReportFormState): CreatePhotographicReportDto
     start_time: form.start_time.trim(),
     end_time: form.end_time.trim(),
     responsible_name: form.responsible_name.trim(),
-    contractor_company: form.contractor_company.trim(),
+    ...sstFieldsFromForm(form),
     general_observations: toNullableString(form.general_observations),
+  };
+}
+
+/**
+ * Campos de SST comuns ao payload de criação e ao de atualização.
+ *
+ * Extraído para não manter duas listas manuais dos mesmos campos — foi
+ * exatamente esse padrão que fez `photo_conditions` e o INSERT de imagens
+ * divergirem em silêncio no backend.
+ */
+function sstFieldsFromForm(form: ReportFormState) {
+  return {
+    responsible_registration_type:
+      form.responsible_registration_type || null,
+    responsible_registration_number: toNullableString(
+      form.responsible_registration_number,
+    ),
+    responsible_registration_state: toNullableString(
+      form.responsible_registration_state,
+    ),
+    art_number: toNullableString(form.art_number),
+    contractor_company: form.contractor_company.trim(),
+    applicable_nrs: form.applicable_nrs.length ? form.applicable_nrs : null,
+    inspection_methodology: toNullableString(form.inspection_methodology),
+    scope_and_limitations: toNullableString(form.scope_and_limitations),
   };
 }
 
@@ -140,7 +185,7 @@ function formToUpdatePayload(form: ReportFormState): UpdatePhotographicReportDto
     start_time: form.start_time.trim(),
     end_time: form.end_time.trim(),
     responsible_name: form.responsible_name.trim(),
-    contractor_company: form.contractor_company.trim(),
+    ...sstFieldsFromForm(form),
     general_observations: toNullableString(form.general_observations),
     ai_summary: toNullableString(form.ai_summary),
     final_conclusion: toNullableString(form.final_conclusion),
@@ -272,6 +317,8 @@ export function PhotographicReportWorkspace({
   const [saving, setSaving] = useState(false);
   const [savingImageId, setSavingImageId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** Último upload saiu sem geolocalização — usado para avisar no passo 2. */
+  const [geoDenied, setGeoDenied] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -406,6 +453,12 @@ export function PhotographicReportWorkspace({
       id: `photo-${generation}-${index}`,
       original,
       status: "processing",
+      // Capturado AQUI, antes do processamento: processMobileImage re-encoda
+      // via canvas e destrói o EXIF. `lastModified` sobrevive e, em câmera de
+      // celular, é a hora em que a foto foi tirada.
+      capturedAt: original.lastModified
+        ? new Date(original.lastModified).toISOString()
+        : undefined,
     }));
     activePendingIdsRef.current = new Set(entries.map((e) => e.id));
     setPendingPhotos(entries);
@@ -544,6 +597,12 @@ export function PhotographicReportWorkspace({
     }
     try {
       setUploading(true);
+
+      // A geolocalização nunca bloqueia o envio: ela é buscada aqui e o que
+      // tiver retornado até o POST é o que segue. Negada ou indisponível, o
+      // upload acontece igual — só com a evidência mais fraca.
+      const geo = await captureUploadGeoContext();
+
       const updated = await photographicReportsService.uploadImages(
         report.id,
         readyFiles,
@@ -551,6 +610,13 @@ export function PhotographicReportWorkspace({
           report_day_id: uploadDayId || null,
           activity_date: uploadDayId ? null : toNullableString(uploadActivityDate),
           manual_caption: toNullableString(uploadManualCaption),
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          accuracy_m: geo.accuracy_m,
+          // `processMobileImage` sempre re-encoda neste fluxo. A flag faz o
+          // PDF declarar que o hash não comprova autoria da captura.
+          client_reencoded: true,
+          captured_at_list: buildCapturedAtList(pendingPhotos),
         } satisfies UploadPhotographicReportImagesDto,
       );
       setReport(updated);
@@ -559,7 +625,18 @@ export function PhotographicReportWorkspace({
       revokePendingPreviews();
       setProcessingProgress({ completed: 0, total: 0 });
       setUploadManualCaption("");
-      toast.success("Fotos enviadas com sucesso.");
+
+      // Degradação silenciosa derrotaria o propósito: o usuário precisa saber
+      // que o manifesto sairá sem localização.
+      if (geo.denied) {
+        setGeoDenied(true);
+        toast.success(
+          "Fotos enviadas. Localização não registrada — o navegador negou ou não suporta geolocalização.",
+        );
+      } else {
+        setGeoDenied(false);
+        toast.success("Fotos enviadas com sucesso.");
+      }
     } catch (err) {
       toast.error(await extractApiErrorMessage(err, "Não foi possível enviar as fotos."));
     } finally {
@@ -578,7 +655,13 @@ export function PhotographicReportWorkspace({
       ai_technical_assessment: payload.ai_technical_assessment ?? null,
       ai_condition_classification: payload.ai_condition_classification,
       ai_recommendations: payload.ai_recommendations ?? undefined,
+      // `?? undefined` aqui é intencional: enviar `null` limparia o campo, e
+      // o backend só grava o que vem definido no payload.
       photo_conditions: payload.photo_conditions ?? undefined,
+      is_nonconformity: payload.is_nonconformity,
+      recommended_action: payload.recommended_action ?? null,
+      action_deadline: payload.action_deadline ?? null,
+      action_responsible: payload.action_responsible ?? null,
     };
     try {
       setSavingImageId(imageId);
@@ -789,6 +872,7 @@ export function PhotographicReportWorkspace({
           canUseAi={canUseAi}
           savingImageId={savingImageId}
           uploading={uploading}
+          geoDenied={geoDenied}
           analyzing={analyzing}
           pendingPhotos={pendingPhotos}
           processingProgress={processingProgress}
