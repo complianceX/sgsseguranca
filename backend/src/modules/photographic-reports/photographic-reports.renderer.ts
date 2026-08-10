@@ -34,6 +34,17 @@ export type PhotographicReportRenderableImage =
     activity_date_label: string;
   };
 
+/** Assinatura já achatada para renderização — sem entidade do TypeORM aqui. */
+export type RenderableSignature = {
+  signerName: string | null;
+  signerRole: string | null;
+  type: string | null;
+  signedAt: string | null;
+  signatureHash: string | null;
+  /** Data URI pequeno, ou null quando o payload está no storage. */
+  signatureImage: string | null;
+};
+
 // ── core/format.ts ────────────────────────────────────────────────────────────
 
 function escapeHtml(value: string | number | null | undefined): string {
@@ -454,6 +465,60 @@ function renderNarrative(title: string, content?: string | null): string {
   `;
 }
 
+/**
+ * Bloco de assinaturas. Omitido por completo quando não há nenhuma — um
+ * quadro vazio de assinaturas num documento técnico sugere pendência, não
+ * ausência de requisito.
+ */
+function renderSignatures(signatures?: RenderableSignature[]): string {
+  if (!signatures || signatures.length === 0) return '';
+
+  const rows = signatures
+    .map((signature) => {
+      const proof = [
+        signature.type ? `Tipo: ${sanitize(signature.type)}` : '',
+        signature.signedAt
+          ? `Assinado em ${formatDateTime(signature.signedAt)}`
+          : '',
+        signature.signatureHash
+          ? `Prova ${signature.signatureHash.slice(0, 16)}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      return `
+        <div class="sig-row">
+          <div class="sig-identity">
+            <div class="sig-name">${escapeHtml(sanitize(signature.signerName))}</div>
+            ${
+              signature.signerRole
+                ? `<div class="sig-role">${escapeHtml(signature.signerRole)}</div>`
+                : ''
+            }
+            <div class="sig-proof mono">${escapeHtml(proof || '—')}</div>
+          </div>
+          ${
+            signature.signatureImage
+              ? `<div class="sig-image"><img src="${escapeHtml(signature.signatureImage)}" alt="Assinatura" /></div>`
+              : '<div class="sig-image sig-image--empty"></div>'
+          }
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+    <section class="ds-card">
+      <div class="ds-card-head">
+        <div class="ds-card-accent"></div>
+        <div class="ds-card-title">Assinaturas</div>
+      </div>
+      <div class="section-body sig-body">${rows}</div>
+    </section>
+  `;
+}
+
 /** components/EvidenceGallery.ts — cabeçalho com acento "info". */
 function renderGalleryHeading(title: string): string {
   return `
@@ -572,6 +637,12 @@ export function buildPhotographicReportHtml(
     generatedAt?: string;
     renderableImages?: PhotographicReportRenderableImage[];
     logoDataUrl?: string | null;
+    /**
+     * QR e URL de validação pública. Ambos nulos quando o portal não está
+     * configurado — o bloco de governança colapsa para uma coluna só.
+     */
+    validation?: { url: string | null; qrDataUri: string | null };
+    signatures?: RenderableSignature[];
   },
 ): string {
   const renderableImages = options.renderableImages || [];
@@ -583,6 +654,22 @@ export function buildPhotographicReportHtml(
     options.generatedAt || new Date().toISOString(),
   );
   const documentCode = options.documentCode;
+  const validationUrl = options.validation?.url ?? null;
+  const qrDataUri = options.validation?.qrDataUri ?? null;
+
+  /**
+   * O hash disponível aqui é o da emissão ANTERIOR — o desta só existe depois
+   * do render, porque é o hash do documento que contém este bloco. Imprimi-lo
+   * sob um rótulo genérico "Hash do documento" seria ativamente enganoso, então
+   * ou se rotula como anterior, ou se omite (primeira emissão).
+   */
+  const previousHashLabel =
+    report.final_pdf_hash_sha256 && report.pdf_generated_at
+      ? `<div class="gov-hash">
+           <span class="ds-label">Hash da emissão anterior</span>
+           <span class="mono">${escapeHtml(report.final_pdf_hash_sha256.slice(0, 32))}…</span>
+         </div>`
+      : '';
 
   let seq = 0;
   const photoSections = groups
@@ -1056,6 +1143,97 @@ export function buildPhotographicReportHtml(
         padding: 4mm;
         break-inside: avoid;
       }
+      /* Duas colunas quando há QR; colapsa sozinho para uma quando não há —
+         por isso é flex com gap, e não uma classe condicional. */
+      .gov-main {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 6mm;
+      }
+      .gov-text { flex: 1 1 auto; min-width: 0; }
+      .gov-qr {
+        flex: 0 0 28mm;
+        text-align: center;
+      }
+      .gov-qr img {
+        width: 28mm;
+        height: 28mm;
+        display: block;
+        border: 0.2mm solid var(--border);
+        border-radius: 1.5mm;
+        background: #fff;
+      }
+      .gov-qr-caption {
+        font-size: 6.5pt;
+        color: var(--text-secondary);
+        margin-top: 1.2mm;
+        line-height: 1.25;
+      }
+      /* 6pt para digitação manual quando a câmera não estiver disponível. */
+      .gov-qr-url {
+        font-size: 6pt;
+        color: var(--text-muted);
+        margin-top: 0.8mm;
+        word-break: break-all;
+        line-height: 1.2;
+      }
+      .gov-hash {
+        margin-top: 3mm;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6mm;
+      }
+      .gov-hash .mono {
+        font-size: 7pt;
+        color: var(--text-secondary);
+        word-break: break-all;
+      }
+      .mono { font-family: 'Courier New', Courier, monospace; }
+
+      /* ── ASSINATURAS ────────────────────────────────────────────── */
+      .sig-body > * + * { margin-top: 3mm; }
+      .sig-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5mm;
+        border: 0.24mm solid var(--border);
+        border-radius: 1.8mm;
+        padding: 2.6mm 3mm;
+        background: var(--surface);
+        break-inside: avoid;
+      }
+      .sig-identity { flex: 1 1 auto; min-width: 0; }
+      .sig-name {
+        font-size: 9.2pt;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+      .sig-role {
+        font-size: 8.3pt;
+        color: var(--text-secondary);
+        margin-top: 0.6mm;
+      }
+      .sig-proof {
+        font-size: 7pt;
+        color: var(--text-muted);
+        margin-top: 1.2mm;
+        word-break: break-word;
+      }
+      .sig-image {
+        flex: 0 0 34mm;
+        height: 12mm;
+        border-bottom: 0.3mm solid var(--border-strong);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+      }
+      .sig-image img {
+        max-width: 34mm;
+        max-height: 12mm;
+        object-fit: contain;
+      }
       .gov-title {
         font-size: 9.5pt;
         font-weight: 700;
@@ -1220,13 +1398,36 @@ export function buildPhotographicReportHtml(
 
       ${renderNarrative('Conclusão final', buildFinalConclusion(report))}
 
+      ${renderSignatures(options.signatures)}
+
       <section class="gov">
-        <div class="gov-title">Governança e autenticidade</div>
-        <p class="gov-subtitle">
-          Documento fotográfico emitido pelo SGS com identificador próprio para
-          conferência interna e rastreabilidade documental.
-        </p>
-        <div class="gov-code">${escapeHtml(documentCode || '-')}</div>
+        <div class="gov-main">
+          <div class="gov-text">
+            <div class="gov-title">Governança e autenticidade</div>
+            <p class="gov-subtitle">
+              ${
+                validationUrl
+                  ? 'Documento emitido pelo SGS e verificável publicamente pelo código abaixo ou pelo QR ao lado.'
+                  : 'Documento fotográfico emitido pelo SGS com identificador próprio para conferência interna e rastreabilidade documental.'
+              }
+            </p>
+            <div class="gov-code">${escapeHtml(documentCode || '-')}</div>
+            ${previousHashLabel}
+          </div>
+          ${
+            qrDataUri
+              ? `<div class="gov-qr">
+                   <img src="${escapeHtml(qrDataUri)}" alt="QR Code de validação pública" />
+                   <div class="gov-qr-caption">Aponte a câmera para validar</div>
+                   ${
+                     validationUrl
+                       ? `<div class="gov-qr-url">${escapeHtml(validationUrl)}</div>`
+                       : ''
+                   }
+                 </div>`
+              : ''
+          }
+        </div>
       </section>
 
       <div class="doc-footer">

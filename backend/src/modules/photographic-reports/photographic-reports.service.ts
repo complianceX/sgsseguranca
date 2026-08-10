@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { createHash } from 'node:crypto';
+import QRCode from 'qrcode';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
+import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
+import { SignaturesService } from '../signatures/signatures.service';
 import {
   buildIntegrityFlags,
   hashDeviceId,
@@ -58,6 +61,7 @@ import { buildPhotographicReportCode } from './photographic-reports.document-cod
 import {
   buildPhotographicReportHtml,
   type PhotographicReportRenderableImage,
+  type RenderableSignature,
 } from './photographic-reports.renderer';
 import { buildPhotographicReportWordBuffer } from './photographic-reports.word';
 import {
@@ -86,6 +90,13 @@ type PhotographicReportAnalysisResult = Awaited<
 >;
 
 const DEFAULT_IMAGE_MAX_FILE_SIZE = 15 * 1024 * 1024;
+
+/**
+ * Validade do token do QR: 30 dias, mesmo valor usado pelo módulo de Não
+ * Conformidades. O documento em si não expira — apenas o link com token
+ * embutido; quem tiver o código pode revalidar pelo portal.
+ */
+const PUBLIC_VALIDATION_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const PDF_MIME_TYPE = 'application/pdf';
 const WORD_MIME_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -112,6 +123,8 @@ export class PhotographicReportsService {
     private readonly fileInspectionService: FileInspectionService,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
+    private readonly signaturesService: SignaturesService,
   ) {}
 
   createUploadOptions(maxFileSize = DEFAULT_IMAGE_MAX_FILE_SIZE) {
@@ -1827,6 +1840,146 @@ export class PhotographicReportsService {
     }
   }
 
+  /**
+   * QR e URL de validação pública do documento.
+   *
+   * Copiado quase literalmente de `nonconformities-pdf.service.ts` para que os
+   * dois módulos produzam QRs visualmente idênticos e resolvam pelo mesmo
+   * endpoint. Três propriedades importantes:
+   *
+   * - O `documentCode` é determinístico a partir do relatório, então pode ser
+   *   embutido no QR ANTES do render e persistido depois. O hash do PDF não
+   *   entra no QR — não teria como, é o hash do documento que o contém.
+   * - O QR vai como data URI. O Chromium do renderer não pode fazer requisição
+   *   de rede durante a geração; buscar a imagem quebraria essa invariante.
+   * - Toda falha degrada para `{ url: null, qrDataUri: null }`. Portal não
+   *   configurado em staging não pode impedir a emissão do documento.
+   */
+  private async buildPublicValidationPresentation(
+    report: Pick<PhotographicReport, 'id' | 'company_id'>,
+    documentCode: string,
+  ): Promise<{ url: string | null; qrDataUri: string | null }> {
+    const portalOrigin = this.resolvePublicValidationPortalOrigin();
+    if (!portalOrigin) {
+      this.logger.warn({
+        event: 'photographic_report_public_validation_unavailable',
+        reportId: report.id,
+        reason: 'public_portal_origin_not_configured',
+      });
+      return { url: null, qrDataUri: null };
+    }
+
+    try {
+      const token = await this.publicValidationGrantService.issueToken({
+        code: documentCode,
+        companyId: report.company_id,
+        documentId: report.id,
+        portal: 'photographic_report_public_validation',
+        expiresInSeconds: PUBLIC_VALIDATION_TOKEN_TTL_SECONDS,
+      });
+      const validationUrl = new URL(
+        `/validar/${encodeURIComponent(documentCode)}`,
+        portalOrigin,
+      );
+      validationUrl.searchParams.set('token', token);
+      const url = validationUrl.toString();
+      const qrDataUri = await QRCode.toDataURL(url, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 256,
+        color: {
+          dark: '#0F2036',
+          light: '#FFFFFF',
+        },
+      });
+
+      return { url, qrDataUri };
+    } catch (error) {
+      this.logger.warn({
+        event: 'photographic_report_public_validation_unavailable',
+        reportId: report.id,
+        companyId: report.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      return { url: null, qrDataUri: null };
+    }
+  }
+
+  private resolvePublicValidationPortalOrigin(): string | null {
+    const configuredOrigins = [
+      process.env.FRONTEND_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.APP_URL,
+    ];
+
+    for (const candidate of configuredOrigins) {
+      const value = String(candidate || '').trim();
+      if (!value) {
+        continue;
+      }
+
+      try {
+        const parsed = new URL(value);
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+          return parsed.origin;
+        }
+      } catch {
+        // Tenta a próxima variável; nenhum valor é interpolado no HTML.
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Assinaturas do relatório, para o bloco de assinaturas do documento.
+   *
+   * O `.catch` NÃO é decorativo: `findByDocument` chama
+   * `assertDocumentSiteVisibleForCurrentScope` antes de qualquer coisa e lança
+   * `NotFoundException` para módulo fora do mapa de escopo. Sem esta rede, um
+   * erro na resolução de escopo derrubaria TODA emissão de PDF — o documento
+   * deixaria de sair por causa de um painel acessório.
+   *
+   * O resolver dedicado (`resolvePhotographicReportSignatureDocumentScope`) é
+   * a correção; isto aqui é o cinto de segurança.
+   */
+  private async loadReportSignatures(
+    reportId: string,
+  ): Promise<RenderableSignature[]> {
+    try {
+      const signatures = await this.signaturesService.findByDocument(
+        reportId,
+        'PHOTOGRAPHIC_REPORT',
+      );
+
+      return signatures.map((signature) => ({
+        signerName: signature.user?.nome ?? null,
+        signerRole: signature.user?.funcao ?? null,
+        type: signature.type ?? null,
+        signedAt: signature.signed_at
+          ? signature.signed_at.toISOString()
+          : null,
+        signatureHash: signature.signature_hash ?? null,
+        // Só data URI pequeno vai para o HTML. Acima do limiar o payload está
+        // no S3, e buscá-lo quebraria a invariante de "sem rede durante o
+        // render" do Chromium.
+        signatureImage:
+          signature.signature_data &&
+          signature.signature_data.startsWith('data:image/') &&
+          signature.signature_data.length <= 4096
+            ? signature.signature_data
+            : null,
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `Assinaturas indisponíveis para o relatório ${reportId} durante a emissão: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return [];
+    }
+  }
+
   private async buildPdfBuffer(
     report: PhotographicReportResponse,
   ): Promise<Buffer> {
@@ -1844,17 +1997,28 @@ export class PhotographicReportsService {
       });
     }
 
-    const branding = await this.resolveCompanyBranding(report.company_id);
+    const documentCode = buildPhotographicReportCode(report);
+
+    // Os três são independentes e cada um já degrada sozinho — buscar em
+    // paralelo evita somar três idas de rede ao tempo de emissão.
+    const [branding, validation, signatures] = await Promise.all([
+      this.resolveCompanyBranding(report.company_id),
+      this.buildPublicValidationPresentation(report, documentCode),
+      this.loadReportSignatures(report.id),
+    ]);
+
     const html = buildPhotographicReportHtml(report, {
       companyIdentity: {
         razaoSocial: branding.razaoSocial,
         cnpj: branding.cnpj,
       },
       clientName: report.client_name,
-      documentCode: buildPhotographicReportCode(report),
+      documentCode,
       generatedAt: new Date().toISOString(),
       renderableImages,
       logoDataUrl: branding.logoDataUrl,
+      validation,
+      signatures,
     });
 
     return this.pdfService.generateFromHtml(html, {

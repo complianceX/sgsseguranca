@@ -64,6 +64,12 @@ describe('PhotographicReportsService', () => {
   const fileInspectionService = {
     inspect: jest.fn(),
   };
+  const publicValidationGrantService = {
+    issueToken: jest.fn().mockResolvedValue('token-de-teste'),
+  };
+  const signaturesService = {
+    findByDocument: jest.fn().mockResolvedValue([]),
+  };
 
   let service: PhotographicReportsService;
   let reportQueryBuilder: {
@@ -105,6 +111,8 @@ describe('PhotographicReportsService', () => {
       aiAnalysisService as never,
       fileInspectionService as never,
       { findOne: jest.fn().mockResolvedValue(null) } as never,
+      publicValidationGrantService as never,
+      signaturesService as never,
     );
   });
 
