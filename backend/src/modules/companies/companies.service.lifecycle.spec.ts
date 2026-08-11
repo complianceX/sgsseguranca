@@ -13,7 +13,10 @@ import { FileInspectionService } from '../../shared/security/file-inspection.ser
 import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { ProvisioningDataSourceService } from '../../shared/database/provisioning-datasource.service';
-import { InternalServerErrorException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 const COMPANY_ID = 'company-uuid-1';
 
@@ -70,23 +73,40 @@ describe('CompaniesService — lifecycle e validação', () => {
    * de runtime, porque é este que a guarda precisa consultar.
    */
   let usuariosVinculados: number;
+  /**
+   * Quando definido, `requiredTransaction` rejeita com este erro em vez de
+   * contar — simula conexão privilegiada ausente (503) ou indisponível
+   * (ECONNREFUSED, timeout, falha de autenticação).
+   */
+  let erroDaConexaoPrivilegiada: Error | null;
   let provisioningDataSource: {
     isDedicated: jest.Mock;
     transaction: jest.Mock;
+    requiredTransaction: jest.Mock;
   };
 
   beforeEach(async () => {
     usuariosVinculados = 0;
-    provisioningDataSource = {
-      isDedicated: jest.fn(() => true),
-      transaction: jest.fn((cb: (m: unknown) => unknown) =>
-        Promise.resolve(
-          cb({
-            getRepository: () => ({
-              count: jest.fn(() => Promise.resolve(usuariosVinculados)),
-            }),
+    erroDaConexaoPrivilegiada = null;
+
+    const executar = (cb: (m: unknown) => unknown) => {
+      if (erroDaConexaoPrivilegiada) {
+        return Promise.reject(erroDaConexaoPrivilegiada);
+      }
+      return Promise.resolve(
+        cb({
+          getRepository: () => ({
+            count: jest.fn(() => Promise.resolve(usuariosVinculados)),
           }),
-        ),
+        }),
+      );
+    };
+
+    provisioningDataSource = {
+      isDedicated: jest.fn(() => !erroDaConexaoPrivilegiada),
+      transaction: jest.fn(executar),
+      requiredTransaction: jest.fn((_op: string, cb: (m: unknown) => unknown) =>
+        executar(cb),
       ),
     };
     companyRepo = makeMockRepo();
@@ -181,7 +201,14 @@ describe('CompaniesService — lifecycle e validação', () => {
       await expect(service.remove(COMPANY_ID)).rejects.toThrow(
         /usuário vinculado/i,
       );
-      expect(provisioningDataSource.transaction).toHaveBeenCalled();
+      // `requiredTransaction`, não `transaction`: a diferença é que a primeira
+      // recusa a operação quando não há conexão privilegiada, em vez de
+      // degradar para o runtime e voltar a contar 0.
+      expect(provisioningDataSource.requiredTransaction).toHaveBeenCalledWith(
+        'company_delete_guard',
+        expect.any(Function),
+      );
+      expect(provisioningDataSource.transaction).not.toHaveBeenCalled();
       expect(companyRepo.softDelete).not.toHaveBeenCalled();
     });
 
@@ -208,6 +235,45 @@ describe('CompaniesService — lifecycle e validação', () => {
       expect(cacheManager.del).toHaveBeenCalledWith('companies:all');
       expect(cacheManager.del).toHaveBeenCalledWith('companies:active:ids');
       expect(cacheManager.del).toHaveBeenCalledWith(`company:${COMPANY_ID}`);
+    });
+
+    it('TESTE C — sem conexão privilegiada, FALHA FECHADO e não exclui nada', async () => {
+      // `requiredTransaction` responde 503 quando DATABASE_ADMIN_URL não existe.
+      // O ponto é que a ausência de prova NÃO pode virar "empresa vazia".
+      companyRepo.findOne.mockResolvedValueOnce(makeCompany());
+      erroDaConexaoPrivilegiada = new ServiceUnavailableException(
+        'Operação administrativa indisponível: conexão privilegiada não configurada.',
+      );
+
+      await expect(service.remove(COMPANY_ID)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      expect(gdprService.deleteCompanyData).not.toHaveBeenCalled();
+      expect(companyRepo.softDelete).not.toHaveBeenCalled();
+      expect(companyRepo.remove).not.toHaveBeenCalled();
+    });
+
+    it('TESTE D — erro de infraestrutura na conexão admin nunca vira "0 usuários"', async () => {
+      // ECONNREFUSED, timeout, falha de autenticação: qualquer um deles tem
+      // que propagar. Um `catch` que devolvesse 0 aqui recriaria o fail-open
+      // por outro caminho.
+      for (const falha of [
+        Object.assign(new Error('connect ECONNREFUSED 10.0.0.1:5432'), {
+          code: 'ECONNREFUSED',
+        }),
+        Object.assign(new Error('Connection terminated due to timeout'), {
+          code: 'ETIMEDOUT',
+        }),
+        new Error('password authentication failed for user "sgs_admin"'),
+      ]) {
+        jest.clearAllMocks();
+        companyRepo.findOne.mockResolvedValueOnce(makeCompany());
+        erroDaConexaoPrivilegiada = falha;
+
+        await expect(service.remove(COMPANY_ID)).rejects.toThrow(falha.message);
+        expect(gdprService.deleteCompanyData).not.toHaveBeenCalled();
+        expect(companyRepo.softDelete).not.toHaveBeenCalled();
+      }
     });
 
     it('lança NotFoundException ao remover empresa inexistente', async () => {

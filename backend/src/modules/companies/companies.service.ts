@@ -667,7 +667,12 @@ export class CompaniesService {
     // Foi encontrado na prática, ao limpar tenants de teste: o
     // `DELETE /users/:id` foi barrado pelo MFA de step-up e o
     // `DELETE /companies/:id` passou por baixo, apagando os mesmos usuários.
-    const linkedUsers = await this.provisioningDataSource.transaction(
+    //
+    // `requiredTransaction` e não `transaction`: sem conexão privilegiada não
+    // há como PROVAR que a empresa está vazia, e "não consegui provar" não
+    // pode virar "pode excluir". Falha fechado (503) em qualquer ambiente.
+    const linkedUsers = await this.provisioningDataSource.requiredTransaction(
+      'company_delete_guard',
       (manager) =>
         manager.getRepository(User).count({ where: { company_id: id } }),
     );

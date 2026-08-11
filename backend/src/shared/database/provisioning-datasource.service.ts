@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, DataSourceOptions, EntityManager } from 'typeorm';
@@ -127,7 +132,7 @@ export class ProvisioningDataSourceService implements OnModuleDestroy {
   async transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
     const dataSource = this.isDedicated()
       ? await this.getDedicated()
-      : this.warnAndUseRuntime();
+      : this.resolveFallbackDataSource('tenant_provisioning');
 
     return dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL app.is_super_admin = 'true'");
@@ -135,15 +140,83 @@ export class ProvisioningDataSourceService implements OnModuleDestroy {
     });
   }
 
-  private warnAndUseRuntime(): DataSource {
+  /**
+   * `transaction` que exige a conexao dedicada em **qualquer ambiente**,
+   * inclusive desenvolvimento.
+   *
+   * Use quando o resultado da query decide uma condicao de seguranca — em
+   * particular quando "0 linhas" seria interpretado como autorizacao. O
+   * exemplo canonico e a trava de `companies.remove()`: contar usuarios
+   * vinculados pela conexao de runtime devolve 0 por RLS, e a guarda que
+   * deveria bloquear a exclusao passa a liberar.
+   *
+   * Diferente de `transaction()`, aqui nao ha degradacao: sem conexao
+   * privilegiada nao ha como provar a condicao, e o correto e recusar.
+   */
+  async requiredTransaction<T>(
+    operation: string,
+    fn: (manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    if (!this.isDedicated()) {
+      this.logger.error({
+        event: 'privileged_connection_required',
+        operation,
+        severity: 'HIGH',
+        message:
+          'Conexao de provisionamento indisponivel: operacao bloqueada em vez ' +
+          'de consultada pela conexao de runtime, que nao enxerga as linhas por RLS.',
+      });
+      throw new ServiceUnavailableException(
+        'Operação administrativa indisponível: conexão privilegiada não configurada.',
+      );
+    }
+
+    const dataSource = await this.getDedicated();
+    return dataSource.transaction(async (manager) => {
+      await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      return fn(manager);
+    });
+  }
+
+  /**
+   * Decide o que fazer quando nao ha conexao dedicada.
+   *
+   * Em **producao** nao ha decisao a tomar: `DATABASE_ADMIN_URL` e requisito
+   * operacional desde a migration 361, e a ausencia dela e erro de
+   * configuracao. Degradar para o runtime ali produziria um sistema que parece
+   * funcionar e nao funciona — provisionamento devolvendo "convite invalido"
+   * para convites validos, por exemplo. Falha fechado.
+   *
+   * Fora de producao, degrada com aviso: em desenvolvimento a role local
+   * costuma ter bypass (ou o banco e SQLite, sem RLS), e exigir a conexao
+   * dedicada quebraria o ambiente de todo mundo sem ganho de seguranca.
+   */
+  private resolveFallbackDataSource(operation: string): DataSource {
+    const isProduction = this.config.get<string>('NODE_ENV') === 'production';
+    const isPostgres = this.runtimeDataSource.options.type === 'postgres';
+
+    if (isProduction) {
+      this.logger.error({
+        event: 'privileged_connection_required',
+        operation,
+        severity: 'HIGH',
+        message:
+          'DATABASE_ADMIN_URL ausente em producao: operacao de provisionamento ' +
+          'bloqueada. A conexao de runtime nao tem bypass de RLS desde a migration 361.',
+      });
+      throw new ServiceUnavailableException(
+        'Operação administrativa indisponível: conexão privilegiada não configurada.',
+      );
+    }
+
     if (!this.fallbackWarned) {
       this.fallbackWarned = true;
-      const isPostgres = this.runtimeDataSource.options.type === 'postgres';
       this.logger.warn({
         event: 'provisioning_datasource_fallback',
+        operation,
         message: isPostgres
-          ? 'DATABASE_ADMIN_URL ausente: provisionamento de tenant vai usar a conexão de runtime. ' +
-            'Se o papel de runtime não for membro de sgs_rls_bypass, TODA criação de tenant falhará por RLS.'
+          ? 'DATABASE_ADMIN_URL ausente (fora de produção): provisionamento vai usar a conexão de runtime. ' +
+            'Se o papel local não for membro de sgs_rls_bypass, a criação de tenant falhará por RLS.'
           : 'Runtime não é PostgreSQL: provisionamento usando a conexão de runtime (sem RLS).',
       });
     }

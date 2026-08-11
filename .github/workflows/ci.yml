@@ -33,9 +33,28 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
+      # ------------------------------------------------------------------
+      # A PARTIR DAQUI, CADA CHECK É INDEPENDENTE.
+      #
+      # O default do GitHub Actions é `if: success()`, então o primeiro step
+      # vermelho marcava TODOS os seguintes como `skipped`. Como o audit de
+      # dependências vinha antes de lint/type-check/test/build, um CVE em
+      # devDependency apagava toda a evidência do PR: nenhum sinal de que os
+      # testes passavam, de que o build compilava, de que as migrations eram
+      # válidas. Ficou assim por semanas, em `main` inclusive.
+      #
+      # `!cancelled()` faz cada check rodar mesmo que outro tenha falhado —
+      # e NÃO é `continue-on-error`: a falha continua reprovando o job. A
+      # diferença é entre *separar execução* e *esconder resultado*.
+      #
+      # A condição extra em `steps.install` existe porque rodar lint sem
+      # `node_modules` produziria um erro confuso que não é o defeito real.
+      # ------------------------------------------------------------------
       - name: Security baseline gate (refresh CSRF)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           NODE_ENV: staging
           REFRESH_CSRF_ENFORCED: "true"
@@ -43,6 +62,7 @@ jobs:
         run: npm run security:phase0:baseline
 
       - name: Security baseline negative test (must fail on insecure CSRF)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           NODE_ENV: staging
           REFRESH_CSRF_ENFORCED: "false"
@@ -58,27 +78,35 @@ jobs:
           echo "Negative test passed: insecure CSRF config was blocked as expected."
 
       - name: Audit backend dependencies (high+critical)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm audit --audit-level=high
 
       - name: Lint backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run lint
 
       - name: Type-check backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run type-check
 
       - name: Test backend (shard 1/2)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci -- --shard=1/2
 
       - name: Test backend (shard 2/2)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci -- --shard=2/2
 
       - name: Smoke backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:smoke
 
       - name: Build backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
 
       - name: Validate migrations
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run ci:migration:check
 
   backend-e2e:
@@ -476,16 +504,23 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
+      # Mesma separação do job de backend: o audit deixa de sequestrar a
+      # evidência de lint/test/build. Falha continua reprovando o job.
       - name: Audit frontend dependencies (high+critical)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm audit --audit-level=high
 
       - name: Lint frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run lint
 
       - name: Test frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci
 
       - name: Build frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
