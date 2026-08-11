@@ -12,6 +12,7 @@ import { Dds } from '../dds/entities/dds.entity';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
 import { GDPRDeletionService } from '../admin/services/gdpr-deletion.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
+import { ProvisioningDataSourceService } from '../../shared/database/provisioning-datasource.service';
 import { InternalServerErrorException } from '@nestjs/common';
 
 const COMPANY_ID = 'company-uuid-1';
@@ -63,7 +64,31 @@ describe('CompaniesService — lifecycle e validação', () => {
   let cacheManager: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
   let gdprService: { deleteCompanyData: jest.Mock };
 
+  /**
+   * Quantos usuários a conexão PRIVILEGIADA enxerga — ou seja, a verdade.
+   * Os testes de `remove` abaixo controlam este número, e não o do repositório
+   * de runtime, porque é este que a guarda precisa consultar.
+   */
+  let usuariosVinculados: number;
+  let provisioningDataSource: {
+    isDedicated: jest.Mock;
+    transaction: jest.Mock;
+  };
+
   beforeEach(async () => {
+    usuariosVinculados = 0;
+    provisioningDataSource = {
+      isDedicated: jest.fn(() => true),
+      transaction: jest.fn((cb: (m: unknown) => unknown) =>
+        Promise.resolve(
+          cb({
+            getRepository: () => ({
+              count: jest.fn(() => Promise.resolve(usuariosVinculados)),
+            }),
+          }),
+        ),
+      ),
+    };
     companyRepo = makeMockRepo();
     cacheManager = {
       get: jest.fn().mockResolvedValue(null),
@@ -104,6 +129,10 @@ describe('CompaniesService — lifecycle e validação', () => {
           useValue: gdprService,
         },
         {
+          provide: ProvisioningDataSourceService,
+          useValue: provisioningDataSource,
+        },
+        {
           provide: TenantService,
           useValue: {
             run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
@@ -120,9 +149,7 @@ describe('CompaniesService — lifecycle e validação', () => {
   describe('remove — restrições de lifecycle', () => {
     it('lança BadRequestException quando empresa tem usuários vinculados', async () => {
       companyRepo.findOne.mockResolvedValueOnce(makeCompany());
-      companyRepo.manager.getRepository.mockReturnValueOnce({
-        count: jest.fn().mockResolvedValue(3),
-      });
+      usuariosVinculados = 3;
 
       await expect(service.remove(COMPANY_ID)).rejects.toThrow(
         BadRequestException,
@@ -130,11 +157,37 @@ describe('CompaniesService — lifecycle e validação', () => {
       expect(companyRepo.remove).not.toHaveBeenCalled();
     });
 
-    it('lança InternalServerErrorException quando pipeline GDPR falha', async () => {
+    it('conta os usuários pela conexão de provisionamento, não pela de runtime', async () => {
+      // Trava de regressão de uma guarda que falhava ABERTA em produção.
+      //
+      // `/companies` está em GLOBAL_TENANT_OPTIONAL_PATHS, então o ADMIN_GERAL
+      // chama esta rota sem `x-company-id`. Sem `current_company()`, e com
+      // `is_super_admin()` inerte desde a migration 361, a RLS de `users` nega
+      // tudo na conexão de runtime: o count devolvia 0, a trava nunca disparava
+      // e a empresa era excluída com usuários ativos dentro — que a cascata de
+      // GDPR levava junto.
+      //
+      // O teste acima passava mesmo com o defeito, porque o mock do repositório
+      // de runtime devolvia a verdade que a RLS jamais deixaria passar. É por
+      // isso que este teste existe separado: aqui o runtime devolve 0 (RLS
+      // negando) e a conexão privilegiada devolve 2 (o que há de fato). A
+      // guarda precisa acreditar na segunda.
       companyRepo.findOne.mockResolvedValueOnce(makeCompany());
-      companyRepo.manager.getRepository.mockReturnValueOnce({
+      companyRepo.manager.getRepository.mockReturnValue({
         count: jest.fn().mockResolvedValue(0),
       });
+      usuariosVinculados = 2;
+
+      await expect(service.remove(COMPANY_ID)).rejects.toThrow(
+        /usuário vinculado/i,
+      );
+      expect(provisioningDataSource.transaction).toHaveBeenCalled();
+      expect(companyRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('lança InternalServerErrorException quando pipeline GDPR falha', async () => {
+      companyRepo.findOne.mockResolvedValueOnce(makeCompany());
+      usuariosVinculados = 0;
       gdprService.deleteCompanyData.mockResolvedValueOnce({ status: 'failed' });
 
       await expect(service.remove(COMPANY_ID)).rejects.toThrow(
@@ -145,9 +198,7 @@ describe('CompaniesService — lifecycle e validação', () => {
 
     it('soft-deleta empresa sem usuários e invalida caches', async () => {
       companyRepo.findOne.mockResolvedValueOnce(makeCompany());
-      companyRepo.manager.getRepository.mockReturnValueOnce({
-        count: jest.fn().mockResolvedValue(0),
-      });
+      usuariosVinculados = 0;
 
       await service.remove(COMPANY_ID);
 
