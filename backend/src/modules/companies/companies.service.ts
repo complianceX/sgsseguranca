@@ -10,7 +10,7 @@
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial, EntityManager } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -178,8 +178,34 @@ export class CompaniesService {
     return this.toResponseDto(saved);
   }
 
-  async ensureDefaultDdsThemeLibrary(companyId: string): Promise<void> {
-    const existingRows = await this.ddsRepository.find({
+  /**
+   * Semeia a biblioteca padrão de temas de DDS para uma empresa.
+   *
+   * `manager` existe para o caminho de **provisionamento de tenant**: ali a
+   * requisição é pública e não tem contexto de tenant nenhum, então as leituras
+   * e escritas precisam correr na conexão privilegiada
+   * (`ProvisioningDataSourceService`) em vez dos repositórios de runtime. Sem
+   * isso, todas as queries abaixo caem na RLS, o método falha e — por ser
+   * best-effort no chamador — a empresa nova nasce sem temas, em silêncio.
+   *
+   * Chamado sem `manager` (fluxo normal de `create()`), usa os repositórios de
+   * runtime, com o contexto de tenant que o middleware já injetou.
+   */
+  async ensureDefaultDdsThemeLibrary(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const ddsRepository = manager
+      ? manager.getRepository(Dds)
+      : this.ddsRepository;
+    const sitesRepository = manager
+      ? manager.getRepository(Site)
+      : this.sitesRepository;
+    const usersRepository = manager
+      ? manager.getRepository(User)
+      : this.usersRepository;
+
+    const existingRows = await ddsRepository.find({
       select: ['tema'],
       where: { company_id: companyId, is_modelo: true },
     });
@@ -189,13 +215,13 @@ export class CompaniesService {
         .filter((value): value is string => Boolean(value)),
     );
 
-    let site = await this.sitesRepository.findOne({
+    let site = await sitesRepository.findOne({
       where: { company_id: companyId },
       order: { created_at: 'ASC' },
     });
     if (!site) {
-      site = await this.sitesRepository.save(
-        this.sitesRepository.create({
+      site = await sitesRepository.save(
+        sitesRepository.create({
           company_id: companyId,
           nome: 'Geral',
           local: 'Geral',
@@ -204,19 +230,23 @@ export class CompaniesService {
       );
     }
 
-    let facilitator = await this.usersRepository.findOne({
+    let facilitator = await usersRepository.findOne({
       where: { company_id: companyId },
       order: { created_at: 'ASC' },
     });
     if (!facilitator) {
-      facilitator = await this.createSystemFacilitatorUser(companyId, site.id);
+      facilitator = await this.createSystemFacilitatorUser(
+        companyId,
+        site.id,
+        manager,
+      );
     }
 
     const now = new Date();
     const entities = DDS_THEME_LIBRARY.filter(
       (theme) => !existingTemaSet.has(theme.tema.trim()),
     ).map((theme) =>
-      this.ddsRepository.create({
+      ddsRepository.create({
         tema: theme.tema,
         conteudo: theme.conteudo,
         data: now,
@@ -235,7 +265,7 @@ export class CompaniesService {
 
     const batchSize = 50;
     for (let i = 0; i < entities.length; i += batchSize) {
-      await this.ddsRepository.save(entities.slice(i, i + batchSize));
+      await ddsRepository.save(entities.slice(i, i + batchSize));
     }
 
     this.logger.log({
@@ -248,13 +278,21 @@ export class CompaniesService {
   private async createSystemFacilitatorUser(
     companyId: string,
     siteId: string,
+    manager?: EntityManager,
   ): Promise<User> {
+    const profilesRepository = manager
+      ? manager.getRepository(Profile)
+      : this.profilesRepository;
+    const usersRepository = manager
+      ? manager.getRepository(User)
+      : this.usersRepository;
+
     const preferredProfileNames = [
       'Técnico',
       'Supervisor',
       'Administrador da Empresa',
     ];
-    let profile = await this.profilesRepository
+    let profile = await profilesRepository
       .createQueryBuilder('profile')
       .where('profile.status = true')
       .andWhere('profile.nome IN (:...names)', { names: preferredProfileNames })
@@ -262,7 +300,7 @@ export class CompaniesService {
       .getOne();
 
     if (!profile) {
-      profile = await this.profilesRepository.findOne({
+      profile = await profilesRepository.findOne({
         where: { status: true },
         order: { created_at: 'ASC' },
       });
@@ -274,7 +312,7 @@ export class CompaniesService {
       );
     }
 
-    const user = this.usersRepository.create({
+    const user = usersRepository.create({
       nome: 'SGS (Temas DDS)',
       email: `system.dds.${companyId}@sgs.local`,
       cpf: null,
@@ -287,7 +325,7 @@ export class CompaniesService {
       ai_processing_consent: false,
     });
 
-    return this.usersRepository.save(user);
+    return usersRepository.save(user);
   }
 
   /** Marca como trial_expired todos os trials expirados. Retorna a quantidade atualizada. */
