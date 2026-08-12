@@ -25,7 +25,9 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
       const executablePath = instance.executablePath.bind(instance);
       return {
         ...instance,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         launch,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         executablePath,
       };
     });
