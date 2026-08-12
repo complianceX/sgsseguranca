@@ -17,10 +17,15 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
       'specifier',
       'return import(specifier);',
     ) as (specifier: string) => Promise<PuppeteerImport>;
-    modulePromise = dynamicImport('puppeteer').then(
-      (module) => module.default ?? module,
-    );
+    modulePromise = dynamicImport('puppeteer').then((module) => {
+      const instance = module.default ?? module;
+      return {
+        ...instance,
+        launch: instance.launch.bind(instance),
+        executablePath: instance.executablePath.bind(instance),
+      } as PuppeteerModule;
+    });
   }
 
-  return modulePromise;
+  return modulePromise!;
 }
