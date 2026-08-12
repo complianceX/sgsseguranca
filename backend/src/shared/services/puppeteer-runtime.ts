@@ -1,6 +1,7 @@
 import type { PuppeteerNode } from 'puppeteer';
 
 type PuppeteerModule = PuppeteerNode;
+type PuppeteerImport = PuppeteerModule & { default?: PuppeteerModule };
 
 let modulePromise: Promise<PuppeteerModule> | undefined;
 
@@ -15,8 +16,10 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
     const dynamicImport = new Function(
       'specifier',
       'return import(specifier);',
-    ) as (specifier: string) => Promise<PuppeteerModule>;
-    modulePromise = dynamicImport('puppeteer');
+    ) as (specifier: string) => Promise<PuppeteerImport>;
+    modulePromise = dynamicImport('puppeteer').then(
+      (module) => module.default ?? module,
+    );
   }
 
   return modulePromise;
