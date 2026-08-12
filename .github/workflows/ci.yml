@@ -233,6 +233,11 @@ jobs:
       - name: Run critical e2e flows
         run: npm run test:e2e -- --forceExit
 
+      - name: Run APR adversarial security proof
+        env:
+          APR_SECURITY_E2E_REQUIRED: "true"
+        run: npm run test:e2e -- --forceExit aprs/apr-phase4-adversarial.e2e-spec.ts
+
   backend-dr-e2e:
     name: Backend E2E DR Restore (Dedicated Postgres)
     runs-on: ubuntu-latest
