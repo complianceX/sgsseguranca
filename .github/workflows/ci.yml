@@ -216,6 +216,57 @@ jobs:
           npm run build
           npm run migration:run
 
+      - name: Validate APR signature integrity schema
+        env:
+          PGPASSWORD: postgres123
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT current_database() AS database_name,
+                 current_schema() AS schema_name,
+                 (SELECT COUNT(*) FROM migrations) AS migration_count;
+          SELECT id, timestamp, name
+          FROM migrations
+          WHERE name = 'AddAprSignatureContentIntegrity1709000000375';
+          DO $$
+          DECLARE
+            missing_columns text;
+          BEGIN
+            SELECT string_agg(required.column_name, ', ' ORDER BY required.column_name)
+              INTO missing_columns
+            FROM (
+              VALUES
+                ('content_hash'),
+                ('hash_algorithm'),
+                ('canonicalization_version'),
+                ('integrity_scheme')
+            ) AS required(column_name)
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = current_schema()
+                AND table_name = 'signatures'
+                AND column_name = required.column_name
+            );
+
+            IF missing_columns IS NOT NULL THEN
+              RAISE EXCEPTION
+                'APR signature integrity schema gate failed; missing columns: %',
+                missing_columns;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM migrations
+              WHERE name = 'AddAprSignatureContentIntegrity1709000000375'
+            ) THEN
+              RAISE EXCEPTION
+                'APR signature integrity migration 0375 is not recorded as executed';
+            END IF;
+          END
+          $$;
+          SQL
+
       - name: Grant privileged access after reconstruction
         env:
           PGPASSWORD: postgres123

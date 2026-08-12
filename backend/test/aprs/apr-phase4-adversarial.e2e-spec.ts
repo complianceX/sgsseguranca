@@ -5,6 +5,7 @@
  */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Role } from '../../src/modules/auth/enums/roles.enum';
+import { AprStatus } from '../../src/modules/aprs/entities/apr.entity';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 import { createApr } from '../factories/apr.factory';
 
@@ -303,5 +304,49 @@ describeE2E('E2E Fase 4 — APR adversarial HTTP/SQL proof', () => {
       .set(testApp.authHeaders(tstA));
     expect(mismatchResponse.status).toBe(200);
     expect(mismatchResponse.body.content_integrity).toBe('CONTENT_MISMATCH');
+  });
+
+  it('converte conflito real de lock APR em HTTP 409 sem mutar o estado', async () => {
+    const lockedApr = await createApr(testApp, tstA, {
+      numero: 'APR-LOCK-F4-001',
+      titulo: 'APR lock controlado Fase 4',
+      siteId: testApp.getTenant('tenantA').siteId,
+      elaboradorId: testApp.getUser('tenantA', Role.TST).id,
+    });
+    const lockRunner = testApp.dataSource.createQueryRunner();
+
+    await lockRunner.connect();
+    await lockRunner.startTransaction();
+    try {
+      await lockRunner.query('SELECT id FROM aprs WHERE id = $1 FOR UPDATE', [
+        lockedApr.id,
+      ]);
+
+      const response = await testApp
+        .request()
+        .patch(`/aprs/${lockedApr.id}/approve`)
+        .set(testApp.authHeaders(tstA))
+        .set(csrfHeaders)
+        .send({ reason: 'lock conflict proof' });
+
+      expect(response.status).toBe(409);
+      expect(JSON.stringify(response.body)).not.toContain('55P03');
+      expect(JSON.stringify(response.body)).not.toContain('FOR UPDATE');
+
+      const whileLocked = await testApp.dataSource.query(
+        'SELECT status FROM aprs WHERE id = $1',
+        [lockedApr.id],
+      );
+      expect(whileLocked[0].status).toBe(AprStatus.PENDENTE);
+    } finally {
+      await lockRunner.rollbackTransaction();
+      await lockRunner.release();
+    }
+
+    const afterRelease = await testApp.dataSource.query(
+      'SELECT status FROM aprs WHERE id = $1',
+      [lockedApr.id],
+    );
+    expect(afterRelease[0].status).toBe(AprStatus.PENDENTE);
   });
 });
