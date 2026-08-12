@@ -95,7 +95,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Verificar saúde do browser
-    if (!pooledBrowser.browser.isConnected()) {
+    if (!pooledBrowser.browser.connected) {
       this.logger.warn(
         `Browser ${pooledBrowser.id} desconectado. Reiniciando...`,
       );
@@ -140,7 +140,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         `Erro ao criar página no browser ${pooledBrowser.id}:`,
         error,
       );
-      if (!pooledBrowser.browser.isConnected()) {
+      if (!pooledBrowser.browser.connected) {
         await this.recycleBrowser(pooledBrowser);
       }
       throw error;
@@ -171,7 +171,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     browser: Browser;
     userDataDir: string;
   }> {
-    const resolvedBrowser = this.resolveExecutablePath();
+    const resolvedBrowser = await this.resolveExecutablePath();
     const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
     const runtimeEnv = {
       ...process.env,
@@ -268,11 +268,11 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private resolveExecutablePath(): {
+  private async resolveExecutablePath(): Promise<{
     executablePath?: string;
     source: 'env' | 'puppeteer' | 'default';
     exists: boolean;
-  } {
+  }> {
     const envPath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
     if (envPath) {
       return {
@@ -283,7 +283,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const executablePath = puppeteer.executablePath();
+      const executablePath = await puppeteer.executablePath();
       return {
         executablePath,
         source: 'puppeteer',
@@ -348,7 +348,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     const maxInactiveTime = 5 * 60 * 1000; // 5 minutos
 
     for (const pooledBrowser of this.browserPool) {
-      if (!pooledBrowser.browser.isConnected()) {
+      if (!pooledBrowser.browser.connected) {
         await this.recycleBrowser(pooledBrowser);
         continue;
       }

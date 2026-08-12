@@ -3,6 +3,11 @@ import { mkdtemp, rm } from 'fs/promises';
 import * as puppeteer from 'puppeteer';
 import { PuppeteerPoolService } from './puppeteer-pool.service';
 
+jest.mock('puppeteer', () => ({
+  executablePath: jest.fn(),
+  launch: jest.fn(),
+}));
+
 jest.mock('fs/promises', () => ({
   mkdtemp: jest.fn(),
   rm: jest.fn(),
@@ -88,7 +93,7 @@ describe('PuppeteerPoolService', () => {
 
     jest
       .spyOn(puppeteer, 'executablePath')
-      .mockReturnValue(
+      .mockResolvedValue(
         '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
       );
     const launchSpy = jest
