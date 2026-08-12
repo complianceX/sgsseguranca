@@ -19,11 +19,15 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
     ) as (specifier: string) => Promise<PuppeteerImport>;
     modulePromise = dynamicImport('puppeteer').then((module) => {
       const instance = module.default ?? module;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const launch = instance.launch.bind(instance);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const executablePath = instance.executablePath.bind(instance);
       return {
         ...instance,
-        launch: instance.launch.bind(instance),
-        executablePath: instance.executablePath.bind(instance),
-      } as PuppeteerModule;
+        launch,
+        executablePath,
+      };
     });
   }
 
