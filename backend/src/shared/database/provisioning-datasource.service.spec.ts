@@ -1,9 +1,11 @@
 import type { ConfigService } from '@nestjs/config';
 import type { DataSource, EntityManager } from 'typeorm';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import {
   ProvisioningDataSourceService,
   buildProvisioningDataSourceOptions,
+  sanitizeConnectionError,
 } from './provisioning-datasource.service';
 
 type MutableOptions = Record<string, unknown>;
@@ -223,6 +225,189 @@ describe('ProvisioningDataSourceService', () => {
           throw new Error('conflito');
         }),
       ).rejects.toThrow('conflito');
+    });
+  });
+
+  /**
+   * Contrato de `requiredTransaction`, que é o que sustenta as guardas de
+   * segurança (`companies.remove`, escritas de `profiles`, retenção LGPD).
+   *
+   * PostgreSQL → exige conexão dedicada; qualquer indisponibilidade é 503.
+   * SQLite     → usa a transação local; não há RLS, logo não há o que provar.
+   */
+  describe('requiredTransaction', () => {
+    const comDedicada = (
+      service: ProvisioningDataSourceService,
+      resultado: { dataSource?: unknown; erro?: Error },
+    ) =>
+      jest
+        .spyOn(
+          service as unknown as { getDedicated: () => Promise<unknown> },
+          'getDedicated',
+        )
+        .mockImplementation(() =>
+          resultado.erro
+            ? Promise.reject(resultado.erro)
+            : Promise.resolve(resultado.dataSource),
+        );
+
+    const dedicadaFake = () => {
+      const manager = { query: jest.fn(() => Promise.resolve(undefined)) };
+      return {
+        manager,
+        dataSource: {
+          transaction: jest.fn((cb: (m: unknown) => unknown) =>
+            Promise.resolve(cb(manager)),
+          ),
+        },
+      };
+    };
+
+    it('A — PostgreSQL sem DATABASE_ADMIN_URL responde 503', async () => {
+      const { runtime } = makeRuntime('postgres');
+      const service = new ProvisioningDataSourceService(
+        makeConfig(),
+        runtime as unknown as DataSource,
+      );
+
+      await expect(
+        service.requiredTransaction('op_teste', () => Promise.resolve('nunca')),
+      ).rejects.toThrow(ServiceUnavailableException);
+      // E jamais degrada para o runtime.
+      expect(runtime.transaction).not.toHaveBeenCalled();
+    });
+
+    it('B — PostgreSQL com conexão privilegiada indisponível responde 503', async () => {
+      const { runtime } = makeRuntime('postgres');
+      const service = new ProvisioningDataSourceService(
+        makeConfig({ DATABASE_ADMIN_URL: 'postgresql://sgs_admin@host/db' }),
+        runtime as unknown as DataSource,
+      );
+
+      for (const falha of [
+        Object.assign(new Error('connect ECONNREFUSED 10.0.0.1:5432'), {
+          code: 'ECONNREFUSED',
+        }),
+        Object.assign(new Error('Connection terminated due to timeout'), {
+          code: 'ETIMEDOUT',
+        }),
+        Object.assign(
+          new Error('password authentication failed for user "sgs_admin"'),
+          { code: '28P01' },
+        ),
+      ]) {
+        comDedicada(service, { erro: falha });
+        await expect(
+          service.requiredTransaction('op_teste', () => Promise.resolve('x')),
+        ).rejects.toThrow(ServiceUnavailableException);
+        expect(runtime.transaction).not.toHaveBeenCalled();
+      }
+    });
+
+    it('C — PostgreSQL com conexão privilegiada disponível usa a dedicada', async () => {
+      const { runtime } = makeRuntime('postgres');
+      const service = new ProvisioningDataSourceService(
+        makeConfig({ DATABASE_ADMIN_URL: 'postgresql://sgs_admin@host/db' }),
+        runtime as unknown as DataSource,
+      );
+      const { dataSource, manager } = dedicadaFake();
+      comDedicada(service, { dataSource });
+
+      const resultado = await service.requiredTransaction('op_teste', () =>
+        Promise.resolve('ok'),
+      );
+
+      expect(resultado).toBe('ok');
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(runtime.transaction).not.toHaveBeenCalled();
+      expect(manager.query).toHaveBeenCalledWith(
+        "SET LOCAL app.is_super_admin = 'true'",
+      );
+    });
+
+    it('D — SQLite usa a transação local e não exige DATABASE_ADMIN_URL', async () => {
+      // Sem RLS não há linha oculta: o COUNT local já responde "quantas
+      // existem", que é a pergunta que a guarda faz. Exigir conexão dedicada
+      // aqui quebraria dev e teste sem fechar risco nenhum.
+      const { runtime } = makeRuntime('better-sqlite3');
+      const service = new ProvisioningDataSourceService(
+        makeConfig(),
+        runtime as unknown as DataSource,
+      );
+
+      await expect(
+        service.requiredTransaction('op_teste', () => Promise.resolve('local')),
+      ).resolves.toBe('local');
+      expect(runtime.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('E — SQLite NÃO emite SET LOCAL (é sintaxe de PostgreSQL)', async () => {
+      const { runtime, manager } = makeRuntime('better-sqlite3');
+      const service = new ProvisioningDataSourceService(
+        makeConfig(),
+        runtime as unknown as DataSource,
+      );
+
+      await service.requiredTransaction('op_teste', () =>
+        Promise.resolve(undefined),
+      );
+
+      expect(manager.query).not.toHaveBeenCalled();
+    });
+
+    it('erro de domínio do callback é preservado, não convertido em 503', async () => {
+      // O `try` que converte falha em 503 envolve SÓ a obtenção da conexão. Se
+      // envolvesse a transação, um bug de negócio viraria "infra indisponível"
+      // e o diagnóstico apontaria para o lugar errado.
+      const { runtime } = makeRuntime('postgres');
+      const service = new ProvisioningDataSourceService(
+        makeConfig({ DATABASE_ADMIN_URL: 'postgresql://sgs_admin@host/db' }),
+        runtime as unknown as DataSource,
+      );
+      comDedicada(service, { dataSource: dedicadaFake().dataSource });
+
+      const erroDeDominio = new ConflictException('CNPJ já cadastrado');
+      await expect(
+        service.requiredTransaction('op_teste', () =>
+          Promise.reject(erroDeDominio),
+        ),
+      ).rejects.toBe(erroDeDominio);
+    });
+  });
+
+  describe('sanitizeConnectionError', () => {
+    it('remove usuário e senha de connection string no erro', () => {
+      const saida = sanitizeConnectionError(
+        new Error(
+          'could not connect to postgresql://sgs_admin:SenhaSuperSecreta@db.neon.tech/neondb',
+        ),
+      );
+      expect(saida).not.toContain('SenhaSuperSecreta');
+      expect(saida).not.toContain('sgs_admin:');
+      expect(saida).toContain('***:***@');
+    });
+
+    it('remove password= de connection string em formato key=value', () => {
+      const saida = sanitizeConnectionError(
+        new Error('FATAL: host=db user=sgs_admin password=SenhaSuperSecreta'),
+      );
+      expect(saida).not.toContain('SenhaSuperSecreta');
+      expect(saida).toContain('password=***');
+    });
+
+    it('preserva o código do erro, que é o que distingue rede de autenticação', () => {
+      expect(
+        sanitizeConnectionError(
+          Object.assign(new Error('connect ECONNREFUSED'), {
+            code: 'ECONNREFUSED',
+          }),
+        ),
+      ).toContain('ECONNREFUSED');
+    });
+
+    it('lida com valor que não é Error', () => {
+      expect(sanitizeConnectionError('falhou')).toBe('falhou');
+      expect(sanitizeConnectionError(undefined)).toBe('erro desconhecido');
     });
   });
 });

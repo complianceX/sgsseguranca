@@ -21,14 +21,32 @@ describe('ProfilesService', () => {
     isDedicated: jest.Mock;
     requiredTransaction: jest.Mock;
   };
-  /** Manager da conexão privilegiada — é onde as escritas de perfil ocorrem. */
+  /**
+   * Manager da conexão privilegiada — é onde as escritas de perfil ocorrem.
+   *
+   * `EntityManager.save` tem duas sobrecargas e o serviço usa **as duas**:
+   *   - `create()`  → `manager.save(manager.create(Profile, dto))`  — 1 argumento
+   *   - `update()`  → `manager.save(Profile, profile)`              — 2 argumentos
+   *
+   * O mock precisa modelar as duas. Quando modelava só a de 2 argumentos, a
+   * chamada de `create()` gravava `undefined` em `perfisGravados` e o teste
+   * ainda passava — exatamente o tipo de mock que esconde regressão de
+   * persistência em vez de detectá-la.
+   */
   let perfisGravados: Record<string, unknown>[];
   let linhasRemovidas: number;
   const provisioningManager = {
-    create: (_entity: unknown, data: Record<string, unknown>) => data,
-    save: (_entity: unknown, data: Record<string, unknown>) => {
-      perfisGravados.push(data);
-      return Promise.resolve({ id: 'profile-1', ...data });
+    create: (_entity: unknown, data: Record<string, unknown>) => ({ ...data }),
+    save: (
+      alvoOuEntidade: unknown,
+      talvezEntidade?: Record<string, unknown>,
+    ) => {
+      const entidade = (talvezEntidade ?? alvoOuEntidade) as Record<
+        string,
+        unknown
+      >;
+      perfisGravados.push(entidade);
+      return Promise.resolve({ id: 'profile-1', ...entidade });
     },
     delete: () => Promise.resolve({ affected: linhasRemovidas }),
   };
@@ -156,14 +174,52 @@ describe('ProfilesService', () => {
       expect(cacheManager.del).not.toHaveBeenCalled();
     });
 
-    it('create persiste pela conexão privilegiada', async () => {
-      await service.create({ nome: 'Novo Perfil', permissoes: [] });
+    it('create persiste o payload completo pela conexão privilegiada', async () => {
+      const resultado = await service.create({
+        nome: 'Novo Perfil',
+        permissoes: ['can_view_aprs', 'can_edit_aprs'],
+        status: true,
+      });
 
       expect(provisioningDataSource.requiredTransaction).toHaveBeenCalledWith(
         'profile_create',
         expect.any(Function),
       );
       expect(jest.mocked(repo.save)).not.toHaveBeenCalled();
+
+      // O que importa não é "chamou save": é que o PAYLOAD chegou inteiro. Com
+      // o mock modelando só a sobrecarga de 2 argumentos, o que era gravado
+      // aqui era `undefined` e o teste passava do mesmo jeito.
+      expect(perfisGravados).toHaveLength(1);
+      expect(perfisGravados[0]).toMatchObject({
+        nome: 'Novo Perfil',
+        permissoes: ['can_view_aprs', 'can_edit_aprs'],
+        status: true,
+      });
+      expect(resultado).toMatchObject({ id: 'profile-1', nome: 'Novo Perfil' });
+    });
+
+    it('update persiste as permissões novas, não as antigas', async () => {
+      (cacheManager.get as jest.Mock).mockResolvedValue(undefined);
+      (repo.findOne as jest.Mock).mockResolvedValue({
+        id: 'profile-1',
+        nome: 'Técnico',
+        permissoes: ['can_view_aprs', 'can_delete_aprs'],
+        status: true,
+      });
+
+      await service.update('profile-1', {
+        permissoes: ['can_view_aprs'],
+        status: false,
+      });
+
+      expect(perfisGravados).toHaveLength(1);
+      expect(perfisGravados[0]).toMatchObject({
+        id: 'profile-1',
+        nome: 'Técnico',
+        permissoes: ['can_view_aprs'],
+        status: false,
+      });
     });
   });
 });

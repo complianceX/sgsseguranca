@@ -54,6 +54,12 @@ export class GrantGdprFunctionsToSgsAdmin1709000000374 implements MigrationInter
   name = 'GrantGdprFunctionsToSgsAdmin1709000000374';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // `to_regprocedure` e nao `pg_proc.proname`: o nome sozinho casa com
+    // qualquer sobrecarga. Se existisse `gdpr_delete_user_data(text)` alem da
+    // de `uuid`, a checagem por nome passaria e o GRANT seguinte falharia com
+    // "function does not exist" — abortando a migration por um motivo que o
+    // erro nao explica. `to_regprocedure` devolve NULL quando a assinatura
+    // exata nao existe, sem lancar.
     await queryRunner.query(`
       DO $$
       BEGIN
@@ -62,18 +68,16 @@ export class GrantGdprFunctionsToSgsAdmin1709000000374 implements MigrationInter
           RETURN;
         END IF;
 
-        IF EXISTS (
-          SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public' AND p.proname = 'gdpr_delete_user_data'
-        ) THEN
+        IF to_regprocedure('public.gdpr_delete_user_data(uuid)') IS NOT NULL THEN
           EXECUTE 'GRANT EXECUTE ON FUNCTION public.gdpr_delete_user_data(uuid) TO sgs_admin';
+        ELSE
+          RAISE NOTICE 'public.gdpr_delete_user_data(uuid) inexistente — GRANT ignorado.';
         END IF;
 
-        IF EXISTS (
-          SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public' AND p.proname = 'cleanup_expired_data'
-        ) THEN
+        IF to_regprocedure('public.cleanup_expired_data()') IS NOT NULL THEN
           EXECUTE 'GRANT EXECUTE ON FUNCTION public.cleanup_expired_data() TO sgs_admin';
+        ELSE
+          RAISE NOTICE 'public.cleanup_expired_data() inexistente — GRANT ignorado.';
         END IF;
       END $$;
     `);
@@ -87,17 +91,11 @@ export class GrantGdprFunctionsToSgsAdmin1709000000374 implements MigrationInter
           RETURN;
         END IF;
 
-        IF EXISTS (
-          SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public' AND p.proname = 'gdpr_delete_user_data'
-        ) THEN
+        IF to_regprocedure('public.gdpr_delete_user_data(uuid)') IS NOT NULL THEN
           EXECUTE 'REVOKE EXECUTE ON FUNCTION public.gdpr_delete_user_data(uuid) FROM sgs_admin';
         END IF;
 
-        IF EXISTS (
-          SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public' AND p.proname = 'cleanup_expired_data'
-        ) THEN
+        IF to_regprocedure('public.cleanup_expired_data()') IS NOT NULL THEN
           EXECUTE 'REVOKE EXECUTE ON FUNCTION public.cleanup_expired_data() FROM sgs_admin';
         END IF;
       END $$;

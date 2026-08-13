@@ -81,11 +81,22 @@ describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
     const profile = await owner.query<{ id: string }>(
       `SELECT id FROM profiles WHERE status = true ORDER BY created_at LIMIT 1`,
     );
+    const profileId = profile.rows[0]?.id;
+    // Sem esta guarda, `undefined` iria para o INSERT e o teste morreria com
+    // violação de constraint — um erro que aponta para a linha errada. Um teste
+    // de segurança tem que falhar dizendo o que está faltando no ambiente.
+    if (!profileId) {
+      throw new Error(
+        'Seed E2E: nenhum profile ativo encontrado. As migrations rodaram e ' +
+          'semearam os perfis padrão? Sem um profile ativo não há como criar o ' +
+          'usuário que estes testes usam para provar o comportamento da RLS.',
+      );
+    }
     await owner.query(
       `INSERT INTO users (id, nome, email, funcao, company_id, site_id, profile_id, status, ai_processing_consent)
        VALUES ($1, 'Usuario RLS E2E', 'rls.guard@e2e.test', 'Teste', $2, $3, $4, true, false)
        ON CONFLICT (id) DO NOTHING`,
-      [userId, companyId, siteId, profile.rows[0]?.id],
+      [userId, companyId, siteId, profileId],
     );
   }, 60_000);
 

@@ -281,7 +281,7 @@ constraint legado `NOT VALID` estão na seção 4.7 de
 
 ### A regra
 
-```
+```text
 sgs_app    = runtime. SEM bypass de RLS. Sempre com tenant no contexto.
 sgs_admin  = operações cross-tenant privilegiadas (DATABASE_ADMIN_URL).
 

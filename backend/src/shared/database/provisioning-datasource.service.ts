@@ -10,6 +10,43 @@ import { DataSource, DataSourceOptions, EntityManager } from 'typeorm';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 
 /**
+ * Reduz um erro de conexão ao que é diagnosticável, sem carregar credencial.
+ *
+ * Erros de driver podem trazer a connection string inteira — inclusive
+ * `postgresql://usuario:senha@host` — e este texto vai para log estruturado,
+ * que é agregado e retido. Preserva-se o código (`ECONNREFUSED`, `ETIMEDOUT`,
+ * `28P01`), que é o que permite distinguir rede de autenticação, e a mensagem
+ * com qualquer par usuário:senha removido.
+ */
+export function sanitizeConnectionError(error: unknown): string {
+  const bruto =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'erro desconhecido';
+  // Códigos de driver (`ECONNREFUSED`, `ETIMEDOUT`, `28P01`) são sempre string
+  // ou number. Qualquer outro tipo é descartado em vez de virar
+  // "[object Object]" no log estruturado.
+  const codigoBruto: unknown =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+  const codigo =
+    typeof codigoBruto === 'string' || typeof codigoBruto === 'number'
+      ? String(codigoBruto)
+      : '';
+
+  const semCredencial = bruto
+    // postgresql://user:senha@host → postgresql://***:***@host
+    .replace(/([a-z+]+:\/\/)[^\s:@/]+:[^\s@/]+@/gi, '$1***:***@')
+    // password=... / pwd=... em connection strings no formato key=value
+    .replace(/\b(password|pwd)\s*=\s*[^\s;&]+/gi, '$1=***');
+
+  return codigo ? `${codigo}: ${semCredencial}` : semCredencial;
+}
+
+/**
  * Monta as opções da conexão dedicada a partir das da conexão de runtime.
  *
  * Exportada para poder ser testada isoladamente: os erros possíveis aqui são
@@ -116,10 +153,62 @@ export class ProvisioningDataSourceService implements OnModuleDestroy {
    * sentido clonar a conexão.
    */
   isDedicated(): boolean {
-    return (
-      this.adminUrl.length > 0 &&
-      this.runtimeDataSource.options.type === 'postgres'
-    );
+    return this.adminUrl.length > 0 && this.isPostgres;
+  }
+
+  /**
+   * O risco que motiva todo o fail-closed deste arquivo é específico do
+   * PostgreSQL: é lá que existe RLS, e é lá que uma query pode devolver 0
+   * linhas por política em vez de por ausência de dados. Em SQLite não há RLS
+   * — a conexão local **é** a verdade.
+   */
+  private get isPostgres(): boolean {
+    return this.runtimeDataSource.options.type === 'postgres';
+  }
+
+  /**
+   * `SET LOCAL app.is_super_admin` é sintaxe de PostgreSQL. Emiti-la em SQLite
+   * derruba a transação com erro de sintaxe — por isso a flag é condicional, e
+   * não incondicional como era antes.
+   */
+  private runWithSuperAdminFlag<T>(
+    dataSource: DataSource,
+    fn: (manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    return dataSource.transaction(async (manager) => {
+      if (this.isPostgres) {
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      }
+      return fn(manager);
+    });
+  }
+
+  /**
+   * Obtém a conexão dedicada convertendo **apenas** falha de
+   * obtenção/inicialização em 503.
+   *
+   * O escopo estreito é deliberado: se o `try` envolvesse também a execução da
+   * transação, qualquer erro de domínio levantado dentro do callback viraria
+   * "conexão privilegiada indisponível" — trocando um diagnóstico correto por
+   * um enganoso e escondendo bug de negócio atrás de problema de infra.
+   */
+  private async acquireDedicated(operation: string): Promise<DataSource> {
+    try {
+      return await this.getDedicated();
+    } catch (error) {
+      this.logger.error({
+        event: 'privileged_connection_required',
+        operation,
+        severity: 'HIGH',
+        reason: sanitizeConnectionError(error),
+        message:
+          'Falha ao obter a conexão privilegiada: operação bloqueada em vez de ' +
+          'executada pela conexão de runtime, que não enxerga as linhas por RLS.',
+      });
+      throw new ServiceUnavailableException(
+        'Operação administrativa indisponível: conexão privilegiada não disponível.',
+      );
+    }
   }
 
   /**
@@ -131,13 +220,10 @@ export class ProvisioningDataSourceService implements OnModuleDestroy {
    */
   async transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
     const dataSource = this.isDedicated()
-      ? await this.getDedicated()
+      ? await this.acquireDedicated('tenant_provisioning')
       : this.resolveFallbackDataSource('tenant_provisioning');
 
-    return dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      return fn(manager);
-    });
+    return this.runWithSuperAdminFlag(dataSource, fn);
   }
 
   /**
@@ -150,32 +236,40 @@ export class ProvisioningDataSourceService implements OnModuleDestroy {
    * vinculados pela conexao de runtime devolve 0 por RLS, e a guarda que
    * deveria bloquear a exclusao passa a liberar.
    *
-   * Diferente de `transaction()`, aqui nao ha degradacao: sem conexao
-   * privilegiada nao ha como provar a condicao, e o correto e recusar.
+   * Diferente de `transaction()`, aqui nao ha degradacao **no PostgreSQL**:
+   * sem conexao privilegiada nao ha como provar a condicao, e o correto e
+   * recusar.
+   *
+   * **SQLite é exceção deliberada, não brecha.** O fail-closed existe porque a
+   * RLS pode esconder linhas; SQLite não tem RLS, então um `COUNT` local já
+   * responde "quantas linhas existem" — que é justamente a pergunta que a
+   * guarda precisa fazer. Exigir `DATABASE_ADMIN_URL` em SQLite quebraria
+   * desenvolvimento e testes locais sem fechar risco nenhum.
    */
   async requiredTransaction<T>(
     operation: string,
     fn: (manager: EntityManager) => Promise<T>,
   ): Promise<T> {
-    if (!this.isDedicated()) {
+    if (!this.isPostgres) {
+      return this.runWithSuperAdminFlag(this.runtimeDataSource, fn);
+    }
+
+    if (!this.adminUrl) {
       this.logger.error({
         event: 'privileged_connection_required',
         operation,
         severity: 'HIGH',
         message:
-          'Conexao de provisionamento indisponivel: operacao bloqueada em vez ' +
-          'de consultada pela conexao de runtime, que nao enxerga as linhas por RLS.',
+          'DATABASE_ADMIN_URL ausente: operacao bloqueada em vez de consultada ' +
+          'pela conexao de runtime, que nao enxerga as linhas por RLS.',
       });
       throw new ServiceUnavailableException(
         'Operação administrativa indisponível: conexão privilegiada não configurada.',
       );
     }
 
-    const dataSource = await this.getDedicated();
-    return dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      return fn(manager);
-    });
+    const dataSource = await this.acquireDedicated(operation);
+    return this.runWithSuperAdminFlag(dataSource, fn);
   }
 
   /**
