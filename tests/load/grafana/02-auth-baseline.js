@@ -8,11 +8,14 @@ const BASE_URL = 'https://api-loadtest.sgsseguranca.com.br';
 const TEST_RUN_ID = String(__ENV.TEST_RUN_ID || `sgs-baseline-auth-${Date.now()}`);
 const USERS = new SharedArray('synthetic-users', () => JSON.parse(open('./data/synthetic-users.json')));
 const ALLOWED_KEYS = new Set(['alias', 'login', 'user_id', 'company_id', 'role']);
+const TARGET_USERS = Number(__ENV.TARGET_USERS || 10);
+const LOGIN_STAGGER_SECONDS = Number(__ENV.LOGIN_STAGGER_SECONDS || 15);
+const HOLD_DURATION = String(__ENV.HOLD_DURATION || '60s');
 let session = null;
 let loginCount = 0;
 
 export const options = {
-  scenarios: { authenticated_baseline: { executor: 'ramping-vus', startVUs: 0, stages: [{ duration: '10s', target: 5 }, { duration: '30s', target: 5 }, { duration: '10s', target: 0 }], gracefulRampDown: '5s' } },
+  scenarios: { authenticated_baseline: { executor: 'ramping-vus', startVUs: 0, stages: [{ duration: `${TARGET_USERS * LOGIN_STAGGER_SECONDS}s`, target: TARGET_USERS }, { duration: HOLD_DURATION, target: TARGET_USERS }, { duration: '30s', target: 0 }], gracefulRampDown: '15s' } },
   thresholds: {
     http_reqs: ['count>0'], iterations: ['count>0'], checks: ['rate>0.99'], http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<1000'], 'http_req_duration{endpoint:login}': ['p(95)<1500'], 'http_req_duration{endpoint:auth_me}': ['p(95)<1000'],
@@ -70,9 +73,11 @@ async function readSecrets() {
 
 export async function setup() {
   if (__ENV.BASE_URL && __ENV.BASE_URL !== BASE_URL) fail('BASE_URL is fixed to the loadtest hostname');
-  if (USERS.length < 5) fail('baseline requires at least five confirmed synthetic users');
+  if (!Number.isInteger(TARGET_USERS) || TARGET_USERS < 1 || TARGET_USERS > 121) fail('TARGET_USERS must be an integer between 1 and 121');
+  if (!Number.isFinite(LOGIN_STAGGER_SECONDS) || LOGIN_STAGGER_SECONDS < 5) fail('LOGIN_STAGGER_SECONDS must be at least 5 seconds');
+  if (USERS.length < TARGET_USERS) fail('not enough confirmed synthetic users for TARGET_USERS');
   const seen = new Set();
-  USERS.slice(0, 5).forEach((user) => { validateUser(user); for (const value of [user.login, user.user_id]) { if (seen.has(value)) fail('duplicate synthetic user across VUs'); seen.add(value); } });
+  USERS.slice(0, TARGET_USERS).forEach((user) => { validateUser(user); for (const value of [user.login, user.user_id]) { if (seen.has(value)) fail('duplicate synthetic user across VUs'); seen.add(value); } });
   return { credentials: await readSecrets() };
 }
 
@@ -99,10 +104,10 @@ function login(credentials, user) {
 }
 
 export default function baseline(data) {
-  if (__VU < 1 || __VU > 5) fail('baseline requires exactly five VUs');
+  if (__VU < 1 || __VU > TARGET_USERS) fail('VU count exceeds TARGET_USERS');
   const user = userForVu();
   validateUser(user);
-  if (!session) { sleep((execution.vu.idInTest - 1) * 2); login(data.credentials, user); }
+  if (!session) { sleep((execution.vu.idInTest - 1) * LOGIN_STAGGER_SECONDS); login(data.credentials, user); }
 
   const fingerprint = resolveFingerprint(user);
   let me = http.get(url('/auth/me'), params(data.credentials.gateKey, 'auth_me', [200, 401], session.token, user.company_id, fingerprint));
