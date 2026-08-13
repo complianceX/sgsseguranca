@@ -154,3 +154,34 @@ daquela execução, não o total histórico.
   `forensic_trail_events` é rejeitada pela política RLS durante o login. A
   autenticação e `/auth/me` continuam funcionais, mas esse erro deve ser
   corrigido antes de tratar a aplicação como completamente limpa.
+## Escala controlada pelo PowerShell
+
+Para medir crescimento sem transformar cada VU em uma rajada ilimitada, use o
+perfil `tests/load/scale-ramp.js`. Ele pausa entre iterações, registra a
+quantidade agregada por código HTTP em `http_status_count` e aborta quando os
+thresholds de erro ou checks são violados. O destino continua protegido pelo
+guard do loadtest.
+
+Exemplo inicial, sem executar automaticamente:
+
+```powershell
+$env:BASE_URL='https://api-loadtest.sgsseguranca.com.br'
+$env:TARGET_VUS='100'
+$env:RAMP_UP='60s'
+$env:HOLD_DURATION='60s'
+$env:RAMP_DOWN='30s'
+$env:ITERATION_SLEEP='1'
+k6 run tests/load/scale-ramp.js
+```
+
+Acima de 100 VUs, o comando exige confirmação explícita do ambiente isolado:
+
+```powershell
+$env:LOADTEST_CONFIRM='SGS_LOADTEST_ONLY'
+$env:TARGET_VUS='250'
+k6 run tests/load/scale-ramp.js
+```
+
+Esse parâmetro não remove limites do proxy nem autoriza produção. Para milhares
+de VUs, distribua a execução entre geradores k6 e avance somente após o degrau
+anterior permanecer verde. Nunca aponte `BASE_URL` para produção.
