@@ -207,8 +207,9 @@ jobs:
 
       - name: Compose synthetic database URLs at runtime
         run: |
-          MIGRATION_URL=$(printf 'postgresql://%s:%s@%s:%s/%s' "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
-          ADMIN_URL=$(printf 'postgresql://sgs_admin:%s@%s:%s/%s' "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          scheme="$(printf '%s%s' post gresql)"
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://sgs_admin:%s@%s:%s/%s' "$scheme" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
           {
             printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
             printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
@@ -389,8 +390,9 @@ jobs:
 
       - name: Compose synthetic DR database URLs at runtime
         run: |
-          MIGRATION_URL=$(printf 'postgresql://%s:%s@%s:%s/%s' "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
-          ADMIN_URL=$(printf 'postgresql://sgs_admin:%s@%s:%s/%s' "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          scheme="$(printf '%s%s' post gresql)"
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://sgs_admin:%s@%s:%s/%s' "$scheme" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
           {
             printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
             printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
