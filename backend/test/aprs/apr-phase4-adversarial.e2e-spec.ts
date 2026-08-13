@@ -5,7 +5,6 @@
  */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Role } from '../../src/modules/auth/enums/roles.enum';
-import { AprStatus } from '../../src/modules/aprs/entities/apr.entity';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 import { createApr } from '../factories/apr.factory';
 
