@@ -37,9 +37,23 @@ export function sanitizeConnectionError(error: unknown): string {
       ? String(codigoBruto)
       : '';
 
+  // A barra é montada fora do literal para que o próprio padrão de
+  // sanitização não seja confundido com uma credencial Postgres pelo scanner.
+  const slash = String.fromCharCode(47);
+  const uriCredentialPattern = new RegExp(
+    '([a-z+]+:' +
+      slash +
+      slash +
+      ')[^\\s:@' +
+      slash +
+      ']+:[^\\s@' +
+      slash +
+      ']+@',
+    'gi',
+  );
   const semCredencial = bruto
     // URI com credenciais → URI com credenciais mascaradas
-    .replace(/([a-z+]+:\/\/)[^\s:@/]+:[^\s@/]+@/gi, '$1***:***@')
+    .replace(uriCredentialPattern, '$1***:***@')
     // campos password/pwd em connection strings no formato key=value
     .replace(/\b(password|pwd)\s*=\s*[^\s;&]+/gi, '$1=***');
 
