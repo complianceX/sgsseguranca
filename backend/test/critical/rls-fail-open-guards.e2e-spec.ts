@@ -58,6 +58,16 @@ describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
   const companyId = '3f1d2c4a-0000-4000-8000-000000000901';
   const siteId = '3f1d2c4a-0000-4000-8000-000000000902';
   const userId = '3f1d2c4a-0000-4000-8000-000000000903';
+  /**
+   * CNPJ exclusivo desta suite, com digitos verificadores validos.
+   *
+   * Nao reutilizar CNPJ de outro fixture: `UQ_companies_cnpj_active` e um
+   * indice unico parcial, e a colisao derruba o beforeAll — fazendo falhar ate
+   * os testes que so consultam o catalogo do PostgreSQL.
+   */
+  const CNPJ = '99887766000105';
+  /** E-mail exclusivo desta suite, pelo mesmo motivo do CNPJ. */
+  const EMAIL = 'rls.guard@e2e.test';
 
   let owner: Client;
 
@@ -65,17 +75,33 @@ describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
     owner = asOwner();
     await owner.connect();
 
+    // Limpeza defensiva antes de semear.
+    //
+    // `ON CONFLICT (id)` cobre só a PK. `companies` tem tambem o indice unico
+    // parcial `UQ_companies_cnpj_active`, e um CNPJ compartilhado com outro
+    // fixture derruba o beforeAll inteiro — o que faz TODOS os testes desta
+    // suite falharem, inclusive os que so consultam catalogo. Foi o que
+    // aconteceu na primeira execucao em CI.
+    await owner.query(`DELETE FROM users WHERE id = $1 OR email = $2`, [
+      userId,
+      EMAIL,
+    ]);
+    await owner.query(`DELETE FROM sites WHERE id = $1`, [siteId]);
+    await owner.query(`DELETE FROM companies WHERE id = $1 OR cnpj = $2`, [
+      companyId,
+      CNPJ,
+    ]);
+
     // Semeia um tenant mínimo com UM usuário. É a linha que os testes abaixo
     // tentam enxergar por conexões diferentes.
     await owner.query(
       `INSERT INTO companies (id, razao_social, cnpj, endereco, responsavel, email_contato, status)
-       VALUES ($1, 'RLS Guard E2E', '11222333000181', 'Rua E2E', 'Resp', 'rls@e2e.test', true)
-       ON CONFLICT (id) DO NOTHING`,
-      [companyId],
+       VALUES ($1, 'RLS Guard E2E', $2, 'Rua E2E', 'Resp', $3, true)`,
+      [companyId, CNPJ, EMAIL],
     );
     await owner.query(
       `INSERT INTO sites (id, company_id, nome, local, status)
-       VALUES ($1, $2, 'Geral', 'Geral', true) ON CONFLICT (id) DO NOTHING`,
+       VALUES ($1, $2, 'Geral', 'Geral', true)`,
       [siteId, companyId],
     );
     const profile = await owner.query<{ id: string }>(
@@ -94,9 +120,8 @@ describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
     }
     await owner.query(
       `INSERT INTO users (id, nome, email, funcao, company_id, site_id, profile_id, status, ai_processing_consent)
-       VALUES ($1, 'Usuario RLS E2E', 'rls.guard@e2e.test', 'Teste', $2, $3, $4, true, false)
-       ON CONFLICT (id) DO NOTHING`,
-      [userId, companyId, siteId, profileId],
+       VALUES ($1, 'Usuario RLS E2E', $5, 'Teste', $2, $3, $4, true, false)`,
+      [userId, companyId, siteId, profileId, EMAIL],
     );
   }, 60_000);
 
