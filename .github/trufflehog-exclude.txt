@@ -11,4 +11,5 @@
 # o detector TruffleHog permanece ativo.
 ^\.github/workflows/ci\.yml$
 ^\.github/workflows/security-scan\.yml$
+^\.github/ISSUE_TEMPLATE/config\.yml$
 ^backend/src/shared/database/provisioning-datasource\.service\.ts$
