@@ -19,6 +19,7 @@ const config: Config = {
   },
   globalSetup: '<rootDir>/setup/e2e-infra-check.ts',
   globalTeardown: '<rootDir>/setup/e2e-global-teardown.ts',
+  setupFilesAfterEnv: ['<rootDir>/setup/e2e-puppeteer-warmup.ts'],
   openHandlesTimeout: 10_000,
   maxWorkers: 1,
   workerThreads: false,
