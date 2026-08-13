@@ -8,5 +8,4 @@
 # Fixtures históricas do datasource foram sintéticas e removidas do HEAD; o
 # glob é aplicado no histórico Git, sem desativar o detector.
 .*provisioning-datasource.*
-.*trufflehog-inversion.*
 security-scan
