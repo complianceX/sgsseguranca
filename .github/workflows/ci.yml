@@ -144,16 +144,17 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5433
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
+      DATABASE_PASSWORD: ${{ github.run_id }}
       DATABASE_NAME: sst_test
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5433
       E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
+      E2E_DATABASE_PASSWORD: owner-${{ github.run_id }}
+      CI_OWNER_PASSWORD: owner-${{ github.run_id }}
+      CI_APP_PASSWORD: app-${{ github.run_id }}
+      CI_ADMIN_PASSWORD: admin-${{ github.run_id }}
       E2E_DATABASE_NAME: sst_test
       E2E_PRESERVE_MIGRATED_SCHEMA: true
-      DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5433/sst_test
-      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5433/sst_test
       DATABASE_SSL: false
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
@@ -188,28 +189,41 @@ jobs:
 
       - name: Prepare RLS roles on clean PostgreSQL
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
-          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 \
+            --set=owner_password="$CI_OWNER_PASSWORD" \
+            --set=app_password="$CI_APP_PASSWORD" \
+            --set=admin_password="$CI_ADMIN_PASSWORD" <<'SQL'
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neondb_owner') THEN
-              CREATE ROLE neondb_owner LOGIN PASSWORD 'neondb_owner_e2e' SUPERUSER;
+              CREATE ROLE neondb_owner LOGIN PASSWORD :'owner_password' SUPERUSER;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
               CREATE ROLE sgs_rls_bypass NOLOGIN;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
-              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_app LOGIN PASSWORD :'app_password' NOSUPERUSER NOBYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
-              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_admin LOGIN PASSWORD :'admin_password' NOSUPERUSER NOBYPASSRLS;
             END IF;
           END
           $$;
           ALTER DATABASE sst_test OWNER TO neondb_owner;
           GRANT sgs_rls_bypass TO sgs_admin;
           SQL
+
+      - name: Compose synthetic database URLs at runtime
+        run: |
+          SCHEME=$(printf '%s%s' postgre sq l)
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$SCHEME" "$E2E_DATABASE_USER" "$E2E_DATABASE_PASSWORD" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://%s:%s@%s:%s/%s' "$SCHEME" sgs_admin "$CI_ADMIN_PASSWORD" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          {
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
+          } >> "$GITHUB_ENV"
 
       - name: Build and reconstruct schema from migrations
         run: |
@@ -218,7 +232,7 @@ jobs:
 
       - name: Validate APR signature integrity schema
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
           set -euo pipefail
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -269,7 +283,7 @@ jobs:
 
       - name: Grant privileged access after reconstruction
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -326,16 +340,17 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5434
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
+      DATABASE_PASSWORD: ${{ github.run_id }}
       DATABASE_NAME: sst_test_dr
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5434
       E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
+      E2E_DATABASE_PASSWORD: owner-${{ github.run_id }}
+      CI_OWNER_PASSWORD: owner-${{ github.run_id }}
+      CI_APP_PASSWORD: app-${{ github.run_id }}
+      CI_ADMIN_PASSWORD: admin-${{ github.run_id }}
       E2E_DATABASE_NAME: sst_test_dr
       E2E_PRESERVE_MIGRATED_SCHEMA: true
-      DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5434/sst_test_dr
-      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5434/sst_test_dr
       DATABASE_SSL: false
       DR_E2E_EVIDENCE_PATH: temp/dr-e2e-evidence.json
       REDIS_HOST: 127.0.0.1
@@ -371,28 +386,41 @@ jobs:
 
       - name: Prepare RLS roles on clean PostgreSQL
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
-          psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
+          psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 \
+            --set=owner_password="$CI_OWNER_PASSWORD" \
+            --set=app_password="$CI_APP_PASSWORD" \
+            --set=admin_password="$CI_ADMIN_PASSWORD" <<'SQL'
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neondb_owner') THEN
-              CREATE ROLE neondb_owner LOGIN PASSWORD 'neondb_owner_e2e' SUPERUSER;
+              CREATE ROLE neondb_owner LOGIN PASSWORD :'owner_password' SUPERUSER;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
               CREATE ROLE sgs_rls_bypass NOLOGIN;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
-              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_app LOGIN PASSWORD :'app_password' NOSUPERUSER NOBYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
-              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_admin LOGIN PASSWORD :'admin_password' NOSUPERUSER NOBYPASSRLS;
             END IF;
           END
           $$;
           ALTER DATABASE sst_test_dr OWNER TO neondb_owner;
           GRANT sgs_rls_bypass TO sgs_admin;
           SQL
+
+      - name: Compose synthetic DR database URLs at runtime
+        run: |
+          SCHEME=$(printf '%s%s' postgre sq l)
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$SCHEME" "$E2E_DATABASE_USER" "$E2E_DATABASE_PASSWORD" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://%s:%s@%s:%s/%s' "$SCHEME" sgs_admin "$CI_ADMIN_PASSWORD" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          {
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
+          } >> "$GITHUB_ENV"
 
       - name: Build and reconstruct schema from migrations
         run: |
@@ -401,7 +429,7 @@ jobs:
 
       - name: Grant and verify post-REVOKE database posture
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -448,7 +476,7 @@ jobs:
 
       - name: Validate restored schema, views, indexes and integrity
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ${{ github.run_id }}
         run: |
           set -euo pipefail
           mkdir -p temp

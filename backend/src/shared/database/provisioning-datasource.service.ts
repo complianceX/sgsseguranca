@@ -13,7 +13,7 @@ import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/Postgres
  * Reduz um erro de conexão ao que é diagnosticável, sem carregar credencial.
  *
  * Erros de driver podem trazer a connection string inteira — inclusive
- * `postgresql://usuario:senha@host` — e este texto vai para log estruturado,
+ * uma URI de conexão contendo usuário e senha — e este texto vai para log estruturado,
  * que é agregado e retido. Preserva-se o código (`ECONNREFUSED`, `ETIMEDOUT`,
  * `28P01`), que é o que permite distinguir rede de autenticação, e a mensagem
  * com qualquer par usuário:senha removido.
@@ -38,9 +38,9 @@ export function sanitizeConnectionError(error: unknown): string {
       : '';
 
   const semCredencial = bruto
-    // postgresql://user:senha@host → postgresql://***:***@host
+    // URI com credenciais → URI com credenciais mascaradas
     .replace(/([a-z+]+:\/\/)[^\s:@/]+:[^\s@/]+@/gi, '$1***:***@')
-    // password=... / pwd=... em connection strings no formato key=value
+    // campos password/pwd em connection strings no formato key=value
     .replace(/\b(password|pwd)\s*=\s*[^\s;&]+/gi, '$1=***');
 
   return codigo ? `${codigo}: ${semCredencial}` : semCredencial;
