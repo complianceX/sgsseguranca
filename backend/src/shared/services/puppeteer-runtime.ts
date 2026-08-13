@@ -15,14 +15,23 @@ const dynamicImport = new Function(
   'return import(specifier);',
 ) as (specifier: string) => Promise<PuppeteerImport>;
 
-const modulePromise: Promise<PuppeteerModule> = dynamicImport('puppeteer').then(
-  (module) => {
+let modulePromise: Promise<PuppeteerModule> | undefined;
+
+function importPuppeteer(): Promise<PuppeteerModule> {
+  return dynamicImport('puppeteer').then((module) => {
     return {
       launch: module.launch,
       executablePath: module.executablePath,
     };
-  },
-);
+  });
+}
+
+// E2E runs opt into VM modules and benefit from preloading before a Jest
+// suite can tear down. Unit/smoke runs do not opt in and must remain entirely
+// synchronous at module load time.
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  modulePromise = importPuppeteer();
+}
 
 /**
  * Puppeteer 25 is ESM-only. This bridge keeps the CJS worker from trying to
@@ -30,5 +39,8 @@ const modulePromise: Promise<PuppeteerModule> = dynamicImport('puppeteer').then(
  * still launched lazily when PDF generation is requested.
  */
 export function loadPuppeteer(): Promise<PuppeteerModule> {
+  if (!modulePromise) {
+    modulePromise = importPuppeteer();
+  }
   return modulePromise;
 }
