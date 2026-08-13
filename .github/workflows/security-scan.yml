@@ -71,7 +71,7 @@ jobs:
           # Postgres). Gitleaks escaneia o repo inteiro como backstop.
           extra_args: >-
             --exclude-paths=.github/trufflehog-exclude.txt
-            --exclude-globs=**/provisioning-datasource*
+            --exclude-globs=**/security-scan.yml,**/provisioning-datasource*
 
   dependency-audit:
     name: Dependency Audit
