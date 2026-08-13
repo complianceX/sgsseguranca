@@ -75,6 +75,12 @@ aprovada: 32.661 requisições, 0% de falha, 100% de checks e p95 aproximado de
 aproximadamente 326 MiB na API, 21 MiB no edge e 5 MiB no proxy. O host ficou
 com cerca de 14 GiB disponíveis e 25% do disco utilizado.
 
+O ensaio sustentado seguinte, com 50 VUs por 4 minutos, também foi aprovado:
+37.633 requisições, 0% de falha, 100% de checks, p95 aproximado de 193 ms e
+máximo aproximado de 750 ms. Ao final, API, PostgreSQL e Redis estavam
+saudáveis; os consumos observados foram API 326,6 MiB, edge 20,7 MiB, proxy
+4,0 MiB, PostgreSQL 31,5 MiB e Redis 3,8 MiB.
+
 ## Controles de regressão
 
 Os testes `spike`, `stress` e `soak` agora exigem `http_reqs > 0` e
