@@ -191,8 +191,8 @@ describeE2E(
           numero: 'APR-VIEWER-SIGN-001',
           titulo: 'APR para validar assinatura do visualizador',
           siteId: tenantA.siteId,
-          elaboradorId: tecnico.id,
-          participantIds: [tecnico.id, trabalhadorSession.userId],
+          elaboradorId: trabalhadorSession.userId,
+          participantIds: [trabalhadorSession.userId],
         });
 
         const response = await testApp
