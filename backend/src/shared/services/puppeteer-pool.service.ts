@@ -8,8 +8,8 @@ import { existsSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import * as puppeteer from 'puppeteer';
 import type { Browser, LaunchOptions, Page } from 'puppeteer';
-import { loadPuppeteer } from './puppeteer-runtime';
 import {
   getPdfBrowserAcquireTimeoutMs,
   getPdfBrowserMaxUses,
@@ -225,7 +225,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         );
       }
       return {
-        browser: await (await loadPuppeteer()).launch(launchOptions),
+        browser: await puppeteer.launch(launchOptions),
         userDataDir,
       };
     } catch (error) {
@@ -292,7 +292,6 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const puppeteer = await loadPuppeteer();
       const executablePath = await puppeteer.executablePath();
       return {
         executablePath,
