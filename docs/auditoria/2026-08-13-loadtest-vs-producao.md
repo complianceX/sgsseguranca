@@ -56,6 +56,19 @@ requisições no mesmo identificador de IP/fingerprint do throttler. Por isso,
 login deve ser medido em campanha separada, com taxa controlada, e não como
 parte de todos os VUs de um teste de throughput geral.
 
+## Degrau de 50 VUs
+
+O primeiro aumento para 50 VUs por 2 minutos foi reprovado de forma válida:
+35.151 requisições, aproximadamente 251 req/s, 24,97% de falha e 75,02% de
+checks aprovados. O código de resposta foi compatível com o limitador defensivo
+do Nginx do loadtest: 200 req/s por IP, burst 400.
+
+Isso não indicou falha da API: a latência p95 permaneceu em aproximadamente
+191 ms. Para que esse degrau meça a API sem remover a proteção, o limite do
+proxy isolado foi ajustado para 400 req/s, burst 800 e 100 conexões por cliente.
+O Nginx foi validado com `nginx -t` na VPS. A próxima execução deve confirmar
+que a taxa de 50 VUs fica abaixo do novo teto.
+
 ## Controles de regressão
 
 Os testes `spike`, `stress` e `soak` agora exigem `http_reqs > 0` e

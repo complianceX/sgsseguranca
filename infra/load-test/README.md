@@ -119,7 +119,7 @@ docker compose --env-file .env.loadtest -f compose.yml up -d edge-loadtest
 Caddy gerencia a emissão e renovação do certificado ACME. Os logs Docker têm
 rotação de 10 MB por 3 arquivos; o edge limita o corpo a 20 MB, mantém
 timeouts defensivos e o proxy interno recupera a origem encaminhada pelo edge
-para limitar a 200 req/s por cliente, burst 400 e 100 conexões simultâneas por
+para limitar a 400 req/s por cliente, burst 800 e 100 conexões simultâneas por
 cliente.
 
 ## Prova automatizada de RLS da trilha forense
