@@ -54,6 +54,36 @@ jobs:
           fi
           echo "TruffleHog inversion passed: disposable fixture was detected and removed."
 
+      - name: Diagnose historical Postgres findings without values
+        if: ${{ always() }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result_file="$(mktemp)"
+          trap 'rm -f "$result_file"' EXIT
+          docker run --rm \
+            -v "$PWD:/tmp" \
+            -w /tmp \
+            ghcr.io/trufflesecurity/trufflehog:3.96.0 \
+            git file:///tmp \
+            --since-commit "$BASE_SHA" \
+            --branch "$HEAD_SHA" \
+            --json --no-update \
+            --exclude-paths=.github/trufflehog-exclude.txt \
+            > "$result_file" 2>/dev/null || true
+          jq -r '
+            select(.DetectorName == "Postgres") |
+            [
+              .DetectorName,
+              (.SourceMetadata.Data.Git.file // .SourceMetadata.Data.Filesystem.file // "unknown"),
+              (.SourceMetadata.Data.Git.line // .SourceMetadata.Data.Filesystem.line // "unknown"),
+              (.SourceMetadata.Data.Git.commit // "unknown")
+            ] | @tsv
+          ' "$result_file" || true
+
       - name: TruffleHog Secret Scan
         if: ${{ !(github.event_name == 'push' && (github.event.before == github.sha || github.event.before == '0000000000000000000000000000000000000000')) }}
         uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11
