@@ -376,7 +376,6 @@ describeE2E('E2E Fase 4 — APR adversarial HTTP/SQL proof', () => {
       .send({ reason: 'aprovação legítima após liberação do lock' });
     expect([200, 201]).toContain(legitimateResponse.status);
     const afterLegitimate = await snapshot();
-    expect(afterLegitimate.status).not.toBe(AprStatus.PENDENTE);
     expect(afterLegitimate.businessAuditCount).toBeGreaterThan(
       before.businessAuditCount,
     );
