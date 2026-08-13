@@ -5,7 +5,6 @@
 \.example$
 \.md$
 \.spec\.ts$
-# A fixture descartável da inversão vive no workflow, é removida em runtime e
-# fica coberta por Gitleaks; o action passa esse arquivo como glob cirúrgico.
-security-scan\.yml$
+# Fixtures históricas do datasource foram sintéticas e removidas do HEAD; o
+# glob é aplicado no histórico Git, sem desativar o detector.
 .*provisioning-datasource.*
