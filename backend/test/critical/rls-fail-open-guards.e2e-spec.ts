@@ -69,7 +69,7 @@ describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
     // tentam enxergar por conexões diferentes.
     await owner.query(
       `INSERT INTO companies (id, razao_social, cnpj, endereco, responsavel, email_contato, status)
-       VALUES ($1, 'RLS Guard E2E', '11222333000181', 'Rua E2E', 'Resp', 'rls@e2e.test', true)
+       VALUES ($1, 'RLS Guard E2E', '11222333900901', 'Rua E2E', 'Resp', 'rls.guard.901@e2e.test', true)
        ON CONFLICT (id) DO NOTHING`,
       [companyId],
     );

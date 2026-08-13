@@ -134,7 +134,7 @@ describeE2E('E2E Fase 4 — APR adversarial HTTP/SQL proof', () => {
         .patch(`/aprs/${aprA2Id}/reject`)
         .set(testApp.authHeaders(tstA))
         .set(csrfHeaders)
-        .send({ motivo: 'cross-site reject' }),
+        .send({ reason: 'cross-site reject' }),
       testApp
         .request()
         .patch(`/aprs/${aprA2Id}/finalize`)

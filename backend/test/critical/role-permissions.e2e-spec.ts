@@ -192,6 +192,7 @@ describeE2E(
           titulo: 'APR para validar assinatura do visualizador',
           siteId: tenantA.siteId,
           elaboradorId: tecnico.id,
+          participantIds: [tecnico.id, trabalhadorSession.userId],
         });
 
         const response = await testApp

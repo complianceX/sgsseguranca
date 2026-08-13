@@ -18,7 +18,12 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
       'return import(specifier);',
     ) as (specifier: string) => Promise<PuppeteerImport>;
     modulePromise = dynamicImport('puppeteer').then((module) => {
-      const instance = module.default ?? module;
+      const instance =
+        module.default &&
+        typeof module.default.launch === 'function' &&
+        typeof module.default.executablePath === 'function'
+          ? module.default
+          : module;
       return instance;
     });
   }
