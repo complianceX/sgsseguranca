@@ -11,6 +11,7 @@ const ALLOWED_KEYS = new Set(['alias', 'login', 'user_id', 'company_id', 'role']
 const TARGET_USERS = Number(__ENV.TARGET_USERS || 10);
 const LOGIN_STAGGER_SECONDS = Number(__ENV.LOGIN_STAGGER_SECONDS || 20);
 const HOLD_DURATION = String(__ENV.HOLD_DURATION || '60s');
+const SEEDED_ADMIN_LOGIN = String(__ENV.LOADTEST_ADMIN_CPF || '').replace(/\D/g, '');
 let session = null;
 let loginCount = 0;
 
@@ -25,7 +26,7 @@ export const options = {
 const json = (response) => { try { return response.json(); } catch { return null; } };
 const url = (path) => `${BASE_URL}${path}`;
 const isBad = (response) => response.status === 429 || response.status >= 500;
-const userForVu = () => USERS[execution.vu.idInTest - 1];
+const userForVu = (users) => users[execution.vu.idInTest - 1];
 
 function validateUser(user) {
   if (!user || typeof user !== 'object') fail('synthetic user entry is invalid');
@@ -78,12 +79,16 @@ async function readSecrets() {
 
 export async function setup() {
   if (__ENV.BASE_URL && __ENV.BASE_URL !== BASE_URL) fail('BASE_URL is fixed to the loadtest hostname');
+  if (!/^\d{11}$/.test(SEEDED_ADMIN_LOGIN)) fail('LOADTEST_ADMIN_CPF is required outside Git');
   if (!Number.isInteger(TARGET_USERS) || TARGET_USERS < 1 || TARGET_USERS > 121) fail('TARGET_USERS must be an integer between 1 and 121');
   if (!Number.isFinite(LOGIN_STAGGER_SECONDS) || LOGIN_STAGGER_SECONDS < 5) fail('LOGIN_STAGGER_SECONDS must be at least 5 seconds');
   if (USERS.length < TARGET_USERS) fail('not enough confirmed synthetic users for TARGET_USERS');
+  const seededAdmin = USERS.find((user) => String(user.login) === SEEDED_ADMIN_LOGIN);
+  if (!seededAdmin) fail('seeded admin is not present in synthetic-users.json');
+  const selectedUsers = [seededAdmin, ...USERS.filter((user) => user !== seededAdmin)].slice(0, TARGET_USERS);
   const seen = new Set();
-  USERS.slice(0, TARGET_USERS).forEach((user) => { validateUser(user); for (const value of [user.login, user.user_id]) { if (seen.has(value)) fail('duplicate synthetic user across VUs'); seen.add(value); } });
-  return { credentials: await readSecrets() };
+  selectedUsers.forEach((user) => { validateUser(user); for (const value of [user.login, user.user_id]) { if (seen.has(value)) fail('duplicate synthetic user across VUs'); seen.add(value); } });
+  return { credentials: await readSecrets(), users: selectedUsers };
 }
 
 function login(credentials, user) {
@@ -112,7 +117,7 @@ function login(credentials, user) {
 
 export default function baseline(data) {
   if (__VU < 1 || __VU > TARGET_USERS) fail('VU count exceeds TARGET_USERS');
-  const user = userForVu();
+  const user = userForVu(data.users);
   validateUser(user);
   if (!session) { sleep((execution.vu.idInTest - 1) * LOGIN_STAGGER_SECONDS); login(data.credentials, user); }
 
