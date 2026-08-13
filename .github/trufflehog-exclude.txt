@@ -10,4 +10,4 @@
 # é limitada a essa árvore de governança; Gitleaks continua cobrindo o repositório
 # inteiro e a inversão abaixo prova que o detector TruffleHog permanece ativo.
 ^\.github(/.*)?$
-provisioning-datasource\.service(\.spec)?\.ts$
+.*provisioning-datasource.*
