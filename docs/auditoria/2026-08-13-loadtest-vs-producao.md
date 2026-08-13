@@ -81,6 +81,29 @@ máximo aproximado de 750 ms. Ao final, API, PostgreSQL e Redis estavam
 saudáveis; os consumos observados foram API 326,6 MiB, edge 20,7 MiB, proxy
 4,0 MiB, PostgreSQL 31,5 MiB e Redis 3,8 MiB.
 
+## Degraus de 75 e 100 VUs
+
+O degrau de 75 VUs por 2 minutos foi aprovado: 37.033 requisições, 0% de
+falha, 100% de checks, p95 aproximado de 582 ms e máximo aproximado de 1,52 s.
+Esse resultado mostra aumento de latência, mas não falha funcional do ambiente.
+
+O degrau seguinte, de 100 VUs por 2 minutos, foi reprovado pelos thresholds:
+45.495 requisições, 13,37% de falha, 86,62% de checks aprovados, p95 aproximado
+de 823 ms e taxa média aproximada de 325 req/s. A execução foi válida — houve
+requisições e iterações — e não deve ser classificada como sucesso.
+
+O padrão é compatível com saturação do envelope defensivo do proxy isolado
+(400 req/s, burst 800) durante a rampa e com respostas 429/latência elevada,
+mas o resumo do k6 não capturou o status individual dessas falhas. Portanto,
+não se afirma que todos os erros foram emitidos pelo Nginx sem uma execução
+diagnóstica específica de baixa carga. A carga não foi aumentada além de 100
+VUs e o limite do proxy não foi ampliado novamente.
+
+Após o ensaio de 100 VUs, os containers continuaram operacionais: API e
+PostgreSQL saudáveis; edge, proxy e Redis em execução. Consumo observado:
+API 326,1 MiB (21,23% do limite), edge 27,91 MiB (10,90%), proxy 2,215 MiB
+(1,73%), PostgreSQL 31,47 MiB (3,07%) e Redis 3,77 MiB (1,47%).
+
 ## Controles de regressão
 
 Os testes `spike`, `stress` e `soak` agora exigem `http_reqs > 0` e
@@ -90,7 +113,11 @@ sucesso.
 
 ## Próximo passo seguro
 
-Após a PR estar verde, aumentar somente a carga sintética do loadtest em degraus
-controlados, monitorando HTTP 429/5xx, p95, CPU, memória, PostgreSQL e Redis.
-Parar no primeiro threshold reprovado e não repetir automaticamente após
+O limite operacional demonstrado nesta campanha é 75 VUs aprovado e 100 VUs
+reprovado. Não aumentar novamente antes de decidir se o objetivo é medir o
+limite do proxy ou a capacidade da API. Para separar as medições, a próxima
+ação segura é um diagnóstico de baixa carga que registre apenas códigos HTTP
+agregados, sem login adicional nem exposição de segredos. Qualquer novo
+degrau deve monitorar HTTP 429/5xx, p95, CPU, memória, PostgreSQL e Redis,
+parar no primeiro threshold reprovado e nunca repetir automaticamente após
 timeout.
