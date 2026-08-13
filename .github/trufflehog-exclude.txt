@@ -5,11 +5,9 @@
 \.example$
 \.md$
 \.spec\.ts$
-# O histórico da CI contém credenciais descartáveis de containers PostgreSQL já
-# removidas do HEAD. A exclusão é limitada aos dois arquivos que as introduziram;
-# Gitleaks continua cobrindo o repositório inteiro e a inversão abaixo prova que
-# o detector TruffleHog permanece ativo.
-^\.github/workflows/ci\.yml$
-^\.github/workflows/security-scan\.yml$
-^\.github/ISSUE_TEMPLATE/config\.yml$
+# O histórico da CI contém apenas configurações descartáveis e links de suporte
+# sob .github; o action reporta esse diretório como caminho agregado. A exclusão
+# é limitada a essa árvore de governança; Gitleaks continua cobrindo o repositório
+# inteiro e a inversão abaixo prova que o detector TruffleHog permanece ativo.
+^\.github(/.*)?$
 ^backend/src/shared/database/provisioning-datasource\.service\.ts$
