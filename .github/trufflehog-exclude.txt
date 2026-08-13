@@ -5,9 +5,6 @@
 \.example$
 \.md$
 \.spec\.ts$
-# O histórico da CI contém apenas configurações descartáveis e links de suporte
-# sob .github; o action reporta esse diretório como caminho agregado. A exclusão
-# é limitada a essa árvore de governança; Gitleaks continua cobrindo o repositório
-# inteiro e a inversão abaixo prova que o detector TruffleHog permanece ativo.
-^\.github(/.*)?$
+# A fixture descartável da inversão vive no workflow, é removida em runtime e
+# fica coberta por Gitleaks; o action passa esse arquivo como glob cirúrgico.
 .*provisioning-datasource.*
