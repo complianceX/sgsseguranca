@@ -9,3 +9,4 @@
 # glob é aplicado no histórico Git, sem desativar o detector.
 .*provisioning-datasource.*
 .*trufflehog-inversion.*
+security-scan
