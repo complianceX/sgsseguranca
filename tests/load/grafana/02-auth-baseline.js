@@ -9,7 +9,7 @@ const TEST_RUN_ID = String(__ENV.TEST_RUN_ID || `sgs-baseline-auth-${Date.now()}
 const USERS = new SharedArray('synthetic-users', () => JSON.parse(open('./data/synthetic-users.json')));
 const ALLOWED_KEYS = new Set(['alias', 'login', 'user_id', 'company_id', 'role']);
 const TARGET_USERS = Number(__ENV.TARGET_USERS || 10);
-const LOGIN_STAGGER_SECONDS = Number(__ENV.LOGIN_STAGGER_SECONDS || 15);
+const LOGIN_STAGGER_SECONDS = Number(__ENV.LOGIN_STAGGER_SECONDS || 20);
 const HOLD_DURATION = String(__ENV.HOLD_DURATION || '60s');
 let session = null;
 let loginCount = 0;
@@ -38,6 +38,11 @@ function validateUser(user) {
 
 function resolveFingerprint(user) {
   return `grafana-baseline-${String(user.alias || user.user_id || 'default').replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`;
+}
+
+function abortTest(message) {
+  if (execution.test && typeof execution.test.abort === 'function') execution.test.abort(message);
+  fail(message);
 }
 
 function params(gateKey, endpoint, statuses, token = '', companyId = '', fingerprint = '', extra = {}) {
@@ -82,12 +87,12 @@ export async function setup() {
 }
 
 function login(credentials, user) {
-  if (loginCount >= 2) fail('per-VU login renewal limit exceeded');
+  if (loginCount >= 1) abortTest('login already failed for this VU; stopping without retry');
   const fingerprint = resolveFingerprint(user);
   const csrf = http.get(url('/auth/csrf'), params(credentials.gateKey, 'csrf', [200], '', user.company_id, fingerprint));
   const csrfToken = String(json(csrf)?.csrfToken || '');
   check(csrf, { 'csrf is 200': (r) => r.status === 200, 'csrf token exists': () => Boolean(csrfToken) });
-  if (isBad(csrf) || !csrfToken) fail(`csrf failed with ${csrf.status}`);
+  if (isBad(csrf) || !csrfToken) abortTest(`csrf failed with HTTP ${csrf.status}`);
   const response = http.post(
     url('/auth/login'),
     JSON.stringify({ cpf: user.login, password: credentials.password }),
@@ -99,7 +104,9 @@ function login(credentials, user) {
   const token = String(json(response)?.accessToken || '');
   loginCount += 1;
   check(response, { 'login is successful': (r) => r.status === 200 || r.status === 201, 'access token exists': () => Boolean(token) });
-  if (isBad(response) || !token) fail(`login failed with ${response.status}`);
+  if (isBad(response) || !token || response.status < 200 || response.status > 299) {
+    abortTest(`login failed with HTTP ${response.status}`);
+  }
   session = { token, mfaChecked: false };
 }
 
