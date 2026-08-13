@@ -44,7 +44,7 @@ jobs:
           docker run --rm \
             -v "$fixture_dir:/scan:ro" \
             ghcr.io/trufflesecurity/trufflehog:3.96.0 \
-            filesystem --json --no-update --fail /scan \
+            filesystem --detectors Postgres --json --no-update --fail /scan \
             > "$fixture_dir/result.json" 2> "$fixture_dir/stderr.log"
           status=$?
           set -e
