@@ -33,8 +33,11 @@ jobs:
           set -euo pipefail
           fixture_dir="$(mktemp -d)"
           trap 'rm -rf "$fixture_dir"' EXIT
-          printf '%s' 'cG9zdGdyZXM6Ly9maXh0dXJlX3VzZXI6ZGlzcG9zYWJsZV9wYXNzQGxvY2FsaG9zdDo1NDMyL2ZpeHR1cmVfZGI=' \
-            | base64 --decode > "$fixture_dir/disposable.txt"
+          protocol="$(printf '%s%s' post gres)"
+          user="$(printf '%s%s' fixture _user)"
+          password="$(printf '%s%s' disposable _pass)"
+          printf '%s://%s:%s@localhost:5432/fixture_db' "$protocol" "$user" "$password" \
+            > "$fixture_dir/disposable.txt"
           detector="$(printf '%s%s%s' Post gre s)"
           set +e
           docker run --rm -v "$fixture_dir:/scan:ro" ghcr.io/trufflesecurity/trufflehog:3.96.0 \
