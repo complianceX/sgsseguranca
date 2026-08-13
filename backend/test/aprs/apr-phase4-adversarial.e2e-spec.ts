@@ -315,6 +315,33 @@ describeE2E('E2E Fase 4 — APR adversarial HTTP/SQL proof', () => {
     });
     const lockRunner = testApp.dataSource.createQueryRunner();
 
+    const snapshot = async () => {
+      const [aprRow] = await testApp.dataSource.query(
+        'SELECT status, versao FROM aprs WHERE id = $1',
+        [lockedApr.id],
+      );
+      const [signatureRow] = await testApp.dataSource.query(
+        `SELECT COUNT(*)::text AS count FROM signatures
+         WHERE document_id = $1 AND UPPER(document_type) = 'APR'
+           AND deleted_at IS NULL`,
+        [lockedApr.id],
+      );
+      const [auditRow] = await testApp.dataSource.query(
+        `SELECT COUNT(*)::text AS count FROM apr_logs
+         WHERE apr_id = $1
+           AND acao IN ('APR_APROVADA', 'APR_REPROVADA', 'APR_ENCERRADA')`,
+        [lockedApr.id],
+      );
+      return {
+        status: aprRow.status,
+        version: Number(aprRow.versao ?? 1),
+        signatureCount: Number(signatureRow.count),
+        businessAuditCount: Number(auditRow.count),
+      };
+    };
+
+    const before = await snapshot();
+
     await lockRunner.connect();
     await lockRunner.startTransaction();
     try {
@@ -333,20 +360,25 @@ describeE2E('E2E Fase 4 — APR adversarial HTTP/SQL proof', () => {
       expect(JSON.stringify(response.body)).not.toContain('55P03');
       expect(JSON.stringify(response.body)).not.toContain('FOR UPDATE');
 
-      const whileLocked = await testApp.dataSource.query(
-        'SELECT status FROM aprs WHERE id = $1',
-        [lockedApr.id],
-      );
-      expect(whileLocked[0].status).toBe(AprStatus.PENDENTE);
+      expect(await snapshot()).toEqual(before);
     } finally {
       await lockRunner.rollbackTransaction();
       await lockRunner.release();
     }
 
-    const afterRelease = await testApp.dataSource.query(
-      'SELECT status FROM aprs WHERE id = $1',
-      [lockedApr.id],
+    expect(await snapshot()).toEqual(before);
+
+    const legitimateResponse = await testApp
+      .request()
+      .patch(`/aprs/${lockedApr.id}/approve`)
+      .set(testApp.authHeaders(tstA))
+      .set(csrfHeaders)
+      .send({ reason: 'aprovação legítima após liberação do lock' });
+    expect([200, 201]).toContain(legitimateResponse.status);
+    const afterLegitimate = await snapshot();
+    expect(afterLegitimate.status).not.toBe(AprStatus.PENDENTE);
+    expect(afterLegitimate.businessAuditCount).toBeGreaterThan(
+      before.businessAuditCount,
     );
-    expect(afterRelease[0].status).toBe(AprStatus.PENDENTE);
   });
 });

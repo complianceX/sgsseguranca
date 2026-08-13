@@ -281,6 +281,9 @@ jobs:
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
 
+      - name: Run real PDF runtime smoke before APR Category B
+        run: npm run test:e2e:pdf-runtime
+
       - name: Run critical e2e flows
         run: npm run test:e2e -- --forceExit
 
