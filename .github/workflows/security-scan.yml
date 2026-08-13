@@ -54,6 +54,21 @@ jobs:
           fi
           echo "TruffleHog inversion passed: disposable fixture was detected and removed."
 
+      - name: Diagnose sanitized historical Postgres path
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          out="$(mktemp)"
+          trap 'rm -f "$out"' EXIT
+          docker run --rm -v "$PWD:/tmp" -w /tmp \
+            ghcr.io/trufflesecurity/trufflehog:3.96.0 \
+            git file:///tmp --since-commit "$BASE_SHA" --branch "$HEAD_SHA" \
+            --json --no-update --detectors Postgres > "$out" 2>/dev/null || true
+          jq -r 'select(.DetectorName == "Postgres") | .SourceMetadata.Data.Git | del(.Raw, .RawV2, .Redacted) | @json' "$out" || true
+
       - name: TruffleHog Secret Scan
         if: ${{ !(github.event_name == 'push' && (github.event.before == github.sha || github.event.before == '0000000000000000000000000000000000000000')) }}
         uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11
