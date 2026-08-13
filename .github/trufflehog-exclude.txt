@@ -7,4 +7,5 @@
 \.spec\.ts$
 # A fixture descartável da inversão vive no workflow, é removida em runtime e
 # fica coberta por Gitleaks; o action passa esse arquivo como glob cirúrgico.
+security-scan\.yml$
 .*provisioning-datasource.*
