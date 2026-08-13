@@ -211,12 +211,15 @@ async function main() {
   }
   console.log('magic bytes %PDF- presentes');
 
-  const pdfParse = require('pdf-parse');
-  const parsed = await pdfParse(pdf);
-  console.log(`páginas     ${parsed.numpages}`);
-  if (parsed.numpages !== 1) {
+  // pdf-parse 2.x troca a API de função única (v1) pela classe PDFParse.
+  const { PDFParse } = require('pdf-parse');
+  const parser = new PDFParse({ data: pdf });
+  const parsed = await parser.getText();
+  await parser.destroy();
+  console.log(`páginas     ${parsed.total}`);
+  if (parsed.total !== 1) {
     falhar(
-      `Esperava 1 página no fixture, obtive ${parsed.numpages}. Quebra de ` +
+      `Esperava 1 página no fixture, obtive ${parsed.total}. Quebra de ` +
         'página inesperada indica mudança de layout/fonte no renderer.',
     );
   }
