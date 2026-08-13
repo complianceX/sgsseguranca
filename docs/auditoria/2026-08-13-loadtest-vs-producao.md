@@ -69,6 +69,12 @@ proxy isolado foi ajustado para 400 req/s, burst 800 e 100 conexões por cliente
 O Nginx foi validado com `nginx -t` na VPS. A próxima execução deve confirmar
 que a taxa de 50 VUs fica abaixo do novo teto.
 
+Após o restart controlado do `proxy-loadtest`, a repetição de 50 VUs foi
+aprovada: 32.661 requisições, 0% de falha, 100% de checks e p95 aproximado de
+293 ms. Os containers permaneceram saudáveis; o maior consumo observado foi
+aproximadamente 326 MiB na API, 21 MiB no edge e 5 MiB no proxy. O host ficou
+com cerca de 14 GiB disponíveis e 25% do disco utilizado.
+
 ## Controles de regressão
 
 Os testes `spike`, `stress` e `soak` agora exigem `http_reqs > 0` e
