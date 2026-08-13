@@ -7,5 +7,5 @@
 \.spec\.ts$
 # Fixtures históricas do datasource foram sintéticas e removidas do HEAD; o
 # glob é aplicado no histórico Git, sem desativar o detector.
-\.github
 .*provisioning-datasource.*
+.*trufflehog-inversion.*
