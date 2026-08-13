@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, fail, sleep } from 'k6';
-import { Counter } from 'k6/metrics';
+import { Counter, Rate } from 'k6/metrics';
 import { assertSafeTarget, url } from './helpers/target-guard.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8088';
@@ -11,6 +11,9 @@ const RAMP_DOWN = String(__ENV.RAMP_DOWN || '30s');
 const ITERATION_SLEEP = Number(__ENV.ITERATION_SLEEP || 1);
 const HIGH_SCALE_CONFIRMATION = 'SGS_LOADTEST_ONLY';
 const statusCounts = new Counter('http_status_count');
+const status429 = new Rate('http_status_429');
+const status5xx = new Rate('http_status_5xx');
+const transportFailures = new Rate('transport_failure');
 
 export const options = {
   stages: [
@@ -23,6 +26,9 @@ export const options = {
     iterations: [{ threshold: 'count>0', abortOnFail: true, delayAbortEval: '5s' }],
     checks: [{ threshold: 'rate>0.99', abortOnFail: true, delayAbortEval: '15s' }],
     http_req_failed: [{ threshold: 'rate<0.01', abortOnFail: true, delayAbortEval: '15s' }],
+    http_status_429: [{ threshold: 'rate==0', abortOnFail: true, delayAbortEval: '5s' }],
+    http_status_5xx: [{ threshold: 'rate==0', abortOnFail: true, delayAbortEval: '5s' }],
+    transport_failure: [{ threshold: 'rate==0', abortOnFail: true, delayAbortEval: '5s' }],
   },
 };
 
@@ -58,6 +64,9 @@ export default function scaleRamp(data) {
     tags: { profile: 'scale-ramp', endpoint: 'health_public' },
   });
   statusCounts.add(1, { status: String(response.status) });
+  status429.add(response.status === 429);
+  status5xx.add(response.status >= 500 && response.status <= 599);
+  transportFailures.add(response.status === 0);
   check(response, {
     'health public is 200': (res) => res.status === 200,
   });

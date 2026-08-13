@@ -185,3 +185,34 @@ k6 run tests/load/scale-ramp.js
 Esse parâmetro não remove limites do proxy nem autoriza produção. Para milhares
 de VUs, distribua a execução entre geradores k6 e avance somente após o degrau
 anterior permanecer verde. Nunca aponte `BASE_URL` para produção.
+
+O perfil também publica as métricas agregadas `http_status_count`,
+`http_status_429`, `http_status_5xx` e `transport_failure`. Qualquer 429, 5xx
+ou falha de transporte reprova e interrompe o degrau após a janela de
+avaliação. Isso permite distinguir rejeição do proxy de falha de conexão sem
+registrar corpos, tokens ou credenciais.
+
+## Degraus planejados
+
+Não executar os degraus em paralelo. Depois de cada execução, validar saúde e
+recursos da VPS. A sequência sugerida é 500, 1000 e 2000 VUs. Para 1000 e
+2000, usar geradores k6 distribuídos ou rede privada; uma única origem pública
+concentrará as conexões no limite por IP do proxy e não representará usuários
+independentes.
+
+Exemplo para o próximo degrau local controlado:
+
+```powershell
+$env:LOADTEST_CONFIRM='SGS_LOADTEST_ONLY'
+$env:TARGET_VUS='500'
+$env:RAMP_UP='180s'
+$env:HOLD_DURATION='180s'
+$env:RAMP_DOWN='90s'
+$env:ITERATION_SLEEP='1'
+k6 run .\tests\load\scale-ramp.js
+```
+
+Se qualquer threshold falhar, guardar o resumo, consultar os recursos e não
+subir automaticamente para o próximo degrau. Aumentar o limite do Nginx não é
+uma correção universal: apenas desloca o gargalo para a API, PostgreSQL ou
+Redis e deve ser uma decisão separada do teste de capacidade.
