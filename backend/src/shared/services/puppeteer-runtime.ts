@@ -30,8 +30,20 @@ import type { Browser, LaunchOptions } from 'puppeteer';
  * problema. Escondê-lo do compilador é o que preserva o `import()` dinâmico
  * nativo do Node, que sabe carregar ESM a partir de CommonJS.
  *
- * O módulo é carregado uma única vez e a promessa fica em cache: iniciar um
- * browser já é caro, e não faz sentido pagar a resolução do módulo a cada PDF.
+ * Cada chamada refaz o `import()` — de propósito, sem cache próprio em escopo
+ * de módulo. O Node já mantém seu registro de módulos ESM por processo,
+ * então uma segunda importação do mesmo especificador resolve quase
+ * instantaneamente a partir desse cache nativo, sem reexecutar o módulo.
+ *
+ * A primeira versão desta função cacheava a Promise do `import()` numa
+ * variável de módulo. Nos testes E2E (Jest, `--runInBand`), isso quebrou:
+ * cada arquivo `.e2e-spec.ts` roda no mesmo processo mas em seu próprio
+ * ambiente Jest, que é desmontado ao final do arquivo. Se a Promise cacheada
+ * ainda não tivesse assentado quando esse desmonte acontecia, o arquivo
+ * seguinte herdava uma Promise presa a um ambiente morto — e todo `getPage()`
+ * subsequente falhava com `Cannot read properties of undefined`, derrubando
+ * a geração de PDF em cascata pelos testes restantes. Sem cache próprio, cada
+ * chamada é independente e usa o cache do Node, que não tem esse problema.
  */
 
 type PuppeteerModule = {
@@ -41,32 +53,21 @@ type PuppeteerModule = {
 
 type PuppeteerImport = PuppeteerModule & { default?: PuppeteerModule };
 
-let modulePromise: Promise<PuppeteerModule> | null = null;
+export async function loadPuppeteer(): Promise<PuppeteerModule> {
+  // `new Function` impede o TypeScript de transpilar o import() para require().
+  //
+  // O `no-implied-eval` existe para impedir que entrada de usuário vire
+  // código. Não é o caso: o corpo da função é uma constante literal deste
+  // arquivo, e o único parâmetro é o especificador — sempre a string
+  // 'puppeteer', escrita logo abaixo. Nada externo alcança este ponto.
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const dynamicImport = new Function(
+    'specifier',
+    'return import(specifier)',
+  ) as (specifier: string) => Promise<PuppeteerImport>;
 
-export function loadPuppeteer(): Promise<PuppeteerModule> {
-  if (!modulePromise) {
-    // `new Function` impede o TypeScript de transpilar o import() para require().
-    //
-    // O `no-implied-eval` existe para impedir que entrada de usuário vire
-    // código. Não é o caso: o corpo da função é uma constante literal deste
-    // arquivo, e o único parâmetro é o especificador — sempre a string
-    // 'puppeteer', escrita logo abaixo. Nada externo alcança este ponto.
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const dynamicImport = new Function(
-      'specifier',
-      'return import(specifier)',
-    ) as (specifier: string) => Promise<PuppeteerImport>;
-
-    modulePromise = dynamicImport('puppeteer').then((module) => {
-      // O bundle ESM expõe a API tanto no default quanto nos named exports,
-      // dependendo do interop. Aceitar os dois evita depender desse detalhe.
-      return module.default ?? module;
-    });
-  }
-  return modulePromise;
-}
-
-/** Descarta o cache. Existe para testes que precisam reprogramar o módulo. */
-export function resetPuppeteerRuntimeCache(): void {
-  modulePromise = null;
+  const module = await dynamicImport('puppeteer');
+  // O bundle ESM expõe a API tanto no default quanto nos named exports,
+  // dependendo do interop. Aceitar os dois evita depender desse detalhe.
+  return module.default ?? module;
 }
