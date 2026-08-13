@@ -10,4 +10,5 @@
 # Gitleaks continua cobrindo o repositório inteiro e a inversão abaixo prova que
 # o detector TruffleHog permanece ativo.
 ^\.github/workflows/ci\.yml$
+^\.github/workflows/security-scan\.yml$
 ^backend/src/shared/database/provisioning-datasource\.service\.ts$
