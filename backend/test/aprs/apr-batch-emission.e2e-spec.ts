@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { AprStatus } from '../../src/modules/aprs/entities/apr.entity';
 import { Role } from '../../src/modules/auth/enums/roles.enum';
+import { loadPuppeteer } from '../../src/shared/services/puppeteer-runtime';
 import { createTestApr, type AprBody } from '../helpers/apr-test.factory';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 
@@ -86,6 +87,10 @@ describeE2E('E2E — APR batch final PDF emission', () => {
   let elaboradorId: string;
 
   beforeAll(async () => {
+    // Resolve Puppeteer's ESM module while this Jest VM is alive. Without
+    // this explicit warm-up, a later PDF request can start the import after a
+    // previous E2E VM has already been torn down.
+    await loadPuppeteer();
     testApp = await TestApp.create();
     await testApp.resetDatabase();
 
