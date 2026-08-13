@@ -50,6 +50,15 @@ function reject(reason) {
 }
 
 export function assertLoadtestEnvironment(env = process.env) {
+  assertLoadtestIdentity(env);
+  assertLoadtestNetwork(env);
+  assertNoProductionMarkers(env);
+  assertLoadtestBuckets(env);
+  assertLoadtestRedisHosts(env);
+  return true;
+}
+
+function assertLoadtestIdentity(env) {
   if (env.APP_ENV !== 'loadtest' || env.APP_LOADTEST_MARKER !== 'sgs-loadtest') {
     reject('APP_ENV=loadtest and APP_LOADTEST_MARKER=sgs-loadtest are mandatory');
   }
@@ -62,7 +71,9 @@ export function assertLoadtestEnvironment(env = process.env) {
   if (env.DATABASE_HOST && !isAllowedHost(String(env.DATABASE_HOST).toLowerCase())) {
     reject('DATABASE_HOST is outside the load-test allowlist');
   }
+}
 
+function assertLoadtestNetwork(env) {
   const networkValues = [
     ['DATABASE_URL', env.DATABASE_URL],
     ['DATABASE_MIGRATION_URL', env.DATABASE_MIGRATION_URL],
@@ -87,21 +98,27 @@ export function assertLoadtestEnvironment(env = process.env) {
       reject(`${name} points outside the load-test host allowlist`);
     }
   }
+}
 
+function assertNoProductionMarkers(env) {
   for (const [name, value] of Object.entries(env)) {
     const raw = String(value || '').toLowerCase();
     if (PRODUCTION_MARKERS.some((marker) => raw.includes(marker))) {
       reject(`${name} contains a forbidden production marker`);
     }
   }
+}
 
+function assertLoadtestBuckets(env) {
   for (const bucketName of ['AWS_BUCKET_NAME', 'AWS_S3_BUCKET', 'DR_STORAGE_REPLICA_BUCKET']) {
     const bucket = String(env[bucketName] || '').trim();
     if (bucket && !bucket.startsWith('sgs-loadtest-')) {
       reject(`${bucketName} must use the sgs-loadtest- prefix`);
     }
   }
+}
 
+function assertLoadtestRedisHosts(env) {
   const redisHosts = ['REDIS_AUTH_HOST', 'REDIS_RATE_LIMIT_HOST', 'REDIS_CACHE_HOST', 'REDIS_QUEUE_HOST'];
   for (const name of redisHosts) {
     const value = String(env[name] || '').trim().toLowerCase();
@@ -109,8 +126,6 @@ export function assertLoadtestEnvironment(env = process.env) {
       reject(`${name} points outside the load-test host allowlist`);
     }
   }
-
-  return true;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
