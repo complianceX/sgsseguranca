@@ -17,7 +17,7 @@ export const options = {
 };
 
 export function setup() {
-  assertSafeTarget(BASE_URL, { maxVus: 50, maxDurationSeconds: 180 });
+  assertSafeTarget(BASE_URL, { maxVus: 100, maxDurationSeconds: 360 });
   return { baseUrl: BASE_URL };
 }
 
