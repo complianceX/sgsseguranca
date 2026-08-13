@@ -1,6 +1,6 @@
 import type { PuppeteerNode } from 'puppeteer';
 
-type PuppeteerModule = PuppeteerNode;
+type PuppeteerModule = Pick<PuppeteerNode, 'launch' | 'executablePath'>;
 type PuppeteerImport = PuppeteerModule & { default?: PuppeteerModule };
 
 let modulePromise: Promise<PuppeteerModule> | undefined;
@@ -19,19 +19,9 @@ export function loadPuppeteer(): Promise<PuppeteerModule> {
     ) as (specifier: string) => Promise<PuppeteerImport>;
     modulePromise = dynamicImport('puppeteer').then((module) => {
       const instance = module.default ?? module;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const launch = instance.launch.bind(instance);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const executablePath = instance.executablePath.bind(instance);
-      return {
-        ...instance,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        launch,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        executablePath,
-      };
+      return instance;
     });
   }
 
-  return modulePromise!;
+  return modulePromise;
 }
