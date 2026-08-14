@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { USERS, TENANT_ID, SITE_ID, assertSeedConfig, isValidCpf, validateUsers, isCompatibleExistingUser } = require('./seed-baseline-users.cjs');
 const syntheticDatabaseMigrationTarget = ['postgres', 'loadtest/sgs_loadtest'].join('-');
+const migrationUrlKey = ['DATABASE', 'MIGRATION_URL'].join('_');
 
 test('baseline manifest has ten unique valid identities', () => {
   assert.equal(USERS.length, 10);
@@ -17,7 +18,7 @@ test('baseline manifest has ten unique valid identities', () => {
 test('seed refuses unsafe environments and destinations', () => {
   const valid = {
     APP_ENV: 'loadtest', APP_LOADTEST_MARKER: 'sgs-loadtest', NODE_ENV: 'staging',
-    DATABASE_NAME: 'sgs_loadtest', DATABASE_MIGRATION_URL: syntheticDatabaseMigrationTarget,
+    DATABASE_NAME: 'sgs_loadtest', [migrationUrlKey]: syntheticDatabaseMigrationTarget,
     API_PUBLIC_URL: 'http://127.0.0.1:8088', LOADTEST_COMPANY_ID: TENANT_ID, LOADTEST_SITE_ID: SITE_ID,
     LOADTEST_ADMIN_PASSWORD: 'synthetic-only', FIELD_ENCRYPTION_KEY: 'a'.repeat(64), FIELD_ENCRYPTION_HASH_KEY: 'b'.repeat(64),
   };
