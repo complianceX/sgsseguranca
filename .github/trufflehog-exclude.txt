@@ -8,7 +8,4 @@
 # Fixtures históricas do datasource foram sintéticas e removidas do HEAD; o
 # glob é aplicado no histórico Git, sem desativar o detector.
 .*provisioning-datasource.*
-# Compose do load-test contém DSNs sintéticos parametrizados (${...});
-# Gitleaks continua cobrindo o arquivo inteiro como backstop.
-.*infra/load-test/compose\.yml.*
 security-scan

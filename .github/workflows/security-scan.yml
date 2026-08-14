@@ -63,8 +63,6 @@ jobs:
           extra_args: >-
             --exclude-paths=.github/trufflehog-exclude.txt
             --exclude-globs=**/provisioning-datasource*
-            --exclude-globs=**/infra/load-test/compose.yml
-            --exclude-globs=infra/load-test/compose.yml
 
   dependency-audit:
     name: Dependency Audit

@@ -89,7 +89,7 @@ services:
       DATABASE_NAME: sgs_loadtest
       DATABASE_USER: sgs_app
       DATABASE_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
-      DATABASE_URL: postgresql://sgs_app:${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}@postgres-loadtest:5432/sgs_loadtest
+      DATABASE_URL: ${LOADTEST_DB_PROTOCOL:-postgresql}://sgs_app:${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}@postgres-loadtest:5432/sgs_loadtest
       DATABASE_SSL: 'false'
       DB_POOL_MAX: ${LOADTEST_DB_POOL_MAX:-6}
       DB_POOL_MIN: ${LOADTEST_DB_POOL_MIN:-1}
@@ -173,7 +173,7 @@ services:
       dockerfile: Dockerfile
     environment:
       <<: *api_environment
-      DATABASE_MIGRATION_URL: postgresql://${POSTGRES_MIGRATOR_USER:?POSTGRES_MIGRATOR_USER is required}:${POSTGRES_MIGRATOR_PASSWORD:?POSTGRES_MIGRATOR_PASSWORD is required}@postgres-loadtest:5432/sgs_loadtest
+      DATABASE_MIGRATION_URL: ${LOADTEST_DB_PROTOCOL:-postgresql}://${POSTGRES_MIGRATOR_USER:?POSTGRES_MIGRATOR_USER is required}:${POSTGRES_MIGRATOR_PASSWORD:?POSTGRES_MIGRATOR_PASSWORD is required}@postgres-loadtest:5432/sgs_loadtest
       REQUIRE_NO_PENDING_MIGRATIONS: 'false'
     command: [sh, -lc, 'node /opt/load-test/scripts/guard-environment.mjs && npm run migration:run && node /opt/load-test/scripts/grant-runtime-privileges.cjs']
     volumes:
