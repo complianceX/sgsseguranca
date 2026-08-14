@@ -10,8 +10,7 @@ const env = { ...process.env, PUPPETEER_CACHE_DIR: cacheDir };
 delete env.PUPPETEER_SKIP_DOWNLOAD;
 delete env.PUPPETEER_EXECUTABLE_PATH;
 
-async function main() {
-  let executablePath = null;
+let executablePath = null;
 
 try {
   const puppeteer = require('puppeteer');
