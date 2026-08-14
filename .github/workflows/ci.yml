@@ -202,18 +202,36 @@ jobs:
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
 
-      # Dividido em dois processos Node separados (nao dois workers do
-      # mesmo Jest): rodar as 16 suites e2e-spec.ts num unico processo
-      # --runInBand estourou o heap no runner (~4GB fisicos disponiveis
-      # entre Postgres/Redis/Node/Chromium, mesmo com --max-old-space-size
-      # configurado bem acima disso). Cada `npm run test:e2e` abaixo e' um
-      # processo Node novo, que comeca com heap livre -- o processo anterior
-      # ja terminou e devolveu sua memoria ao SO antes do proximo iniciar.
-      - name: Run critical e2e flows (critical + idor + multi-tenancy)
-        run: npm run test:e2e -- --forceExit --testPathPatterns="(critical/|idor-security|multi-tenancy)"
-
-      - name: Run critical e2e flows (aprs — geracao de PDF)
-        run: npm run test:e2e -- --forceExit --testPathPatterns="aprs/"
+      # Um processo Node por arquivo .e2e-spec.ts, nao um --runInBand unico
+      # para as 16 suites (nem particionado em 2 grupos, que ainda estourava
+      # com 14 arquivos). --runInBand roda tudo no MESMO processo -- memoria
+      # nunca e' genuinamente devolvida ao SO entre arquivos, mesmo com cada
+      # teste fechando seu app corretamente (afterAll -> testApp.close()),
+      # porque classes carregadas via require.cache e o overhead de 14+
+      # boots sequenciais de app NestJS completo (TypeORM + Redis + BullMQ +
+      # pool de Puppeteer) se acumulam no unico processo. Aumentar
+      # --max-old-space-size nao ajudou: o runner morria em ~4GB reais,
+      # bem abaixo de qualquer limite configurado (4096 ou 6144) -- teto
+      # fisico do runner, nao do V8. Cada iteracao abaixo e' um processo
+      # Node novo, que comeca com heap 100% livre.
+      - name: Run critical e2e flows (um processo por arquivo)
+        run: |
+          set +e
+          failures=()
+          while IFS= read -r spec; do
+            echo "::group::$spec"
+            npm run test:e2e -- --forceExit --testPathPatterns="$spec"
+            status=$?
+            echo "::endgroup::"
+            if [ "$status" -ne 0 ]; then
+              failures+=("$spec")
+            fi
+          done < <(npx jest --config ./test/jest-e2e.config.ts --listTests | sed 's#.*/test/##')
+          if [ "${#failures[@]}" -gt 0 ]; then
+            echo "::error::${#failures[@]} suite(s) falharam: ${failures[*]}"
+            exit 1
+          fi
+        working-directory: backend
 
   backend-dr-e2e:
     name: Backend E2E DR Restore (Dedicated Postgres)
