@@ -1,20 +1,6 @@
 const { spawnSync } = require('node:child_process');
-const os = require('node:os');
 
 const args = process.argv.slice(2);
-
-// Diagnostico TEMPORARIO: medir RAM real do runner antes de cada execucao
-// e2e, para confirmar (ou refutar) a hipotese de que o teto e' fisico, nao
-// o --max-old-space-size configurado. Remover apos identificar a causa
-// raiz do OOM nas 3 suites que ainda falham isoladas mesmo com
-// concorrencia de PDF forcada a 1.
-if (args.some((arg) => /jest-e2e/i.test(arg)) && process.env.DIAG_MEMORY === 'true') {
-  const toMB = (bytes) => Math.round(bytes / 1024 / 1024);
-  console.log(
-    `[diag-memory] total=${toMB(os.totalmem())}MB free=${toMB(os.freemem())}MB ` +
-      `args=${JSON.stringify(args)}`,
-  );
-}
 const env = { ...process.env };
 
 function applyDefault(key, value) {
@@ -60,7 +46,11 @@ try {
 } catch {
   jestBin = require.resolve('jest-cli/bin/jest');
 }
-const result = spawnSync(process.execPath, [jestBin, ...args], {
+// Forward the parent Node runtime flags to Jest.  The npm scripts deliberately
+// set --max-old-space-size for the test workload; dropping that flag here makes
+// the child Jest process fall back to Node's smaller default heap and can turn
+// a valid E2E suite into an OOM failure on CI.
+const result = spawnSync(process.execPath, [...process.execArgv, jestBin, ...args], {
   stdio: 'inherit',
   env,
 });

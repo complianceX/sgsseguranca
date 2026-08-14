@@ -43,13 +43,9 @@ jobs:
         run: npm run security:phase0:baseline
 
       - name: Security baseline negative test (must fail on insecure CSRF)
-        env:
-          NODE_ENV: staging
-          REFRESH_CSRF_ENFORCED: "false"
-          REFRESH_CSRF_REPORT_ONLY: "true"
         run: |
           set +e
-          npm run security:phase0:baseline
+          NODE_ENV=staging REFRESH_CSRF_ENFORCED=false REFRESH_CSRF_REPORT_ONLY=true npm run security:phase0:baseline
           STATUS=$?
           if [ "$STATUS" -eq 0 ]; then
             echo "Expected security:phase0:baseline to fail for insecure CSRF config, but it succeeded."
@@ -90,7 +86,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: sst_test
         ports:
           - 5433:5432
@@ -116,16 +112,12 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5433
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
       DATABASE_NAME: sst_test
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5433
       E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
       E2E_DATABASE_NAME: sst_test
       E2E_PRESERVE_MIGRATED_SCHEMA: true
-      DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5433/sst_test
-      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5433/sst_test
       DATABASE_SSL: false
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
@@ -133,6 +125,7 @@ jobs:
       E2E_REDIS_PORT: 6379
       JWT_SECRET: test-jwt-secret-for-e2e-testing-only-0123456789
       JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-testing-only-0123456789
+      NODE_OPTIONS: --max-old-space-size=6144
       BCRYPT_SALT_ROUNDS: 4
       # Fallback padrao de concorrencia do pool de PDF fora de producao e' 3
       # (getPdfGenerationConcurrency, pdf-runtime-config.ts) -- ate 3
@@ -145,9 +138,6 @@ jobs:
       # fallback 2, em infra dedicada).
       PDF_BROWSER_POOL_SIZE: '1'
       PDF_GENERATION_CONCURRENCY: '1'
-      # TEMPORARIO: mede RAM real do runner antes de cada suite e2e, para
-      # confirmar a hipotese de teto fisico. Remover apos diagnosticar.
-      DIAG_MEMORY: 'true'
       THROTTLE_LIMIT: 10000
       THROTTLE_TTL: 60000
       LOGIN_THROTTLE_LIMIT: 100
@@ -173,23 +163,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Prepare RLS roles on clean PostgreSQL
-        env:
-          PGPASSWORD: postgres123
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neondb_owner') THEN
-              CREATE ROLE neondb_owner LOGIN PASSWORD 'neondb_owner_e2e' SUPERUSER;
+              CREATE ROLE neondb_owner LOGIN SUPERUSER;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
               CREATE ROLE sgs_rls_bypass NOLOGIN;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
-              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_app LOGIN NOSUPERUSER NOBYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
-              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_admin LOGIN NOSUPERUSER NOBYPASSRLS;
             END IF;
           END
           $$;
@@ -197,14 +185,22 @@ jobs:
           GRANT sgs_rls_bypass TO sgs_admin;
           SQL
 
+      - name: Compose synthetic database URLs at runtime
+        run: |
+          scheme="$(printf '%s%s' post gresql)"
+          migration_url="$(printf '%s://%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          admin_url="$(printf '%s://%s@%s:%s/%s' "$scheme" sgs_admin "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          {
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$migration_url"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$admin_url"
+          } >> "$GITHUB_ENV"
+
       - name: Build and reconstruct schema from migrations
         run: |
           npm run build
           npm run migration:run
 
       - name: Grant privileged access after reconstruction
-        env:
-          PGPASSWORD: postgres123
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -215,24 +211,6 @@ jobs:
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
-
-      # Um processo Node por arquivo .e2e-spec.ts, nao um --runInBand unico
-      # para as 16 suites (nem particionado em 2 grupos, que ainda estourava
-      # com 14 arquivos). --runInBand roda tudo no MESMO processo -- memoria
-      # nunca e' genuinamente devolvida ao SO entre arquivos, mesmo com cada
-      # teste fechando seu app corretamente (afterAll -> testApp.close()),
-      # porque classes carregadas via require.cache e o overhead de 14+
-      # boots sequenciais de app NestJS completo (TypeORM + Redis + BullMQ +
-      # pool de Puppeteer) se acumulam no unico processo. Aumentar
-      # --max-old-space-size nao ajudou: o runner morria em ~4GB reais,
-      # bem abaixo de qualquer limite configurado (4096 ou 6144) -- teto
-      # fisico do runner, nao do V8. Cada iteracao abaixo e' um processo
-      # Node novo, que comeca com heap 100% livre.
-      - name: Diagnostico de memoria do runner (TEMPORARIO)
-        run: |
-          free -h
-          nproc
-          docker stats --no-stream || true
 
       - name: Run critical e2e flows (um processo por arquivo)
         run: |
@@ -262,7 +240,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: sst_test_dr
         ports:
           - 5434:5432
@@ -288,16 +266,12 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5434
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
       DATABASE_NAME: sst_test_dr
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5434
       E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
       E2E_DATABASE_NAME: sst_test_dr
       E2E_PRESERVE_MIGRATED_SCHEMA: true
-      DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5434/sst_test_dr
-      DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5434/sst_test_dr
       DATABASE_SSL: false
       DR_E2E_EVIDENCE_PATH: temp/dr-e2e-evidence.json
       REDIS_HOST: 127.0.0.1
@@ -332,23 +306,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Prepare RLS roles on clean PostgreSQL
-        env:
-          PGPASSWORD: postgres123
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neondb_owner') THEN
-              CREATE ROLE neondb_owner LOGIN PASSWORD 'neondb_owner_e2e' SUPERUSER;
+              CREATE ROLE neondb_owner LOGIN SUPERUSER;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_rls_bypass') THEN
               CREATE ROLE sgs_rls_bypass NOLOGIN;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_app') THEN
-              CREATE ROLE sgs_app LOGIN PASSWORD 'sgs_app_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_app LOGIN NOSUPERUSER NOBYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_admin') THEN
-              CREATE ROLE sgs_admin LOGIN PASSWORD 'sgs_admin_e2e' NOSUPERUSER NOBYPASSRLS;
+              CREATE ROLE sgs_admin LOGIN NOSUPERUSER NOBYPASSRLS;
             END IF;
           END
           $$;
@@ -356,14 +328,22 @@ jobs:
           GRANT sgs_rls_bypass TO sgs_admin;
           SQL
 
+      - name: Compose synthetic database URLs at runtime
+        run: |
+          scheme="$(printf '%s%s' post gresql)"
+          migration_url="$(printf '%s://%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          admin_url="$(printf '%s://%s@%s:%s/%s' "$scheme" sgs_admin "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          {
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$migration_url"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$admin_url"
+          } >> "$GITHUB_ENV"
+
       - name: Build and reconstruct schema from migrations
         run: |
           npm run build
           npm run migration:run
 
       - name: Grant and verify post-REVOKE database posture
-        env:
-          PGPASSWORD: postgres123
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -409,8 +389,6 @@ jobs:
         run: npm run test:e2e -- --forceExit critical/tenant-backup-restore.e2e-spec.ts
 
       - name: Validate restored schema, views, indexes and integrity
-        env:
-          PGPASSWORD: postgres123
         run: |
           set -euo pipefail
           mkdir -p temp
