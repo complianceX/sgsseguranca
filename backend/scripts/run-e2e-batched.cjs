@@ -8,7 +8,7 @@ const ROOT_TESTS = [
   'test/idor-security.e2e-spec.ts',
   'test/multi-tenancy.e2e-spec.ts',
 ];
-const BATCH_SIZE = 3;
+const BATCH_SIZE = 1;
 const forwardedArgs = process.argv.slice(2);
 
 function collectE2eFiles(root) {
