@@ -145,6 +145,9 @@ jobs:
       # fallback 2, em infra dedicada).
       PDF_BROWSER_POOL_SIZE: '1'
       PDF_GENERATION_CONCURRENCY: '1'
+      # TEMPORARIO: mede RAM real do runner antes de cada suite e2e, para
+      # confirmar a hipotese de teto fisico. Remover apos diagnosticar.
+      DIAG_MEMORY: 'true'
       THROTTLE_LIMIT: 10000
       THROTTLE_TTL: 60000
       LOGIN_THROTTLE_LIMIT: 100
@@ -225,12 +228,19 @@ jobs:
       # bem abaixo de qualquer limite configurado (4096 ou 6144) -- teto
       # fisico do runner, nao do V8. Cada iteracao abaixo e' um processo
       # Node novo, que comeca com heap 100% livre.
+      - name: Diagnostico de memoria do runner (TEMPORARIO)
+        run: |
+          free -h
+          nproc
+          docker stats --no-stream || true
+
       - name: Run critical e2e flows (um processo por arquivo)
         run: |
           set +e
           failures=()
           while IFS= read -r spec; do
             echo "::group::$spec"
+            free -h
             npm run test:e2e -- --forceExit --testPathPatterns="$spec"
             status=$?
             echo "::endgroup::"
