@@ -10,5 +10,5 @@
 .*provisioning-datasource.*
 # Compose do load-test contém DSNs sintéticos parametrizados (${...});
 # Gitleaks continua cobrindo o arquivo inteiro como backstop.
-infra/load-test/compose\.yml$
+.*infra/load-test/compose\.yml.*
 security-scan
