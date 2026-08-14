@@ -8,7 +8,6 @@ import { existsSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import * as puppeteer from 'puppeteer';
 import type { Browser, LaunchOptions, Page } from 'puppeteer';
 import {
   getPdfBrowserAcquireTimeoutMs,
@@ -16,6 +15,7 @@ import {
   getPdfBrowserPoolSize,
   getPdfPageTimeoutMs,
 } from './pdf-runtime-config';
+import { loadPuppeteer } from './puppeteer-runtime';
 
 interface PooledBrowser {
   id: number;
@@ -35,8 +35,11 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly acquireTimeoutMs = getPdfBrowserAcquireTimeoutMs();
   private readonly maxUsesPerBrowser = getPdfBrowserMaxUses();
   private cleanupInterval?: NodeJS.Timeout;
+  private readonly startupPromises = new Map<number, Promise<void>>();
+  private isClosing = false;
 
   onModuleInit() {
+    this.isClosing = false;
     this.logger.log(
       `Inicializando pool de Puppeteer em modo lazy (poolSize=${this.poolSize}, pageTimeoutMs=${this.maxPageTimeout}, acquireTimeoutMs=${this.acquireTimeoutMs}, maxUsesPerBrowser=${this.maxUsesPerBrowser})`,
     );
@@ -50,19 +53,27 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('Fechando pool de Puppeteer');
+    this.isClosing = true;
 
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
 
+    // A startup já iniciado pode ainda estar resolvendo o adapter ESM. Aguarde
+    // esse trabalho antes de fechar o módulo; o destroy não cria recursos novos.
+    await Promise.allSettled(this.startupPromises.values());
     await Promise.all(
       this.browserPool.map((b) => this.closeBrowserInstance(b)),
     );
 
     this.browserPool = [];
+    this.startupPromises.clear();
   }
 
   async getPage(): Promise<Page> {
+    if (this.isClosing) {
+      throw new Error('Pool de Puppeteer está em encerramento.');
+    }
     const requestStartedAt = Date.now();
 
     // Tentar obter um browser disponível
@@ -171,6 +182,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     browser: Browser;
     userDataDir: string;
   }> {
+    const puppeteer = await loadPuppeteer();
     const resolvedBrowser = await this.resolveExecutablePath();
     const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
     const runtimeEnv = {
@@ -242,41 +254,66 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async addBrowserToPool(id: number): Promise<void> {
-    try {
-      const { browser, userDataDir } = await this.launchBrowser();
-      this.browserPool.push({
-        id,
-        browser,
-        userDataDir,
-        inUse: false,
-        lastUsed: new Date(),
-        useCount: 0,
-      });
-      this.logger.log(
-        `Browser ${id} iniciado (PID: ${browser.process()?.pid})`,
-      );
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Erro ao inicializar browser ${id}: ${error.message}`,
-          error.stack,
+    if (this.isClosing) {
+      return;
+    }
+
+    const existingStartup = this.startupPromises.get(id);
+    if (existingStartup) {
+      await existingStartup;
+      return;
+    }
+
+    const startup = (async () => {
+      try {
+        const { browser, userDataDir } = await this.launchBrowser();
+        if (this.isClosing) {
+          await this.closeBrowserInstance({
+            id,
+            browser,
+            userDataDir,
+            inUse: false,
+            lastUsed: new Date(),
+            useCount: 0,
+          });
+          return;
+        }
+        this.browserPool.push({
+          id,
+          browser,
+          userDataDir,
+          inUse: false,
+          lastUsed: new Date(),
+          useCount: 0,
+        });
+        this.logger.log(
+          `Browser ${id} iniciado (PID: ${browser.process()?.pid})`,
         );
-        return;
+      } catch (error) {
+        if (error instanceof Error) {
+          this.logger.error(
+            `Erro ao inicializar browser ${id}: ${error.message}`,
+            error.stack,
+          );
+          return;
+        }
+        this.logger.error(
+          `Erro ao inicializar browser ${id}: ${String(error)}`,
+        );
+      } finally {
+        this.startupPromises.delete(id);
       }
-      this.logger.error(`Erro ao inicializar browser ${id}: ${String(error)}`);
+    })();
+
+    this.startupPromises.set(id, startup);
+    try {
+      await startup;
+    } catch {
+      // O startup já registra a causa técnica; callers continuam usando o
+      // timeout seguro de aquisição sem expor detalhes do runtime.
     }
   }
 
-  /**
-   * Assíncrona desde o Puppeteer 25: `puppeteer.executablePath()` passou a
-   * devolver `Promise<string>`.
-   *
-   * O ramo `env` continua síncrono e é o que produção usa — o Dockerfile define
-   * `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` e `PUPPETEER_SKIP_DOWNLOAD=true`,
-   * então o Chromium vem do sistema operacional e este método retorna antes de
-   * tocar na API do Puppeteer. O `await` abaixo só é exercido em ambiente local
-   * sem a variável definida.
-   */
   private async resolveExecutablePath(): Promise<{
     executablePath?: string;
     source: 'env' | 'puppeteer' | 'default';
@@ -292,6 +329,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
+      const puppeteer = await loadPuppeteer();
       const executablePath = await puppeteer.executablePath();
       return {
         executablePath,

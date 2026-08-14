@@ -28,14 +28,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.13.0
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
+      # ------------------------------------------------------------------
+      # A PARTIR DAQUI, CADA CHECK É INDEPENDENTE.
+      #
+      # O default do GitHub Actions é `if: success()`, então o primeiro step
+      # vermelho marcava TODOS os seguintes como `skipped`. Como o audit de
+      # dependências vinha antes de lint/type-check/test/build, um CVE em
+      # devDependency apagava toda a evidência do PR: nenhum sinal de que os
+      # testes passavam, de que o build compilava, de que as migrations eram
+      # válidas. Ficou assim por semanas, em `main` inclusive.
+      #
+      # `!cancelled()` faz cada check rodar mesmo que outro tenha falhado —
+      # e NÃO é `continue-on-error`: a falha continua reprovando o job. A
+      # diferença é entre *separar execução* e *esconder resultado*.
+      #
+      # A condição extra em `steps.install` existe porque rodar lint sem
+      # `node_modules` produziria um erro confuso que não é o defeito real.
+      # ------------------------------------------------------------------
       - name: Security baseline gate (refresh CSRF)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           NODE_ENV: staging
           REFRESH_CSRF_ENFORCED: "true"
@@ -43,6 +62,11 @@ jobs:
         run: npm run security:phase0:baseline
 
       - name: Security baseline negative test (must fail on insecure CSRF)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          NODE_ENV: staging
+          REFRESH_CSRF_ENFORCED: "false"
+          REFRESH_CSRF_REPORT_ONLY: "true"
         run: |
           set +e
           NODE_ENV=staging REFRESH_CSRF_ENFORCED=false REFRESH_CSRF_REPORT_ONLY=true npm run security:phase0:baseline
@@ -54,27 +78,35 @@ jobs:
           echo "Negative test passed: insecure CSRF config was blocked as expected."
 
       - name: Audit backend dependencies (high+critical)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm audit --audit-level=high
 
       - name: Lint backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run lint
 
       - name: Type-check backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run type-check
 
       - name: Test backend (shard 1/2)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci -- --shard=1/2
 
       - name: Test backend (shard 2/2)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci -- --shard=2/2
 
       - name: Smoke backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:smoke
 
       - name: Build backend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
 
       - name: Validate migrations
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run ci:migration:check
 
   backend-e2e:
@@ -152,7 +184,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.13.0
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -188,17 +220,66 @@ jobs:
       - name: Compose synthetic database URLs at runtime
         run: |
           scheme="$(printf '%s%s' post gresql)"
-          migration_url="$(printf '%s://%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
-          admin_url="$(printf '%s://%s@%s:%s/%s' "$scheme" sgs_admin "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://sgs_admin:%s@%s:%s/%s' "$scheme" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
           {
-            printf 'DATABASE_MIGRATION_URL=%s\n' "$migration_url"
-            printf 'DATABASE_ADMIN_URL=%s\n' "$admin_url"
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
           } >> "$GITHUB_ENV"
 
       - name: Build and reconstruct schema from migrations
         run: |
           npm run build
           npm run migration:run
+
+      - name: Validate APR signature integrity schema
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT current_database() AS database_name,
+                 current_schema() AS schema_name,
+                 (SELECT COUNT(*) FROM migrations) AS migration_count;
+          SELECT id, timestamp, name
+          FROM migrations
+          WHERE name = 'AddAprSignatureContentIntegrity1709000000375';
+          DO $$
+          DECLARE
+            missing_columns text;
+          BEGIN
+            SELECT string_agg(required.column_name, ', ' ORDER BY required.column_name)
+              INTO missing_columns
+            FROM (
+              VALUES
+                ('content_hash'),
+                ('hash_algorithm'),
+                ('canonicalization_version'),
+                ('integrity_scheme')
+            ) AS required(column_name)
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = current_schema()
+                AND table_name = 'signatures'
+                AND column_name = required.column_name
+            );
+
+            IF missing_columns IS NOT NULL THEN
+              RAISE EXCEPTION
+                'APR signature integrity schema gate failed; missing columns: %',
+                missing_columns;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM migrations
+              WHERE name = 'AddAprSignatureContentIntegrity1709000000375'
+            ) THEN
+              RAISE EXCEPTION
+                'APR signature integrity migration 0375 is not recorded as executed';
+            END IF;
+          END
+          $$;
+          SQL
 
       - name: Grant privileged access after reconstruction
         run: |
@@ -212,25 +293,16 @@ jobs:
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
 
-      - name: Run critical e2e flows (um processo por arquivo)
-        run: |
-          set +e
-          failures=()
-          while IFS= read -r spec; do
-            echo "::group::$spec"
-            free -h
-            npm run test:e2e -- --forceExit --testPathPatterns="$spec"
-            status=$?
-            echo "::endgroup::"
-            if [ "$status" -ne 0 ]; then
-              failures+=("$spec")
-            fi
-          done < <(npx jest --config ./test/jest-e2e.config.ts --listTests | sed 's#.*/test/##')
-          if [ "${#failures[@]}" -gt 0 ]; then
-            echo "::error::${#failures[@]} suite(s) falharam: ${failures[*]}"
-            exit 1
-          fi
-        working-directory: backend
+      - name: Run real PDF runtime smoke before APR Category B
+        run: npm run test:e2e:pdf-runtime
+
+      - name: Run critical e2e flows
+        run: npm run test:e2e -- --forceExit
+
+      - name: Run APR adversarial security proof
+        env:
+          APR_SECURITY_E2E_REQUIRED: "true"
+        run: npm run test:e2e -- --forceExit aprs/apr-phase4-adversarial.e2e-spec.ts
 
   backend-dr-e2e:
     name: Backend E2E DR Restore (Dedicated Postgres)
@@ -295,7 +367,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.13.0
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -328,14 +400,14 @@ jobs:
           GRANT sgs_rls_bypass TO sgs_admin;
           SQL
 
-      - name: Compose synthetic database URLs at runtime
+      - name: Compose synthetic DR database URLs at runtime
         run: |
           scheme="$(printf '%s%s' post gresql)"
-          migration_url="$(printf '%s://%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
-          admin_url="$(printf '%s://%s@%s:%s/%s' "$scheme" sgs_admin "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")"
+          MIGRATION_URL=$(printf '%s://%s:%s@%s:%s/%s' "$scheme" "$E2E_DATABASE_USER" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
+          ADMIN_URL=$(printf '%s://sgs_admin:%s@%s:%s/%s' "$scheme" "$GITHUB_RUN_ID" "$E2E_DATABASE_HOST" "$E2E_DATABASE_PORT" "$E2E_DATABASE_NAME")
           {
-            printf 'DATABASE_MIGRATION_URL=%s\n' "$migration_url"
-            printf 'DATABASE_ADMIN_URL=%s\n' "$admin_url"
+            printf 'DATABASE_MIGRATION_URL=%s\n' "$MIGRATION_URL"
+            printf 'DATABASE_ADMIN_URL=%s\n' "$ADMIN_URL"
           } >> "$GITHUB_ENV"
 
       - name: Build and reconstruct schema from migrations
@@ -503,18 +575,25 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
+      # Mesma separação do job de backend: o audit deixa de sequestrar a
+      # evidência de lint/test/build. Falha continua reprovando o job.
       - name: Audit frontend dependencies (high+critical)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm audit --audit-level=high
 
       - name: Lint frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run lint
 
       - name: Test frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:ci
 
       - name: Build frontend
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
 
   container-pdf-smoke:
