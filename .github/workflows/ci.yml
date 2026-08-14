@@ -202,8 +202,18 @@ jobs:
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
 
-      - name: Run critical e2e flows
-        run: npm run test:e2e -- --forceExit
+      # Dividido em dois processos Node separados (nao dois workers do
+      # mesmo Jest): rodar as 16 suites e2e-spec.ts num unico processo
+      # --runInBand estourou o heap no runner (~4GB fisicos disponiveis
+      # entre Postgres/Redis/Node/Chromium, mesmo com --max-old-space-size
+      # configurado bem acima disso). Cada `npm run test:e2e` abaixo e' um
+      # processo Node novo, que comeca com heap livre -- o processo anterior
+      # ja terminou e devolveu sua memoria ao SO antes do proximo iniciar.
+      - name: Run critical e2e flows (critical + idor + multi-tenancy)
+        run: npm run test:e2e -- --forceExit --testPathPatterns="(critical/|idor-security|multi-tenancy)"
+
+      - name: Run critical e2e flows (aprs — geracao de PDF)
+        run: npm run test:e2e -- --forceExit --testPathPatterns="aprs/"
 
   backend-dr-e2e:
     name: Backend E2E DR Restore (Dedicated Postgres)
