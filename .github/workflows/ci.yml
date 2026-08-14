@@ -290,6 +290,10 @@ jobs:
           SQL
 
       - name: Run real PDF runtime smoke before APR Category B
+        # O smoke prova duas aquisições concorrentes; o restante do E2E
+        # mantém pool 1 para controlar o consumo de memória do runner.
+        env:
+          PDF_BROWSER_POOL_SIZE: '2'
         run: npm run test:e2e:pdf-runtime
 
       - name: Run critical e2e flows
