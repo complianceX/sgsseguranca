@@ -38,7 +38,8 @@
 'use strict';
 
 const { execFileSync } = require('node:child_process');
-const { existsSync } = require('node:fs');
+const { existsSync, readFileSync } = require('node:fs');
+const path = require('node:path');
 
 /** Marcadores que o PDF precisa conter. Ausência de qualquer um é falha. */
 const MARCADORES = [
@@ -52,7 +53,13 @@ const MARCADORES = [
 ];
 
 /** Acentuação e cedilha: pegam regressão de fonte/locale entre Debian 11 e 12. */
-const ACENTUADOS = ['Análise', 'Ação', 'Responsável', 'notificação', 'ÁÉÍÓÚÇÃÕ'];
+const ACENTUADOS = [
+  'Análise',
+  'Ação',
+  'Responsável',
+  'notificação',
+  'ÁÉÍÓÚÇÃÕ',
+];
 
 function falhar(mensagem) {
   console.error(`\n[FALHA] ${mensagem}\n`);
@@ -93,22 +100,26 @@ function htmlFixture() {
 </body></html>`;
 }
 
-async function main() {
+function logEnvironment() {
   secao('Ambiente');
   console.log(`node        ${process.version}`);
   console.log(`plataforma  ${process.platform} ${process.arch}`);
-  console.log(`usuário     uid=${process.getuid?.() ?? '?'} gid=${process.getgid?.() ?? '?'}`);
+  console.log(
+    `usuário     uid=${process.getuid?.() ?? '?'} gid=${process.getgid?.() ?? '?'}`,
+  );
   console.log(`TZ          ${process.env.TZ ?? '(não definido)'}`);
   console.log(`LANG        ${process.env.LANG ?? '(não definido)'}`);
 
   try {
-    const os = require('node:fs').readFileSync('/etc/os-release', 'utf8');
+    const os = readFileSync('/etc/os-release', 'utf8');
     const pretty = /PRETTY_NAME="([^"]+)"/.exec(os);
     console.log(`distro      ${pretty ? pretty[1] : '(desconhecida)'}`);
   } catch {
     console.log('distro      (não foi possível ler /etc/os-release)');
   }
+}
 
+function validateChromium() {
   secao('Chromium do sistema');
   const execPath = process.env.PUPPETEER_EXECUTABLE_PATH;
   if (!execPath) {
@@ -119,30 +130,28 @@ async function main() {
     );
   }
   if (!existsSync(execPath)) {
-    falhar(`PUPPETEER_EXECUTABLE_PATH aponta para caminho inexistente: ${execPath}`);
+    falhar(
+      `PUPPETEER_EXECUTABLE_PATH aponta para caminho inexistente: ${execPath}`,
+    );
   }
   console.log(`caminho     ${execPath}`);
   const versaoChromium = execFileSync(execPath, ['--version'], {
     encoding: 'utf8',
   }).trim();
   console.log(`versão      ${versaoChromium}`);
+  return execPath;
+}
 
+async function loadPuppeteer() {
   secao('Puppeteer');
   // O Puppeteer 25 é ESM puro: `require('puppeteer')` falha com
   // "SyntaxError: Unexpected token 'export'". Este script é CommonJS, então o
-  // acesso passa pelo import() dinâmico nativo do Node — o mesmo mecanismo que
-  // `src/shared/services/puppeteer-runtime.ts` usa em produção.
+  // acesso passa pelo import() dinâmico nativo do Node.
   const puppeteerModule = await import('puppeteer');
   const puppeteer = puppeteerModule.default ?? puppeteerModule;
   const pkg = JSON.parse(
-    require('node:fs').readFileSync(
-      require('node:path').join(
-        __dirname,
-        '..',
-        'node_modules',
-        'puppeteer',
-        'package.json',
-      ),
+    readFileSync(
+      path.join(__dirname, '..', 'node_modules', 'puppeteer', 'package.json'),
       'utf8',
     ),
   );
@@ -152,7 +161,10 @@ async function main() {
       'aviso: puppeteer não é mais ESM-only; o carregador dinâmico pode ser simplificado',
     );
   }
+  return puppeteer;
+}
 
+function assertExtractZipIsAbsent() {
   // A cadeia vulnerável não pode reaparecer por caminho nenhum.
   try {
     require.resolve('extract-zip');
@@ -164,11 +176,12 @@ async function main() {
     if (erro.code !== 'MODULE_NOT_FOUND') throw erro;
     console.log('extract-zip ausente da árvore (esperado)');
   }
+}
 
+async function generatePdf(puppeteer, execPath) {
   secao('Launch com as flags de produção');
   // Mesmas flags de puppeteer-pool.service.ts. Copiadas, não importadas, para
-  // que este smoke funcione mesmo se o dist/ mudar de forma — e para que uma
-  // divergência entre os dois seja visível numa revisão de código.
+  // que este smoke funcione mesmo se o dist/ mudar de forma.
   const browser = await puppeteer.launch({
     executablePath: execPath,
     headless: true,
@@ -187,21 +200,22 @@ async function main() {
   });
   console.log('browser iniciou');
 
-  let pdf;
   const inicio = Date.now();
+  let pdf;
   try {
     const page = await browser.newPage();
     await page.setContent(htmlFixture(), { waitUntil: 'load' });
-    pdf = Buffer.from(
-      await page.pdf({ format: 'A4', printBackground: true }),
-    );
+    pdf = Buffer.from(await page.pdf({ format: 'A4', printBackground: true }));
     await page.close();
   } finally {
     await browser.close();
   }
   const duracaoMs = Date.now() - inicio;
   console.log(`PDF gerado em ${duracaoMs}ms, ${pdf.length} bytes`);
+  return { pdf, duracaoMs };
+}
 
+function assertPdfBytes(pdf) {
   secao('Integridade do PDF');
   if (pdf.length === 0) falhar('PDF vazio.');
   if (pdf.subarray(0, 5).toString('latin1') !== '%PDF-') {
@@ -210,12 +224,20 @@ async function main() {
     );
   }
   console.log('magic bytes %PDF- presentes');
+}
 
-  // pdf-parse 2.x troca a API de função única (v1) pela classe PDFParse.
+async function parsePdf(pdf) {
+  // pdf-parse 2.x troca a API de função única pela classe PDFParse.
   const { PDFParse } = require('pdf-parse');
   const parser = new PDFParse({ data: pdf });
-  const parsed = await parser.getText();
-  await parser.destroy();
+  try {
+    return await parser.getText();
+  } finally {
+    await parser.destroy();
+  }
+}
+
+function assertPdfPageCount(parsed) {
   console.log(`páginas     ${parsed.total}`);
   if (parsed.total !== 1) {
     falhar(
@@ -223,7 +245,9 @@ async function main() {
         'página inesperada indica mudança de layout/fonte no renderer.',
     );
   }
+}
 
+function assertPdfContent(parsed, duracaoMs) {
   secao('Conteúdo obrigatório');
   const texto = parsed.text.replace(/\s+/g, ' ');
   const faltando = MARCADORES.filter((m) => !texto.includes(m));
@@ -245,8 +269,29 @@ async function main() {
   if (duracaoMs > 30_000) {
     falhar(`Geração levou ${duracaoMs}ms — regressão evidente de performance.`);
   }
+}
 
-  console.log('\n[OK] Chromium e geração de PDF validados dentro do container.');
+async function main() {
+  logEnvironment();
+
+  const execPath = validateChromium();
+
+  const puppeteer = await loadPuppeteer();
+
+  assertExtractZipIsAbsent();
+
+  const { pdf, duracaoMs } = await generatePdf(puppeteer, execPath);
+
+  assertPdfBytes(pdf);
+
+  const parsed = await parsePdf(pdf);
+  assertPdfPageCount(parsed);
+
+  assertPdfContent(parsed, duracaoMs);
+
+  console.log(
+    '\n[OK] Chromium e geração de PDF validados dentro do container.',
+  );
 }
 
 main().catch((erro) => {
