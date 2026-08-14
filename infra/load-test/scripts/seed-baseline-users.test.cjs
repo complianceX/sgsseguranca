@@ -16,7 +16,7 @@ test('baseline manifest has ten unique valid identities', () => {
 test('seed refuses unsafe environments and destinations', () => {
   const valid = {
     APP_ENV: 'loadtest', APP_LOADTEST_MARKER: 'sgs-loadtest', NODE_ENV: 'staging',
-    DATABASE_NAME: 'sgs_loadtest', DATABASE_MIGRATION_URL: 'postgresql://sgs_migrator:x@postgres-loadtest:5432/sgs_loadtest',
+    DATABASE_NAME: 'sgs_loadtest', DATABASE_MIGRATION_URL: 'postgresql://postgres-loadtest:5432/sgs_loadtest',
     API_PUBLIC_URL: 'http://127.0.0.1:8088', LOADTEST_COMPANY_ID: TENANT_ID, LOADTEST_SITE_ID: SITE_ID,
     LOADTEST_ADMIN_PASSWORD: 'synthetic-only', FIELD_ENCRYPTION_KEY: 'a'.repeat(64), FIELD_ENCRYPTION_HASH_KEY: 'b'.repeat(64),
   };
