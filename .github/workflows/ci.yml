@@ -63,10 +63,6 @@ jobs:
 
       - name: Security baseline negative test (must fail on insecure CSRF)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        env:
-          NODE_ENV: staging
-          REFRESH_CSRF_ENFORCED: "false"
-          REFRESH_CSRF_REPORT_ONLY: "true"
         run: |
           set +e
           NODE_ENV=staging REFRESH_CSRF_ENFORCED=false REFRESH_CSRF_REPORT_ONLY=true npm run security:phase0:baseline
