@@ -153,7 +153,9 @@ jobs:
       E2E_REDIS_PORT: 6379
       JWT_SECRET: test-jwt-secret-for-e2e-testing-only-0123456789
       JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-testing-only-0123456789
-      NODE_OPTIONS: --max-old-space-size=6144
+      # Keep V8 below the ubuntu-latest runner's physical-memory envelope;
+      # the E2E process runs beside Postgres, Redis and Chromium.
+      NODE_OPTIONS: --max-old-space-size=4096
       BCRYPT_SALT_ROUNDS: 4
       # Fallback padrao de concorrencia do pool de PDF fora de producao e' 3
       # (getPdfGenerationConcurrency, pdf-runtime-config.ts) -- ate 3
