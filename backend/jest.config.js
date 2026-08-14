@@ -4,25 +4,18 @@ module.exports = {
   rootDir: '.',
   testRegex: 'src/.*\\.(spec|smoke-spec)\\.ts$',
   transform: {
-    // Puppeteer 25 e suas dependencias diretas (puppeteer-core,
-    // @puppeteer/browsers, chromium-bidi, yargs) sao ESM puro. Sem isso, o
-    // Jest quebra com "SyntaxError: Unexpected token 'export'" em qualquer
-    // suite que alcance (mesmo transitivamente) o pool de browsers do PDF.
-    // Deixamos o ts-jest reescrever esses pacotes especificos para
-    // CommonJS durante o teste; producao nunca passa por aqui.
-    '^.+\\.(t|j)s$': [
-      require.resolve('ts-jest').replace(/\\/g, '/'),
-      { tsconfig: { allowJs: true } },
-    ],
+    '^.+\\.(t|j)s$': require.resolve('ts-jest').replace(/\\/g, '/'),
   },
-  transformIgnorePatterns: [
-    '/node_modules/(?!(puppeteer|puppeteer-core|@puppeteer|chromium-bidi|yargs)/)',
-  ],
   // uuid >=14 is pure ESM and cannot be loaded by Jest's CJS transform.
   // This CJS shim mirrors the full uuid API using Node's built-in crypto.
   // Production runtime uses uuid@14 directly (override in package.json).
+  //
+  // puppeteer 25+ e' ESM puro tambem. Mesmo mecanismo: intercepta o
+  // require('puppeteer') antes que o Jest tente resolver o pacote real
+  // (ver test/puppeteer-cjs-shim.js para o porque).
   moduleNameMapper: {
     '^uuid$': '<rootDir>/test/uuid-cjs.js',
+    '^puppeteer$': '<rootDir>/test/puppeteer-cjs-shim.js',
   },
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: 'coverage',
