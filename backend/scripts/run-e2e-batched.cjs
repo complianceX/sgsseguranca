@@ -4,7 +4,10 @@ const { spawnSync } = require('node:child_process');
 
 const CONFIG = './test/jest-e2e.config.ts';
 const TEST_ROOTS = ['test/critical', 'test/aprs'];
-const ROOT_TESTS = ['test/idor-security.e2e-spec.ts', 'test/multi-tenancy.e2e-spec.ts'];
+const ROOT_TESTS = [
+  'test/idor-security.e2e-spec.ts',
+  'test/multi-tenancy.e2e-spec.ts',
+];
 const BATCH_SIZE = 3;
 const forwardedArgs = process.argv.slice(2);
 
@@ -49,9 +52,9 @@ if (files.length === 0) {
 }
 
 for (let index = 0; index < files.length; index += BATCH_SIZE) {
-  const batch = files.slice(index, index + BATCH_SIZE).map((file) =>
-    relative('.', file).split(sep).join('/'),
-  );
+  const batch = files
+    .slice(index, index + BATCH_SIZE)
+    .map((file) => relative('.', file).split(sep).join('/'));
   console.log(
     `\n[E2E] lote ${Math.floor(index / BATCH_SIZE) + 1}: ${batch.join(', ')}`,
   );
