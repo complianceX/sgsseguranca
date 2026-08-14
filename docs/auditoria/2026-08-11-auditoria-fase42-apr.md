@@ -13,7 +13,7 @@ E2E terminar verde e os demais gates da Fase 4 serem reavaliados.
 
 ## Run anterior
 
-- Run: [31563591133](https://github.com/complianceX/sgsseguranca/actions/runs/31563591133)
+- Run: [31563591133](https://github.com/wandersongandra/sgsseguranca/actions/runs/31563591133)
 - SHA: `6770bb97d9ea457a5b3175d604f3dde1d053411a`
 - Backend lint/test/build: passou.
 - Frontend lint/test/build: passou.
@@ -123,6 +123,30 @@ transação A segura APR
 
 ## Fechamento
 
-O run novo e a confirmação SQL/HTTP dependem do próximo GitHub Actions após o
-push desta correção. Mesmo com CI verde, o veredito global não deve subir para
-`APR SECURITY VERIFIED` sem os gates críticos restantes da Fase 4.
+## Execução controlada posterior
+
+No ambiente sintético da VPS, a prova foi reexecutada com schema migrado:
+
+- E2E adversarial APR: **5/5 testes aprovados** (cross-site, mutação,
+  workflow, assinatura, integridade/hash e lock `55P03 -> 409`).
+- Carga controlada: **100 APRs** emitidas e finalizadas; `status=Encerrada`,
+  100 hashes finais, 1 `company_id` e 1 `site_id` sintéticos.
+- Health da API de teste: `/health/public`, `/health/ready` e `/health` em
+  HTTP 200.
+- `VALIDATION_TOKEN_SECRET` foi provisionado somente no `.env.loadtest` da
+  VPS com valor sintético não reutilizado em produção.
+
+## Gap de schema remanescente
+
+`Inspection` (`backend/src/shared/entities/inspection.entity.ts`) é consumida
+por assinaturas e dashboards, porém não há migration de criação de
+`public.inspections` neste checkout. As migrations `214` e `352` apenas
+referenciam/ajustam uma tabela que existe em alguns ambientes históricos.
+Não foi criada uma tabela especulativa: é necessário recuperar o contrato e o
+DDL de origem antes de habilitar qualquer fluxo que dependa dela em um banco
+reconstruído.
+
+Com os gates executados acima, o fluxo APR sintético está operacional e
+adversarialmente validado; o veredito global permanece condicionado à
+reconciliação formal de `inspections` e à revisão/commit separado das mudanças
+do worktree antes de qualquer publicação.

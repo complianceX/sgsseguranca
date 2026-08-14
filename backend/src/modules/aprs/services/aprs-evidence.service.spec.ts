@@ -138,9 +138,9 @@ describe('AprsEvidenceService', () => {
     );
     expect(result).toMatchObject({
       id: 'evidence-1',
-      fileKey: 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
       originalName: 'evidence.jpg',
     });
+    expect(result).not.toHaveProperty('fileKey');
     expect(result.hashSha256).toHaveLength(64);
   });
 

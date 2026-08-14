@@ -59,6 +59,9 @@ export function assertLoadtestEnvironment(env = process.env) {
   if (env.DATABASE_NAME !== 'sgs_loadtest') {
     reject('database name must be exactly sgs_loadtest');
   }
+  if (String(env.VALIDATION_TOKEN_SECRET || '').trim().length < 32) {
+    reject('VALIDATION_TOKEN_SECRET must contain at least 32 characters');
+  }
   if (env.DATABASE_HOST && !isAllowedHost(String(env.DATABASE_HOST).toLowerCase())) {
     reject('DATABASE_HOST is outside the load-test allowlist');
   }

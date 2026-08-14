@@ -7,6 +7,7 @@ const valid = {
   APP_LOADTEST_MARKER: 'sgs-loadtest',
   NODE_ENV: 'staging',
   DATABASE_NAME: 'sgs_loadtest',
+  VALIDATION_TOKEN_SECRET: 'synthetic-validation-token-secret-0123456789',
   DATABASE_HOST: 'postgres-loadtest',
   DATABASE_URL: `${['postgres', 'ql'].join('')}://sgs_app:test@postgres-loadtest:5432/sgs_loadtest`,
   DATABASE_MIGRATION_URL: `${['postgres', 'ql'].join('')}://sgs_migrator:test@postgres-loadtest:5432/sgs_loadtest`,

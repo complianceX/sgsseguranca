@@ -2257,8 +2257,8 @@ export class AprsPdfService {
       input.userId,
       input.logAction ?? APR_PDF_LOG_ACTIONS.PDF_ATTACHED,
       {
-        fileKey: key,
-        originalName: input.originalName,
+        artifactType: 'APR_FINAL_PDF',
+        generated: true,
       },
     );
 

@@ -33,6 +33,10 @@ import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
+import {
+  AprLogResponseDto,
+  toAprLogResponseDto,
+} from './dto/apr-log-response.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { normalizeRoleName } from '../auth/role-normalization.util';
 import { Activity } from '../activities/entities/activity.entity';
@@ -2710,7 +2714,6 @@ export class AprsService {
     ipAddress?: string,
   ): Promise<{
     id: string;
-    fileKey: string;
     originalName: string;
     hashSha256: string;
   }> {
@@ -2798,12 +2801,13 @@ export class AprsService {
 
   // ─── Logs & History ──────────────────────────────────────────────────────────
 
-  async getLogs(id: string): Promise<AprLog[]> {
+  async getLogs(id: string): Promise<AprLogResponseDto[]> {
     await this.findOneForWrite(id);
-    return this.aprLogsRepository.find({
+    const logs = await this.aprLogsRepository.find({
       where: { apr_id: id },
       order: { data_hora: 'DESC' },
     });
+    return logs.map(toAprLogResponseDto);
   }
 
   async getVersionHistory(id: string): Promise<Apr[]> {

@@ -177,7 +177,6 @@ export class AprsEvidenceService {
     ipAddress?: string,
   ): Promise<{
     id: string;
-    fileKey: string;
     originalName: string;
     hashSha256: string;
   }> {
@@ -283,13 +282,11 @@ export class AprsEvidenceService {
       await this.addLog(apr.id, userId, {
         evidenceId: saved.id,
         riskItemId: riskItem.id,
-        fileKey,
         hashSha256,
       });
 
       return {
         id: saved.id,
-        fileKey,
         originalName,
         hashSha256,
       };

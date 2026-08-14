@@ -115,6 +115,7 @@ services:
       THROTTLER_FAIL_CLOSED_AUTH_ROUTES: 'true'
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      VALIDATION_TOKEN_SECRET: ${VALIDATION_TOKEN_SECRET:?VALIDATION_TOKEN_SECRET is required}
       JWT_ISSUER: http://api-loadtest:3001
       JWT_AUDIENCE: sgs-loadtest
       FIELD_ENCRYPTION_ENABLED: 'true'
@@ -201,7 +202,7 @@ services:
       LOADTEST_COMPANY_ID: ${LOADTEST_COMPANY_ID:-00000000-0000-4000-8000-000000000001}
       LOADTEST_SITE_ID: ${LOADTEST_SITE_ID:-00000000-0000-4000-8000-000000000002}
       LOADTEST_USER_ID: ${LOADTEST_USER_ID:-00000000-0000-4000-8000-000000000003}
-    command: [sh, -lc, 'node /opt/load-test/scripts/guard-environment.mjs && node /opt/load-test/scripts/seed-loadtest.cjs']
+    command: [sh, -lc, 'node /opt/load-test/scripts/guard-environment.mjs && node /opt/load-test/scripts/seed-loadtest.cjs && node /opt/load-test/scripts/seed-baseline-users.cjs']
     volumes:
       - ./scripts:/opt/load-test/scripts:ro
     depends_on:

@@ -1545,9 +1545,9 @@ describe('AprsService', () => {
 
     expect(result).toMatchObject({
       id: 'evidence-1',
-      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
       originalName: 'evidence.jpg',
     });
+    expect(result).not.toHaveProperty('fileKey');
     expect(typeof result.hashSha256).toBe('string');
     expect(result.hashSha256).toBeTruthy();
 

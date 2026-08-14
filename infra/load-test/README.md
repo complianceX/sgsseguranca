@@ -22,6 +22,10 @@ do primeiro boot. O worker só deve ser habilitado depois da medição de RAM co
 API, banco e Redis estáveis. O storage documental inicial é local, em volume
 exclusivo do ambiente.
 
+`VALIDATION_TOKEN_SECRET` também é obrigatório no load-test. Gere na VPS um
+segredo sintético com pelo menos 32 caracteres e nunca reutilize segredo de
+produção.
+
 ## Guardas obrigatórios
 
 Todos os jobs e a API executam `scripts/guard-environment.mjs`. Ele recusa:
