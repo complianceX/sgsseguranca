@@ -134,6 +134,17 @@ jobs:
       JWT_SECRET: test-jwt-secret-for-e2e-testing-only-0123456789
       JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-testing-only-0123456789
       BCRYPT_SALT_ROUNDS: 4
+      # Fallback padrao de concorrencia do pool de PDF fora de producao e' 3
+      # (getPdfGenerationConcurrency, pdf-runtime-config.ts) -- ate 3
+      # processos Chromium reais simultaneos. O runner ubuntu-latest nao tem
+      # RAM fisica de sobra para isso rodando ao lado de Postgres+Redis: as
+      # suites que geram PDF estouravam heap mesmo isoladas em processo
+      # proprio com --max-old-space-size=6144, porque o teto real e' RAM do
+      # SO, nao o limite configurado do V8. Forcar concorrencia 1 aqui nao
+      # muda o comportamento de producao (que ja usa NODE_ENV=production,
+      # fallback 2, em infra dedicada).
+      PDF_BROWSER_POOL_SIZE: '1'
+      PDF_GENERATION_CONCURRENCY: '1'
       THROTTLE_LIMIT: 10000
       THROTTLE_TTL: 60000
       LOGIN_THROTTLE_LIMIT: 100
