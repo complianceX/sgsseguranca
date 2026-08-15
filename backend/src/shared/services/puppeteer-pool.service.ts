@@ -8,8 +8,7 @@ import { existsSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import * as puppeteer from 'puppeteer';
-import { Browser, Page } from 'puppeteer';
+import type { Browser, LaunchOptions, Page } from 'puppeteer';
 import {
   getPdfBrowserAcquireTimeoutMs,
   getPdfBrowserMaxUses,
@@ -26,6 +25,8 @@ interface PooledBrowser {
   useCount: number;
 }
 
+type PuppeteerModule = typeof import('puppeteer');
+
 @Injectable()
 export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PuppeteerPoolService.name);
@@ -35,6 +36,10 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly acquireTimeoutMs = getPdfBrowserAcquireTimeoutMs();
   private readonly maxUsesPerBrowser = getPdfBrowserMaxUses();
   private cleanupInterval?: NodeJS.Timeout;
+
+  private async loadPuppeteer(): Promise<PuppeteerModule> {
+    return import('puppeteer');
+  }
 
   onModuleInit() {
     this.logger.log(
@@ -171,6 +176,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     browser: Browser;
     userDataDir: string;
   }> {
+    const puppeteer = await this.loadPuppeteer();
     const resolvedBrowser = await this.resolveExecutablePath();
     const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
     const runtimeEnv = {
@@ -180,41 +186,40 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         process.env.XDG_CONFIG_HOME || join(userDataDir, '.config'),
       XDG_CACHE_HOME: process.env.XDG_CACHE_HOME || join(userDataDir, '.cache'),
     };
-    const launchOptions: puppeteer.LaunchOptions & { executablePath?: string } =
-      {
-        args: [
-          // --no-sandbox é necessário em containers Docker sem user namespace isolation.
-          // Mitigações compensatórias: (1) HTML gerado via setContent, nunca page.goto com URL externa;
-          // (2) todos os dados interpolados no HTML são HTML-escaped; (3) request interception ativa
-          // em pdf.service.ts bloqueando recursos de rede; (4) container executa como usuário não-root
-          // (USER node no Dockerfile.worker); (5) PDF validado contra magic bytes + anti-JS patterns.
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-extensions',
-          '--mute-audio',
-          '--disable-background-networking',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-breakpad',
-          '--disable-component-extensions-with-background-pages',
-          '--disable-features=TranslateUI,BlinkGenPropertyTrees',
-          '--disable-ipc-flooding-protection',
-          '--disable-renderer-backgrounding',
-          '--enable-features=NetworkService,NetworkServiceInProcess',
-          '--disable-crash-reporter',
-          '--disable-features=Crashpad,TranslateUI,BlinkGenPropertyTrees',
-          `--user-data-dir=${userDataDir}`,
-          `--data-path=${userDataDir}`,
-          `--disk-cache-dir=${userDataDir}`,
-          `--crash-dumps-dir=${userDataDir}`,
-        ],
-        headless: true,
-        env: runtimeEnv,
-      };
+    const launchOptions: LaunchOptions & { executablePath?: string } = {
+      args: [
+        // --no-sandbox é necessário em containers Docker sem user namespace isolation.
+        // Mitigações compensatórias: (1) HTML gerado via setContent, nunca page.goto com URL externa;
+        // (2) todos os dados interpolados no HTML são HTML-escaped; (3) request interception ativa
+        // em pdf.service.ts bloqueando recursos de rede; (4) container executa como usuário não-root
+        // (USER node no Dockerfile.worker); (5) PDF validado contra magic bytes + anti-JS patterns.
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-extensions',
+        '--mute-audio',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-breakpad',
+        '--disable-component-extensions-with-background-pages',
+        '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+        '--disable-ipc-flooding-protection',
+        '--disable-renderer-backgrounding',
+        '--enable-features=NetworkService,NetworkServiceInProcess',
+        '--disable-crash-reporter',
+        '--disable-features=Crashpad,TranslateUI,BlinkGenPropertyTrees',
+        `--user-data-dir=${userDataDir}`,
+        `--data-path=${userDataDir}`,
+        `--disk-cache-dir=${userDataDir}`,
+        `--crash-dumps-dir=${userDataDir}`,
+      ],
+      headless: true,
+      env: runtimeEnv,
+    };
 
     try {
       if (resolvedBrowser.executablePath) {
@@ -283,6 +288,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
+      const puppeteer = await this.loadPuppeteer();
       const executablePath = await puppeteer.executablePath();
       return {
         executablePath,
