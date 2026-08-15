@@ -256,6 +256,7 @@ Heartbeat do worker em Redis (`WORKER_HEARTBEAT_KEY`) para health check.
 
 ### Runbooks
 - `docs/deploy/hostinger-coolify-infra-atual.md` — Infra atual (Hostinger VPS, IPs, Coolify, Redis self-hosted) — **fonte da verdade**
+- `docs/deploy/INFRAESTRUTURA-ATUAL.md` — mapa consolidado de produção, load test e infraestrutura histórica
 - `docs/deploy/coolify-vultr-backend-web-worker.md` — Deploy (documento histórico, infra Vultr desativada)
 - `docs/deploy/COMO-COLOCAR-EM-PRODUCAO.md` — Checklist de deploy manual
 - `backend/docs/security-hardening-operations.md` — Hardening

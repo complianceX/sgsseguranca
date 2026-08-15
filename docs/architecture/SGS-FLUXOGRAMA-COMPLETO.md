@@ -7,7 +7,7 @@ apresentação, auditoria e onboarding.
 
 ![Fluxograma do sistema SGS](./assets/sgs-fluxograma-sistema.png)
 
-[PNG 4000×3184](./assets/sgs-fluxograma-sistema.png) ·
+[PNG 4000×3218](./assets/sgs-fluxograma-sistema.png) ·
 [PDF vetorial](./assets/sgs-fluxograma-sistema.pdf) ·
 [fonte HTML](./assets/src/sgs-fluxograma-sistema.html)
 
@@ -58,18 +58,18 @@ flowchart LR
         PUB[Rotas públicas<br/>/validar/:code · /assinar/:token]
     end
 
-    subgraph APP[Backend Web · NestJS 11 · Coolify/Vultr]
+    subgraph APP[Backend Web · NestJS 11 · Hostinger/Coolify]
         API[API REST<br/>api.sgsseguranca.com.br]
         WS[WebSocket<br/>notificações]
     end
 
     subgraph ASYNC[Worker · processo separado]
-        WORKER[node dist/worker.js<br/>2ª VPS]
+        WORKER[node dist/worker.js<br/>Hostinger/Coolify<br/>app separada]
     end
 
     subgraph DATA[Dados]
         PG[(Neon PostgreSQL<br/>TypeORM + RLS)]
-        REDIS[(Redis · Upstash<br/>auth · cache · queue)]
+        REDIS[(Redis self-hosted<br/>rede Docker coolify<br/>auth · cache · queue)]
         B2[Backblaze B2<br/>PDFs, anexos, vídeos]
     end
 
@@ -103,7 +103,7 @@ flowchart LR
 | Componente | Onde | Como sobe |
 |---|---|---|
 | Frontend | Vercel | `vercel --prod` **manual** (sem integração git) |
-| Backend Web + Worker | Coolify/Vultr | Webhook não confiável — confirmar `deployments[0].commit` via API |
+| Backend Web + Worker | Coolify/Hostinger | Webhook não confiável — confirmar `deployments[0].commit` via API |
 | Migrations | Neon | `npm run migration:run` **manual**, nunca no boot |
 
 ---
@@ -197,7 +197,7 @@ sem isso, rodam em silêncio sobre nada.
 ```mermaid
 flowchart LR
     API[Backend Web] -- enfileira --> REDIS[(Redis · BullMQ)]
-    REDIS --> WORKER[Worker · 2ª VPS]
+    REDIS --> WORKER[Worker · Hostinger/Coolify]
 
     subgraph FILAS[13 filas]
         direction TB
@@ -270,7 +270,7 @@ do documento nem PII além do necessário.
 | Tabelas, colunas e relacionamentos | [`../database-schema.md`](../database-schema.md) · [`./diagrama-banco.md`](./diagrama-banco.md) |
 | Endpoints REST | [`../api-reference.md`](../api-reference.md) |
 | Onde mexer no código | [`../consulta-rapida/onde-alterar-o-que.md`](../consulta-rapida/onde-alterar-o-que.md) |
-| Deploy backend/worker | [`../deploy/coolify-vultr-backend-web-worker.md`](../deploy/coolify-vultr-backend-web-worker.md) |
+| Deploy backend/worker | [`../deploy/COMO-COLOCAR-EM-PRODUCAO.md`](../deploy/COMO-COLOCAR-EM-PRODUCAO.md) |
 | Backup e restore | [`../consulta-rapida/disaster-recovery-e-backup.md`](../consulta-rapida/disaster-recovery-e-backup.md) |
 
 ## Como regerar os SVGs

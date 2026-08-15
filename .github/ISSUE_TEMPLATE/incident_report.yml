@@ -23,8 +23,8 @@ body:
     attributes:
       label: Superficie afetada
       options:
-        - Backend web (Vultr/Coolify)
-        - Backend worker (Vultr/Coolify)
+        - Backend web (Hostinger/Coolify)
+        - Backend worker (Hostinger/Coolify)
         - Frontend (Vercel)
         - Banco (Neon/Postgres)
         - Redis/Filas
@@ -77,4 +77,3 @@ body:
       description: acao corretiva definitiva e prevencao de recorrencia
     validations:
       required: true
-

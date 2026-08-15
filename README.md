@@ -336,10 +336,11 @@ Alterações relacionadas a banco de dados, autenticação, autorização, multi
 
 * [Documentação do backend](backend/README.md)
 * [Documentação geral](docs/README.md)
-* [Arquitetura e stack](docs/consulta-rapida/arquitetura-e-stack.md)
+* [Arquitetura e stack](docs/architecture/README.md)
 * [Mapa de módulos](docs/consulta-rapida/mapa-de-modulos.md)
 * [Segurança e governança](docs/consulta-rapida/seguranca-e-governanca.md)
-* [Deploy com Vultr e Coolify](docs/deploy/coolify-vultr-backend-web-worker.md)
+* [Infraestrutura atual](docs/deploy/INFRAESTRUTURA-ATUAL.md)
+* [Deploy com Hostinger e Coolify](docs/deploy/COMO-COLOCAR-EM-PRODUCAO.md)
 * [Runbook de produção](backend/docs/RUNBOOK_PRODUCTION.md)
 * [Observabilidade](backend/docs/OBSERVABILITY.md)
 * [Política de segurança](SECURITY.md)

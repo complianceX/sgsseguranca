@@ -187,7 +187,7 @@
       <h3><span class="n">16</span>DADOS E STORAGE</h3>
       <ul>
         <li><b>Neon PostgreSQL</b> — RLS, TypeORM<br>particionamento por data</li>
-        <li><b>Redis (Upstash)</b> — 3 conexões:<br>auth · cache · queue</li>
+        <li><b>Redis self-hosted (Hostinger)</b> — 3 conexões na rede Docker <code>coolify</code>:<br>auth · cache · queue</li>
         <li><b>Backblaze B2</b> — PDFs, anexos, vídeos</li>
         <li>Réplica de leitura</li>
       </ul>
@@ -366,7 +366,7 @@
     </div>
 
     <div class="c">
-      <h3><span class="n">12</span>PROCESSAMENTO ASSÍNCRONO — 13 filas BullMQ · worker em processo separado (2ª VPS)</h3>
+      <h3><span class="n">12</span>PROCESSAMENTO ASSÍNCRONO — 13 filas BullMQ · worker em app Coolify separada na Hostinger</h3>
       <div class="r5" style="gap:10px;">
         <ul><li><b>mail</b> + DLQ</li><li><b>pdf-generation</b> + DLQ</li></ul>
         <ul><li><b>document-import</b> + DLQ</li><li><b>document-retention</b></li></ul>

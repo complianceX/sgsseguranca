@@ -78,7 +78,7 @@ Todos os arquivos visuais estão em [`assets/`](./assets/).
 
 | Arquivo | Conteúdo |
 |---|---|
-| [sgs-fluxograma-sistema.png](./assets/sgs-fluxograma-sistema.png) | Painel único com os 54 módulos (4000×3184 px) |
+| [sgs-fluxograma-sistema.png](./assets/sgs-fluxograma-sistema.png) | Painel único com os 54 módulos (4000×3218 px) |
 | [sgs-fluxograma-sistema.pdf](./assets/sgs-fluxograma-sistema.pdf) | Versão vetorial para apresentação/impressão |
 | [assets/src/sgs-fluxograma-sistema.html](./assets/src/sgs-fluxograma-sistema.html) | Fonte HTML do fluxograma (editar aqui) |
 | [assets/src/render.js](./assets/src/render.js) | Script Puppeteer para regerar PNG e PDF |

@@ -5,14 +5,14 @@ Esta pasta foi criada para servir como base de consulta local, com respostas cur
 Use estes arquivos como ponto de partida:
 
 - [visao-geral.md](./visao-geral.md): o que o sistema e, como ele esta dividido e quais blocos sao mais importantes
-- [arquitetura-e-stack.md](./arquitetura-e-stack.md): stack, runtime, processos e infraestrutura principal
-- [arquitetura-e-rotas.md](./arquitetura-e-rotas.md): desenho macro da arquitetura e mapa completo de rotas do frontend e backend
+- [../architecture/README.md](../architecture/README.md): stack, runtime, processos e infraestrutura principal
+- [../architecture/rotas-e-endpoints.md](../architecture/rotas-e-endpoints.md): desenho macro da arquitetura e mapa completo de rotas do frontend e backend
 - [frontend-operacional.md](./frontend-operacional.md): como o frontend esta organizado e onde tocar em UI
 - [backend-operacional.md](./backend-operacional.md): como o backend esta organizado e onde tocar em API e dominio
 - [onde-fica-cada-coisa.md](./onde-fica-cada-coisa.md): mapa rapido de arquivos e pastas
 - [mapa-de-modulos.md](./mapa-de-modulos.md): mapa dos modulos principais do produto
 - [modulos-e-regras.md](./modulos-e-regras.md): modulos principais, regras de governanca e pontos que ja foram endurecidos
-- [fluxos-documentais.md](./fluxos-documentais.md): PDF final, importacao, assinatura, registry, videos e trilha
+- [../architecture/fluxos-documentais.md](../architecture/fluxos-documentais.md): PDF final, importacao, assinatura, registry, videos e trilha
 - [disaster-recovery-e-backup.md](./disaster-recovery-e-backup.md): backup, proteção do storage, restore, recovery separado, scanner de integridade, runbook e metas iniciais de RPO/RTO
 - [implementacoes-recentes.md](./implementacoes-recentes.md): linha do tempo e passo a passo do que foi implementado nas ultimas rodadas
 - [pdfs-finais-e-storage.md](./pdfs-finais-e-storage.md): onde ficam os PDFs oficiais, como o storage funciona e quais modulos ja estao endurecidos
@@ -21,7 +21,8 @@ Use estes arquivos como ponto de partida:
 - [troubleshooting.md](./troubleshooting.md): problemas comuns e onde investigar
 - [faq.md](./faq.md): perguntas frequentes para consulta rapida
 - [comandos-e-validacao.md](./comandos-e-validacao.md): comandos mais usados para rodar, validar e diagnosticar
-- [../deploy/coolify-vultr-backend-web-worker.md](../deploy/coolify-vultr-backend-web-worker.md): deploy do backend web/worker no Vultr/Coolify
+- [../deploy/INFRAESTRUTURA-ATUAL.md](../deploy/INFRAESTRUTURA-ATUAL.md): produção, load test, VPS, Coolify e separação de ambientes
+- [../deploy/coolify-vultr-backend-web-worker.md](../deploy/coolify-vultr-backend-web-worker.md): deploy histórico do backend web/worker no Vultr/Coolify
 
 ## Como usar
 
