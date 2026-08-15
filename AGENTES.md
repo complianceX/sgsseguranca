@@ -37,8 +37,8 @@ Stack principal:
 - Backend: NestJS 11
 - Banco: PostgreSQL / Neon
 - Filas: Redis + BullMQ
-- Deploy: Vercel, Vultr/Coolify e Neon
-- Storage: Cloudflare R2
+- Deploy: Vercel, Hostinger/Coolify e Neon
+- Storage: Backblaze B2 compatível com S3
 - Segurança: JWT, RBAC, TenantGuard, RLS, rate limit, logs estruturados, LGPD
 - PDFs oficiais: gerados no servidor
 - IA interna: condicionada por feature flag, permissão e consentimento
@@ -1170,7 +1170,7 @@ Nunca commitar:
 - API keys
 - tokens
 - credenciais Neon
-- credenciais Vultr/Coolify
+- credenciais Hostinger/Coolify
 - credenciais Vercel
 - credenciais Cloudflare
 - chaves privadas
@@ -1221,7 +1221,7 @@ Vercel / frontend:
 - variáveis sensíveis fora do frontend
 - build sem vazamento de envs privadas
 
-Vultr/Coolify / backend:
+Hostinger/Coolify / backend:
 
 - envs corretas
 - logs sem segredo

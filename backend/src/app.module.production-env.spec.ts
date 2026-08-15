@@ -15,8 +15,8 @@ describe('AppModule production environment validation', () => {
     AWS_BUCKET_NAME: 'sgs-01',
     AWS_ENDPOINT:
       'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com',
-    AWS_ACCESS_KEY_ID: REDACTED
-    AWS_SECRET_ACCESS_KEY: REDACTED
+    AWS_ACCESS_KEY_ID: 'test-access-key',
+    AWS_SECRET_ACCESS_KEY: 'test-secret',
     S3_FORCE_PATH_STYLE: true,
     DR_STORAGE_REPLICA_BUCKET: 'sgs-02',
     DR_STORAGE_REPLICA_ENDPOINT:
@@ -93,7 +93,7 @@ describe('AppModule production environment validation', () => {
     const result = await validate({
       ...productionEnv,
       AWS_BUCKET_NAME: '',
-      AWS_ACCESS_KEY_ID: REDACTED
+      AWS_ACCESS_KEY_ID: '',
     });
 
     expect(result.error).toBeDefined();

@@ -30,7 +30,7 @@ flowchart LR
     end
 
     subgraph APP[Aplicacao principal]
-        API[Backend Web<br/>NestJS 11<br/>Vultr/Coolify]
+        API[Backend Web<br/>NestJS 11<br/>Hostinger/Coolify]
         WS[Gateway de notificacoes<br/>WebSocket / Socket.IO]
         AUTH[Auth + RBAC + CSRF<br/>Consentimento IA]
         TENANT[TenantMiddleware + AsyncLocalStorage<br/>TenantDbContextService]
@@ -39,13 +39,13 @@ flowchart LR
     end
 
     subgraph ASYNC[Processamento assincrono]
-        WORKER[Backend Worker<br/>NestJS worker<br/>Vultr/Coolify]
+        WORKER[Backend Worker<br/>NestJS worker<br/>Hostinger/Coolify]
         JOBS[Jobs pesados<br/>PDF, importacao documental,<br/>mail, revalidacao, DR]
     end
 
     subgraph DATA[Dados e persistencia]
         PG[(Neon PostgreSQL<br/>TypeORM + RLS)]
-        REDIS[(Redis<br/>cache + rate limit + BullMQ)]
+        REDIS[(Redis self-hosted<br/>cache + rate limit + BullMQ<br/>rede Docker interna)]
         R2[Backblaze B2 / S3-compatible<br/>PDFs, anexos, videos]
         REG[Registry documental<br/>integridade e governanca]
     end

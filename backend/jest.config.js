@@ -11,6 +11,7 @@ module.exports = {
   // Production runtime uses uuid@14 directly (override in package.json).
   moduleNameMapper: {
     '^uuid$': '<rootDir>/test/uuid-cjs.js',
+    '^puppeteer$': '<rootDir>/test/puppeteer-cjs.js',
   },
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: 'coverage',

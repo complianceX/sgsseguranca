@@ -44,7 +44,7 @@ describe('JwtAuthGuard', () => {
     const request = mockExecutionContext.switchToHttp().getRequest<{
       headers: Record<string, string>;
     }>();
-    expect(request.headers.authorization).toBe('Bearer REDACTED');
+    expect(request.headers.authorization).toBe('Bearer valid-token');
   });
 
   it('should return false if no token (and super returns false)', async () => {

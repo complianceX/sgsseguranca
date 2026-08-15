@@ -73,8 +73,8 @@ describe('StorageService', () => {
                 AWS_REGION: 'us-east-1',
                 AWS_ENDPOINT: 'http://localhost:4566',
                 AWS_S3_ENDPOINT: '',
-                AWS_ACCESS_KEY_ID: REDACTED
-                AWS_SECRET_ACCESS_KEY: REDACTED
+                AWS_ACCESS_KEY_ID: 'test-key',
+                AWS_SECRET_ACCESS_KEY: 'test-secret',
               };
               return config[key as TestConfigKey];
             }),
@@ -128,8 +128,8 @@ describe('StorageService', () => {
                 AWS_REGION: 'us-east-1',
                 AWS_ENDPOINT: 'https://managed.example.com',
                 AWS_S3_ENDPOINT: 'https://legacy.example.com',
-                AWS_ACCESS_KEY_ID: REDACTED
-                AWS_SECRET_ACCESS_KEY: REDACTED
+                AWS_ACCESS_KEY_ID: 'test-key',
+                AWS_SECRET_ACCESS_KEY: 'test-secret',
               };
               return config[key as TestConfigKey];
             }),

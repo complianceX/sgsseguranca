@@ -265,7 +265,7 @@ export const validationSchema = Joi.object({
   POSTGRES_HOST: Joi.string().optional().allow(''),
   POSTGRES_PORT: Joi.number().optional(),
   POSTGRES_USER: Joi.string().optional().allow(''),
-  POSTGRES_PASSWORD: REDACTED
+  POSTGRES_PASSWORD: Joi.string().optional().allow(''),
   POSTGRES_DB: Joi.string().optional().allow(''),
   DATABASE_SSL: Joi.boolean().default(false),
   // SECURITY: conexões inseguras (rejectUnauthorized=false) não são suportadas.
@@ -562,8 +562,8 @@ export const validationSchema = Joi.object({
   MAIL_ALERT_SCHEDULE_LOCK_TTL_MS: Joi.number().default(600000),
   MAIL_ALERT_COMPANY_BATCH_SIZE: Joi.number().default(10),
   MAIL_ALERT_COMPANY_MAX_PARALLEL: Joi.number().default(2),
-  AWS_ACCESS_KEY_ID: REDACTED
-  AWS_SECRET_ACCESS_KEY: REDACTED
+  AWS_ACCESS_KEY_ID: Joi.string().optional().allow(''),
+  AWS_SECRET_ACCESS_KEY: Joi.string().optional().allow(''),
   AWS_REGION: Joi.string().default('us-east-1'),
   AWS_S3_BUCKET: Joi.string().optional(),
   AWS_S3_ENDPOINT: Joi.string().optional(),

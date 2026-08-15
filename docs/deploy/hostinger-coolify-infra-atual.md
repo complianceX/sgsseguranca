@@ -6,6 +6,10 @@
 Este é o documento de referência para a infraestrutura de backend em produção. Se algo aqui
 divergir do que você observa no Coolify, **confie no Coolify** e atualize este arquivo.
 
+O mapa consolidado de produção, load test e infraestrutura histórica está em
+[`INFRAESTRUTURA-ATUAL.md`](./INFRAESTRUTURA-ATUAL.md). Este arquivo mantém os detalhes
+operacionais específicos da Hostinger/Coolify.
+
 ---
 
 ## Por que migramos (Integrator → Hostinger)

@@ -14,7 +14,7 @@ body:
         - Backend (API/Worker)
         - Frontend (Next.js)
         - Banco/Neon
-        - Infra (Vultr/Vercel/Cloudflare)
+        - Infra (Hostinger/Coolify/Vercel/Cloudflare)
         - Observabilidade (Sentry/NewRelic/OTEL)
     validations:
       required: true
@@ -54,4 +54,3 @@ body:
       description: Inclua IDs (requestId, traceId), Sentry eventId, timestamps e payloads redigidos.
     validations:
       required: false
-
