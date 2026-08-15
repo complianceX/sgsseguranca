@@ -38,7 +38,13 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private cleanupInterval?: NodeJS.Timeout;
 
   private async loadPuppeteer(): Promise<PuppeteerModule> {
-    return import('puppeteer');
+    // Jest transpiles import() to require(); this preserves native ESM loading in Node 20.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const nativeImport = new Function(
+      'specifier',
+      'return import(specifier)',
+    ) as (specifier: string) => Promise<PuppeteerModule>;
+    return nativeImport('puppeteer');
   }
 
   onModuleInit() {
