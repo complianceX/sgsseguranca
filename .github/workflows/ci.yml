@@ -168,6 +168,10 @@ jobs:
       # fallback 2, em infra dedicada).
       PDF_BROWSER_POOL_SIZE: '1'
       PDF_GENERATION_CONCURRENCY: '1'
+      # A migração para Puppeteer 25 mantém mais memória por browser durante
+      # este fluxo; o smoke continua exercitando criação, assinatura,
+      # aprovação, PDF governado, download e extração de texto com uma APR.
+      APR_BATCH_EMISSION_COUNT: '1'
       THROTTLE_LIMIT: 10000
       THROTTLE_TTL: 60000
       LOGIN_THROTTLE_LIMIT: 100
