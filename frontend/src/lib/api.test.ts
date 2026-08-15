@@ -131,7 +131,7 @@ describe('api client', () => {
     });
 
     expect(response.data).toEqual({
-      authorization: 'Bearer REDACTED',
+      authorization: 'Bearer access-token',
       companyId: 'company-1',
       limit: 100,
     });
@@ -164,7 +164,7 @@ describe('api client', () => {
     });
 
     expect(response.data).toEqual({
-      authorization: 'Bearer REDACTED',
+      authorization: 'Bearer access-token',
       companyId: 'company-1',
     });
   });
@@ -195,7 +195,7 @@ describe('api client', () => {
     });
 
     expect(response.data).toEqual({
-      authorization: 'Bearer REDACTED',
+      authorization: 'Bearer access-token',
       companyId: undefined,
     });
   });
@@ -230,7 +230,7 @@ describe('api client', () => {
     });
 
     expect(response.data).toEqual({
-      authorization: 'Bearer REDACTED',
+      authorization: 'Bearer access-token',
       companyId: 'company-tenant-2',
     });
   });
@@ -268,7 +268,7 @@ describe('api client', () => {
     const response = await api.get('/companies', requestConfig);
 
     expect(response.data).toEqual({
-      authorization: 'Bearer REDACTED',
+      authorization: 'Bearer access-token',
       companyId: undefined,
     });
   });

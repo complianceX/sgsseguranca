@@ -117,7 +117,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     });
 
     it('retorna 401 com token errado', async () => {
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer wrong-token'));
       expect(response.status).toBe(401);
     });
 
@@ -142,7 +142,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     it('chama o backend e retorna 200 quando backend está ok', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer my-super-secret-token'));
       expect(response.status).toBe(200);
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
@@ -150,14 +150,14 @@ describe('Keepalive Route — Segurança (P0)', () => {
     it('retorna 503 quando o backend está indisponível', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer my-super-secret-token'));
       expect(response.status).toBe(503);
     });
 
     it('não expõe target (URL interna) na resposta de sucesso', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer my-super-secret-token'));
       const body = await response.json() as Record<string, unknown>;
       // URL do backend não deve vazar para o cliente externo
       expect(body).not.toHaveProperty('target');
@@ -166,7 +166,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     it('não expõe stack trace ou erro interno em caso de falha do fetch', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED 127.0.0.1:3000'));
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer my-super-secret-token'));
       expect(response.status).toBe(503);
 
       const body = await response.json() as Record<string, unknown>;
@@ -199,10 +199,10 @@ describe('Keepalive Route — Segurança (P0)', () => {
     });
 
     const whitespaceTokens = [
-      { label: 'token com espaço no início', value: 'Bearer REDACTED' },
+      { label: 'token com espaço no início', value: 'Bearer  secret-value' },
       { label: 'token com tab',              value: 'Bearer\tsecret-value' },
       { label: 'token com newline',          value: 'Bearer\nsecret-value' },
-      { label: 'token com espaço no final',  value: 'Bearer REDACTED ' },
+      { label: 'token com espaço no final',  value: 'Bearer secret-value ' },
       { label: 'Bearer seguido de espaços',  value: 'Bearer   ' },
     ];
 
@@ -223,7 +223,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     });
 
     it('resposta 200 contém ok=true, status e elapsedMs', async () => {
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       expect(response.status).toBe(200);
 
       const body = await response.json() as Record<string, unknown>;
@@ -234,13 +234,13 @@ describe('Keepalive Route — Segurança (P0)', () => {
     });
 
     it('resposta NUNCA contém o valor do CRON_SECRET', async () => {
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       const bodyText = await response.text();
       expect(bodyText).not.toContain('secret-value');
     });
 
     it('resposta 200 NÃO contém campo target (URL interna)', async () => {
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       const body = await response.json() as Record<string, unknown>;
       expect(body).not.toHaveProperty('target');
     });
@@ -258,7 +258,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
       abortError.name = 'AbortError';
       global.fetch = jest.fn().mockRejectedValue(abortError);
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       expect(response.status).toBe(503);
 
       const body = await response.json() as Record<string, unknown>;
@@ -269,7 +269,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     it('DNS NXDOMAIN (fetch rejeita) → 503 sem URL interna', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND api.sgsseguranca.com.br'));
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       expect(response.status).toBe(503);
 
       const body = await response.json() as Record<string, unknown>;
@@ -280,14 +280,14 @@ describe('Keepalive Route — Segurança (P0)', () => {
     it('Backend retorna 503 → repassa 503 para o caller', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       expect(response.status).toBe(503);
     });
 
     it('Backend retorna 200 mas ok=false → repassa como 503', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 200 });
 
-      const response = await GET(makeRequest('Bearer REDACTED'));
+      const response = await GET(makeRequest('Bearer secret-value'));
       expect(response.status).toBe(503);
     });
   });
