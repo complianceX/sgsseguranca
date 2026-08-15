@@ -2,6 +2,7 @@ import { context as otelContext, trace } from '@opentelemetry/api';
 import type { TransformableInfo } from 'logform';
 import * as winston from 'winston';
 import { RequestContext } from '../middleware/request-context.middleware';
+import { sanitizeLogObject } from './log-sanitizer.util';
 
 const RESERVED_INFO_KEYS = new Set([
   'level',
@@ -151,7 +152,7 @@ export function buildStructuredLogEntry(
     entry.spanId = traceMetadata.spanId;
   }
 
-  return entry as TransformableInfo;
+  return sanitizeLogObject(entry) as TransformableInfo;
 }
 
 function createStructuredJsonFormat(): winston.Logform.Format {

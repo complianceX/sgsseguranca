@@ -65,4 +65,25 @@ describe('buildStructuredLogEntry', () => {
       }),
     );
   });
+
+  it('sanitiza metadados sensíveis antes de emitir o log', () => {
+    const entry = buildStructuredLogEntry({
+      level: 'info',
+      timestamp: '2026-03-18T18:17:00.000Z',
+      message: 'request metadata',
+      password: 'do-not-log',
+      access_token: 'token-do-not-log',
+      cpf: '12345678900',
+      email: 'titular@example.com',
+    });
+
+    expect(entry).toEqual(
+      expect.objectContaining({
+        password: '***REDACTED***',
+        access_token: '***REDACTED***',
+        cpf: '123.***.***-**',
+        email: 't***@example.com',
+      }),
+    );
+  });
 });

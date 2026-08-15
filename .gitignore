@@ -159,3 +159,5 @@ temp-semgrep-scan.json
 /PDF-PRODUCAO.pdf
 /preview-*.png
 .env*
+.env.coolify.local
+stdout
