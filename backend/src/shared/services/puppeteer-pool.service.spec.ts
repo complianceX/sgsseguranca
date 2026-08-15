@@ -3,6 +3,11 @@ import { mkdtemp, rm } from 'fs/promises';
 import * as puppeteer from 'puppeteer';
 import { PuppeteerPoolService } from './puppeteer-pool.service';
 
+jest.mock('puppeteer', () => ({
+  launch: jest.fn(),
+  executablePath: jest.fn(),
+}));
+
 jest.mock('fs/promises', () => ({
   mkdtemp: jest.fn(),
   rm: jest.fn(),
@@ -86,11 +91,9 @@ describe('PuppeteerPoolService', () => {
       process: jest.fn(() => ({ pid: 5678 })),
     } as never;
 
-    jest
-      .spyOn(puppeteer, 'executablePath')
-      .mockReturnValue(
-        '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
-      );
+    jest.spyOn(puppeteer, 'executablePath').mockResolvedValue(
+      '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
+    );
     const launchSpy = jest
       .spyOn(puppeteer, 'launch')
       .mockResolvedValue(browser);

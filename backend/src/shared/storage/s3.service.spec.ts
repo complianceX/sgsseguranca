@@ -65,8 +65,8 @@ describe('S3Service', () => {
         AWS_S3_BUCKET: 'legacy-bucket',
         AWS_REGION: 'us-east-1',
         AWS_S3_ENDPOINT: 'https://r2.example.com',
-        AWS_ACCESS_KEY_ID: REDACTED
-        AWS_SECRET_ACCESS_KEY: REDACTED
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
       }),
       mockIntegrationResilienceService,
     );
@@ -101,8 +101,8 @@ describe('S3Service', () => {
         AWS_REGION: 'us-east-1',
         AWS_ENDPOINT: 'https://managed.example.com',
         AWS_S3_ENDPOINT: 'https://legacy.example.com',
-        AWS_ACCESS_KEY_ID: REDACTED
-        AWS_SECRET_ACCESS_KEY: REDACTED
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
       }),
       mockIntegrationResilienceService,
     );
