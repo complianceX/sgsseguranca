@@ -35,19 +35,29 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly maxPageTimeout = getPdfPageTimeoutMs();
   private readonly acquireTimeoutMs = getPdfBrowserAcquireTimeoutMs();
   private readonly maxUsesPerBrowser = getPdfBrowserMaxUses();
+  private puppeteerModule?: Promise<PuppeteerModule>;
   private cleanupInterval?: NodeJS.Timeout;
 
   private async loadPuppeteer(): Promise<PuppeteerModule> {
+    if (this.puppeteerModule) {
+      return this.puppeteerModule;
+    }
+
     // Jest transpiles import() to require(); this preserves native ESM loading in Node 20.
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const nativeImport = new Function(
       'specifier',
       'return import(specifier)',
     ) as (specifier: string) => Promise<PuppeteerModule>;
-    return nativeImport('puppeteer');
+    this.puppeteerModule = nativeImport('puppeteer');
+    return this.puppeteerModule;
   }
 
   onModuleInit() {
+    // Start the native ESM load while Nest/Jest is still initializing the application.
+    // The Chromium process itself remains lazy and starts only on the first PDF request.
+    void this.loadPuppeteer();
+
     this.logger.log(
       `Inicializando pool de Puppeteer em modo lazy (poolSize=${this.poolSize}, pageTimeoutMs=${this.maxPageTimeout}, acquireTimeoutMs=${this.acquireTimeoutMs}, maxUsesPerBrowser=${this.maxUsesPerBrowser})`,
     );
