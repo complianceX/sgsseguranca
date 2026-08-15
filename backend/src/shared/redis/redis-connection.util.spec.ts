@@ -21,7 +21,7 @@ describe('redis-connection.util', () => {
       host: 'auth.redis.local',
       port: 6381,
       username: 'auth-user',
-      password: 'auth-secret',
+      password: 'REDACTED',
       tls: { rejectUnauthorized: true },
     });
   });
@@ -29,8 +29,7 @@ describe('redis-connection.util', () => {
   it('resolve tier CACHE a partir de REDIS_CACHE_URL', () => {
     const connection = resolveRedisConnection(
       {
-        REDIS_CACHE_URL:
-          'redis://cache-user:REDACTED@cache.redis.local:6380',
+        REDIS_CACHE_URL: 'redis://cache-user:REDACTED@cache.redis.local:6380',
       },
       'cache',
     );
@@ -41,7 +40,7 @@ describe('redis-connection.util', () => {
       host: 'cache.redis.local',
       port: 6380,
       username: 'cache-user',
-      password: 'cache-secret',
+      password: 'REDACTED',
       tls: undefined,
     });
   });
@@ -81,7 +80,7 @@ describe('redis-connection.util', () => {
       host: 'rate.redis.local',
       port: 6382,
       username: 'rate-user',
-      password: 'rate-secret',
+      password: 'REDACTED',
       tls: { rejectUnauthorized: true },
     });
   });
@@ -97,7 +96,7 @@ describe('redis-connection.util', () => {
       host: 'example.upstash.io',
       port: 6380,
       username: 'default',
-      password: 'secret',
+      password: 'REDACTED',
       tls: { rejectUnauthorized: true },
     });
   });
@@ -114,7 +113,7 @@ describe('redis-connection.util', () => {
       host: 'example.upstash.io',
       port: 6380,
       username: 'default',
-      password: 'secret',
+      password: 'REDACTED',
       tls: { rejectUnauthorized: true },
     });
   });
@@ -163,7 +162,7 @@ describe('redis-connection.util', () => {
       host: 'generic.redis.local',
       port: 6379,
       username: 'default',
-      password: 'secret',
+      password: 'REDACTED',
       tls: undefined,
     });
   });

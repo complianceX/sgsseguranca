@@ -91,9 +91,11 @@ describe('PuppeteerPoolService', () => {
       process: jest.fn(() => ({ pid: 5678 })),
     } as never;
 
-    jest.spyOn(puppeteer, 'executablePath').mockResolvedValue(
-      '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
-    );
+    jest
+      .spyOn(puppeteer, 'executablePath')
+      .mockResolvedValue(
+        '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
+      );
     const launchSpy = jest
       .spyOn(puppeteer, 'launch')
       .mockResolvedValue(browser);

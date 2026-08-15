@@ -90,7 +90,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_PASSWORD: ci-postgres-password
           POSTGRES_DB: sst_test
         ports:
           - 5433:5432
@@ -116,7 +116,7 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5433
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
+      DATABASE_PASSWORD: ci-postgres-password
       DATABASE_NAME: sst_test
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5433
@@ -160,7 +160,7 @@ jobs:
 
       - name: Prepare RLS roles on clean PostgreSQL
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ci-postgres-password
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
@@ -190,7 +190,7 @@ jobs:
 
       - name: Grant privileged access after reconstruction
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ci-postgres-password
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -213,7 +213,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_PASSWORD: ci-postgres-password
           POSTGRES_DB: sst_test_dr
         ports:
           - 5434:5432
@@ -239,7 +239,7 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5434
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres123
+      DATABASE_PASSWORD: ci-postgres-password
       DATABASE_NAME: sst_test_dr
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5434
@@ -284,7 +284,7 @@ jobs:
 
       - name: Prepare RLS roles on clean PostgreSQL
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ci-postgres-password
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
@@ -314,7 +314,7 @@ jobs:
 
       - name: Grant and verify post-REVOKE database posture
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ci-postgres-password
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
@@ -361,7 +361,7 @@ jobs:
 
       - name: Validate restored schema, views, indexes and integrity
         env:
-          PGPASSWORD: postgres123
+          PGPASSWORD: ci-postgres-password
         run: |
           set -euo pipefail
           mkdir -p temp
