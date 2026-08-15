@@ -26,11 +26,8 @@ const isE2EConfig = args.some((arg) => /jest-e2e/i.test(arg));
 if (isE2EConfig) {
   // Necessaria para pdf-parse -> pdfjs-dist (ESM real, .mjs) resolver seu
   // "fake worker" em runtime de teste. Sem ela: "A dynamic import callback
-  // was invoked without --experimental-vm-modules". Tensao conhecida: essa
-  // MESMA flag muda como o Jest carrega 'puppeteer' (tambem ESM) -- por
-  // isso o Puppeteer passa por um shim CJS proprio (ver
-  // moduleNameMapper/puppeteer-cjs-shim.js) em vez de depender do
-  // comportamento nativo de require(ESM) do Jest, que exige Node >=24.9.
+  // was invoked without --experimental-vm-modules". O runtime bridge de
+  // Puppeteer usa createRequire fora do carregador do Jest.
   const nodeOptions = env.NODE_OPTIONS ? `${env.NODE_OPTIONS} ` : '';
   if (!/--experimental-vm-modules\b/.test(nodeOptions)) {
     env.NODE_OPTIONS = `${nodeOptions}--experimental-vm-modules`.trim();

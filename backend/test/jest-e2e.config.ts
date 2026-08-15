@@ -14,15 +14,11 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': '<rootDir>/e2e-ts-transformer.cjs',
   },
-  // uuid@14 e puppeteer@25+ sao ESM puro. NODE_OPTIONS=--experimental-vm-modules
-  // esta ativo para esta config (necessario para pdf-parse/pdfjs-dist), mas
-  // essa mesma flag faz o Jest tentar seu proprio require(ESM) sincrono para
-  // 'puppeteer', que exige Node >=24.9 (esta plataforma roda 22.x). A saida:
-  // interceptar 'puppeteer' antes que o Jest tente resolver o pacote real —
-  // ver test/puppeteer-cjs-shim.js.
+  // uuid@14 e pdfjs-dist sao ESM puro. O carregador de Puppeteer usado pela
+  // aplicacao passa por createRequire no runtime bridge e nao precisa ser
+  // interceptado pelo Jest.
   moduleNameMapper: {
     '^uuid$': '<rootDir>/uuid-cjs.js',
-    '^puppeteer$': '<rootDir>/puppeteer-cjs-shim.js',
   },
   globalSetup: '<rootDir>/setup/e2e-infra-check.ts',
   globalTeardown: '<rootDir>/setup/e2e-global-teardown.ts',
