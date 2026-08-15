@@ -12,7 +12,7 @@ describe('redis-keyv-cache.util', () => {
         host: 'cache.example.com',
         port: 6380,
         username: 'cache-user',
-        password: 'cache-secret',
+        password: 'REDACTED',
         tls: { rejectUnauthorized: true },
       }),
     ).toBe('rediss://cache-user:REDACTED@cache.example.com:6380/2');
@@ -25,7 +25,7 @@ describe('redis-keyv-cache.util', () => {
         host: '127.0.0.1',
         port: 6379,
         username: 'cache-user',
-        password: 'cache-secret',
+        password: 'REDACTED',
       }),
     ).toBe('redis://cache-user:REDACTED@127.0.0.1:6379');
   });
@@ -48,7 +48,7 @@ describe('redis-keyv-cache.util', () => {
         host: 'cache.example.com',
         port: 6380,
         username: 'cache-user',
-        password: 'cache-secret',
+        password: 'REDACTED',
         tls: { rejectUnauthorized: true },
       }),
     ).toBe('rediss://cache-user:REDACTED@cache.example.com:6380/2');

@@ -166,7 +166,7 @@ describe('openai-request.util', () => {
       'https://integrate.api.nvidia.com/v1/chat/completions',
     );
     expect(fetchOptions.headers).toMatchObject({
-      Authorization: 'Bearer REDACTED',
+      Authorization: 'Bearer nvapi-key-1',
     });
 
     if (typeof fetchOptions.body !== 'string') {
