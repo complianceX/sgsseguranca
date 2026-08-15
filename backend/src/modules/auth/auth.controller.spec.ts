@@ -379,10 +379,7 @@ describe('AuthController security hardening', () => {
 
     await controller.logout(req, res);
 
-    expect(authService.logout).toHaveBeenCalledWith(
-      'aaa.bbb.ccc',
-      'access-token',
-    );
+    expect(authService.logout).toHaveBeenCalledWith('aaa.bbb.ccc', 'REDACTED');
     expect(res.clearCookie).toHaveBeenCalledWith(
       'refresh_token',
       expect.objectContaining({ path: '/' }),
