@@ -16,6 +16,7 @@ const config: Config = {
   },
   moduleNameMapper: {
     '^uuid$': '<rootDir>/uuid-cjs.js',
+    '^puppeteer$': '<rootDir>/puppeteer-cjs.js',
   },
   globalSetup: '<rootDir>/setup/e2e-infra-check.ts',
   globalTeardown: '<rootDir>/setup/e2e-global-teardown.ts',
