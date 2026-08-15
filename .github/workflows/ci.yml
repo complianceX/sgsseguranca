@@ -148,7 +148,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22.12.0
+          node-version: 22.20.0
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -203,6 +203,8 @@ jobs:
           SQL
 
       - name: Run critical e2e flows
+        env:
+          NODE_OPTIONS: --experimental-require-module
         run: npm run test:e2e -- --forceExit
 
   backend-dr-e2e:

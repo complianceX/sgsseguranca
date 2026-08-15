@@ -12,9 +12,8 @@ const config: Config = {
     '<rootDir>/multi-tenancy.e2e-spec.ts',
   ],
   transform: {
-    '^.+\\.(t|j)s$': ['ts-jest', { useESM: true }],
+    '^.+\\.(t|j)s$': 'ts-jest',
   },
-  extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^uuid$': '<rootDir>/uuid-cjs.js',
   },
