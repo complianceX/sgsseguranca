@@ -37,7 +37,16 @@ function runJest(files) {
     ...forwardedArgs,
     ...files,
   ];
-  const result = spawnSync(process.execPath, jestArgs, { stdio: 'inherit' });
+  const isPoolConcurrencyProof = files.some((file) =>
+    file.endsWith('puppeteer-pool-runtime.e2e-spec.ts'),
+  );
+  const env = isPoolConcurrencyProof
+    ? { ...process.env, PDF_BROWSER_POOL_SIZE: '2' }
+    : process.env;
+  const result = spawnSync(process.execPath, jestArgs, {
+    stdio: 'inherit',
+    env,
+  });
   return result.status ?? 1;
 }
 
