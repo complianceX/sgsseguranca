@@ -194,10 +194,10 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO sgs_admin;
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
           SQL
@@ -346,10 +346,10 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO sgs_admin;
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
 
