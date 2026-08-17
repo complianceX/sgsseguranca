@@ -8,7 +8,10 @@ WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY package*.json ./
-RUN npm ci
+# O postinstall depende de scripts/ensure-puppeteer-browser.cjs, que só é
+# copiado na etapa seguinte. A imagem usa Chromium do sistema, portanto não
+# deve baixar um browser durante npm ci.
+RUN npm ci --ignore-scripts
 
 COPY . .
 RUN npm run build
