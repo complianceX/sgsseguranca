@@ -1,6 +1,6 @@
 # DDS Test Evidence
 
-Data: 2026-08-16. Fixtures sintéticas; nenhum commit/push foi realizado.
+Data: 2026-08-17. Fixtures sintéticas; nenhum dado ou segredo real foi usado.
 
 ## Passing evidence
 
@@ -21,8 +21,8 @@ Data: 2026-08-16. Fixtures sintéticas; nenhum commit/push foi realizado.
 | Authenticated API/browser DDS | PASS crítico: login API 201, `/auth/me` 200, logout/pós-logout 201/401; browser real criou, publicou e assinou DDS sintético |
 | Authenticated approval workflow | PASS runtime: TST, Supervisor e Administrador aprovaram etapas 1/2/3 com HTTP 201; estado final `3/3` e `auditado` |
 | Governed PDF browser | PASS runtime: ação oficial emitiu uma aba `blob:` reconhecida como `application/pdf`; pós-condições SQL de key/timestamp/hash confirmadas |
-| Axe authenticated matrix | BLOCKED/NO-GO: Login 0; Dashboard/lista/edição reportaram violações serious/moderate (`color-contrast`, `definition-list`, `document-title`, `aria-hidden-focus`) |
-| Gitleaks tracked scope | PASS limitado: source 0; arquivos tracked `.env*.example` 0; `gitleaks protect` no diff 0; worktree/history permanecem triados |
+| Axe authenticated matrix | PASS runtime sintético: Dashboard/lista/formulário em `390x844`, `430x932` e `1440x900`, 0 `serious/critical`; teclado mobile 2/2 |
+| Gitleaks tracked scope | PASS limitado: source 0; arquivos tracked `.env*.example` 0; `gitleaks protect` no diff 0; worktree atual 0 após quarentena; histórico 13 |
 | OSV backend/frontend lockfiles | nenhum issue reportado |
 | Trivy backend/frontend lockfiles | 0 vulnerabilidades reportadas |
 
@@ -31,7 +31,7 @@ Data: 2026-08-16. Fixtures sintéticas; nenhum commit/push foi realizado.
 | Prova obrigatória | Resultado | Motivo |
 | --- | --- | --- |
 | Integration/E2E local | BLOCKED | Docker não está disponível localmente; matriz HTTP dirigida foi executada na VPS |
-| Frontend E2E/mobile/accessibility | PASS workflow / BLOCKED accessibility | browser real cobriu login, criação, publicação, assinatura e aprovação TST/Supervisor/Admin; mobile autenticado separado não provado; Axe encontrou violações serious/moderate |
+| Frontend E2E/mobile/accessibility | PASS workflow/runtime sintético | browser real cobriu login, criação, publicação, assinatura e aprovação TST/Supervisor/Admin; Axe autenticado 3/3 viewports sem serious/critical; teclado 2/2 |
 | Postgres RLS adversarial | PASS | same-tenant/cross-tenant/missing-context em SELECT, INSERT, UPDATE e DELETE para DDS/participants/signatures; mutações em rollback; pós-contagens preservadas |
 | Redis/rate-limit | PASS | `401 x5` seguido de `429 x2` em login sintético |
 | Load/performance | PASS parcial | 100 GET autenticados/20 concorrentes: 80x `200`, 20x `429`, p95 290 ms |
@@ -40,9 +40,9 @@ Data: 2026-08-16. Fixtures sintéticas; nenhum commit/push foi realizado.
 | Golden DDS estrutural | PASS | gerador real, 30 participantes, PDF 383 KB e header PDF válido |
 | Golden DDS visual | PASS local; PASS browser governado | 5/30/100/300 participantes, 61 páginas renderizadas, 0 páginas vazias; emissão oficial browser abriu `blob:` `application/pdf` e banco confirmou key/timestamp/hash |
 | HTTP cross-tenant/site | PASS dirigido | `200/403` cross-tenant; usuário site-only `404/404` cross-site |
-| Storage/ACL | PASS aplicação/BLOCKED provider | grant autorizado `200`, download `%PDF-`, tamper/expiry/replay `403`, cross-tenant sem emissão; storage é local FS, não provider externo |
+| Storage/ACL | PASS runtime sintético | MinIO privado: upload `201/200/201`, download autorizado `%PDF-`, anônimo/tamper `403`, cross-tenant sem URL, expiração `200→403`, limpeza `0` objetos |
 | Video upload stress | PASS sintético/PARTIAL memória | exato 75 MiB `201`, +1 `413`, 2x10 MiB concorrentes `201`, temp `0`; controller ainda materializa Buffer |
-| Gitleaks | BLOCKED/NO-GO | source 0; tracked sensíveis/diff 0; worktree 191 e histórico 13 continuam com findings em env/log/cache/build sem abrir valores; rotação/revogação não foi comprovada |
+| Gitleaks | BLOCKED/NO-GO | source/tracked/diff/worktree atuais 0; histórico 13 em commits antigos; rotação/revogação externa ainda não foi comprovada |
 
 ## Live test VPS evidence — 2026-08-16
 
@@ -67,9 +67,9 @@ Ambiente isolado confirmado: API, Postgres e Redis healthy; `APP_ENV=loadtest`; 
 
 Os dois failures da primeira rodada foram reproduzidos como regressão do runtime antigo. Após o rebuild controlado, ambos passaram; a prova live atual não usa produção, dados reais, tokens reais ou storage real. O fixture temporário de roles/CPF foi restaurado ao estado original.
 
-## Final release authorization — 2026-08-16
+## Final release authorization — 2026-08-17
 
-O veredito binário permanece **NO-GO** nos três gates finais. O scan Git/history redigido encontrou 13 findings históricos (6 `curl-auth-header`, 4 `generic-api-key`, 3 `jwt`); source atual, exemplos tracked e diff/protect permaneceram em 0. O inventário local amplo anterior de 191 artefatos continua separado e sem fechamento formal. A VPS usa `LOCAL_DOCUMENT_STORAGE_DIR`, sem provider externo ativo. O rerun Axe autenticado completo não foi certificado porque o fixture retornou `401`; as correções estruturais têm apenas evidência estática até novo login sintético funcional.
+O veredito binário permanece **NO-GO** exclusivamente pelo gate histórico de secrets. O scan Git/history redigido encontrou 13 findings históricos (6 `curl-auth-header`, 4 `generic-api-key`, 3 `jwt`); source atual, exemplos tracked, diff/protect e worktree após quarentena permaneceram em 0. Provider MinIO e Axe autenticado passaram no ambiente isolado; a rotação/revogação externa dos históricos ainda não foi comprovada.
 
 Classificação, owners e provas mínimas estão em [dds-final-release-authorization.md](dds-final-release-authorization.md).
 
@@ -85,4 +85,4 @@ Evidência posterior executada na VPS isolada: provider MinIO S3-compatible priv
 
 A suíte Axe autenticada foi criada em `frontend/e2e/dds-axe-authenticated.spec.ts` e passou em `3/3` viewports (`390x844`, `430x932`, `1440x900`) com `0` violações `serious/critical` em Dashboard, lista DDS e formulário. A suíte de teclado mobile passou `2/2`. O achado desktop de contraste no nome do usuário foi corrigido em `frontend/src/components/Sidebar.tsx`.
 
-O veredito global continua `NO-GO` exclusivamente pelo gate Gitleaks/secrets: source e `ops/dev` estão sem findings na varredura redigida desta rodada, mas os `191` artifacts locais e `13` históricos anteriores ainda exigem classificação, rotação/revogação formal e scan final.
+O veredito global continua `NO-GO` exclusivamente pelo gate Gitleaks/secrets: source, `ops/dev` e worktree atual estão sem findings na varredura redigida desta rodada; os `13` históricos ainda exigem classificação, rotação/revogação formal e scan history final.

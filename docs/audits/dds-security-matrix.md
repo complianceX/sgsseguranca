@@ -1,6 +1,6 @@
 # DDS Security Matrix
 
-Status em 2026-08-16. `PASS` significa evidência local e/ou runtime confirmada; `PARTIAL` preserva limites de escopo, provider ou cobertura. Esta matriz é a decisão final dos sete gates de aceitação.
+Status em 2026-08-17. `PASS` significa evidência local e/ou runtime confirmada; `PARTIAL` preserva limites de escopo, provider ou cobertura. Esta matriz é a decisão final dos sete gates de aceitação.
 
 ## Addendum runtime — VPS isolada
 
@@ -23,7 +23,7 @@ Nesta rodada, o provider S3-compatible de teste foi provisionado exclusivamente 
 | XSS/PDF visual | sanitização/testes; stress e render local sem páginas vazias | [PDF visual QA](dds-pdf-visual-qa.md) | PASS local/PARTIAL browser |
 | Video upload | Multer disk-first, limite inclusivo de 75 MiB, rejeição acima e limpeza temp | VPS: exato 201, +1 413, 2x10 MiB 201, temp 0; unit 8/8 | PASS sintético; memória P2 |
 | Rate limiting | throttles e Redis compartilhado | Redis live: `401 x5`, `429 x2`; carga autenticada | PASS runtime |
-| Gitleaks | source, tracked examples/diff, worktree e histórico | source 0; tracked sensíveis/diff 0; worktree 191; histórico 13; sem valores expostos | BLOCKED: high-risk unknown não encerrado |
+| Gitleaks | source, tracked examples/diff, worktree e histórico | source 0; tracked sensíveis/diff 0; worktree atual 0 após quarentena recuperável; histórico 13; sem valores expostos | BLOCKED: históricos aguardam rotação/revogação formal |
 | Audit/forensic | forensic trail e approval events | services DDS/signatures | PARTIAL |
 | Migration provenance | fonte local reconciliada com artefato remoto e rebuild oficial | [migration forensics](dds-migration-forensics.md) | PASS rebuild 299 |
 | Frontend E2E/mobile | golden DDS autenticado, assinatura UI, approval e teclado mobile | login real; TST/Supervisor/Admin aprovaram 3 etapas; Axe `3/3` viewports; teclado `2/2` | PASS runtime sintético |
@@ -66,7 +66,7 @@ Ambiente confirmado por SSH/read-only: `APP_ENV=loadtest`, `sgs_app` sem `BYPASS
 | Video upload | exato 75 MiB `201`, 75 MiB+1 `413`, concorrente 2x10 MiB `201`, temp `0` — PASS sintético; Buffer P2 |
 | Frontend DDS autenticado | login real, dashboard, criação/publicação, assinatura e aprovação TST/Supervisor/Admin; HTTP 201 em cada etapa, `3/3`, `auditado`; Axe `3/3` viewports e teclado mobile `2/2` — PASS workflow |
 | Browser PDF final | ação oficial emitiu PDF governado; aba `blob:` `application/pdf`; `pdf_file_key`, `pdf_generated_at` e hash final presentes — PASS |
-| Gitleaks | source 0; tracked sensíveis/diff 0; worktree 191 e histórico 13; sem segredo ativo verificado, mas high-risk unknown sem rotação comprovada — NO-GO ativo |
+| Gitleaks | source 0; tracked sensíveis/diff 0; worktree atual 0 após quarentena; histórico 13; sem segredo ativo verificado, mas rotação externa não comprovada — NO-GO ativo |
 
 Conclusão: os hardenings P1, o rebuild/DR reconciliado com 299 migrations, a matriz RLS mutável, storage externo sintético, vídeo, o workflow browser autenticado de três perfis, o PDF governado e o Axe autenticado passaram. O release permanece `NO-GO` exclusivamente por findings Gitleaks/artifacts/histórico sem classificação e rotação formal.
 

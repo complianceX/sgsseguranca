@@ -1,6 +1,6 @@
 # DDS — Release Unblock: Final 3
 
-Data: 2026-08-16. Escopo restrito aos três gates finais; sem produção, commit, push ou deploy.
+Data: 2026-08-17. Escopo restrito aos três gates finais; sem produção, commit, push ou deploy.
 
 ## Decisão
 
@@ -8,7 +8,7 @@ Data: 2026-08-16. Escopo restrito aos três gates finais; sem produção, commit
 
 | Gate | Estado | Evidência atual | Fechamento necessário | Owner/dependência |
 | --- | --- | --- | --- | --- |
-| Secret closure / Gitleaks | **BLOCKED** | Source `backend/src`: 0; seis `.env*.example` tracked: 0; diff/protect: 0; worktree: 191 findings; histórico: 13 findings | Classificar cada finding histórico/artifact, revogar/rotacionar qualquer credencial plausível e repetir scan amplo/history com relatório redigido | Owner de secrets/GitHub + segurança |
+| Secret closure / Gitleaks | **BLOCKED** | Source/tracked/diff: 0; worktree atual após quarentena recuperável: 0 findings; histórico `--all`: 13 findings antigos | Classificar os 13 históricos, revogar/rotacionar qualquer credencial plausível e repetir scan history com relatório redigido | Owner de secrets/GitHub + segurança |
 | Provider externo | **PASS runtime sintético** | MinIO S3-compatible privado na VPS; upload `201`, PUT `200`, complete `201`, hash/magic bytes, download autorizado `200/%PDF-`, anônimo `403`, tamper `403`, cross-tenant `403` sem URL e expiração provider `200 → 403`; prefixo final vazio | Repetir com credenciais temporárias do provider escolhido para staging, se o release exigir staging externo distinto | Infra/storage |
 | Accessibility / Axe | **PASS runtime sintético** | Login real sintético; Axe autenticado em Dashboard, lista DDS e formulário DDS nos viewports `390x844`, `430x932`, `1440x900`: `0` serious/critical; teclado mobile `2/2` PASS; correção do texto da Sidebar aplicada | Manter a suíte no CI e repetir em staging após mudanças de tema/layout | Frontend/QA |
 
@@ -20,9 +20,16 @@ Data: 2026-08-16. Escopo restrito aos três gates finais; sem produção, commit
 - Hygiene: prefixos `quarantine/` e `documents/` do bucket de teste foram limpos; contagem final de objetos `0`. Nenhum token ou valor de credencial foi registrado.
 - Axe: `3/3` projetos PASS; Dashboard/lista/formulário sem violações `serious` ou `critical`; teclado mobile `2/2` PASS.
 
+## Atualização de fechamento — 2026-08-17
+
+- Os 203 findings do diretório de trabalho foram identificados como `.env` locais, logs, cache/build e artefatos Vercel/Puppeteer não tracked.
+- Esses artefatos foram movidos para quarentena temporária recuperável fora do repositório; o scan amplo atual retornou `0` findings.
+- O scan histórico completo continua em `13` findings. Não houve reescrita de histórico nem force-push.
+- O PR técnico passou backend, frontend, DR, E2E crítico e todos os scans CI; isso não substitui a revogação externa dos históricos.
+
 ## Secret inventory redigido
 
-- Os 191 findings do worktree estão concentrados em logs, `.env` locais não tracked, artefatos `.next`/cache e tipos de regra `generic-api-key`, `cloudflare-api-key`, `jwt`, `openai-api-key` e `sentry-org-token`.
+- Os findings atuais do worktree foram removidos para quarentena e o scan atual está zerado; o inventário anterior incluía logs, `.env` locais não tracked, artefatos `.next`/cache e tipos de regra `generic-api-key`, `cloudflare-api-key`, `jwt`, `openai-api-key` e `sentry-org-token`.
 - Os 13 findings históricos estão em exemplos/documentação, fixtures ou scripts antigos. Serem históricos/sintéticos não prova revogação.
 - Nenhum valor de segredo foi aberto ou emitido no relatório. O gate continua bloqueado por ausência de ownership, rotação e revogação formal.
 
@@ -42,7 +49,7 @@ O score-base desta rodada permanece **76/100**; não foi inflado automaticamente
 
 ## Próxima evidência mínima
 
-1. Security owner encerra a classificação/rotação dos 13 históricos e 191 artifacts, com prova redigida de revogação e novo scan amplo/history.
+1. Security owner encerra a classificação/rotação dos 13 históricos, com prova redigida de revogação e novo scan history.
 2. Frontend/QA mantém a suíte Axe e repete-a no staging definitivo se o provider/ambiente de release diferir da VPS isolada.
 
 Até o gate de secrets ter evidência verificável de classificação, rotação/revogação e scan final, a certificação permanece `NO-GO`.

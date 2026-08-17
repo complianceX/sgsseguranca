@@ -8,14 +8,18 @@ Nenhuma produção, credencial real, CPF real, assinatura real, e-mail real ou o
 
 ## Atualização — Absolute Final Closure
 
+### Addendum de evidência — 2026-08-17
+
+O provider MinIO e o Axe autenticado permanecem `PASS runtime sintético`, conforme o addendum de runtime abaixo. Os artefatos locais identificados por Gitleaks foram movidos para quarentena recuperável e o scan atual do worktree retornou `0`. O histórico completo ainda retorna `13` findings antigos; portanto o único blocker técnico-operacional restante é a classificação e revogação/rotação formal desses históricos.
+
 Os cinco blockers finais foram executados no ambiente sintético da VPS. O veredito continua **NO-GO**, mas os gates de E2E autenticado e PDF governado foram fechados:
 
 | Blocker final | Estado atual | Evidência objetiva |
 | --- | --- | --- |
-| Secret closure | **BLOCKED** | source/tracked diff: 0; worktree: 191 findings; histórico: 13; rotação/revogação formal não comprovada |
-| Provider externo | **BLOCKED** | runtime continua em `LOCAL_DOCUMENT_STORAGE_DIR`; ACL/isolation/revoke de S3/B2/R2 não demonstrados |
+| Secret closure | **BLOCKED** | source/tracked/diff/worktree atual: 0; histórico: 13; rotação/revogação formal não comprovada |
+| Provider externo | **PASS runtime sintético** | MinIO privado na VPS: ACL, upload/download, tamper, cross-tenant, expiração e limpeza final comprovados |
 | E2E autenticado DDS | **PASS** | sessão browser real: TST etapa 1 `201`, Supervisor etapa 2 `201`, Administrador etapa 3 `201`; estado final `3/3`, `auditado` |
-| Accessibility/Axe | **BLOCKED** | Login: 0 violações; Dashboard/lista/edição autenticados: violações serious de `color-contrast`, `definition-list`, `document-title` e `aria-hidden-focus` |
+| Accessibility/Axe | **PASS runtime sintético** | Dashboard/lista/formulário autenticados em 3 viewports: 0 `serious/critical`; teclado mobile 2/2 |
 
 ### Runtime closure update posterior
 
@@ -28,11 +32,11 @@ O fixture de roles foi temporário e foi restaurado ao perfil/função originais
 
 | Gate | Estado | Prova/limite |
 | --- | --- | --- |
-| 01. Gitleaks amplo | **BLOCKED / NO-GO** | Source: 0; arquivos tracked sensíveis auditados e `gitleaks protect` no diff: 0. Worktree: 191 findings; histórico: 13. Não há segredo ativo verificado, mas há findings de alto risco desconhecido em artifacts/env/history sem prova de rotação/revogação. |
-| 02. Storage/provider externo | **BLOCKED** | VPS usa volume Docker privado e `LOCAL_DOCUMENT_STORAGE_DIR`; não há S3/B2/R2 ativo para provar ACL, isolamento ou revogação de provider. Application-level passou: grant/download `%PDF-`, tamper/expiry/replay `403`, cross-tenant sem emissão. |
+| 01. Gitleaks amplo | **BLOCKED / NO-GO** | Source/tracked/diff/worktree atuais: 0; histórico: 13. Não há segredo ativo verificado, mas a rotação/revogação externa não foi comprovada. |
+| 02. Storage/provider externo | **PASS runtime sintético** | MinIO privado: grant/download `%PDF-`, anônimo/tamper `403`, cross-tenant sem URL, expiração `200→403` e limpeza final `0` objetos. |
 | 03. DR com 299 migrations | **PASS** | Dump do estado 299 e restore em `sgs_loadtest_dr_20260816_299_final`: 299 migrations, 135 tabelas, 261 policies, 255 FKs, 927 índices, 7 colunas 0377, 4/4 RLS+FORCE, `sgs_app` sem bypass; dados sintéticos intactos. |
 | 04. E2E autenticado DDS | **PASS runtime sintético** | Browser real concluiu criação/publicação/assinatura e as três etapas governadas: TST, Supervisor e Administrador, cada uma com HTTP `201`; estado final `3/3`, `auditado`. Mobile autenticado continua separado e não provado. |
-| 05. Axe completo | **BLOCKED / NO-GO** | Axe executado com `axe-core` em Login, Dashboard, lista DDS e edição/aprovação. Login teve 0 violações; estados autenticados tiveram `color-contrast`, `definition-list`, `document-title` e `aria-hidden-focus`, com impacto serious/moderate. |
+| 05. Axe completo | **PASS runtime sintético** | Dashboard/lista/formulário autenticados em `390x844`, `430x932` e `1440x900`: 0 `serious/critical`; teclado mobile 2/2. |
 | 06. RLS UPDATE/DELETE | **PASS** | No alvo DR final, role `sgs_app`, mesmo tenant, tenant cruzado e contexto ausente testados em DDS, `dds_participants` e `signatures`. SELECT/INSERT/UPDATE/DELETE: same-tenant permitido, cross/missing negado; rollback e pós-contagens `12/10/130`. |
 | 07. PDF final browser | **PASS runtime sintético** | Após `auditado`, a ação oficial emitiu o PDF governado; uma nova aba `blob:` foi identificada como `application/pdf`. Pós-condições SQL confirmaram key, timestamp e hash final. |
 
@@ -60,9 +64,9 @@ Gitleaks tracked sensitive files/diff: 0
 Verified active secrets: 0
 Unresolved high-risk findings: YES, unknown artifacts/history
 
-External provider: LOCAL_DOCUMENT_STORAGE_DIR; provider externo não configurado
-Bucket privacy: não aplicável; volume Docker privado
-Anonymous access: 401
+External provider: MinIO S3-compatible privado de teste
+Bucket privacy: privado; prefixo isolado
+Anonymous access: 403
 Authorized grant: 200
 Cross-tenant storage: sem emissão de URL/token
 Tamper/expiration/replay: 403
@@ -77,8 +81,8 @@ Runtime role: sgs_app, BYPASSRLS=false
 Real login: PASS
 Authenticated DDS E2E: PASS — TST/Supervisor/Admin, 3/3, auditado
 Authenticated mobile: NOT PROVED
-Axe: Login 0; authenticated dashboard/list/edit com violações serious/moderate
-Keyboard/focus/dialogs: aria-hidden-focus permanece blocker no estado de edição
+Axe: Dashboard/list/form 0 serious/critical em 3 viewports
+Keyboard/focus/dialogs: teclado mobile 2/2 PASS
 
 RLS SELECT/INSERT/UPDATE/DELETE: PASS
 RLS missing context/cross tenant: DENY
@@ -97,8 +101,8 @@ O GO só pode ser reavaliado após: encerramento e rotação formal dos findings
 
 Documentos de suporte: [dds-security-matrix.md](dds-security-matrix.md), [dds-test-evidence.md](dds-test-evidence.md), [dds-production-readiness.md](dds-production-readiness.md), [dds-storage-security.md](dds-storage-security.md), [dds-migration-forensics.md](dds-migration-forensics.md) e [dds-release-unblock-final-3.md](dds-release-unblock-final-3.md).
 
-## Checkpoint — Release Unblock Final 3 (2026-08-16)
+## Checkpoint — Release Unblock Final 3 (2026-08-17)
 
-As correções estruturais de acessibilidade foram aplicadas em `PageHeader`, métricas semânticas e títulos client-side. TypeScript, ESLint e Stylelint passaram. O rerun Axe autenticado completo não foi certificado porque o fixture sintético retornou `401`; portanto o gate continua `INCOMPLETE/BLOCKED`. O provider externo continua ausente no runtime (`LOCAL_DOCUMENT_STORAGE_DIR`) e Gitleaks continua com worktree/history não encerrados.
+As correções estruturais de acessibilidade foram aplicadas em `PageHeader`, métricas semânticas e títulos client-side. O rerun Axe autenticado completo passou em 3 viewports, o provider MinIO sintético passou, o worktree atual foi zerado após quarentena recuperável e o CI/DR/E2E crítico passou. O gate histórico de Gitleaks continua `BLOCKED` pelos 13 findings sem prova formal de rotação/revogação.
 
 Autorização final, classificação redigida dos 13 findings históricos e ações mínimas dos owners: [dds-final-release-authorization.md](dds-final-release-authorization.md).

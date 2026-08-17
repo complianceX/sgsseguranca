@@ -6,13 +6,17 @@ Método: inventário repo-backed, código/migrations, testes focados, typecheck,
 
 ## 1. Executive Summary
 
+### Addendum de fechamento — 2026-08-17
+
+O worktree atual está com `0` findings Gitleaks após a quarentena recuperável de `.env` locais, logs, cache/build e artefatos Vercel/Puppeteer. Provider MinIO e Axe autenticado já passaram no ambiente isolado; backend, frontend, DR, E2E crítico e scans CI também passaram no PR #284. O relatório continua `NO-GO` exclusivamente porque o histórico completo mantém 13 findings antigos sem prova externa de revogação/rotação.
+
 O DDS possui implementação ampla de tenant/site scope, workflow, aprovação, assinatura, storage governado, auditoria e PDF.
 No worktree local foram corrigidos três limites: mass assignment de auditoria, race entre lock do DDS e replacement de assinaturas, e assinatura direta por não participante.
 Backend/frontend compilam e os testes focados DDS/PDF/assinaturas passaram.
 O workflow real é `RASCUNHO → PUBLICADO → AUDITADO → ARQUIVADO`, com arquivamento conforme as transições permitidas.
 O VPS isolado de teste foi usado com API/Postgres/Redis saudáveis. Após rebuild controlado, mass assignment, BOLA de assinatura, cross-site, replay sequencial/concorrente, rate limit e DR sintético passaram live.
-O release ainda não está pronto para produção: o conjunto reconciliado de 299 migrations passou no rebuild limpo e no restore de um dump 299 em alvo descartável. A autenticação real de teste, o fluxo browser de criação/publicação/assinatura, as três aprovações governadas e o PDF final browser passaram. Mobile autenticado continua separado e não provado; provider externo, Axe sem violações e secrets de alto risco desconhecido continuam sem fechamento.
-Dependências não apresentaram vulnerabilidades nos lockfiles. Gitleaks encontrou 0 no código-fonte direcionado e 191 ocorrências no diretório de trabalho, além de 13 no histórico; permanecem triadas, não aprovadas.
+O release ainda não está pronto para produção: o conjunto reconciliado de 299 migrations passou no rebuild limpo e no restore de um dump 299 em alvo descartável. A autenticação real de teste, o fluxo browser de criação/publicação/assinatura, as três aprovações governadas, o provider MinIO sintético, o Axe autenticado e o PDF final browser passaram. O único blocker desta rodada é a rotação/revogação formal dos 13 findings históricos de secrets.
+Dependências não apresentaram vulnerabilidades nos lockfiles. Gitleaks está em 0 no código-fonte, diff e worktree atual após quarentena recuperável; permanecem 13 ocorrências históricas triadas, não aprovadas.
 
 ## 2. Final Verdict
 
@@ -24,11 +28,11 @@ O bloqueio restante é de completude operacional: não há aprovação de provid
 
 | Gate | Estado | Evidência objetiva |
 | --- | --- | --- |
-| 01. Gitleaks amplo | BLOCKED/NO-GO | source 0; tracked sensíveis/diff 0; 191 findings no worktree e 13 no histórico; verified active 0, mas high-risk unknown e rotação/revogação não comprovada |
-| 02. Storage/provider externo | BLOCKED | VPS usa `LOCAL_DOCUMENT_STORAGE_DIR`; ACL de S3/B2/R2 não configurada/provada |
+| 01. Gitleaks amplo | BLOCKED/NO-GO | source/tracked/diff/worktree atuais 0 após quarentena recuperável; 13 findings históricos; verified active 0, mas rotação/revogação não comprovada |
+| 02. Storage/provider externo | PASS runtime sintético | MinIO privado na VPS: upload/download, ACL, tamper, cross-tenant, expiração e limpeza final comprovados; staging definitivo pode exigir repetição |
 | 03. DR migrations 299 | PASS | dump do estado 299 restaurado em `sgs_loadtest_dr_20260816_299_final`; schema/RLS/data e role app validados |
 | 04. E2E autenticado | PASS runtime sintético | login real, create/publish/signature e três approvals governadas: TST/Supervisor/Admin, HTTP 201, estado `3/3`/`auditado`; mobile autenticado separado não provado |
-| 05. Axe completo | BLOCKED/NO-GO | Axe autenticado executado; Login 0, mas Dashboard/lista/edição têm `color-contrast`, `definition-list`, `document-title` e `aria-hidden-focus` |
+| 05. Axe completo | PASS runtime sintético | Dashboard/lista/formulário autenticados em 3 viewports: 0 `serious/critical`; teclado mobile 2/2 |
 | 06. RLS UPDATE/DELETE | PASS | alvo DR final; same/cross/missing em DDS, participants e signatures; INSERT também validado; rollback e pós-contagens preservados |
 | 07. PDF browser final | PASS runtime sintético | ação oficial emitiu PDF governado; aba `blob:` `application/pdf`; key/timestamp/hash final confirmados no banco |
 
@@ -93,17 +97,17 @@ Nenhum P0 confirmado no código auditado.
 | DDS-SIG-RACE-001 | Lock do DDS ficava em transação diferente do delete+insert de assinaturas. | Lost update/replacement concorrente de evidências. | Manager propagado; lock pessimista, workflow e version check aplicados. | FIXED; unit PASS |
 | DDS-SIG-BOLA-001 | `POST /signatures` aceitava DDS sem confirmar que o usuário era participante. | Evidência de presença podia ser criada por não participante. | Consulta parametrizada `dds_participants` + tenant; VPS retornou HTTP 403. | FIXED + LIVE PASS |
 | DDS-SIG-REPLAY-001 | Endpoint direto aceitava duas assinaturas ativas para o mesmo participante/DDS. | Duplicação de evidência e possível corrupção de presença. | Lock pessimista no DDS + consulta de assinatura ativa; sequencial e concorrente retornaram `201/409`. | FIXED + LIVE PASS |
-| DDS-SEC-001 | Gitleaks encontrou 191 findings no worktree e 13 no histórico; parte está em env/log/cache/build e parte em histórico. | Não há segredo ativo verificado, mas high-risk unknown sem rotação/revogação comprovada pode representar exposição de credenciais. | Source e tracked sensíveis/diff zerados; classificar artifacts/history, revogar/rotacionar qualquer credencial afetada e fechar evidência. | OPEN/P1 |
+| DDS-SEC-001 | Gitleaks encontra 13 findings no histórico; o worktree atual foi zerado após quarentena recuperável. | Não há segredo ativo verificado, mas findings históricos plausíveis sem rotação/revogação comprovada podem representar exposição de credenciais. | Security owner deve classificar os 13 históricos, revogar/rotacionar qualquer credencial afetada e fechar evidência. | OPEN/P1 |
 
 ### P2
 
 | ID | Finding | Impacto | Próximo passo | Status |
 | --- | --- | --- | --- | --- |
 | DDS-DOS-001 | Vídeo é recebido em disco, mas até 75 MiB é materializado em `Buffer` antes do storage. | Pressão de heap/DoS lógico sob concorrência. | Limite inclusivo, exato `201`, acima `413`, 2x10 MiB concorrentes e temp 0; avaliar streaming/chunking. | OPEN/P2 |
-| DDS-PDF-001 | Golden/stress DDS e emissão governada browser foram cobertos após workflow TST/Supervisor/Admin. | Provider externo e download HTTP persistente ainda não foram provados neste runtime local-FS. | Configurar provider de teste e repetir ACL/download/revoke. | BLOCKED provider |
+| DDS-PDF-001 | Golden/stress DDS, emissão governada browser e provider MinIO sintético foram cobertos após workflow TST/Supervisor/Admin. | Repetição no provider definitivo de staging pode permanecer necessária conforme o release. | Repetir no staging definitivo se o provider diferir da VPS isolada. | PASS sintético / P2 residual |
 | DDS-ENV-DRIFT-001 | Artefato remoto e worktree divergiam em migrations. | Proveniência do runtime não era atribuível. | 0374/0375/0376 reconciliadas por SHA; EPI virou 0377; rebuild e DR isolado com 299. | CLOSED technical |
-| DDS-STORAGE-001 | Storage externo/provider não está configurado; grant app-level foi provado. | ACL do provider e revogação pré-consumo permanecem não confirmadas. | Definir provider/ACL de teste e repetir grant, expiry, revoke, hash e cross-tenant. | OPEN/P2 |
-| DDS-A11Y-001 | Axe autenticado executado; Login passou, mas Dashboard/lista/edição têm `color-contrast`, `definition-list`, `document-title` e `aria-hidden-focus`. | Não permite declarar conformidade WCAG completa. | Corrigir as violações e rerodar a matriz autenticada. | OPEN/P1 |
+| DDS-STORAGE-001 | Provider MinIO externo sintético configurado e testado com bucket privado. | Repetição no provider definitivo de staging pode permanecer necessária. | Repetir somente se o provider/ambiente de release diferir. | PASS sintético / P2 residual |
+| DDS-A11Y-001 | Axe autenticado em 3 viewports retornou 0 `serious/critical`; teclado mobile 2/2. | Não substitui repetição após mudanças futuras de tema/layout. | Manter a suíte no CI e rerodar no staging quando aplicável. | PASS runtime sintético |
 
 ### P3
 
@@ -144,10 +148,10 @@ Nenhuma migration foi necessária para as correções. A junction já tem RLS co
 | RLS adversarial | PASS: alvo DR final; SELECT/INSERT/UPDATE/DELETE em same/cross/missing para DDS/participants/signatures, com rollback |
 | Redis/load/performance | PASS parcial: Redis limitou `401 x5`/`429 x2`; carga 100/20 com p95 290 ms e 20 throttles |
 | PDF Golden estrutural/visual | PASS local; browser preview abriu blob, PDF final governado pendente por aprovação/RBAC |
-| Storage ACL | PASS aplicação/BLOCKED provider: grant/expiry/tamper/replay/cross-tenant sintéticos |
+| Storage ACL | PASS runtime sintético: MinIO privado com grant/expiry/tamper/replay/cross-tenant |
 | Video upload | PASS sintético: exato 75 MiB, +1 rejeitado, 2x10 MiB concorrentes e temp 0; Buffer P2 |
 | DR | PASS: dump do estado 299 e restore em `sgs_loadtest_dr_20260816_299_final`, dados e RLS validados |
-| Gitleaks | BLOCKED/NO-GO: source/tracked sensíveis 0; 191 no diretório e 13 no histórico, high-risk unknown sem prova de rotação |
+| Gitleaks | BLOCKED/NO-GO: source/tracked/diff/worktree atuais 0 após quarentena recuperável; 13 no histórico, high-risk unknown sem prova de rotação |
 
 ## 8. HTTP / database / security proof
 
@@ -155,7 +159,7 @@ Nenhuma migration foi necessária para as correções. A junction já tem RLS co
 
 Executado no VPS isolado com DDS e usuários sintéticos. GET próprio/cross-tenant retornou `200/403`; PDF cross-tenant `403`; mass assignment `400`; assinatura por não participante `403`. Usuário site-only contra outro site retornou `404` em GET e assinatura. Replay direto sequencial e concorrente retornou `201/409`. Workflow retornou `201/200/400/400/200` para create/publish/reverse/direct-audit/archive. Playwright público local retornou 18/18 nos seis viewports configurados.
 
-Pendentes: correção das violações Axe, provider externo com ACL/isolation/revoke e fechamento formal dos findings de secrets. O fluxo TST/Supervisor/Admin e o E2E browser do PDF final foram concluídos no ambiente sintético.
+Pendente: fechamento formal dos findings históricos de secrets. O fluxo TST/Supervisor/Admin, o E2E browser do PDF final, provider MinIO e Axe autenticado foram concluídos no ambiente sintético.
 
 ### Database proof
 
@@ -167,7 +171,7 @@ Confirmados live: papel `sgs_app` com `rolbypassrls=false`, insert/select/update
 
 Confirmados por código/testes/live: DTO allowlist, ValidationPipe global com whitelist/forbidNonWhitelisted, filtros tenant/site, relation checks, assinatura direta limitada ao participante, replay sequencial/concorrente protegido, invite lock/state e replacement atomicamente protegido.
 
-Não confirmados: BOLA completo além da matriz dirigida, ACL de provider externo, revogação pré-consumo, axe completo e ausência de secrets em artifacts/histórico completo. O scan direcionado de source não encontrou findings; a varredura ampla/histórico continua triada.
+Não confirmados: BOLA completo além da matriz dirigida, revogação pré-consumo e rotação externa dos históricos de secrets. O scan direcionado de source, worktree e diff não encontrou findings; o histórico completo continua com 13 achados redigidos.
 
 ## 9. Performance e PDF
 
@@ -177,14 +181,14 @@ Engine PDF identificado: frontend `jsPDF` + blueprint DDS + QR/validation/signat
 
 ## 10. Riscos residuais e próximos gates
 
-- Provider externo/ACL e Axe sem violações continuam pendentes; a VPS já provou grant application-level, DR 299, vídeo, RLS mutável cross-tenant, o E2E autenticado de três perfis e o PDF governado browser.
+ - Provider MinIO/ACL e Axe autenticado passaram; a VPS também provou DR 299, vídeo, RLS mutável cross-tenant, o E2E autenticado de três perfis e o PDF governado browser.
 - A primeira imagem do runtime estava defasada, mas o rebuild controlado atual passou mass assignment, BOLA, replay e concorrência.
 - DR sintético passou com as 299 migrations reconciliadas e a role de aplicação sem bypass RLS.
-- PDF estrutural/visual local e PDF final governado browser passaram; accessibility completa ainda não.
-- Dependências passaram; Gitleaks está limpo no source direcionado, mas há 191 findings no diretório e 13 no histórico, incluindo arquivos env/log/cache/build.
+ - PDF estrutural/visual local e PDF final governado browser passaram; Axe autenticado passou em 3 viewports.
+ - Dependências passaram; Gitleaks está limpo no source, diff e worktree atual, mas há 13 findings históricos sem rotação/revogação comprovada.
 - Não houve produção, tokens, storage ou dados reais.
 
-Antes do GO: fechar/rotacionar os findings de secrets, configurar/provar provider externo e corrigir/rerodar Axe sem violações serious. Os perfis sintéticos TST/Supervisor/Admin e a emissão do PDF final já foram provados.
+Antes do GO: fechar/rotacionar formalmente os 13 findings históricos de secrets. Os perfis sintéticos TST/Supervisor/Admin, provider MinIO e Axe sem serious/critical já foram provados.
 
 ## 11. Top 10 melhorias futuras
 
@@ -233,11 +237,11 @@ DDS GLOBAL SCORE: 76/100
 
 # GO / NO-GO RECOMMENDATION
 
-**NO-GO para clientes/trabalhadores reais neste momento.** Os hardenings P1, DR 299, matriz RLS mutável, storage application-level, vídeo sintético, workflow browser autenticado de três perfis e PDF governado passaram na VPS isolada. Ainda faltam provider/ACL externo, correção das violações Axe e fechamento de findings em artifacts/env/histórico. Nenhum dado real ou produção foi usado.
+**NO-GO para clientes/trabalhadores reais neste momento.** Os hardenings P1, DR 299, matriz RLS mutável, provider MinIO sintético, vídeo, workflow browser autenticado de três perfis, Axe e PDF governado passaram na VPS isolada. Resta o fechamento formal dos 13 findings históricos de secrets. Nenhum dado real ou produção foi usado.
 
 ## Final release authorization — 2026-08-16
 
-O fechamento final continua **NO-GO** por três gates: 13 findings históricos Gitleaks sem classificação/rotação formal, inventário local amplo anterior de 191 artefatos ainda não encerrado, provider externo ausente no runtime (`LOCAL_DOCUMENT_STORAGE_DIR`) e Axe autenticado incompleto por fixture `401`. A autorização, a classificação redigida e a prova mínima exigida por owner estão em [dds-final-release-authorization.md](dds-final-release-authorization.md).
+O fechamento final continua **NO-GO** exclusivamente pelos 13 findings históricos Gitleaks sem classificação/rotação formal. O inventário local foi movido para quarentena recuperável e o scan atual retornou 0; provider MinIO e Axe autenticado passaram. A autorização e a prova mínima exigida por owner estão em [dds-final-release-authorization.md](dds-final-release-authorization.md).
 
 ## Runtime closure addendum — 2026-08-16
 
@@ -247,4 +251,4 @@ Após a criação do ambiente S3-compatible isolado e a correção do fixture de
 - Axe autenticado: Dashboard, lista DDS e formulário em `390x844`, `430x932` e `1440x900`, `0` violações `serious/critical`; teclado mobile `2/2` PASS. O contraste do nome no cartão da Sidebar foi corrigido.
 - Auth smoke: CSRF `200`, login `201`, `/auth/me` `200`; sem tokens/valores de credenciais registrados.
 
-O veredito global permanece `NO-GO` exclusivamente pelo gate de secrets: os `191` artifacts locais e `13` findings históricos continuam sem prova formal de classificação, rotação/revogação e scan final. Este addendum atualiza os gates provider/Axe; não autoriza produção.
+O veredito global permanece `NO-GO` exclusivamente pelo gate de secrets: o worktree atual está em `0`, mas os `13` findings históricos continuam sem prova formal de classificação, rotação/revogação e scan final. Este addendum atualiza os gates provider/Axe; não autoriza produção.

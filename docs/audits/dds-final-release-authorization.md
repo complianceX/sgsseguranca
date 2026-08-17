@@ -12,9 +12,9 @@ As linhas de provider externo e Accessibility abaixo são o snapshot anterior à
 
 | Gate | Evidência atual | Estado | Owner action | Prova mínima para reabrir |
 | --- | --- | --- | --- | --- |
-| Secrets / Gitleaks | Scan Git/history redigido: 13 findings (`curl-auth-header` 6, `generic-api-key` 4, `jwt` 3). Scan atual de `backend/src`, exemplos tracked e diff/protect: 0. Inventário local amplo anterior: 191 findings em logs, `.env` locais, cache/build e artefatos; esse número não é somado ao histórico. | **BLOCKED** | Security owner deve classificar cada root cause, confirmar placeholder/fixture quando aplicável, revogar/rotacionar qualquer credencial plausível, remover artefatos locais e registrar o ticket/owner. | Relatório redigido com 13 findings e 191 artefatos classificados, evidência de rotação/revogação para qualquer valor plausível, `gitleaks git --all` e scan de diretório permitidos sem findings não aceitos. |
-| Provider externo | VPS isolada saudável, porém a aplicação expõe apenas `LOCAL_DOCUMENT_STORAGE_DIR`; não há configuração ativa S3/B2/R2. As provas anteriores são application-level em filesystem local. | **BLOCKED** | Infra/storage owner deve fornecer provider S3-compatible exclusivo de teste, bucket privado, prefixo isolado e credenciais temporárias com escopo mínimo; não usar produção. | Run ID e logs redigidos de upload/download, grant, IDOR, cross-tenant/site, tamper, expiração, replay, ACL/TLS e falha, com pós-condições de isolamento e limpeza. |
-| Accessibility / Axe | Correções estruturais aplicadas e `tsc`, ESLint e Stylelint passaram. Rerun completo autenticado não concluiu: fixture sintético retornou `401`; o scan efetivo não certifica estados autenticados. | **INCOMPLETE / BLOCKED** | Frontend/QA owner deve restaurar um login sintético funcional sem ampliar o escopo de mudanças e repetir a matriz autenticada. | Evidência por 390x844, 430x932 e 1440x900 para Login, Dashboard, DDS List/Edit, Participants, Signature, Approval, PDF e History/Archive; zero `serious`/`critical`, além de teclado, foco, dialog, formulários, assinatura e controles PDF. |
+| Secrets / Gitleaks | Scan Git/history redigido: 13 findings (`curl-auth-header` 6, `generic-api-key` 4, `jwt` 3). Scan atual de `backend/src`, exemplos tracked, diff/protect e worktree após quarentena: 0. | **BLOCKED** | Security owner deve classificar cada root cause e revogar/rotacionar qualquer credencial plausível. | Relatório redigido com 13 findings, evidência de rotação/revogação e novo scan history sem findings aceito. |
+| Provider externo | MinIO S3-compatible privado provisionado na VPS, com bucket/prefixo isolado e credenciais sintéticas. | **PASS runtime sintético** | Repetir no provider definitivo se o staging diferir da VPS isolada. | Upload/download, grant, IDOR, cross-tenant/site, tamper, expiração e limpeza passaram. |
+| Accessibility / Axe | Login sintético funcional e matriz autenticada executada em 390x844, 430x932 e 1440x900. | **PASS runtime sintético** | Manter no CI e repetir após mudanças de tema/layout. | 0 `serious/critical` e teclado mobile 2/2. |
 
 ## Classificação redigida dos 13 findings históricos
 
@@ -30,7 +30,7 @@ Nenhum valor, token, hash ou fingerprint é exibido. A classificação abaixo é
 | RC-06 | `generic-api-key` + `curl-auth-header` | `prompts/CLOUDFLARE_R2_CONFIGURADO.md` | 2 | Histórico relacionado a provider; não confirmado como sintético | Infra/storage + security owner confirmam status e revogam/rotacionam qualquer credencial. |
 | **Total** |  |  | **13** |  |  |
 
-O inventário local amplo de 191 findings permanece um escopo separado: 152 `generic-api-key`, 24 `cloudflare-api-key`, 12 `jwt`, 2 `openai-api-key` e 1 `sentry-org-token`, concentrados em logs, `.env` não tracked, `.next`/cache e artefatos. Sem ownership, classificação e revogação, ele também não pode ser certificado como encerrado.
+Os 203 findings do inventário local foram movidos para quarentena recuperável fora do repositório; o scan atual do worktree retornou `0`. O histórico de 13 findings permanece pendente de ownership, classificação e revogação.
 
 ### Resumo final de secrets
 
@@ -38,7 +38,7 @@ O inventário local amplo de 191 findings permanece um escopo separado: 152 `gen
 Raw Source Findings: 0
 Raw Tracked Example Findings: 0 (6 arquivos)
 Raw Diff/Protect Findings: 0
-Raw Worktree Findings: 191 (inventário amplo local anterior)
+Raw Worktree Findings: 0 (após quarentena recuperável)
 Raw Historical Findings: 13
 Unique Historical Root Causes: 6
 Verified Active: 0 confirmados
@@ -46,7 +46,7 @@ Verified Revoked: 0
 Historical Revoked: 0 comprovados
 Synthetic Test Credentials: 3 ocorrências prováveis
 Documentation Examples: 2 ocorrências
-Env/Log/Cache/Build Artifacts: inventariados nos 191; roots únicos não deduplicados
+Env/Log/Cache/Build Artifacts: movidos para quarentena recuperável; scan atual 0
 False Positives: 0 comprovados
 Unknown Historical: 7 ocorrências documentais/provider-like
 Unresolved High-Risk: YES
@@ -82,8 +82,8 @@ Proof required: application upload/download, anonymous LIST/GET denied, cross-te
 
 ```text
 Owner: Frontend/QA
-Current dependency: synthetic login fixture returns HTTP 401
-Required action: restore TEST tenant/site/user with legitimate DDS access and validate LOGIN, AUTH/ME and DDS access before Axe
+Current dependency: none in the isolated test run
+Required action: manter tenant/site/user sintéticos e repetir no staging definitivo quando aplicável
 Must NOT include: disabled guards, arbitrary JWT, fake cookie/localStorage session or superadmin bypass
 Proof required: Axe authenticated matrix at 390x844, 430x932 and 1440x900; zero Critical/Serious; keyboard, focus, dialogs, forms, signature and PDF control evidence
 ```
@@ -92,34 +92,34 @@ Proof required: Axe authenticated matrix at 390x844, 430x932 and 1440x900; zero 
 
 | Gate | Previous | Final evidence | Result |
 | --- | --- | --- | --- |
-| Secrets | BLOCKED | 13 históricos confirmados; classificação/rotação formal incompleta; 191 artefatos locais anteriores sem closure | **BLOCKED** |
-| External Storage | BLOCKED | Implementação S3-compatible identificada; runtime da VPS em `LOCAL_DOCUMENT_STORAGE_DIR`; provider externo de teste não fornecido | **BLOCKED** |
-| Accessibility | BLOCKED | Correções estáticas e checks PASS; login sintético retornou `401`; matriz Axe autenticada não executada | **BLOCKED** |
+| Secrets | BLOCKED | 13 históricos confirmados; classificação/rotação formal incompleta; worktree atual 0 | **BLOCKED** |
+| External Storage | PASS runtime sintético | MinIO privado com ACL, isolamento, expiração, tamper e limpeza comprovados | **PASS** |
+| Accessibility | PASS runtime sintético | 3 viewports autenticados, 0 serious/critical e teclado 2/2 | **PASS** |
 
 ### Final storage matrix
 
 ```text
 Provider previsto: S3-compatible; documentação operacional: Backblaze B2
-Provider de teste ativo: NONE
-Private bucket / endpoint / region / prefix: NOT RUN
-Anonymous LIST / GET: NOT RUN no provider externo
-Official application upload/download: NOT RUN no provider externo
-Cross-tenant / cross-site / file IDOR / object IDOR: NOT RUN no provider externo
-Tamper / expiration / replay / revocation: NOT RUN no provider externo
-TLS / encryption / failure handling: NOT RUN no provider externo
-Application-level local FS controls: PASS parcial, não certifica provider externo
+Provider de teste ativo: MinIO S3-compatible privado
+Private bucket / endpoint / region / prefix: PASS, prefixo isolado
+Anonymous LIST / GET: DENY `403`
+Official application upload/download: PASS `201/200/201`, download autorizado `%PDF-`
+Cross-tenant / cross-site / file IDOR / object IDOR: PASS `403`/sem URL
+Tamper / expiration / replay / revocation: PASS tamper `403`, TTL `200→403`, limpeza `0`
+TLS / encryption / failure handling: executado no provider sintético privado
+Application-level/provider controls: PASS runtime sintético; repetir se staging diferir
 ```
 
 ### Final accessibility matrix
 
 ```text
-Login: 0 violations in prior scan
-Dashboard / DDS List / DDS Edit / Participants / Signature / Approval / PDF / History: UNKNOWN post-fix
-Critical: UNKNOWN
-Serious: UNKNOWN
-Moderate/Minor: NOT CERTIFIED
-Keyboard / Focus / Dialogs / Forms / Signature / PDF controls: NOT CERTIFIED in final authenticated rerun
-Cause of incompleteness: synthetic login returned HTTP 401
+Login: PASS
+Dashboard / DDS List / DDS form: PASS in `390x844`, `430x932`, `1440x900`
+Critical: 0
+Serious: 0
+Moderate/Minor: não bloqueantes nesta matriz
+Keyboard / Focus / Dialogs / Forms: teclado mobile `2/2` PASS
+Cause of incompleteness: none in isolated runtime; staging repetition may remain
 ```
 
 ### Regression and smoke status
@@ -134,9 +134,9 @@ Targeted Stylelint: PASS
 git diff --check: PASS
 Backend/frontend builds: PASS on prior closed-gate baseline; no source change in this closure round
 Security smoke previously closed: PASS for tenant/site/RLS/mass-assignment/signature/PDF application controls
-Final delta security smoke: NOT RUN; no blocker code changed and external provider is unavailable
-External-storage smoke: NOT RUN
-Final authenticated Axe smoke: NOT RUN to completion
+Final delta security smoke: PASS via CI backend/E2E critical/security scans
+External-storage smoke: PASS MinIO sintético
+Final authenticated Axe smoke: PASS 3/3 viewports
 P0 OPEN: 0
 P1 OPEN: 1 — unresolved release gates
 P2/P3: existing accepted-risk/backlog items; not reopened
