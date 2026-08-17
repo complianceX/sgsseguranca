@@ -1,4 +1,4 @@
-const { Client } = require('pg');
+const { Client } = require('/app/node_modules/pg');
 
 const REQUIRED_PROFILES = [
   'Administrador da Empresa',
