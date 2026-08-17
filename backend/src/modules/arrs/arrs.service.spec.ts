@@ -5,6 +5,7 @@ import { ArrsService } from './arrs.service';
 import { Arr, ArrStatus } from './entities/arr.entity';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
+import { PdfService } from '../../shared/services/pdf.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 type RegisterFinalDocumentInput = Parameters<
@@ -17,6 +18,7 @@ describe('ArrsService', () => {
   let tenantService: Partial<TenantService>;
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
+  let pdfService: Partial<PdfService>;
 
   beforeEach(() => {
     arrRepository = {
@@ -61,6 +63,10 @@ describe('ArrsService', () => {
       removeFinalDocumentReference: jest.fn(),
     };
 
+    pdfService = {
+      generateFromHtml: jest.fn(),
+    };
+
     service = new ArrsService(
       arrRepository,
       tenantService as TenantService,
@@ -69,6 +75,7 @@ describe('ArrsService', () => {
       {
         issueToken: jest.fn().mockResolvedValue('token-mock'),
       } as unknown as import('../../shared/services/public-validation-grant.service').PublicValidationGrantService,
+      pdfService as PdfService,
     );
   });
 
@@ -473,5 +480,55 @@ describe('ArrsService', () => {
     } as unknown as Arr);
 
     await expect(service.remove('arr-1')).rejects.toThrow('sem PDF final');
+  });
+
+  it('gera o PDF final no backend e escapa dados antes do HTML', async () => {
+    const arr = {
+      id: 'arr-generated',
+      titulo: '<script>alert(1)</script>',
+      data: new Date('2026-04-15'),
+      atividade_principal: 'Trabalho em altura',
+      condicao_observada: 'Condição observada',
+      risco_identificado: 'Queda',
+      nivel_risco: 'alto',
+      probabilidade: 'media',
+      severidade: 'grave',
+      controles_imediatos: 'Isolamento',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      responsavel_id: 'user-1',
+      status: ArrStatus.TRATADA,
+      participants: [{ id: 'participant-1', nome: 'Participante' }],
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+      created_at: new Date('2026-04-15T07:00:00.000Z'),
+    } as unknown as Arr;
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(arr);
+    (pdfService.generateFromHtml as jest.Mock).mockResolvedValue(
+      Buffer.from('%PDF-1.7 generated-arr'),
+    );
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockResolvedValue({ hash: 'hash-arr', registryEntry: {} });
+
+    const result = await service.generateFinalPdf('arr-generated', 'user-1');
+    const [html] = (pdfService.generateFromHtml as jest.Mock).mock.calls[0] as [
+      string,
+    ];
+
+    expect(result.generated).toBe(true);
+    expect(pdfService.generateFromHtml).toHaveBeenCalled();
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'documents/company-1/arr/sites/site-1/arr-generated/',
+      ),
+      expect.any(Buffer),
+      'application/pdf',
+    );
+    expect(documentGovernanceService.registerFinalDocument).toHaveBeenCalled();
   });
 });

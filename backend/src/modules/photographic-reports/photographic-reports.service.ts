@@ -23,6 +23,7 @@ import {
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { PdfService } from '../../shared/services/pdf.service';
+import { INSTITUTIONAL_PDF_FOOTER_TEMPLATE } from '../../shared/services/pdf-institutional-template';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { RequestContext } from '../../shared/middleware/request-context.middleware';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
@@ -2050,14 +2051,7 @@ export class PhotographicReportsService {
     return this.pdfService.generateFromHtml(html, {
       preferCssPageSize: true,
       displayHeaderFooter: true,
-      footerTemplate: `
-        <div style="width:100%;font-size:8px;color:#6a7e91;padding:0 14mm;box-sizing:border-box;font-family:Arial,sans-serif;">
-          <div style="border-top:1px solid #dbe3ea;padding-top:4px;display:flex;justify-content:space-between;align-items:center;width:100%;">
-            <span>SGS · Relatório Fotográfico</span>
-            <span>Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
-          </div>
-        </div>
-      `,
+      footerTemplate: INSTITUTIONAL_PDF_FOOTER_TEMPLATE,
       margin: {
         top: '10mm',
         right: '10mm',

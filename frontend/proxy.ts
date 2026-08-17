@@ -92,7 +92,7 @@ export function buildCsp(
     `media-src 'self' blob: data: ${[apiOrigin, "https://*.r2.cloudflarestorage.com", "https://*.backblazeb2.com", "https://api.elevenlabs.io"].filter(Boolean).join(" ")}`,
     `worker-src 'self' blob:`,
     `form-action 'self'`,
-    "upgrade-insecure-requests",
+    ...(production ? ["upgrade-insecure-requests"] : []),
   ];
 
   return directives.join("; ");

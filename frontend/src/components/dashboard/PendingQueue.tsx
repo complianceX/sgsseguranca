@@ -486,24 +486,28 @@ function PendingQueueFiltersComponent({
       </div>
 
       {!queueLoading && (
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="ds-dashboard-queue-stat">
-            <dt>Total</dt>
-            <dd>{pendingQueue.summary.total}</dd>
-          </div>
-          <div className="ds-dashboard-queue-stat">
-            <dt>Críticos</dt>
-            <dd>{pendingQueue.summary.critical}</dd>
-          </div>
-          <div className="ds-dashboard-queue-stat">
-            <dt>Altos</dt>
-            <dd>{pendingQueue.summary.high}</dd>
-          </div>
-          <div className="ds-dashboard-queue-stat">
-            <dt>SLA vencido</dt>
-            <dd>{pendingQueue.summary.slaBreached}</dd>
-          </div>
-        </dl>
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          role="list"
+          aria-label="Resumo da fila de pendências"
+        >
+          <article className="ds-dashboard-queue-stat" role="listitem">
+            <p>Total</p>
+            <strong>{pendingQueue.summary.total}</strong>
+          </article>
+          <article className="ds-dashboard-queue-stat" role="listitem">
+            <p>Críticos</p>
+            <strong>{pendingQueue.summary.critical}</strong>
+          </article>
+          <article className="ds-dashboard-queue-stat" role="listitem">
+            <p>Altos</p>
+            <strong>{pendingQueue.summary.high}</strong>
+          </article>
+          <article className="ds-dashboard-queue-stat" role="listitem">
+            <p>SLA vencido</p>
+            <strong>{pendingQueue.summary.slaBreached}</strong>
+          </article>
+        </div>
       )}
 
       {!queueLoading && pendingQueue.summary.critical > 0 && (

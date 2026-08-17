@@ -124,6 +124,22 @@ export class EpiAssignmentsController {
     return this.assignmentsService.getSummary();
   }
 
+  @Post(':id/generate-final-pdf')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_epi_assignments')
+  generateFinalPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.assignmentsService.generateFinalPdf(id, req.user?.id);
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_epi_assignments')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.assignmentsService.getPdfAccess(id);
+  }
+
   @Get(':id')
   @Authorize('can_view_epi_assignments')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {

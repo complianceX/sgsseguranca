@@ -304,6 +304,23 @@ export const arrsService = {
     };
   },
 
+  generateFinalPdf: async (id: string): Promise<ArrPdfAccess> => {
+    const response = await api.post<
+      GovernedPdfAccessResponse & { degraded: boolean; generated?: boolean }
+    >(`/arrs/${id}/generate-final-pdf`);
+    return {
+      arrId: response.data.entityId,
+      hasFinalPdf: response.data.hasFinalPdf,
+      availability: response.data.availability,
+      message: response.data.message,
+      fileKey: response.data.fileKey,
+      folderPath: response.data.folderPath,
+      originalName: response.data.originalName,
+      url: response.data.url,
+      degraded: response.data.degraded,
+    };
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/arrs/${id}`);
   },

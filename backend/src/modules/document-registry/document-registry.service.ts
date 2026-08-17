@@ -30,6 +30,7 @@ type RegistryModule =
   | 'dds'
   | 'did'
   | 'arr'
+  | 'epi'
   | 'report'
   | 'photographic_report'
   | 'training'

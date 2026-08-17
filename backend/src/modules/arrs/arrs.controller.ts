@@ -147,6 +147,19 @@ export class ArrsController {
     return this.arrsService.getPdfAccess(id);
   }
 
+  @Post(':id/generate-final-pdf')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_arrs')
+  async generateFinalPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.arrsService.generateFinalPdf(id, this.getRequestUserId(req));
+  }
+
   @Get(':id/validation-context')
   @Authorize('can_view_arrs')
   getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {

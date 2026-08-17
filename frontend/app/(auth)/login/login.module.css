@@ -133,7 +133,8 @@
   border: 1px solid color-mix(in srgb, var(--login-blue) 56%, var(--ds-bg-primary) 44%);
   background: color-mix(in srgb, var(--ds-bg-primary) 96%, var(--component-card-bg) 4%);
   color: var(--login-text);
-  font-size: 0.9rem;
+  /* 16px evita o zoom automático do Safari/iOS em inputs operacionais. */
+  font-size: 1rem;
   outline: none;
   transition:
     border-color var(--ds-motion-base),

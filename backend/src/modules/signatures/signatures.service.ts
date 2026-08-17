@@ -1,5 +1,6 @@
 ﻿import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   forwardRef,
   Inject,
@@ -175,20 +176,61 @@ export class SignaturesService {
       documentId: createSignatureDto.document_id,
       documentType,
     });
+    if (documentType.toLowerCase() === 'dds') {
+      await this.assertDdsSignerIsParticipant(
+        createSignatureDto.document_id,
+        documentScope.companyId,
+        authenticatedUserId,
+      );
+    }
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
       documentType,
       companyId,
     });
-    return this.signaturesRepository.manager.transaction((manager) =>
-      this.persistSignature(
+    return this.signaturesRepository.manager.transaction(async (manager) => {
+      if (documentType.toLowerCase() === 'dds') {
+        const lockedDdsRows = await manager.query(
+          `SELECT id
+             FROM dds
+            WHERE id = $1
+              AND company_id = $2
+              AND deleted_at IS NULL
+            FOR UPDATE`,
+          [createSignatureDto.document_id, documentScope.companyId],
+        );
+
+        if (Array.isArray(lockedDdsRows) && lockedDdsRows.length === 0) {
+          throw new NotFoundException('DDS não encontrado para assinatura.');
+        }
+
+        const activeSignature = await manager
+          .getRepository(Signature)
+          .findOne({
+            where: {
+              document_id: createSignatureDto.document_id,
+              document_type: documentType,
+              company_id: documentScope.companyId,
+              user_id: authenticatedUserId,
+              deleted_at: IsNull(),
+            },
+          });
+
+        if (activeSignature) {
+          throw new ConflictException(
+            'Usuário já possui uma assinatura ativa para este DDS.',
+          );
+        }
+      }
+
+      return this.persistSignature(
         { ...createSignatureDto, document_type: documentType },
         authenticatedUserId,
         authenticatedUserId,
         manager,
         documentScope,
-      ),
-    );
+      );
+    });
   }
 
   async createWithManager(
@@ -228,6 +270,7 @@ export class SignaturesService {
     company_id?: string;
     authenticated_user_id: string;
     signatures: SignatureWriteInput[];
+    manager?: EntityManager;
   }): Promise<Signature[]> {
     const tenantId = this.tenantService.getTenantId();
     const effectiveCompanyId = tenantId || input.company_id;
@@ -245,41 +288,45 @@ export class SignaturesService {
       documentType,
       companyId: effectiveCompanyId || null,
     });
-    const { created, replacedSignatures } =
-      await this.signaturesRepository.manager.transaction(async (manager) => {
-        const signatureRepository = manager.getRepository(Signature);
-        const where = {
-          document_id: input.document_id,
-          document_type: documentType,
-          ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
-        };
-        const replacedSignatures = await signatureRepository.find({
-          where,
-          select: ['id', 'signature_data_key'],
-        });
-        await signatureRepository.delete(where);
-
-        const created: Signature[] = [];
-        for (const signatureInput of input.signatures) {
-          created.push(
-            await this.persistSignature(
-              {
-                ...signatureInput,
-                document_id: input.document_id,
-                document_type: documentType,
-                company_id:
-                  tenantId || signatureInput.company_id || input.company_id,
-              },
-              input.authenticated_user_id,
-              signatureInput.signer_user_id || signatureInput.user_id,
-              manager,
-              documentScope,
-            ),
-          );
-        }
-
-        return { created, replacedSignatures };
+    const replaceWithinTransaction = async (manager: EntityManager) => {
+      const signatureRepository = manager.getRepository(Signature);
+      const where = {
+        document_id: input.document_id,
+        document_type: documentType,
+        ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
+      };
+      const replacedSignatures = await signatureRepository.find({
+        where,
+        select: ['id', 'signature_data_key'],
       });
+      await signatureRepository.delete(where);
+
+      const created: Signature[] = [];
+      for (const signatureInput of input.signatures) {
+        created.push(
+          await this.persistSignature(
+            {
+              ...signatureInput,
+              document_id: input.document_id,
+              document_type: documentType,
+              company_id:
+                tenantId || signatureInput.company_id || input.company_id,
+            },
+            input.authenticated_user_id,
+            signatureInput.signer_user_id || signatureInput.user_id,
+            manager,
+            documentScope,
+          ),
+        );
+      }
+
+      return { created, replacedSignatures };
+    };
+    const { created, replacedSignatures } = input.manager
+      ? await replaceWithinTransaction(input.manager)
+      : await this.signaturesRepository.manager.transaction(
+          replaceWithinTransaction,
+        );
 
     await this.cleanupSignatureEvidenceFiles(
       replacedSignatures,
@@ -1179,6 +1226,30 @@ export class SignaturesService {
       }
       default:
         return;
+    }
+  }
+
+  private async assertDdsSignerIsParticipant(
+    documentId: string,
+    companyId: string,
+    signerUserId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query<Array<{ user_id: string }>>(
+      `SELECT dp.user_id
+         FROM dds_participants dp
+         INNER JOIN dds d ON d.id = dp.dds_id
+        WHERE dp.dds_id = $1
+          AND dp.user_id = $2
+          AND d.company_id = $3
+          AND d.deleted_at IS NULL
+        LIMIT 1`,
+      [documentId, signerUserId, companyId],
+    );
+
+    if (rows.length === 0) {
+      throw new ForbiddenException(
+        'Somente participantes vinculados ao DDS podem assiná-lo por este fluxo.',
+      );
     }
   }
 

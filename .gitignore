@@ -52,6 +52,9 @@ uploads/
 # Env de produção com configurações reais ou templates que podem confundir
 .env.production.optimized
 
+# Variantes locais de ambiente nunca devem entrar no worktree versionável.
+.env.*.local
+
 # Artefatos locais de dev
 backend/dev.sqlite
 backend/k6-test.sqlite
@@ -156,3 +159,7 @@ temp-semgrep-scan.json
 /RELATORIO-FOTOGRAFICO-PREVIEW.html
 /PDF-PRODUCAO.pdf
 /preview-*.png
+
+# Saídas avulsas de ferramentas e fixtures locais.
+/stdout
+/report-upload.png

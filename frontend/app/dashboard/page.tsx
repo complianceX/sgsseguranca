@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   AlertTriangle,
   Clock,
@@ -42,6 +42,14 @@ const EMPTY_APPROVALS: PendingApprovals = {
 const EMPTY_RISK: RiskSummary = { alto: 0, medio: 0, baixo: 0 };
 
 export default function DashboardPage() {
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "SGS | Dashboard";
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
+
   const { user } = useAuth();
   const { greeting, dateLabel } = useDynamicGreeting();
   const firstName = useMemo(

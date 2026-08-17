@@ -1681,8 +1681,8 @@ body {
     padding: 0.72rem 0.78rem;
   }
 
-  .ds-dashboard-status-metric dt,
-  .ds-dashboard-queue-stat dt {
+  .ds-dashboard-status-metric p,
+  .ds-dashboard-queue-stat p {
     font-size: 0.65rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -1690,7 +1690,8 @@ body {
     color: var(--ds-color-text-secondary);
   }
 
-  .ds-dashboard-status-metric dd {
+  .ds-dashboard-status-metric strong {
+    display: block;
     margin-top: 0.12rem;
     font-size: 1.32rem;
     font-weight: 800;
@@ -1764,7 +1765,8 @@ body {
     padding: 0.58rem 0.66rem;
   }
 
-  .ds-dashboard-queue-stat dd {
+  .ds-dashboard-queue-stat strong {
+    display: block;
     margin-top: 0.12rem;
     font-size: 1.02rem;
     font-weight: 800;

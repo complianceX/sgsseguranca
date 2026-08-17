@@ -52,13 +52,11 @@ import { Permission } from '@/lib/permissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { cn } from '@/lib/utils';
 import { openPdfForPrint } from '@/lib/print-utils';
-import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
 );
-const loadArrPdfGenerator = () => import('@/lib/pdf/arrGenerator');
 
 const arrSchema = z.object({
   titulo: z.string().min(5, 'Informe um título com pelo menos 5 caracteres.'),
@@ -143,6 +141,7 @@ export function ArrForm({ id }: ArrFormProps) {
   const canManageArrs = hasPermission(Permission.CAN_MANAGE_ARRS);
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -243,32 +242,6 @@ export function ArrForm({ id }: ArrFormProps) {
   const buildArrFilename = (arr: Arr) =>
     `ARR_${String(arr.titulo || arr.id).replace(/\s+/g, '_')}.pdf`;
 
-  const buildArrForFinalPdf = (arr: Arr): Arr => ({
-    ...arr,
-    status:
-      arr.status === 'arquivada'
-        ? 'arquivada'
-        : arr.status === 'rascunho'
-          ? 'analisada'
-          : 'tratada',
-  });
-
-  const generateLocalArrPdfBase64 = async (arr: Arr) => {
-    const freshArr = await arrsService.findOne(arr.id);
-    const { generateArrPdf } = await loadArrPdfGenerator();
-    const base64 = await generateArrPdf(buildArrForFinalPdf(freshArr), {
-      save: false,
-      output: 'base64',
-      draftWatermark: false,
-    });
-
-    if (!base64) {
-      throw new Error('Falha ao gerar o PDF da ARR.');
-    }
-
-    return String(base64);
-  };
-
   const handlePrintArchivedPdf = async () => {
     if (!currentArr?.pdf_file_key) {
       toast.warning('Esta ARR não possui PDF final governado disponível para impressão.');
@@ -287,19 +260,43 @@ export function ArrForm({ id }: ArrFormProps) {
       if (access.message) {
         toast.warning(access.message);
       }
-
-      const base64 = await generateLocalArrPdfBase64(currentArr);
-      const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
-      openPdfForPrint(fileUrl, () => {
-        toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
-      });
-      setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+      toast.error(
+        'A impressão foi bloqueada porque o PDF governado não está acessível. Gere ou recupere o documento oficial antes de tentar novamente.',
+      );
     } catch (error) {
       toast.error(
         getFormErrorMessage(error, {
           fallback: 'Não foi possível preparar a impressão da ARR.',
         }),
       );
+    }
+  };
+
+  const handleGenerateFinalPdf = async () => {
+    if (!currentArr || !id || currentArr.pdf_file_key) {
+      return;
+    }
+
+    setGeneratingPdf(true);
+    try {
+      const access = await arrsService.generateFinalPdf(currentArr.id);
+      const refreshed = await arrsService.findOne(currentArr.id);
+      setCurrentArr(refreshed);
+      if (access.hasFinalPdf) {
+        toast.success('PDF final governado emitido e registrado com sucesso.');
+      } else {
+        toast.warning(
+          access.message || 'O PDF final ainda não está disponível para acesso.',
+        );
+      }
+    } catch (error) {
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível emitir o PDF final governado.',
+        }),
+      );
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -621,6 +618,21 @@ export function ArrForm({ id }: ArrFormProps) {
               <ArrowLeft className="h-4 w-4" />
               Voltar para ARRs
             </Button>
+            {id &&
+            currentArr &&
+            canManageArrs &&
+            !currentArr.pdf_file_key &&
+            (currentArr.status === 'analisada' || currentArr.status === 'tratada') ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleGenerateFinalPdf()}
+                disabled={generatingPdf}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {generatingPdf ? 'Emitindo PDF...' : 'Emitir PDF oficial'}
+              </Button>
+            ) : null}
             {id && isReadOnly ? (
               <>
                 <Button

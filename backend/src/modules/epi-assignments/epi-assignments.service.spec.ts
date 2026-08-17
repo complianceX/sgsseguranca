@@ -74,6 +74,9 @@ function makeService(overrides: {
     tenantService,
     signatureTimestampService,
     auditService,
+    {} as never,
+    {} as never,
+    {} as never,
   );
 }
 

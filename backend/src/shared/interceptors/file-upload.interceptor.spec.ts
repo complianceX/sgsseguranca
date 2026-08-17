@@ -5,6 +5,7 @@ import {
   assertUploadedVideo,
   cleanupStaleTempUploads,
   cleanupUploadedTempFile,
+  createGovernedVideoUploadOptions,
   inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   resetTempUploadCleanupStateForTests,
@@ -14,6 +15,13 @@ import { resolveSgsTempDirectory } from '../temp-directory.util';
 
 describe('file-upload.interceptor helpers', () => {
   const tempDir = resolveSgsTempDirectory();
+
+  it('uses disk storage and the shared governed video size limit', () => {
+    const options = createGovernedVideoUploadOptions();
+
+    expect(options.storage).toBeDefined();
+    expect(options.limits?.fileSize).toBe(75 * 1024 * 1024 + 1);
+  });
 
   afterEach(() => {
     resetTempUploadCleanupStateForTests();

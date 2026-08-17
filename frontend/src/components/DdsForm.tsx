@@ -195,6 +195,14 @@ function buildDdsSignatureResetReasons(
 
 // Refactor backlog: quebrar este componente em submódulos menores após estabilização dos patches emergenciais.
 export function DdsForm({ id }: DdsFormProps) {
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = id ? "SGS | Editar DDS" : "SGS | Novo DDS";
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [id]);
+
   const { hasPermission } = usePermissions();
   const canViewDds = hasPermission(Permission.CAN_VIEW_DDS);
   const canManageDds = hasPermission(Permission.CAN_MANAGE_DDS);
@@ -1878,5 +1886,4 @@ export function DdsForm({ id }: DdsFormProps) {
     </div>
   );
 }
-
 

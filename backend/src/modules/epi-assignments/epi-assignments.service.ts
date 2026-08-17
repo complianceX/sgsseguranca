@@ -1,13 +1,20 @@
 ﻿import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit-trail/audit.service';
 import { AuditAction } from '../audit-trail/enums/audit-action.enum';
 import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
+import { DocumentStorageService } from '../../shared/services/document-storage.service';
+import { PdfService } from '../../shared/services/pdf.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { GovernedPdfAccessResponseDto } from '../../shared/dto/governed-pdf-access-response.dto';
+import { cleanupUploadedFile } from '../../shared/storage/storage-compensation.util';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../../shared/tenant/site-access-scope.util';
 import {
@@ -29,9 +36,15 @@ import {
   EpiAssignment,
   EpiSignatureStamp,
 } from './entities/epi-assignment.entity';
+import { buildEpiAssignmentPdfHtml } from './epi-assignment-pdf.template';
+import { INSTITUTIONAL_PDF_FOOTER_TEMPLATE } from '../../shared/services/pdf-institutional-template';
+
+const EPI_PDF_SIGNED_URL_EXPIRY_SECONDS = 900;
 
 @Injectable()
 export class EpiAssignmentsService {
+  private readonly logger = new Logger(EpiAssignmentsService.name);
+
   constructor(
     @InjectRepository(EpiAssignment)
     private readonly assignmentsRepository: Repository<EpiAssignment>,
@@ -42,6 +55,9 @@ export class EpiAssignmentsService {
     private readonly tenantService: TenantService,
     private readonly signatureTimestampService: SignatureTimestampService,
     private readonly auditService: AuditService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly pdfService: PdfService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
   async create(
@@ -176,7 +192,7 @@ export class EpiAssignmentsService {
         company_id: companyId,
         ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
       },
-      relations: ['epi', 'user', 'site'],
+      relations: ['company', 'epi', 'user', 'site'],
     });
     if (!assignment) {
       throw new NotFoundException(`Ficha EPI com ID ${id} não encontrada.`);
@@ -316,6 +332,185 @@ export class EpiAssignmentsService {
       substituido,
       caExpirado,
     };
+  }
+
+  async generateFinalPdf(
+    id: string,
+    userId?: string,
+  ): Promise<
+    GovernedPdfAccessResponseDto & {
+      generated: boolean;
+      degraded: boolean;
+    }
+  > {
+    const assignment = await this.findOne(id);
+
+    if (assignment.pdf_file_key) {
+      return { ...(await this.getPdfAccess(id)), generated: false };
+    }
+
+    this.assertReadyForFinalDocument(assignment);
+
+    const buffer = await this.pdfService.generateFromHtml(
+      buildEpiAssignmentPdfHtml(assignment, this.buildDocumentCode(assignment)),
+      {
+        format: 'A4',
+        displayHeaderFooter: true,
+        headerTemplate: '<span></span>',
+        footerTemplate: INSTITUTIONAL_PDF_FOOTER_TEMPLATE,
+        margin: { top: '14mm', right: '14mm', bottom: '16mm', left: '14mm' },
+      },
+    );
+
+    const documentCode = this.buildDocumentCode(assignment);
+    const originalName = `${this.safePdfName(assignment.id)}.pdf`;
+    const key = this.documentStorageService.generateDocumentKey(
+      assignment.company_id,
+      'epi',
+      assignment.id,
+      originalName,
+      {
+        folderSegments: assignment.site_id ? ['sites', assignment.site_id] : [],
+      },
+    );
+    const folder = key.split('/').slice(0, -1).join('/');
+
+    await this.documentStorageService.uploadFile(
+      key,
+      buffer,
+      'application/pdf',
+    );
+
+    try {
+      const { hash } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: assignment.company_id,
+          module: 'epi',
+          entityId: assignment.id,
+          title: `Ficha de Entrega de EPI — ${assignment.epi?.nome || assignment.id}`,
+          documentDate: assignment.entregue_em,
+          documentCode,
+          fileKey: key,
+          folderPath: folder,
+          originalName,
+          mimeType: 'application/pdf',
+          createdBy: userId,
+          fileBuffer: buffer,
+          persistEntityMetadata: async (manager, computedHash) => {
+            const result = await manager.getRepository(EpiAssignment).update(
+              { id: assignment.id, pdf_file_key: IsNull() },
+              {
+                pdf_file_key: key,
+                pdf_folder_path: folder,
+                pdf_original_name: originalName,
+                final_pdf_hash_sha256: computedHash,
+                pdf_generated_at: new Date(),
+                document_code: documentCode,
+                emitted_by_user_id: userId ?? null,
+              },
+            );
+            if (result.affected !== 1) {
+              throw new ConflictException(
+                'A ficha de EPI já possui PDF final emitido.',
+              );
+            }
+          },
+        });
+
+      if (!hash) {
+        throw new BadRequestException(
+          'Falha ao registrar a integridade do PDF final da ficha EPI.',
+        );
+      }
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `epi-assignment:${assignment.id}`,
+        key,
+        (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      );
+      throw error;
+    }
+
+    return { ...(await this.getPdfAccess(id)), generated: true };
+  }
+
+  async getPdfAccess(
+    id: string,
+  ): Promise<GovernedPdfAccessResponseDto & { degraded: boolean }> {
+    const assignment = await this.findOne(id);
+
+    if (!assignment.pdf_file_key) {
+      return {
+        entityId: assignment.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'A ficha de EPI ainda não possui PDF final emitido.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
+    }
+
+    try {
+      const url = await this.documentStorageService.getSignedUrl(
+        assignment.pdf_file_key,
+        EPI_PDF_SIGNED_URL_EXPIRY_SECONDS,
+      );
+      return {
+        entityId: assignment.id,
+        hasFinalPdf: true,
+        availability: 'ready',
+        message: 'PDF final governado disponível para acesso.',
+        degraded: false,
+        fileKey: assignment.pdf_file_key,
+        folderPath: assignment.pdf_folder_path ?? null,
+        originalName: assignment.pdf_original_name ?? null,
+        url,
+      };
+    } catch {
+      return {
+        entityId: assignment.id,
+        hasFinalPdf: true,
+        availability: 'registered_without_signed_url',
+        message:
+          'PDF final registrado, mas a URL segura não está disponível no momento.',
+        degraded: true,
+        fileKey: assignment.pdf_file_key,
+        folderPath: assignment.pdf_folder_path ?? null,
+        originalName: assignment.pdf_original_name ?? null,
+        url: null,
+      };
+    }
+  }
+
+  private assertReadyForFinalDocument(assignment: EpiAssignment): void {
+    if (!assignment.epi?.nome || !assignment.user?.nome) {
+      throw new BadRequestException(
+        'A ficha de EPI precisa ter equipamento e trabalhador vinculados antes da emissão.',
+      );
+    }
+    if (!assignment.assinatura_entrega?.signature_hash) {
+      throw new BadRequestException(
+        'A ficha de EPI precisa ter assinatura de entrega com hash antes da emissão.',
+      );
+    }
+  }
+
+  private buildDocumentCode(assignment: EpiAssignment): string {
+    return `EPI-${assignment.id.replace(/-/g, '').slice(0, 16).toUpperCase()}`;
+  }
+
+  private safePdfName(value: string): string {
+    const normalized = value
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .replace(/^\.+|\.+$/g, '')
+      .slice(0, 100);
+    return `EPI_${normalized || 'ficha'}`;
   }
 
   private buildSignatureStamp(

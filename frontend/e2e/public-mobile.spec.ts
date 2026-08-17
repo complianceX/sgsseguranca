@@ -3,11 +3,13 @@ import {
   expectInputAvoidsIosZoom,
   expectMobileControlSize,
   expectNoHorizontalPageOverflow,
+  waitForApplicationStyles,
 } from './helpers/mobile';
 
 test.describe('rotas públicas em viewports operacionais', () => {
   test('login não possui overflow e evita zoom automático no iOS', async ({ page }) => {
     await page.goto('/login');
+    await waitForApplicationStyles(page, 'input');
     await expect(page.locator('main')).toBeVisible();
     await expectNoHorizontalPageOverflow(page);
 
@@ -26,16 +28,18 @@ test.describe('rotas públicas em viewports operacionais', () => {
 
   test('recuperação de senha permanece utilizável sem overflow', async ({ page }) => {
     await page.goto('/forgot-password');
+    await waitForApplicationStyles(page, '#cpf');
     await expectNoHorizontalPageOverflow(page);
-    const email = page.locator('input[type="email"]:visible').first();
-    await expect(email).toBeVisible();
-    await expectInputAvoidsIosZoom(email);
-    await expectMobileControlSize(email);
+    const cpf = page.locator('#cpf:visible').first();
+    await expect(cpf).toBeVisible();
+    await expectInputAvoidsIosZoom(cpf);
+    await expectMobileControlSize(cpf);
   });
 
   test('dashboard sem sessão redireciona sem expor conteúdo protegido', async ({ page }) => {
     await page.goto('/dashboard');
     await page.waitForURL(/\/login(?:\?|$)/);
+    await waitForApplicationStyles(page, 'input');
     await expect(page).toHaveURL(/\/login/);
     await expectNoHorizontalPageOverflow(page);
   });

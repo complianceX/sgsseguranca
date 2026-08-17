@@ -295,7 +295,6 @@ export class DdsService {
       siteId: rest.site_id,
       facilitatorId: rest.facilitador_id,
       participantIds,
-      auditorId: rest.auditado_por_id,
     });
 
     const dds = this.ddsRepository.create({
@@ -1118,7 +1117,7 @@ export class DdsService {
     await this.ddsRepository.manager.transaction(async (manager) => {
       // Pessimistic write lock: garante que uploads concorrentes de assinaturas
       // não sobrescrevam uns aos outros de forma silenciosa.
-      await manager
+      const lockedDds = await manager
         .getRepository(Dds)
         .createQueryBuilder('dds')
         .setLock('pessimistic_write')
@@ -1126,12 +1125,23 @@ export class DdsService {
         .andWhere('dds.deleted_at IS NULL')
         .getOne();
 
+      if (!lockedDds) {
+        throw new NotFoundException(`DDS com ID ${id} não encontrado`);
+      }
+      this.assertWorkflowMutable(lockedDds);
+      if (lockedDds.version !== dds.version) {
+        throw new ConflictException(
+          'O DDS foi modificado por outra operação simultânea. Atualize e tente novamente.',
+        );
+      }
+
       await this.signaturesService.replaceDocumentSignatures({
         document_id: id,
         document_type: 'DDS',
         company_id: dds.company_id,
         authenticated_user_id: authenticatedUserId,
         signatures: signaturesToPersist,
+        manager,
       });
       await manager.getRepository(Dds).update(id, {
         photo_reuse_justification: justification,
@@ -1277,10 +1287,7 @@ export class DdsService {
       siteId,
       facilitatorId: rest.facilitador_id ?? dds.facilitador_id,
       participantIds,
-      auditorId:
-        rest.auditado_por_id !== undefined
-          ? rest.auditado_por_id
-          : (dds.auditado_por_id ?? undefined),
+      auditorId: dds.auditado_por_id ?? undefined,
     });
 
     const signatureResetReasons = this.getSignatureResetReasons(

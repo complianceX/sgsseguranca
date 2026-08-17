@@ -1,0 +1,48 @@
+# DDS — Release Unblock: Final 3
+
+Data: 2026-08-16. Escopo restrito aos três gates finais; sem produção, commit, push ou deploy.
+
+## Decisão
+
+`NO-GO`: o gate de secrets continua aberto. Os gates de provider externo e accessibility foram executados no ambiente isolado e passaram nesta rodada.
+
+| Gate | Estado | Evidência atual | Fechamento necessário | Owner/dependência |
+| --- | --- | --- | --- | --- |
+| Secret closure / Gitleaks | **BLOCKED** | Source `backend/src`: 0; seis `.env*.example` tracked: 0; diff/protect: 0; worktree: 191 findings; histórico: 13 findings | Classificar cada finding histórico/artifact, revogar/rotacionar qualquer credencial plausível e repetir scan amplo/history com relatório redigido | Owner de secrets/GitHub + segurança |
+| Provider externo | **PASS runtime sintético** | MinIO S3-compatible privado na VPS; upload `201`, PUT `200`, complete `201`, hash/magic bytes, download autorizado `200/%PDF-`, anônimo `403`, tamper `403`, cross-tenant `403` sem URL e expiração provider `200 → 403`; prefixo final vazio | Repetir com credenciais temporárias do provider escolhido para staging, se o release exigir staging externo distinto | Infra/storage |
+| Accessibility / Axe | **PASS runtime sintético** | Login real sintético; Axe autenticado em Dashboard, lista DDS e formulário DDS nos viewports `390x844`, `430x932`, `1440x900`: `0` serious/critical; teclado mobile `2/2` PASS; correção do texto da Sidebar aplicada | Manter a suíte no CI e repetir em staging após mudanças de tema/layout | Frontend/QA |
+
+## Runtime closure addendum — ambiente isolado
+
+- Auth smoke: CSRF `200`, login `201`, `/auth/me` `200`, empresa e usuário presentes.
+- Storage: provider MinIO interno, bucket privado e credenciais sintéticas somente de teste. Fluxo oficial `presigned → PUT → complete` passou; objeto promovido ficou em `documents/`; GET anônimo retornou `403`.
+- Registry/PDF: registro sintético autorizado retornou `200`, corpo com magic `%PDF-`; URL adulterada `403`; tentativa cross-tenant `403` sem emissão de URL; URL provider com TTL de 5 s retornou `200 → 403`.
+- Hygiene: prefixos `quarantine/` e `documents/` do bucket de teste foram limpos; contagem final de objetos `0`. Nenhum token ou valor de credencial foi registrado.
+- Axe: `3/3` projetos PASS; Dashboard/lista/formulário sem violações `serious` ou `critical`; teclado mobile `2/2` PASS.
+
+## Secret inventory redigido
+
+- Os 191 findings do worktree estão concentrados em logs, `.env` locais não tracked, artefatos `.next`/cache e tipos de regra `generic-api-key`, `cloudflare-api-key`, `jwt`, `openai-api-key` e `sentry-org-token`.
+- Os 13 findings históricos estão em exemplos/documentação, fixtures ou scripts antigos. Serem históricos/sintéticos não prova revogação.
+- Nenhum valor de segredo foi aberto ou emitido no relatório. O gate continua bloqueado por ausência de ownership, rotação e revogação formal.
+
+## Correções acessíveis aplicadas
+
+- `PageHeader` não mantém conteúdo focável dentro de `aria-hidden`.
+- Cards de métricas do Dashboard e fila foram trocados de `<dl>` inválido com wrappers para lista semântica com `role=list/listitem`.
+- O card móvel de documentos DDS deixou de usar `<dl>` com `<div>` direto.
+- Dashboard, lista DDS e formulário DDS definem títulos explícitos em navegação client-side.
+- `tsc --noEmit`, ESLint dos arquivos alterados e Stylelint de `globals.css`: `PASS`.
+
+O rerun Axe autenticado pós-correção foi concluído: `0` violações `serious/critical` nos três viewports. O relatório continua sem certificação GO por causa do gate de secrets.
+
+## Score recalculado
+
+O score-base desta rodada permanece **76/100**; não foi inflado automaticamente pelo fechamento parcial. Provider externo e accessibility deixaram de ser blockers técnicos, mas secrets/readiness ainda impedem GO.
+
+## Próxima evidência mínima
+
+1. Security owner encerra a classificação/rotação dos 13 históricos e 191 artifacts, com prova redigida de revogação e novo scan amplo/history.
+2. Frontend/QA mantém a suíte Axe e repete-a no staging definitivo se o provider/ambiente de release diferir da VPS isolada.
+
+Até o gate de secrets ter evidência verificável de classificação, rotação/revogação e scan final, a certificação permanece `NO-GO`.

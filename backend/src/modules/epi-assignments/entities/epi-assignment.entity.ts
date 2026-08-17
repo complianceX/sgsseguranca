@@ -94,6 +94,27 @@ export class EpiAssignment {
   assinatura_devolucao?: EpiSignatureStamp;
 
   @Column({ nullable: true })
+  pdf_file_key?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_folder_path?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_original_name?: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at?: Date | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  document_code?: string | null;
+
+  @Column({ nullable: true })
+  emitted_by_user_id?: string | null;
+
+  @Column({ nullable: true })
   created_by_id?: string;
 
   @ManyToOne(() => User, { nullable: true })
