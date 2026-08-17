@@ -12,6 +12,8 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
+RUN mkdir -p dist/modules/sophie/kb \
+  && cp src/modules/sophie/kb/*.json dist/modules/sophie/kb/
 RUN npm prune --omit=dev && npm cache clean --force
 
 # ===============================
