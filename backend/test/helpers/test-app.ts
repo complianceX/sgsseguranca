@@ -175,6 +175,9 @@ export class TestApp {
 
     const dbType = this.dataSource.options.type;
     const resetDataSource = await this.getResetDataSource();
+    if (resetDataSource !== this.dataSource) {
+      this.bindSeedRepositories(resetDataSource);
+    }
     if (
       dbType === 'postgres' &&
       this.isLocalTestDatabase() &&
@@ -247,14 +250,24 @@ export class TestApp {
 
     if (!this.resetDataSource) {
       this.resetDataSource = new DataSource({
-        type: 'postgres',
+        ...this.dataSource.options,
+        name: 'test-admin-reset',
         url: adminUrl,
         ssl: process.env.DATABASE_SSL === 'true',
+        migrations: [],
+        synchronize: false,
       });
       await this.resetDataSource.initialize();
     }
 
     return this.resetDataSource;
+  }
+
+  private bindSeedRepositories(dataSource: DataSource): void {
+    this.companiesRepo = dataSource.getRepository(Company);
+    this.sitesRepo = dataSource.getRepository(Site);
+    this.profilesRepo = dataSource.getRepository(Profile);
+    this.usersRepo = dataSource.getRepository(User);
   }
 
   private async resetRedisEphemeralState(): Promise<void> {
