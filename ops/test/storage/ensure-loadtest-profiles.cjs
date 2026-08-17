@@ -28,9 +28,9 @@ async function main() {
     for (const profileName of REQUIRED_PROFILES) {
       await client.query(
         `INSERT INTO profiles (nome, permissoes, status)
-         SELECT $1, '{}'::jsonb, true
+         SELECT $1::varchar, '{}'::jsonb, true
          WHERE NOT EXISTS (
-           SELECT 1 FROM profiles WHERE nome = $1 AND status = true
+           SELECT 1 FROM profiles WHERE nome = $1::varchar AND status = true
          )`,
         [profileName],
       );
