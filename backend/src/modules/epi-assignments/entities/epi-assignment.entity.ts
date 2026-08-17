@@ -93,7 +93,7 @@ export class EpiAssignment {
   @Column({ type: 'jsonb', nullable: true })
   assinatura_devolucao?: EpiSignatureStamp;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   pdf_file_key?: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -111,7 +111,7 @@ export class EpiAssignment {
   @Column({ type: 'varchar', length: 100, nullable: true })
   document_code?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   emitted_by_user_id?: string | null;
 
   @Column({ nullable: true })

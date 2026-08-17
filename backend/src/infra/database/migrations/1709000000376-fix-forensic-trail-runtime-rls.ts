@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * também existia uma policy restritiva; isso quebrava o login sem ALS e não
  * expressava corretamente a regra de contexto ausente = deny.
  */
-export class FixForensicTrailRuntimeRls1709000000376
-  implements MigrationInterface
-{
+export class FixForensicTrailRuntimeRls1709000000376 implements MigrationInterface {
   name = 'FixForensicTrailRuntimeRls1709000000376';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

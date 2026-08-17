@@ -190,7 +190,7 @@ export class SignaturesService {
     });
     return this.signaturesRepository.manager.transaction(async (manager) => {
       if (documentType.toLowerCase() === 'dds') {
-        const lockedDdsRows = await manager.query(
+        const lockedDdsRows: unknown = await manager.query(
           `SELECT id
              FROM dds
             WHERE id = $1
@@ -204,17 +204,15 @@ export class SignaturesService {
           throw new NotFoundException('DDS não encontrado para assinatura.');
         }
 
-        const activeSignature = await manager
-          .getRepository(Signature)
-          .findOne({
-            where: {
-              document_id: createSignatureDto.document_id,
-              document_type: documentType,
-              company_id: documentScope.companyId,
-              user_id: authenticatedUserId,
-              deleted_at: IsNull(),
-            },
-          });
+        const activeSignature = await manager.getRepository(Signature).findOne({
+          where: {
+            document_id: createSignatureDto.document_id,
+            document_type: documentType,
+            company_id: documentScope.companyId,
+            user_id: authenticatedUserId,
+            deleted_at: IsNull(),
+          },
+        });
 
         if (activeSignature) {
           throw new ConflictException(
