@@ -1510,7 +1510,7 @@ describe('DdsService', () => {
       1,
     );
     expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledWith(
-      expect.objectContaining({ manager: expect.any(Object) }),
+      expect.objectContaining({ manager: expect.any(Object) as unknown }),
     );
   });
 

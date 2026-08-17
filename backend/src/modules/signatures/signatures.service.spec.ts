@@ -327,7 +327,7 @@ describe('SignaturesService', () => {
         document_type: 'DDS',
         company_id: 'company-1',
         user_id: 'user-1',
-      }),
+      }) as unknown,
     });
   });
 

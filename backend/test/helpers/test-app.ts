@@ -109,6 +109,7 @@ export class TestApp {
   private usersRepo: Repository<User>;
   private passwordService: PasswordService;
   private redisClient?: Redis;
+  private resetDataSource?: DataSource;
   seed: Record<TenantKey, SeedTenant>;
 
   static async create(): Promise<TestApp> {
@@ -162,6 +163,9 @@ export class TestApp {
       if (this.dataSource?.isInitialized) {
         await this.dataSource.destroy().catch(() => undefined);
       }
+      if (this.resetDataSource?.isInitialized) {
+        await this.resetDataSource.destroy().catch(() => undefined);
+      }
       await this.waitForSocketDrain();
     }
   }
@@ -170,6 +174,7 @@ export class TestApp {
     await this.resetRedisEphemeralState();
 
     const dbType = this.dataSource.options.type;
+    const resetDataSource = await this.getResetDataSource();
     if (
       dbType === 'postgres' &&
       this.isLocalTestDatabase() &&
@@ -197,7 +202,7 @@ export class TestApp {
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
       await this.dataSource.synchronize(false);
     } else if (dbType === 'postgres') {
-      await this.dataSource.query(`
+      await resetDataSource.query(`
         DO $$
         DECLARE
           table_names TEXT;
@@ -232,6 +237,24 @@ export class TestApp {
       await this.dataSource.synchronize(true);
     }
     await this.seedBaseData();
+  }
+
+  private async getResetDataSource(): Promise<DataSource> {
+    const adminUrl = process.env.DATABASE_ADMIN_URL;
+    if (!adminUrl || this.dataSource.options.type !== 'postgres') {
+      return this.dataSource;
+    }
+
+    if (!this.resetDataSource) {
+      this.resetDataSource = new DataSource({
+        type: 'postgres',
+        url: adminUrl,
+        ssl: process.env.DATABASE_SSL === 'true',
+      });
+      await this.resetDataSource.initialize();
+    }
+
+    return this.resetDataSource;
   }
 
   private async resetRedisEphemeralState(): Promise<void> {
