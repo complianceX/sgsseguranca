@@ -55,3 +55,23 @@ O score-base desta rodada permanece **76/100**; não foi inflado automaticamente
 2. Frontend/QA mantém a suíte Axe e repete-a no staging definitivo se o provider/ambiente de release diferir da VPS isolada.
 
 Até o gate de secrets ter evidência verificável de classificação, rotação/revogação e scan final, a certificação permanece `NO-GO`.
+
+## Runtime verification addendum — VPS isolada — 2026-08-17
+
+Execução realizada na VPS de testes `sgs-loadtest`, com dados sintéticos e sem
+produção. O código foi publicado nos commits `6dd6fbf5` e `f0fe843d`.
+
+| Prova | Resultado | Evidência redigida |
+| --- | --- | --- |
+| Migrations/runtime grants | PASS | `2` migrations aplicadas; `sgs_admin` com `LOGIN`, `sgs_rls_bypass` e grants mínimos em `forensic_trail_events`/`companies`; `sgs_app` com `bypassrls=false` e sem membership de bypass |
+| Forensic/RLS | PASS | tenant A insere/lê; tenant B não lê A; contexto ausente rejeita; login persiste `LOGIN_SUCCESS` |
+| Auth/DDS | PASS | CSRF `200`, login `201`, `/auth/me` `200`, people `200` com `11` registros sintéticos, DDS `200` |
+| Provider/storage | PASS | presigned `201`, PUT `200`, complete `201`, SHA/magic bytes, namespace `documents/`, anônimo `403`, tamper `403` |
+| Registry/PDF | PASS | download autorizado `200` com `%PDF-`, anônimo `403`, expiração `200 → 403`, cross-tenant `403` sem URL, fixture removido |
+| Hygiene/health | PASS | bucket final com `0` objetos; DDS sintético pendente `0`; API healthy; health público `200`; endpoints protegidos sem credencial `401`; logs pós-correção sem erros de RLS |
+
+Essa rodada fecha os blockers técnicos verificáveis do ambiente isolado. Ela
+não substitui o fechamento formal do inventário Gitleaks histórico/worktree,
+nem prova o provider Backblaze de staging/produção se ele diferir do MinIO de
+teste. A decisão de release permanece `NO-GO` até o gate de secrets ter scan,
+classificação e evidência de rotação/revogação.
