@@ -129,7 +129,8 @@ const resetTestDatabase = async (
          AND tablename NOT IN (
            SELECT c.relname FROM pg_inherits i
            JOIN pg_class c ON c.oid = i.inhrelid
-         )`,
+         )
+         AND tablename <> 'migrations'`,
     );
     if (tables.length > 0) {
       const tableList = tables.map((t) => `"${t.tablename}"`).join(', ');
