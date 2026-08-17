@@ -58,7 +58,7 @@ describeE2E(
       );
       csrfHeaders = await testApp.csrfHeaders();
 
-      const profileRowsRaw: unknown = await testApp.dataSource.query(
+      const profileRowsRaw: unknown = await testApp.setupQuery(
         'SELECT id FROM profiles WHERE nome = $1 LIMIT 1',
         [Role.ADMIN_GERAL],
       );
@@ -277,7 +277,7 @@ describeE2E(
 
         expect(response.status).toBe(200);
 
-        const auditRows = await testApp.dataSource.query<Array<{ ok: number }>>(
+        const auditRows = await testApp.setupQuery<Array<{ ok: number }>>(
           `
             SELECT 1 AS ok
             FROM forensic_trail_events

@@ -334,7 +334,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
 
       // Confirma via SQL que deleted_at foi preenchido (soft delete real)
       const rows: Array<{ id: string; deleted_at: string | null }> =
-        await testApp.dataSource.query(
+        await testApp.setupQuery(
           'SELECT id, deleted_at FROM aprs WHERE id = $1',
           [toDelete.id],
         );

@@ -240,7 +240,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const rows: Array<{
       closed_at?: string | null;
       resolved_by?: string | null;
-    }> = await testApp.dataSource.query(
+    }> = await testApp.setupQuery(
       `
         SELECT closed_at, resolved_by
         FROM nonconformities
