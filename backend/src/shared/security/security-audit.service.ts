@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { TenantService } from '../tenant/tenant.service';
 import { ForensicTrailService } from '../../modules/forensic-trail/forensic-trail.service';
 import { RequestContext } from '../middleware/request-context.middleware';
 import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
+import { PrivilegedDbService } from '../database/privileged-db.service';
 
 export enum SecurityEventType {
   // Authentication lifecycle
@@ -79,6 +80,7 @@ export class SecurityAuditService implements OnModuleDestroy {
   constructor(
     private readonly tenantService: TenantService,
     private readonly forensicTrail: ForensicTrailService,
+    @Optional() private readonly privilegedDb?: PrivilegedDbService,
   ) {}
 
   emit(event: Omit<SecurityEvent, 'timestamp'>): void {
@@ -459,7 +461,7 @@ export class SecurityAuditService implements OnModuleDestroy {
     }
 
     try {
-      await this.forensicTrail.append({
+      const forensicInput = {
         eventType: entry.event,
         module: 'security',
         entityId: entry.userId || entry.ip || 'anonymous',
@@ -470,7 +472,27 @@ export class SecurityAuditService implements OnModuleDestroy {
         userAgent: entry.userAgent ?? RequestContext.get('userAgent') ?? null,
         metadata: this.sanitizeMetadata(entry.metadata),
         occurredAt: new Date(entry.timestamp),
-      });
+      };
+
+      if (this.privilegedDb?.isEnabled()) {
+        await this.privilegedDb.withPrivilegedClient(async (client) => {
+          await client.query('BEGIN');
+          try {
+            await client.query("SET LOCAL app.is_super_admin = 'true'");
+            await this.forensicTrail.appendWithPrivilegedClient(
+              forensicInput,
+              client,
+            );
+            await client.query('COMMIT');
+          } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+          }
+        });
+        return;
+      }
+
+      await this.forensicTrail.append(forensicInput);
     } catch (error) {
       this.logger.error({
         event: 'security_audit_forensic_persist_failed',

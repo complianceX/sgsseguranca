@@ -94,7 +94,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     const mappedConsentVersionId = randomUUID();
     const replacementConsentVersionId = randomUUID();
     const mappedUserConsentId = randomUUID();
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       `INSERT INTO consent_versions (
          id, type, version_label, body_md, body_hash, summary,
          effective_at, retired_at
@@ -108,7 +108,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
         'Evidência E2E de restore privilegiado.',
       ],
     );
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       `INSERT INTO consent_versions (
          id, type, version_label, body_md, body_hash, summary,
          effective_at, retired_at
@@ -122,7 +122,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
         'Evidência E2E de reconciliação de consentimento.',
       ],
     );
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       `INSERT INTO user_consents (
          id, user_id, company_id, type, version_id, accepted_at,
          migrated_from_legacy, notes
@@ -136,7 +136,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
         'Evidência E2E de restore privilegiado.',
       ],
     );
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       `INSERT INTO user_consents (
          id, user_id, company_id, type, version_id, accepted_at,
          migrated_from_legacy, notes
@@ -253,7 +253,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       .set(testApp.authHeaders(adminSession));
     expect(missingAfterDelete.status).toBe(404);
 
-    const deletedRowsRaw: unknown = await testApp.dataSource.query(
+    const deletedRowsRaw: unknown = await testApp.setupQuery(
       'SELECT deleted_at FROM aprs WHERE id = $1',
       [createdApr.id],
     );
@@ -266,15 +266,15 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     }>;
     expect(deletedRows[0]?.deleted_at).toBeTruthy();
 
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       'DELETE FROM user_consents WHERE id = ANY($1::uuid[])',
       [[userConsentId, mappedUserConsentId]],
     );
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       'DELETE FROM consent_versions WHERE id = ANY($1::uuid[])',
       [[consentVersionId, mappedConsentVersionId]],
     );
-    await testApp.dataSource.query(
+    await testApp.setupQuery(
       `INSERT INTO consent_versions (
          id, type, version_label, body_md, body_hash, summary,
          effective_at, retired_at
@@ -341,7 +341,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(restoredApr.id).toBe(createdApr.id);
     expect(restoredApr.titulo).toBe('APR DR Restore');
 
-    const restoredRowsRaw: unknown = await testApp.dataSource.query(
+    const restoredRowsRaw: unknown = await testApp.setupQuery(
       'SELECT deleted_at FROM aprs WHERE id = $1',
       [createdApr.id],
     );
@@ -354,7 +354,7 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     }>;
     expect(restoredRows[0]?.deleted_at ?? null).toBeNull();
 
-    const restoredConsentRows = await testApp.dataSource.query<
+    const restoredConsentRows = await testApp.setupQuery<
       Array<{
         inserted_version_count: number;
         source_version_count: number;

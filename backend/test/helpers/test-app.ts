@@ -242,6 +242,15 @@ export class TestApp {
     await this.seedBaseData();
   }
 
+  async setupQuery<T = unknown>(
+    query: string,
+    parameters?: unknown[],
+  ): Promise<T> {
+    const dataSource = await this.getResetDataSource();
+    const result: unknown = await dataSource.query(query, parameters);
+    return result as T;
+  }
+
   private async getResetDataSource(): Promise<DataSource> {
     const adminUrl = process.env.DATABASE_ADMIN_URL;
     if (!adminUrl || this.dataSource.options.type !== 'postgres') {
