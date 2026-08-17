@@ -249,10 +249,18 @@ export class TestApp {
     }
 
     if (!this.resetDataSource) {
+      const parsedAdminUrl = new URL(adminUrl);
       this.resetDataSource = new DataSource({
         ...this.dataSource.options,
         name: 'test-admin-reset',
-        url: adminUrl,
+        url: undefined,
+        host: parsedAdminUrl.hostname,
+        port: parsedAdminUrl.port
+          ? Number(parsedAdminUrl.port)
+          : this.dataSource.options.port,
+        username: decodeURIComponent(parsedAdminUrl.username),
+        password: decodeURIComponent(parsedAdminUrl.password),
+        database: parsedAdminUrl.pathname.replace(/^\//, ''),
         ssl: process.env.DATABASE_SSL === 'true',
         migrations: [],
         synchronize: false,
