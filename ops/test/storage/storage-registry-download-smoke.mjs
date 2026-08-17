@@ -1,7 +1,18 @@
 import crypto from 'node:crypto';
-import { Client } from 'pg';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createRequire } from 'node:module';
+
+// O runner é montado em /opt/load-test, enquanto as dependências vivem em /app.
+// Resolver pelo package.json da aplicação mantém o teste determinístico dentro
+// do container sem duplicar dependências no diretório de operações.
+const require = createRequire('/app/package.json');
+const { Client } = require('pg');
+const {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const baseUrl = process.env.LOADTEST_API_URL || 'http://api-loadtest:3001';
 const otherCompanyId = '00000000-0000-4000-8000-000000000099';
@@ -96,11 +107,7 @@ try {
 console.log(`PROMOTED_OBJECT=${promotedHeadStatus}`);
 
 const db = new Client({
-  host: 'postgres-loadtest',
-  port: 5432,
-  database: 'sgs_loadtest',
-  user: process.env.POSTGRES_MIGRATOR_USER,
-  password: process.env.POSTGRES_MIGRATOR_PASSWORD,
+  connectionString: process.env.DATABASE_MIGRATION_URL,
 });
 await db.connect();
 const registryId = crypto.randomUUID();
