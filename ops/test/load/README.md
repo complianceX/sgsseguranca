@@ -1,14 +1,14 @@
 # Load Test (k6)
 
-Este diretório expõe os comandos operacionais de carga no caminho padrão `test/load`.
+Este diretório contém os comandos operacionais de carga do ambiente de testes.
 
 ## Scripts
 
-- `test/load/k6-load-test.js`
+- `ops/test/load/k6-load-test.js`
 : suíte principal (login, dashboard, paginação APR, criação de APR, Sophie).
-- `test/load/seed-tenants.ts`
+- `ops/test/load/seed-tenants.ts`
 : seed de carga (100 tenants, 500 APRs por tenant).
-- `test/load/k6-50-companies.js`
+- `ops/test/load/k6-50-companies.js`
 : cenário legado de baseline simplificado.
 
 ## Pré-requisitos
@@ -23,7 +23,7 @@ PowerShell:
 
 ```powershell
 cd backend
-node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register ../test/load/seed-tenants.ts
+node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register ../ops/test/load/seed-tenants.ts
 ```
 
 ## Execução da suíte principal
@@ -33,7 +33,7 @@ PowerShell:
 ```powershell
 $env:BASE_URL="http://localhost:3001"
 $env:K6_SCENARIO_PROFILE="baseline"  # smoke | baseline | stress
-k6 run test/load/k6-load-test.js
+k6 run ../ops/test/load/k6-load-test.js
 ```
 
 ## Thresholds esperados (baseline)

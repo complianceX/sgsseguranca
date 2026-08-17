@@ -1,10 +1,14 @@
 #!/bin/sh
 set -eu
 
-target=/opt/sgs-loadtest/infra/load-test/.env.storage-test
+# O arquivo fica ao lado do override Compose canônico do ambiente de testes.
+# O caminho é exclusivo da VPS isolada e não deve ser usado em produção.
+target=/opt/sgs-loadtest/ops/test/compose/.env.storage-test
 umask 077
 minio_user="sgsdds$(openssl rand -hex 8)"
 minio_password="$(openssl rand -hex 32)"
+
+sudo -n install -d -m 0700 "$(dirname "$target")"
 
 {
   printf '%s\n' "MINIO_ROOT_USER=$minio_user"

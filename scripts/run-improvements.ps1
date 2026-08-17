@@ -141,7 +141,7 @@ Write-Host "📋 Próximas Ações:" -ForegroundColor Yellow
 Write-Host "  1. Revisar relatórios de índices (output acima)"
 Write-Host "  2. Se houver índices não usados (idx_scan = 0):"
 Write-Host "     DROP INDEX CONCURRENTLY idx_name_unused;"
-Write-Host "  3. Rodar load test: k6 run test/load/k6-load-test.js"
+Write-Host "  3. Rodar load test: k6 run ops/test/load/k6-load-test.js"
 Write-Host "  4. Validar Performance (P95 < 1s para APRs)"
 Write-Host ""
 Write-Host "🚀 Para implementar melhorias de código:" -ForegroundColor Yellow

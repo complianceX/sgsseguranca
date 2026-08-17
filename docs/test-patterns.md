@@ -11,7 +11,7 @@
 | **Unit** | `jest.config.js` | `*.spec.ts` | Junto ao source |
 | **Smoke** | `jest-smoke.json` | `*.smoke-spec.ts` | Junto ao source |
 | **E2E** | `jest-e2e.config.ts` | `*.e2e-spec.ts` | `test/` |
-| **Load** | k6 scripts | `*.js` | `test/load/` |
+| **Load** | k6 scripts | `*.js` | `ops/test/load/` e `backend/test/load/` |
 
 Frontend: `jest.config.cjs` com `next/jest` + jsdom. Nenhum teste implementado ainda.
 
@@ -276,7 +276,8 @@ Testes verificam:
 
 ## Load Tests (k6)
 
-Localizados em `test/load/`:
+Os wrappers operacionais ficam em `ops/test/load/`; a implementação e os
+fixtures específicos do backend ficam em `backend/test/load/`:
 
 | Script | Perfil |
 |--------|--------|

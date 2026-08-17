@@ -281,7 +281,7 @@ Em dev, se estiver rodando com `ts-node`, pode precisar de path diferente.
 
 **Solução:**
 ```bash
-cd backend && docker compose -f docker-compose.test.yml up -d
+cd backend && docker compose -f ../ops/test/compose/docker-compose.e2e.yml up -d
 ```
 
 ---

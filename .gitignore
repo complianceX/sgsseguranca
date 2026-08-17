@@ -93,6 +93,7 @@ backend/test/load/*summary*.json
 backend/test/load/*report*.txt
 backend/test/load/reports/
 backend/test/load/tenants.auth.json
+backend/test/load/tenants.json
 backend/test/load/fixtures/login-users.generated*.json
 backend/test/load/fixtures/*.generated*.json
 

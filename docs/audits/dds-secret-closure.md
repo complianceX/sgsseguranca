@@ -24,7 +24,7 @@ Data: 2026-08-17. Escopo: fechamento de secrets para o release DDS; nenhum valor
 | Escopo | Resultado | Evidência |
 | --- | --- | --- |
 | `backend/src` | PASS | `gitleaks dir backend/src --redact`: `no leaks found` |
-| `ops/dev` | PASS | `gitleaks dir ops/dev --redact`: `no leaks found` |
+| `ops/test` | PASS | `gitleaks dir ops/test --redact`: `no leaks found` |
 | Diff/protect atual | PASS | `gitleaks protect --redact`: `0 commits scanned`, `no leaks found` |
 | Histórico `--all` | BLOCKED | 13 findings redigidos em fixtures, exemplos/documentação e script temporário antigo |
 | Local env/artifacts | PASS | 203 ocorrências atuais foram movidas para quarentena temporária recuperável fora do repositório; novo `gitleaks dir --redact`: `0` |

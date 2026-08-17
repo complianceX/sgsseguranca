@@ -6,7 +6,7 @@
  *   node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --dry-run
  *   node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --clean
  *
- * Variáveis de ambiente (opcionais — padrões apontam para o docker-compose.test.yml):
+ * Variáveis de ambiente (opcionais — padrões apontam para o Compose isolado de E2E):
  *   DATABASE_HOST, DATABASE_PORT, DATABASE_NAME (ou POSTGRES_DB)
  *   DATABASE_USER (ou POSTGRES_USER), DATABASE_PASSWORD (ou POSTGRES_PASSWORD)
  *

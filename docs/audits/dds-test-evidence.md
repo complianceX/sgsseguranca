@@ -85,4 +85,4 @@ Evidência posterior executada na VPS isolada: provider MinIO S3-compatible priv
 
 A suíte Axe autenticada foi criada em `frontend/e2e/dds-axe-authenticated.spec.ts` e passou em `3/3` viewports (`390x844`, `430x932`, `1440x900`) com `0` violações `serious/critical` em Dashboard, lista DDS e formulário. A suíte de teclado mobile passou `2/2`. O achado desktop de contraste no nome do usuário foi corrigido em `frontend/src/components/Sidebar.tsx`.
 
-O veredito global continua `NO-GO` exclusivamente pelo gate Gitleaks/secrets: source, `ops/dev` e worktree atual estão sem findings na varredura redigida desta rodada; os `13` históricos ainda exigem classificação, rotação/revogação formal e scan history final.
+O veredito global continua `NO-GO` exclusivamente pelo gate Gitleaks/secrets: source, `ops/test` e worktree atual estão sem findings na varredura redigida desta rodada; os `13` históricos ainda exigem classificação, rotação/revogação formal e scan history final.
