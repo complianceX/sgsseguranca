@@ -47,10 +47,18 @@ export class CreateInspectionsTable1709000000378 implements MigrationInterface {
       ON "inspections" ("responsavel_id")
     `);
 
-    await queryRunner.query(`ALTER TABLE "inspections" ENABLE ROW LEVEL SECURITY`);
-    await queryRunner.query(`ALTER TABLE "inspections" FORCE ROW LEVEL SECURITY`);
-    await queryRunner.query(`DROP POLICY IF EXISTS "tenant_isolation_policy" ON "inspections"`);
-    await queryRunner.query(`DROP POLICY IF EXISTS "site_scope_isolation_policy" ON "inspections"`);
+    await queryRunner.query(
+      `ALTER TABLE "inspections" ENABLE ROW LEVEL SECURITY`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "inspections" FORCE ROW LEVEL SECURITY`,
+    );
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "inspections"`,
+    );
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "site_scope_isolation_policy" ON "inspections"`,
+    );
     await queryRunner.query(`
       CREATE POLICY "site_scope_isolation_policy"
       ON "inspections"

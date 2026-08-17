@@ -1,9 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Permite validar o tenant por conexão privilegiada sem elevar sgs_app. */
-export class GrantTenantValidationToSgsAdmin1709000000380
-  implements MigrationInterface
-{
+export class GrantTenantValidationToSgsAdmin1709000000380 implements MigrationInterface {
   name = 'GrantTenantValidationToSgsAdmin1709000000380';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
