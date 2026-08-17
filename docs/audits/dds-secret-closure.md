@@ -14,6 +14,13 @@ Data: 2026-08-17. Escopo: fechamento de secrets para o release DDS; nenhum valor
 - Os buckets Cloudflare `site-sgs-seguranca-opennext-cache` e `wanderson-gandra-docs` foram preservados por estarem fora do escopo confirmado.
 - A remoção dos buckets não revoga credenciais históricas. A revogação/rotação do token R2 continua pendente porque a sessão usada não possui permissão de gerenciamento de tokens.
 
+### Atestado do owner — 2026-08-17
+
+- O owner informou que o token Cloudflare R2 associado ao histórico foi revogado.
+- Nenhum valor do token foi aberto ou registrado.
+- O scan histórico continua reportando os 13 registros porque os commits antigos permanecem imutáveis; isso não prova que o token continue ativo.
+- A confirmação independente por API não foi possível nesta sessão (`403` por ausência de permissão de gerenciamento de tokens). O fechamento formal ainda requer ticket ou evidência redigida do Cloudflare.
+
 | Escopo | Resultado | Evidência |
 | --- | --- | --- |
 | `backend/src` | PASS | `gitleaks dir backend/src --redact`: `no leaks found` |

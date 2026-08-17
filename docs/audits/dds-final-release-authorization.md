@@ -36,6 +36,8 @@ Os 203 findings do inventário local foram movidos para quarentena recuperável 
 
 Após autorização explícita, `sgs-02` e `sgs-03` foram excluídos. Em `sgs-01`, a regra de retenção `governed-documents-365d` foi removida, os 71 objetos restantes foram apagados e o bucket foi excluído. Os buckets Cloudflare `site-sgs-seguranca-opennext-cache` e `wanderson-gandra-docs` foram preservados. Essa ação não revoga a credencial histórica; a rotação/revogação do token ainda exige owner com permissão de gerenciamento de tokens.
 
+O owner informou em 2026-08-17 que o token histórico foi revogado. A informação foi registrada como atestado, sem valor secreto; falta anexar evidência redigida/ticket para converter `Verified Revoked: 0` em prova auditável.
+
 ### Resumo final de secrets
 
 ```text
