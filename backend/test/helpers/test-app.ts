@@ -262,6 +262,9 @@ export class TestApp {
         password: decodeURIComponent(parsedAdminUrl.password),
         database: parsedAdminUrl.pathname.replace(/^\//, ''),
         ssl: process.env.DATABASE_SSL === 'true',
+        extra: {
+          options: '-c app.is_super_admin=true',
+        },
         migrations: [],
         synchronize: false,
       });
