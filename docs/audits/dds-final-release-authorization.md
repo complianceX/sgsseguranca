@@ -1,6 +1,6 @@
 # DDS — Final Release Authorization
 
-Data: 2026-08-16. Escopo restrito aos três gates finais de autorização. Sem produção, commit, push ou deploy; nenhum segredo, dado real ou storage real foi usado.
+Data: 2026-08-17. Escopo restrito aos três gates finais de autorização. Sem produção, commit, push ou deploy; nenhum segredo ou dado de produção foi aberto. A retirada administrativa do R2 legado está registrada abaixo.
 
 ## Veredito
 
@@ -31,6 +31,10 @@ Nenhum valor, token, hash ou fingerprint é exibido. A classificação abaixo é
 | **Total** |  |  | **13** |  |  |
 
 Os 203 findings do inventário local foram movidos para quarentena recuperável fora do repositório; o scan atual do worktree retornou `0`. O histórico de 13 findings permanece pendente de ownership, classificação e revogação.
+
+### Retirada do R2 legado
+
+Após autorização explícita, `sgs-02` e `sgs-03` foram excluídos. Em `sgs-01`, a regra de retenção `governed-documents-365d` foi removida, os 71 objetos restantes foram apagados e o bucket foi excluído. Os buckets Cloudflare `site-sgs-seguranca-opennext-cache` e `wanderson-gandra-docs` foram preservados. Essa ação não revoga a credencial histórica; a rotação/revogação do token ainda exige owner com permissão de gerenciamento de tokens.
 
 ### Resumo final de secrets
 

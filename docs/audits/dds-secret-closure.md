@@ -6,6 +6,14 @@ Data: 2026-08-17. Escopo: fechamento de secrets para o release DDS; nenhum valor
 
 `NO-GO`: o código-fonte, os arquivos tracked auditados, o diff/protect e o worktree atual estão sem findings Gitleaks. O histórico amplo ainda contém 13 findings redigidos em commits antigos.
 
+## Retirada do R2 legado — 2026-08-17
+
+- O storage oficial documentado do SGS é Backblaze B2; o R2 abaixo era legado e não foi usado nesta operação.
+- `sgs-02` e `sgs-03` foram esvaziados e excluídos na conta Cloudflare.
+- `sgs-01` teve a regra `governed-documents-365d` removida após autorização explícita; os 71 objetos restantes foram excluídos e o bucket foi removido.
+- Os buckets Cloudflare `site-sgs-seguranca-opennext-cache` e `wanderson-gandra-docs` foram preservados por estarem fora do escopo confirmado.
+- A remoção dos buckets não revoga credenciais históricas. A revogação/rotação do token R2 continua pendente porque a sessão usada não possui permissão de gerenciamento de tokens.
+
 | Escopo | Resultado | Evidência |
 | --- | --- | --- |
 | `backend/src` | PASS | `gitleaks dir backend/src --redact`: `no leaks found` |

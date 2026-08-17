@@ -25,6 +25,8 @@ Data: 2026-08-17. Escopo restrito aos três gates finais; sem produção, commit
 - Os 203 findings do diretório de trabalho foram identificados como `.env` locais, logs, cache/build e artefatos Vercel/Puppeteer não tracked.
 - Esses artefatos foram movidos para quarentena temporária recuperável fora do repositório; o scan amplo atual retornou `0` findings.
 - O scan histórico completo continua em `13` findings. Não houve reescrita de histórico nem force-push.
+- O R2 legado foi parcialmente retirado: `sgs-02` e `sgs-03` foram excluídos; `sgs-01` teve a retenção removida sob autorização explícita, seus 71 objetos restantes foram apagados e o bucket também foi excluído. Backblaze B2 não foi alterado.
+- A retirada dos buckets não comprova revogação da credencial histórica; esse fechamento continua dependente do owner de tokens do Cloudflare/GitHub.
 - O PR técnico passou backend, frontend, DR, E2E crítico e todos os scans CI; isso não substitui a revogação externa dos históricos.
 
 ## Secret inventory redigido
