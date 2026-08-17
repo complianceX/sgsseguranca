@@ -46,12 +46,15 @@ const login = await fetch(`${baseUrl}/auth/login`, {
   }),
 });
 const loginPayload = await login.json();
+console.log(`REGISTRY_LOGIN_STATUS=${login.status}`);
 const token = loginPayload.accessToken || loginPayload.access_token;
 const me = await (await fetch(`${baseUrl}/auth/me`, {
   headers: { authorization: `Bearer ${token}` },
 })).json();
+console.log(`REGISTRY_TOKEN_PRESENT=${Boolean(token)}`);
 const companyId = me.company_id || me.companyId || me.user?.company_id;
 const userId = me.id || me.user?.id || me.user?.userId;
+console.log(`REGISTRY_COMPANY_PRESENT=${Boolean(companyId)}`);
 const headers = {
   authorization: `Bearer ${token}`,
   'x-company-id': companyId,
@@ -67,6 +70,11 @@ const presign = await fetch(`${baseUrl}/storage/presigned-url`, {
   body: JSON.stringify({ filename: 'registry-provider-test.pdf', contentType: 'application/pdf' }),
 });
 const presignPayload = await presign.json();
+console.log(`REGISTRY_PRESIGN_STATUS=${presign.status}`);
+if (!presign.ok || !presignPayload.uploadUrl || !presignPayload.fileKey) {
+  console.log(`REGISTRY_PRESIGN_ERROR=${String(presignPayload.message || 'unknown')}`);
+  throw new Error('registry_presign_failed');
+}
 const put = await fetch(presignPayload.uploadUrl, {
   method: 'PUT',
   headers: { 'content-type': 'application/pdf' },
