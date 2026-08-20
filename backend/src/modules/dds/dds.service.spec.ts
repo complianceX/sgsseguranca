@@ -188,7 +188,12 @@ describe('DdsService', () => {
         setLock: jest.fn().mockReturnThis(),
         whereInIds: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+        getOne: jest.fn().mockResolvedValue({
+          id: 'dds-1',
+          status: DdsStatus.RASCUNHO,
+          pdf_file_key: null,
+          version: undefined,
+        }),
       })),
     };
     const manager = {} as MockManager;
@@ -1503,6 +1508,9 @@ describe('DdsService', () => {
     expect(result.duplicatePhotoWarnings).toHaveLength(0);
     expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledTimes(
       1,
+    );
+    expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledWith(
+      expect.objectContaining({ manager: expect.any(Object) as unknown }),
     );
   });
 

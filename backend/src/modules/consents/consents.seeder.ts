@@ -75,7 +75,10 @@ export class ConsentsSeederService implements OnModuleInit {
   constructor(private readonly consentsService: ConsentsService) {}
 
   async onModuleInit(): Promise<void> {
-    if (process.env.DISABLE_AUTO_CONSENT_SEED === 'true') {
+    if (
+      process.env.DISABLE_AUTO_CONSENT_SEED === 'true' ||
+      process.env.APP_ENV === 'loadtest'
+    ) {
       return;
     }
     await this.seed();

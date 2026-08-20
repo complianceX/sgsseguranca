@@ -6,6 +6,7 @@ import { Epi } from '../epis/entities/epi.entity';
 import { User } from '../users/entities/user.entity';
 import { UsersModule } from '../users/users.module';
 import { EpisModule } from '../epis/epis.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { EpiAssignmentsController } from './epi-assignments.controller';
 import { EpiAssignmentsService } from './epi-assignments.service';
 import { EpiAssignment } from './entities/epi-assignment.entity';
@@ -17,6 +18,7 @@ import { EpiAssignment } from './entities/epi-assignment.entity';
     AuditModule,
     forwardRef(() => UsersModule),
     EpisModule,
+    DocumentRegistryModule,
   ],
   controllers: [EpiAssignmentsController],
   providers: [EpiAssignmentsService],

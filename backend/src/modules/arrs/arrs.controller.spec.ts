@@ -16,6 +16,7 @@ jest.mock('../../shared/interceptors/file-upload.interceptor', () => ({
 describe('ArrsController', () => {
   const arrsService = {
     attachPdf: jest.fn(),
+    generateFinalPdf: jest.fn(),
     updateStatus: jest.fn(),
   };
 
@@ -49,6 +50,19 @@ describe('ArrsController', () => {
       '11111111-1111-4111-8111-111111111111',
       file,
       { userId: 'user-123' },
+    );
+  });
+
+  it('repassa o userId ao gerar o PDF final no backend', async () => {
+    arrsService.generateFinalPdf.mockResolvedValue({ generated: true });
+
+    await controller.generateFinalPdf('11111111-1111-4111-8111-111111111111', {
+      user: { sub: 'user-sub' },
+    } as never);
+
+    expect(arrsService.generateFinalPdf).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'user-sub',
     );
   });
 

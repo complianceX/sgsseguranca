@@ -85,12 +85,14 @@
 
 .input {
   width: 100%;
+  min-height: 44px;
   border-radius: var(--ds-radius-md);
   border: 1px solid var(--ds-color-border-default);
   background: var(--ds-color-surface-base);
   color: var(--ds-color-text-primary);
   padding: 12px 14px;
-  font-size: 0.96rem;
+  /* Mantém o CPF em 16px para evitar zoom automático no Safari/iOS. */
+  font-size: 1rem;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   caret-color: var(--ds-color-action-primary);

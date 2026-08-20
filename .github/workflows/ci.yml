@@ -23,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -120,8 +120,8 @@ jobs:
       DATABASE_NAME: sst_test
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5433
-      E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
+      E2E_DATABASE_USER: sgs_app
+      E2E_DATABASE_PASSWORD: sgs_app_e2e
       E2E_DATABASE_NAME: sst_test
       E2E_PRESERVE_MIGRATED_SCHEMA: true
       DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5433/sst_test
@@ -143,10 +143,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.9.0
           cache: npm
@@ -194,12 +194,38 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5433 -U postgres -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO sgs_admin;
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
+          SQL
+
+      - name: Assert E2E runtime uses non-privileged RLS role
+        env:
+          PGPASSWORD: sgs_app_e2e
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U sgs_app -d sst_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            runtime_role RECORD;
+          BEGIN
+            SELECT r.rolsuper, r.rolbypassrls
+              INTO runtime_role
+              FROM pg_roles r
+             WHERE r.rolname = current_user;
+            IF current_user <> 'sgs_app' THEN
+              RAISE EXCEPTION 'E2E runtime role inesperado: %', current_user;
+            END IF;
+            IF runtime_role.rolsuper OR runtime_role.rolbypassrls THEN
+              RAISE EXCEPTION 'sgs_app possui privilegio de bypass/superuser';
+            END IF;
+            IF pg_has_role(current_user, 'sgs_rls_bypass', 'member') THEN
+              RAISE EXCEPTION 'sgs_app ainda e membro de sgs_rls_bypass';
+            END IF;
+          END
+          $$;
           SQL
 
       - name: Run critical e2e flows
@@ -245,8 +271,8 @@ jobs:
       DATABASE_NAME: sst_test_dr
       E2E_DATABASE_HOST: 127.0.0.1
       E2E_DATABASE_PORT: 5434
-      E2E_DATABASE_USER: neondb_owner
-      E2E_DATABASE_PASSWORD: neondb_owner_e2e
+      E2E_DATABASE_USER: sgs_app
+      E2E_DATABASE_PASSWORD: sgs_app_e2e
       E2E_DATABASE_NAME: sst_test_dr
       E2E_PRESERVE_MIGRATED_SCHEMA: true
       DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5434/sst_test_dr
@@ -269,10 +295,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -320,10 +346,10 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5434 -U postgres -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
           GRANT USAGE ON SCHEMA public TO sgs_admin;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sgs_admin;
+          GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO sgs_admin;
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sgs_admin;
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO sgs_admin;
           ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
             GRANT USAGE, SELECT ON SEQUENCES TO sgs_admin;
 
@@ -353,6 +379,32 @@ jobs:
                 AND relforcerowsecurity
             ) THEN
               RAISE EXCEPTION 'RLS FORCE ausente em companies';
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Assert DR E2E runtime uses non-privileged RLS role
+        env:
+          PGPASSWORD: sgs_app_e2e
+        run: |
+          psql -h 127.0.0.1 -p 5434 -U sgs_app -d sst_test_dr -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            runtime_role RECORD;
+          BEGIN
+            SELECT r.rolsuper, r.rolbypassrls
+              INTO runtime_role
+              FROM pg_roles r
+             WHERE r.rolname = current_user;
+            IF current_user <> 'sgs_app' THEN
+              RAISE EXCEPTION 'DR E2E runtime role inesperado: %', current_user;
+            END IF;
+            IF runtime_role.rolsuper OR runtime_role.rolbypassrls THEN
+              RAISE EXCEPTION 'DR sgs_app possui privilegio de bypass/superuser';
+            END IF;
+            IF pg_has_role(current_user, 'sgs_rls_bypass', 'member') THEN
+              RAISE EXCEPTION 'DR sgs_app ainda e membro de sgs_rls_bypass';
             END IF;
           END
           $$;
@@ -446,7 +498,7 @@ jobs:
 
       - name: Upload DR evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: backend-dr-e2e-evidence
           path: |
@@ -468,10 +520,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm

@@ -243,7 +243,7 @@ Heartbeat do worker em Redis (`WORKER_HEARTBEAT_KEY`) para health check.
 ### Docker
 - `Dockerfile` — Multi-stage build (web, inclui Chromium para Puppeteer)
 - `Dockerfile.worker` — Multi-stage build (worker, Chromium reduzido)
-- `docker-compose.test.yml` — PG 16 + Redis 7 + ClamAV (testes)
+- `ops/test/compose/docker-compose.e2e.yml` — PG 16 + Redis 7 + ClamAV (testes)
 - `docker-compose.observability.yml` — Jaeger + Prometheus + Grafana (dev)
 
 ### CI/CD (GitHub Actions)

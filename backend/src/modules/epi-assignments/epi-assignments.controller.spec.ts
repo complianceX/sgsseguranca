@@ -91,4 +91,27 @@ describe('EpiAssignmentsController lookup endpoints', () => {
       company_id: 'c-1',
     });
   });
+
+  it('repassa o usuário autenticado ao emitir o PDF final governado', async () => {
+    const generateFinalPdfMock = jest
+      .fn()
+      .mockResolvedValue({ generated: true });
+    const assignmentsService = {
+      generateFinalPdf: generateFinalPdfMock,
+    } as unknown as EpiAssignmentsService;
+    const controller = new EpiAssignmentsController(
+      assignmentsService,
+      {} as UsersService,
+      {} as EpisService,
+    );
+
+    await controller.generateFinalPdf('11111111-1111-4111-8111-111111111111', {
+      user: { id: 'actor-1' },
+    } as never);
+
+    expect(generateFinalPdfMock).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'actor-1',
+    );
+  });
 });

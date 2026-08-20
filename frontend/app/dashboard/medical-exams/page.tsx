@@ -134,8 +134,8 @@ export default function MedicalExamsPage() {
     const syncActiveCompanyId = () => {
       setActiveCompanyId(
         selectedTenantStore.get()?.companyId ||
-          sessionStore.get()?.companyId ||
-          null,
+        sessionStore.get()?.companyId ||
+        null,
       );
     };
 
@@ -380,29 +380,29 @@ export default function MedicalExamsPage() {
           loading && exams.length === 0
             ? []
             : [
-          {
-            label: 'Total monitorado',
-            value: summary.total,
-            note: 'ASOs registrados no recorte atual.',
-          },
-          {
-            label: 'ASOs vencidos',
-            value: summary.expired,
-            note: 'Colaboradores fora de conformidade ocupacional.',
-            tone: 'danger',
-          },
-          {
-            label: 'Vencendo em 30 dias',
-            value: summary.expiringSoon,
-            note: 'Prioridade de agenda para evitar bloqueios.',
-            tone: 'warning',
-          },
-          {
-            label: 'Exames validos',
-            value: summary.valid,
-            note: 'Populacao liberada dentro do PCMSO.',
-            tone: 'success',
-          },
+              {
+                label: 'Total monitorado',
+                value: summary.total,
+                note: 'ASOs registrados no recorte atual.',
+              },
+              {
+                label: 'ASOs vencidos',
+                value: summary.expired,
+                note: 'Colaboradores fora de conformidade ocupacional.',
+                tone: 'danger',
+              },
+              {
+                label: 'Vencendo em 30 dias',
+                value: summary.expiringSoon,
+                note: 'Prioridade de agenda para evitar bloqueios.',
+                tone: 'warning',
+              },
+              {
+                label: 'Exames validos',
+                value: summary.valid,
+                note: 'Populacao liberada dentro do PCMSO.',
+                tone: 'success',
+              },
             ]
         }
         toolbarTitle="Exames registrados"
@@ -452,14 +452,14 @@ export default function MedicalExamsPage() {
             />
           ) : null
         }
-    >
-      {loading && exams.length === 0 ? (
-        <div className="p-6">
-          <InlineLoadingState label="Carregando monitor de exames médicos..." />
-        </div>
-      ) : null}
+      >
+        {loading && exams.length === 0 ? (
+          <div className="p-6">
+            <InlineLoadingState label="Carregando monitor de exames médicos..." />
+          </div>
+        ) : null}
 
-      <div className="space-y-4">
+        <div className="space-y-4">
           {!loading && summary.expired > 0 ? (
             <InlineCallout
               tone="danger"
@@ -495,105 +495,105 @@ export default function MedicalExamsPage() {
                 </article>;
               }}
               desktop={() => (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionario</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Resultado</TableHead>
-                  <TableHead>Data realizacao</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Medico responsavel</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {exams.map((exam) => {
-                  const expiryTone = getMedicalExamExpiryTone(exam.data_vencimento);
-
-                  return (
-                    <TableRow key={exam.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
-                            <User className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-[var(--ds-color-text-primary)]">
-                              {exam.user?.nome ?? 'Colaborador'}
-                            </div>
-                            <div className="text-xs text-[var(--ds-color-text-muted)]">
-                              {exam.user?.cpf ? maskCpf(exam.user.cpf) : `ID ${exam.user_id.slice(0, 8)}`}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}
-                      </TableCell>
-                      <TableCell>
-                        <StatusPill tone={getResultTone(exam.resultado)}>
-                          {RESULTADO_LABEL[exam.resultado] ?? exam.resultado}
-                        </StatusPill>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
-                          <Calendar className="h-4 w-4" />
-                          <span>
-                            {formatMedicalExamDateOnly(exam.data_realizacao)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {exam.data_vencimento ? (
-                          <div className="flex flex-col gap-1">
-                            <StatusPill tone={expiryTone.tone}>
-                              {formatMedicalExamDateOnly(exam.data_vencimento)}
-                              {expiryTone.tone === 'warning' && <ShieldAlert className="ml-1.5 h-3.5 w-3.5 inline" />}
-                            </StatusPill>
-                            <span className="text-xs text-[var(--ds-color-text-muted)]">
-                              {expiryTone.label}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[var(--ds-color-text-muted)]">
-                            Sem vencimento
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {exam.medico_responsavel ?? '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            data-offline-action="write"
-                            onClick={() => openEdit(exam)}
-                            title="Editar exame"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            data-offline-action="write"
-                            onClick={() => setDeleteTarget(exam)}
-                            title="Excluir exame"
-                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Funcionario</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Resultado</TableHead>
+                      <TableHead>Data realizacao</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Medico responsavel</TableHead>
+                      <TableHead className="text-right">Acoes</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {exams.map((exam) => {
+                      const expiryTone = getMedicalExamExpiryTone(exam.data_vencimento);
+
+                      return (
+                        <TableRow key={exam.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+                                <User className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-[var(--ds-color-text-primary)]">
+                                  {exam.user?.nome ?? 'Colaborador'}
+                                </div>
+                                <div className="text-xs text-[var(--ds-color-text-muted)]">
+                                  {exam.user?.cpf ? maskCpf(exam.user.cpf) : `ID ${exam.user_id.slice(0, 8)}`}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}
+                          </TableCell>
+                          <TableCell>
+                            <StatusPill tone={getResultTone(exam.resultado)}>
+                              {RESULTADO_LABEL[exam.resultado] ?? exam.resultado}
+                            </StatusPill>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {formatMedicalExamDateOnly(exam.data_realizacao)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {exam.data_vencimento ? (
+                              <div className="flex flex-col gap-1">
+                                <StatusPill tone={expiryTone.tone}>
+                                  {formatMedicalExamDateOnly(exam.data_vencimento)}
+                                  {expiryTone.tone === 'warning' && <ShieldAlert className="ml-1.5 h-3.5 w-3.5 inline" />}
+                                </StatusPill>
+                                <span className="text-xs text-[var(--ds-color-text-muted)]">
+                                  {expiryTone.label}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[var(--ds-color-text-muted)]">
+                                Sem vencimento
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[var(--ds-color-text-secondary)]">
+                            {exam.medico_responsavel ?? '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                data-offline-action="write"
+                                onClick={() => openEdit(exam)}
+                                title="Editar exame"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                data-offline-action="write"
+                                onClick={() => setDeleteTarget(exam)}
+                                title="Excluir exame"
+                                className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             />
           )}

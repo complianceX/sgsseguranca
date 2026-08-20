@@ -115,22 +115,28 @@ const isLocalTestDatabase = (): boolean => {
   );
 };
 
-const resetTestDatabase = async (dataSource: DataSource): Promise<void> => {
+const resetTestDatabase = async (
+  dataSource: DataSource,
+  setupDataSource: DataSource,
+): Promise<void> => {
   if (dataSource.options.type === 'postgres' && isLocalTestDatabase()) {
     // Trunca dados preservando o schema completo (funções SECURITY DEFINER, políticas RLS,
     // índices criados pelas migrations). Dropar o schema destruía find_login_user e
     // synchronize(false) não a recriava, quebrando o login no teste.
-    const tables = await dataSource.query<{ tablename: string }[]>(
+    const tables = await setupDataSource.query<{ tablename: string }[]>(
       `SELECT tablename FROM pg_tables
        WHERE schemaname = 'public'
          AND tablename NOT IN (
            SELECT c.relname FROM pg_inherits i
            JOIN pg_class c ON c.oid = i.inhrelid
-         )`,
+         )
+         AND tablename <> 'migrations'`,
     );
     if (tables.length > 0) {
       const tableList = tables.map((t) => `"${t.tablename}"`).join(', ');
-      await dataSource.query(`TRUNCATE ${tableList} RESTART IDENTITY CASCADE`);
+      await setupDataSource.query(
+        `TRUNCATE ${tableList} RESTART IDENTITY CASCADE`,
+      );
     }
     return;
   }
@@ -141,6 +147,7 @@ const resetTestDatabase = async (dataSource: DataSource): Promise<void> => {
 describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  let setupDataSource: DataSource;
   let passwordService: PasswordService;
 
   let companyAId: string;
@@ -164,12 +171,36 @@ describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
     await app.init();
 
     dataSource = moduleFixture.get(DataSource);
+    setupDataSource = dataSource;
+    const adminUrl = process.env.DATABASE_ADMIN_URL;
+    if (adminUrl && dataSource.options.type === 'postgres') {
+      const parsedAdminUrl = new URL(adminUrl);
+      setupDataSource = new DataSource({
+        ...dataSource.options,
+        name: 'idor-test-admin',
+        url: undefined,
+        host: parsedAdminUrl.hostname,
+        port: parsedAdminUrl.port
+          ? Number(parsedAdminUrl.port)
+          : dataSource.options.port,
+        username: decodeURIComponent(parsedAdminUrl.username),
+        password: decodeURIComponent(parsedAdminUrl.password),
+        database: parsedAdminUrl.pathname.replace(/^\//, ''),
+        ssl: process.env.DATABASE_SSL === 'true',
+        extra: {
+          options: '-c app.is_super_admin=true',
+        },
+        migrations: [],
+        synchronize: false,
+      });
+      await setupDataSource.initialize();
+    }
     passwordService = moduleFixture.get(PasswordService);
-    await resetTestDatabase(dataSource);
+    await resetTestDatabase(dataSource, setupDataSource);
     csrfBundle = await getCsrfBundle(app.getHttpServer() as App);
 
     const getOrCreateProfileId = async (name: string): Promise<string> => {
-      const existing = await dataSource.query<IdRow[]>(
+      const existing = await setupDataSource.query<IdRow[]>(
         `SELECT id FROM profiles WHERE nome = $1 LIMIT 1`,
         [name],
       );
@@ -177,7 +208,7 @@ describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
         return existing[0].id;
       }
 
-      const created = await dataSource.query<IdRow[]>(
+      const created = await setupDataSource.query<IdRow[]>(
         `INSERT INTO profiles (id, nome, permissoes, status)
          VALUES (uuid_generate_v4(), $1, '{}'::jsonb, true)
          RETURNING id`,
@@ -212,13 +243,13 @@ describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
     adminGeralProfileId = await getOrCreateProfileId(Role.ADMIN_GERAL);
 
     // Empresas
-    const companyA = await dataSource.query<IdRow[]>(
+    const companyA = await setupDataSource.query<IdRow[]>(
       `INSERT INTO companies (id, razao_social, cnpj, endereco, responsavel, status)
        VALUES (uuid_generate_v4(), 'Company A', $1, 'Rua 1', 'Resp A', true)
        RETURNING id`,
       [randomCnpj()],
     );
-    const companyB = await dataSource.query<IdRow[]>(
+    const companyB = await setupDataSource.query<IdRow[]>(
       `INSERT INTO companies (id, razao_social, cnpj, endereco, responsavel, status)
        VALUES (uuid_generate_v4(), 'Company B', $1, 'Rua 2', 'Resp B', true)
        RETURNING id`,
@@ -233,7 +264,7 @@ describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
     const cpfHashA = hashSensitiveValue(cpfA);
     const cpfCiphertextA = encryptSensitiveValue(cpfA);
     const emailA = `idor-a-${Date.now()}-${Math.floor(Math.random() * 10_000)}@test.com`;
-    const userA = await dataSource.query<IdRow[]>(
+    const userA = await setupDataSource.query<IdRow[]>(
       `INSERT INTO users (
           id, nome, cpf, cpf_hash, cpf_ciphertext, email, password, company_id, profile_id, status, module_access_keys
         )
@@ -271,6 +302,9 @@ describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    if (setupDataSource !== dataSource && setupDataSource?.isInitialized) {
+      await setupDataSource.destroy().catch(() => undefined);
+    }
     if (dataSource?.isInitialized) {
       await dataSource.destroy().catch(() => undefined);
     }

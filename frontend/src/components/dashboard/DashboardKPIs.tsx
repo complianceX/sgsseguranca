@@ -103,13 +103,13 @@ export const KpiCard = memo(function KpiCard({
         </span>
       </div>
       <div className="relative z-[1] flex items-end gap-2">
-        <p className={cn('text-[26px] font-extrabold leading-none tabular-nums', t.value)}>
+        <div className={cn('text-[26px] font-extrabold leading-none tabular-nums', t.value)}>
           {value == null ? (
             <Skeleton className="h-8 w-20" />
           ) : (
             <span className="inline-block">{value}</span>
           )}
-        </p>
+        </div>
         {trend && trend !== 'stable' && (
           <span className="mb-1" aria-hidden="true">
             {trend === 'down'

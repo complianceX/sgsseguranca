@@ -1,4 +1,12 @@
 const { spawnSync } = require('child_process');
+const path = require('path');
+
+const composeFile = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'ops/test/compose/docker-compose.e2e.yml',
+);
 
 function runDocker(args) {
   const result = spawnSync('docker', args, {
@@ -24,7 +32,7 @@ function runNpm(args) {
 let testFailed = false;
 
 try {
-  runDocker(['compose', '-f', 'docker-compose.test.yml', 'up', '-d']);
+  runDocker(['compose', '-f', composeFile, 'up', '-d']);
   runNpm([
     'run',
     'test:e2e',
@@ -42,7 +50,7 @@ try {
     runDocker([
       'compose',
       '-f',
-      'docker-compose.test.yml',
+      composeFile,
       'down',
       '-v',
       '--remove-orphans',

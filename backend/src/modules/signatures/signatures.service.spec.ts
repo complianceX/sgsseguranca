@@ -36,6 +36,7 @@ describe('SignaturesService', () => {
       return Promise.resolve(input);
     }),
     find: jest.fn(() => Promise.resolve([] as Signature[])),
+    findOne: jest.fn(() => Promise.resolve(null as Signature | null)),
     delete: jest.fn(() => Promise.resolve(undefined)),
     softDelete: jest.fn(() => Promise.resolve({ affected: 1 })),
   };
@@ -70,7 +71,7 @@ describe('SignaturesService', () => {
       transaction: jest.fn((callback: (manager: unknown) => unknown) =>
         Promise.resolve(
           callback({
-            query: jest.fn(() => Promise.resolve()),
+            query: jest.fn(() => Promise.resolve([{ id: 'dds-1' }])),
             getRepository: jest.fn(() => transactionalRepository),
           }),
         ),
@@ -269,6 +270,67 @@ describe('SignaturesService', () => {
     );
   };
 
+  it('permite assinatura DDS direta somente para participante vinculado', async () => {
+    dataSource.query.mockResolvedValueOnce([{ user_id: 'user-1' }] as never);
+
+    await expect(
+      service.create(
+        {
+          document_id: 'dds-1',
+          document_type: 'DDS',
+          user_id: 'user-1',
+          signature_data: 'data:image/png;base64,AAAA',
+          type: 'drawn',
+        },
+        'user-1',
+      ),
+    ).resolves.toBeDefined();
+
+    dataSource.query.mockResolvedValueOnce([]);
+    await expect(
+      service.create(
+        {
+          document_id: 'dds-1',
+          document_type: 'DDS',
+          user_id: 'user-2',
+          signature_data: 'data:image/png;base64,BBBB',
+          type: 'drawn',
+        },
+        'user-2',
+      ),
+    ).rejects.toThrow(
+      'Somente participantes vinculados ao DDS podem assiná-lo por este fluxo.',
+    );
+  });
+
+  it('rejeita replay de assinatura DDS direta para o mesmo participante', async () => {
+    dataSource.query.mockResolvedValue([{ user_id: 'user-1' }] as never);
+    transactionalRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'signature-1' } as Signature);
+
+    const input = {
+      document_id: 'dds-1',
+      document_type: 'DDS',
+      user_id: 'user-1',
+      signature_data: 'data:image/png;base64,AAAA',
+      type: 'drawn',
+    } as const;
+
+    await expect(service.create(input, 'user-1')).resolves.toBeDefined();
+    await expect(service.create(input, 'user-1')).rejects.toThrow(
+      'Usuário já possui uma assinatura ativa para este DDS.',
+    );
+    expect(transactionalRepository.findOne).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        document_id: 'dds-1',
+        document_type: 'DDS',
+        company_id: 'company-1',
+        user_id: 'user-1',
+      }) as unknown,
+    });
+  });
+
   it('usa o participante como signatario efetivo ao substituir assinaturas do DDS', async () => {
     await service.replaceDocumentSignatures({
       document_id: 'dds-1',
@@ -370,6 +432,29 @@ describe('SignaturesService', () => {
       SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
     );
     expect(appendOptions.manager).toBeDefined();
+  });
+
+  it('reutiliza o manager recebido sem abrir uma transação aninhada', async () => {
+    const transactionManager = {
+      getRepository: jest.fn(() => transactionalRepository),
+    };
+
+    await service.replaceDocumentSignatures({
+      document_id: 'dds-1',
+      document_type: 'DDS',
+      company_id: 'company-1',
+      authenticated_user_id: 'operador-1',
+      signatures: [],
+      manager: transactionManager as never,
+    });
+
+    expect(repository.manager.transaction).not.toHaveBeenCalled();
+    expect(transactionalRepository.delete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: 'dds-1',
+        document_type: 'DDS',
+      }),
+    );
   });
 
   it('hidrata signature_data externalizado ao listar assinaturas do documento', async () => {

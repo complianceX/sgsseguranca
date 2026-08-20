@@ -1,23 +1,28 @@
 ﻿# ===============================
 # 🏗 STAGE 1 — BUILD
 # ===============================
-FROM node:20-bullseye AS builder
+FROM node:22-bookworm AS builder
 
 WORKDIR /app
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY package*.json ./
-RUN npm ci
+# O postinstall depende de scripts/ensure-puppeteer-browser.cjs, que só é
+# copiado na etapa seguinte. A imagem usa Chromium do sistema, portanto não
+# deve baixar um browser durante npm ci.
+RUN npm ci --ignore-scripts
 
 COPY . .
 RUN npm run build
+RUN mkdir -p dist/modules/sophie/kb \
+  && cp src/modules/sophie/kb/*.json dist/modules/sophie/kb/
 RUN npm prune --omit=dev && npm cache clean --force
 
 # ===============================
 # 🚀 STAGE 2 — RUNTIME
 # ===============================
-FROM node:20-bullseye-slim
+FROM node:22-bookworm-slim
 
 # Dependências mínimas para o Puppeteer gerar PDFs no serviço web.
 RUN apt-get update \

@@ -1,0 +1,30 @@
+services:
+  minio-loadtest:
+    image: minio/minio:latest
+    command: server /data --address ":9000" --console-address ":9001"
+    env_file:
+      - .env.storage-test
+    volumes:
+      - minio-loadtest-data:/data
+    networks:
+      - loadtest-internal
+
+  api-loadtest:
+    env_file:
+      - .env.storage-test
+      - .env.admin
+    environment:
+      S3_FORCE_PATH_STYLE: "true"
+      LOCAL_DOCUMENT_STORAGE_DIR: ""
+
+  seed-loadtest:
+    env_file:
+      - .env.storage-test
+
+volumes:
+  minio-loadtest-data:
+
+networks:
+  loadtest-internal:
+    external: true
+    name: sgs-loadtest-internal

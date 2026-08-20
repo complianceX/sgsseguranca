@@ -26,7 +26,7 @@ import {
   EpiLookupItem,
   EpiLookupUser,
 } from '@/services/epiAssignmentsService';
-import { Plus } from 'lucide-react';
+import { FileDown, Plus } from 'lucide-react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
@@ -116,6 +116,7 @@ export default function EpiFichasPage() {
   } | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const assignmentsRequestRef = useRef(0);
 
   const filteredEpis = useMemo(
@@ -312,6 +313,29 @@ export default function EpiFichasPage() {
       toast.error('Falha ao atualizar a ficha de EPI.');
     } finally {
       setActionSaving(false);
+    }
+  };
+
+  const openGovernedPdf = async (assignment: EpiAssignment) => {
+    try {
+      setPdfLoadingId(assignment.id);
+      const access = assignment.pdf_file_key
+        ? await epiAssignmentsService.getPdfAccess(assignment.id)
+        : await epiAssignmentsService.generateFinalPdf(assignment.id);
+      if (!access.url) {
+        toast.error(access.message || 'PDF governado indisponível no momento.');
+        return;
+      }
+      const link = document.createElement('a');
+      link.href = access.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
+    } catch (error) {
+      logger.error('Erro ao emitir ou abrir PDF governado da ficha EPI:', error);
+      toast.error('Não foi possível acessar o PDF oficial da ficha.');
+    } finally {
+      setPdfLoadingId(null);
     }
   };
 
@@ -544,7 +568,13 @@ export default function EpiFichasPage() {
             <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{assignment.user?.nome || usersMap.get(assignment.user_id) || '-'}</h3><p className="text-sm text-[var(--ds-color-text-secondary)]">{assignment.epi?.nome || episMap.get(assignment.epi_id) || '-'}</p></div><span className="rounded-full border px-2.5 py-1 text-xs font-semibold">{assignment.status}</span></div>
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">CA</dt><dd>{assignment.ca || '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Validade</dt><dd>{assignment.validade_ca ? safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—') : '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Entrega</dt><dd>{safeToLocaleDateString(assignment.entregue_em, 'pt-BR', undefined, '—')}</dd></div></dl>
-              {assignment.status === 'entregue' ? <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3"><Button size="sm" variant="success" onClick={() => setSignatureTarget({ mode: 'return', assignmentId: assignment.id })}>Devolver</Button><Button size="sm" variant="outline" onClick={() => openReplace(assignment)}>Substituir</Button></div> : null}
+              <div className="mt-4 grid grid-cols-1 gap-2 border-t pt-3 sm:grid-cols-3">
+                <Button size="sm" variant="outline" onClick={() => void openGovernedPdf(assignment)} disabled={pdfLoadingId === assignment.id}>
+                  <FileDown className="mr-1 h-4 w-4" />
+                  {pdfLoadingId === assignment.id ? 'Processando...' : assignment.pdf_file_key ? 'Abrir PDF oficial' : 'Emitir PDF oficial'}
+                </Button>
+                {assignment.status === 'entregue' ? <><Button size="sm" variant="success" onClick={() => setSignatureTarget({ mode: 'return', assignmentId: assignment.id })}>Devolver</Button><Button size="sm" variant="outline" onClick={() => openReplace(assignment)}>Substituir</Button></> : null}
+              </div>
             </article>
           )}
           desktop={() => (
@@ -594,6 +624,19 @@ export default function EpiFichasPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)] disabled:opacity-60"
+                        onClick={() => void openGovernedPdf(assignment)}
+                        disabled={pdfLoadingId === assignment.id}
+                      >
+                        <FileDown className="mr-1 h-3.5 w-3.5" />
+                        {pdfLoadingId === assignment.id
+                          ? 'Processando...'
+                          : assignment.pdf_file_key
+                            ? 'PDF oficial'
+                            : 'Emitir PDF'}
+                      </button>
                       {assignment.status === 'entregue' && (
                         <button
                           type="button"
@@ -707,7 +750,6 @@ function filterByTerm<T extends object>(
     }),
   );
 }
-
 
 
 

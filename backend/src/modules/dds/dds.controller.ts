@@ -57,6 +57,7 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
   createGovernedVideoUploadOptions,
+  GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES,
   readUploadedFileBuffer,
 } from '../../shared/interceptors/file-upload.interceptor';
 import { FileInspectionService } from '../../shared/security/file-inspection.service';
@@ -744,12 +745,13 @@ export class DdsController {
       this.fileInspectionService,
     );
 
-    // Validação de tamanho ANTES de carregar na memória: máximo 500MB
-    const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
-    if (videoFile.size > MAX_VIDEO_SIZE) {
+    const maxVideoSizeMb = Math.round(
+      GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES / 1024 / 1024,
+    );
+    if (videoFile.size > GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES) {
       await cleanupUploadedTempFile(videoFile);
       throw new BadRequestException(
-        `Vídeo excede tamanho máximo de 500MB. Tamanho atual: ${Math.round(videoFile.size / 1024 / 1024)}MB`,
+        `Vídeo excede tamanho máximo de ${maxVideoSizeMb}MB. Tamanho atual: ${Math.round(videoFile.size / 1024 / 1024)}MB`,
       );
     }
 

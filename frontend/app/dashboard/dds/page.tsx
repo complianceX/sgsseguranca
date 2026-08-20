@@ -162,6 +162,14 @@ function getDdsParticipantCount(dds: Dds) {
 }
 
 export default function DdsPage() {
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "SGS | DDS";
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
+
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1410,7 +1418,11 @@ useEffect(() => {
                 mobile={(item) => (
                   <article className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-3">
                     <h3 className="font-semibold text-[var(--ds-color-text-primary)]">{item.documentRef}</h3>
-                    <dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Consultas</dt><dd>{item.total}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Suspeitas</dt><dd>{item.suspicious}</dd></div><div className="col-span-2"><dt className="text-xs text-[var(--ds-color-text-muted)]">Última consulta</dt><dd>{item.lastSeenAt ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</dd></div></dl>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-sm" role="list" aria-label={`Indicadores de ${item.documentRef}`}>
+                      <div role="listitem"><span className="block text-xs text-[var(--ds-color-text-muted)]">Consultas</span><span>{item.total}</span></div>
+                      <div role="listitem"><span className="block text-xs text-[var(--ds-color-text-muted)]">Suspeitas</span><span>{item.suspicious}</span></div>
+                      <div className="col-span-2" role="listitem"><span className="block text-xs text-[var(--ds-color-text-muted)]">Última consulta</span><span>{item.lastSeenAt ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</span></div>
+                    </div>
                   </article>
                 )}
                 desktop={() => (
@@ -2396,7 +2408,5 @@ useEffect(() => {
     </div>
   );
 }
-
-
 
 

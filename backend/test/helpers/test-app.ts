@@ -109,6 +109,7 @@ export class TestApp {
   private usersRepo: Repository<User>;
   private passwordService: PasswordService;
   private redisClient?: Redis;
+  private resetDataSource?: DataSource;
   seed: Record<TenantKey, SeedTenant>;
 
   static async create(): Promise<TestApp> {
@@ -162,6 +163,9 @@ export class TestApp {
       if (this.dataSource?.isInitialized) {
         await this.dataSource.destroy().catch(() => undefined);
       }
+      if (this.resetDataSource?.isInitialized) {
+        await this.resetDataSource.destroy().catch(() => undefined);
+      }
       await this.waitForSocketDrain();
     }
   }
@@ -170,6 +174,10 @@ export class TestApp {
     await this.resetRedisEphemeralState();
 
     const dbType = this.dataSource.options.type;
+    const resetDataSource = await this.getResetDataSource();
+    if (resetDataSource !== this.dataSource) {
+      this.bindSeedRepositories(resetDataSource);
+    }
     if (
       dbType === 'postgres' &&
       this.isLocalTestDatabase() &&
@@ -197,7 +205,7 @@ export class TestApp {
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
       await this.dataSource.synchronize(false);
     } else if (dbType === 'postgres') {
-      await this.dataSource.query(`
+      await resetDataSource.query(`
         DO $$
         DECLARE
           table_names TEXT;
@@ -232,6 +240,54 @@ export class TestApp {
       await this.dataSource.synchronize(true);
     }
     await this.seedBaseData();
+  }
+
+  async setupQuery<T = unknown>(
+    query: string,
+    parameters?: unknown[],
+  ): Promise<T> {
+    const dataSource = await this.getResetDataSource();
+    const result: unknown = await dataSource.query(query, parameters);
+    return result as T;
+  }
+
+  private async getResetDataSource(): Promise<DataSource> {
+    const adminUrl = process.env.DATABASE_ADMIN_URL;
+    if (!adminUrl || this.dataSource.options.type !== 'postgres') {
+      return this.dataSource;
+    }
+
+    if (!this.resetDataSource) {
+      const parsedAdminUrl = new URL(adminUrl);
+      this.resetDataSource = new DataSource({
+        ...this.dataSource.options,
+        name: 'test-admin-reset',
+        url: undefined,
+        host: parsedAdminUrl.hostname,
+        port: parsedAdminUrl.port
+          ? Number(parsedAdminUrl.port)
+          : this.dataSource.options.port,
+        username: decodeURIComponent(parsedAdminUrl.username),
+        password: decodeURIComponent(parsedAdminUrl.password),
+        database: parsedAdminUrl.pathname.replace(/^\//, ''),
+        ssl: process.env.DATABASE_SSL === 'true',
+        extra: {
+          options: '-c app.is_super_admin=true',
+        },
+        migrations: [],
+        synchronize: false,
+      });
+      await this.resetDataSource.initialize();
+    }
+
+    return this.resetDataSource;
+  }
+
+  private bindSeedRepositories(dataSource: DataSource): void {
+    this.companiesRepo = dataSource.getRepository(Company);
+    this.sitesRepo = dataSource.getRepository(Site);
+    this.profilesRepo = dataSource.getRepository(Profile);
+    this.usersRepo = dataSource.getRepository(User);
   }
 
   private async resetRedisEphemeralState(): Promise<void> {

@@ -9,7 +9,7 @@
  *   5. UUID inválido em rota     → 400  (ParseUUIDPipe antes da autenticação de negócio)
  *   6. SQL injection na rota     → 400
  *
- * Pré-condição: docker compose -f docker-compose.test.yml up -d
+ * Pré-condição: docker compose -f ../ops/test/compose/docker-compose.e2e.yml up -d
  */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Role } from '../../src/modules/auth/enums/roles.enum';

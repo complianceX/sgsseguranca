@@ -140,7 +140,7 @@ npm run test:e2e
 Caso o projeto utilize Docker para testes:
 
 ```bash
-docker compose -f docker-compose.test.yml up -d
+docker compose -f ../ops/test/compose/docker-compose.e2e.yml up -d
 ```
 
 Registre para cada comando:

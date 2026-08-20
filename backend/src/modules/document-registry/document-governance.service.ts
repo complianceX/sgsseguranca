@@ -14,6 +14,7 @@ type GovernedModule =
   | 'dds'
   | 'did'
   | 'arr'
+  | 'epi'
   | 'report'
   | 'photographic_report'
   | 'training'

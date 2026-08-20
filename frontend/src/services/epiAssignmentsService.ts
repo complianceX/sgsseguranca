@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import type { GovernedPdfAccessResponse } from '@/lib/api/generated/governed-contracts.client';
 
 export type EpiAssignmentStatus = 'entregue' | 'devolvido' | 'substituido';
 
@@ -35,6 +36,12 @@ export interface EpiAssignment {
   updated_by_id?: string;
   created_at: string;
   updated_at: string;
+  pdf_file_key?: string | null;
+  pdf_folder_path?: string | null;
+  pdf_original_name?: string | null;
+  final_pdf_hash_sha256?: string | null;
+  pdf_generated_at?: string | null;
+  document_code?: string | null;
   epi?: { id: string; nome: string };
   user?: { id: string; nome: string };
 }
@@ -169,6 +176,22 @@ export const epiAssignmentsService = {
       substituido: number;
       caExpirado: number;
     }>('/epi-assignments/summary');
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string): Promise<GovernedPdfAccessResponse> => {
+    const response = await api.get<GovernedPdfAccessResponse>(
+      `/epi-assignments/${id}/pdf`,
+    );
+    return response.data;
+  },
+
+  generateFinalPdf: async (
+    id: string,
+  ): Promise<GovernedPdfAccessResponse & { generated: boolean; degraded: boolean }> => {
+    const response = await api.post<
+      GovernedPdfAccessResponse & { generated: boolean; degraded: boolean }
+    >(`/epi-assignments/${id}/generate-final-pdf`);
     return response.data;
   },
 

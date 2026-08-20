@@ -28,7 +28,7 @@ export function PageHeader({
       <div className="ds-page-header__main md:flex-row md:items-start md:justify-between">
         <div className="ds-page-header__lead">
           {icon ? (
-            <div className="ds-page-header__icon" aria-hidden="true">
+            <div className="ds-page-header__icon">
               {icon}
             </div>
           ) : null}

@@ -8,7 +8,7 @@
  *   4. RLS validation endpoints retornam resposta estruturada para ADMIN_GERAL
  *   5. Admin routes agora retornam 401 sem token (antes não exigiam)
  *
- * Pré-condição: docker compose -f docker-compose.test.yml up -d
+ * Pré-condição: docker compose -f ../ops/test/compose/docker-compose.e2e.yml up -d
  */
 import { Role } from '../../src/modules/auth/enums/roles.enum';
 import { TestApp, type LoginSession } from '../helpers/test-app';

@@ -156,28 +156,32 @@ export function DashboardHero({
             <LastUpdatedLabel lastFetchedAt={lastUpdatedAt} />
           </div>
 
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2">
-            <div className="ds-dashboard-status-metric">
-              <dt>Fila</dt>
-              <dd>{queueTotal}</dd>
+          <div
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2"
+            role="list"
+            aria-label="Indicadores operacionais"
+          >
+            <article className="ds-dashboard-status-metric" role="listitem">
+              <p>Fila</p>
+              <strong>{queueTotal}</strong>
               <span>{criticalCount} críticos</span>
-            </div>
-            <div className="ds-dashboard-status-metric">
-              <dt>Altos</dt>
-              <dd>{highCount}</dd>
+            </article>
+            <article className="ds-dashboard-status-metric" role="listitem">
+              <p>Altos</p>
+              <strong>{highCount}</strong>
               <span>risco operacional</span>
-            </div>
-            <div className="ds-dashboard-status-metric">
-              <dt>SLA</dt>
-              <dd>{slaBreached > 0 ? slaBreached : slaDueToday}</dd>
+            </article>
+            <article className="ds-dashboard-status-metric" role="listitem">
+              <p>SLA</p>
+              <strong>{slaBreached > 0 ? slaBreached : slaDueToday}</strong>
               <span>{slaBreached > 0 ? "vencidos" : "vencem hoje"}</span>
-            </div>
-            <div className="ds-dashboard-status-metric">
-              <dt>Conformidade</dt>
-              <dd>{complianceScore == null ? "—" : `${complianceScore}%`}</dd>
+            </article>
+            <article className="ds-dashboard-status-metric" role="listitem">
+              <p>Conformidade</p>
+              <strong>{complianceScore == null ? "—" : `${complianceScore}%`}</strong>
               <span>{complianceLabel}</span>
-            </div>
-          </dl>
+            </article>
+          </div>
         </div>
       </div>
     </section>

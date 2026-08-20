@@ -128,7 +128,7 @@ describeE2E('Multi-tenancy Isolation (APR CRUD + tenant switch)', () => {
 
     expect(response.status).toBe(200);
 
-    const auditRows = await testApp.dataSource.query<Array<{ ok: number }>>(
+    const auditRows = await testApp.setupQuery<Array<{ ok: number }>>(
       `
         SELECT 1 AS ok
         FROM forensic_trail_events

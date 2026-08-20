@@ -21,6 +21,10 @@ const GOVERNED_PDF_MAX_FILE_SIZE_BYTES = resolvePositiveIntEnv(
   'GOVERNED_PDF_MAX_FILE_SIZE_BYTES',
   50 * 1024 * 1024,
 );
+export const GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES = resolvePositiveIntEnv(
+  'GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES',
+  75 * 1024 * 1024,
+);
 
 let tempUploadCleanupInFlight: Promise<TempUploadCleanupSummary> | null = null;
 let lastTempUploadCleanupAt = 0;
@@ -219,10 +223,14 @@ export function createGovernedPdfUploadOptions(
 }
 
 export function createGovernedVideoUploadOptions(
-  maxFileSize = 75 * 1024 * 1024,
+  maxFileSize = GOVERNED_VIDEO_MAX_FILE_SIZE_BYTES,
 ): MulterOptions {
   return createTemporaryUploadOptions({
-    maxFileSize,
+    // O limite do Multer dispara LIMIT_FILE_SIZE quando o último byte coincide
+    // com o teto. O controller faz a validação inclusiva final; o byte extra
+    // permite aceitar exatamente o tamanho declarado e rejeitar > maxFileSize
+    // com a mensagem governada do endpoint.
+    maxFileSize: maxFileSize + 1,
     fileFilter: (_req, file, cb) => {
       const allowed = [
         'video/mp4',

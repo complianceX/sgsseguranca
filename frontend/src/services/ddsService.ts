@@ -1,43 +1,39 @@
-import api from "@/lib/api";
-import { User } from "./usersService";
-import {
-  CursorPaginatedResponse,
-  PaginatedResponse,
-  fetchAllPages,
-} from "./pagination";
+import api from '@/lib/api';
+import { User } from './usersService';
+import { CursorPaginatedResponse, PaginatedResponse, fetchAllPages } from './pagination';
 import type {
   GovernedDocumentVideoAccessResponse,
   GovernedDocumentVideoAttachment,
   GovernedDocumentVideoMutationResponse,
-} from "@/lib/videos/documentVideos";
-import type { Signature } from "@/services/signaturesService";
-import { omitCompanyId, tenantConfigFromPayload } from "./tenantWriteScope";
-import { siteStore } from "@/lib/siteStore";
+} from '@/lib/videos/documentVideos';
+import type { Signature } from '@/services/signaturesService';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
+import { siteStore } from '@/lib/siteStore';
 
-export type DdsStatus = "rascunho" | "publicado" | "auditado" | "arquivado";
+export type DdsStatus = 'rascunho' | 'publicado' | 'auditado' | 'arquivado';
 
 export const DDS_STATUS_LABEL: Record<DdsStatus, string> = {
-  rascunho: "Rascunho",
-  publicado: "Publicado",
-  auditado: "Auditado",
-  arquivado: "Arquivado",
+  rascunho: 'Rascunho',
+  publicado: 'Publicado',
+  auditado: 'Auditado',
+  arquivado: 'Arquivado',
 };
 
 export const DDS_STATUS_COLORS: Record<DdsStatus, string> = {
   rascunho:
-    "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/15 text-[var(--ds-color-warning)]",
+    'border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/15 text-[var(--ds-color-warning)]',
   publicado:
-    "border-[color:var(--ds-color-info)]/35 bg-[color:var(--ds-color-info)]/15 text-[var(--ds-color-info)]",
+    'border-[color:var(--ds-color-info)]/35 bg-[color:var(--ds-color-info)]/15 text-[var(--ds-color-info)]',
   auditado:
-    "border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/15 text-[var(--ds-color-success)]",
+    'border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/15 text-[var(--ds-color-success)]',
   arquivado:
-    "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]",
+    'border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]',
 };
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
-  rascunho: ["publicado", "arquivado"],
-  publicado: ["arquivado"],
-  auditado: ["arquivado"],
+  rascunho: ['publicado', 'arquivado'],
+  publicado: ['arquivado'],
+  auditado: ['arquivado'],
   arquivado: [],
 };
 
@@ -106,12 +102,9 @@ export interface HistoricalPhotoHashReference {
   hashes: string[];
 }
 
-import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
+import type { GovernedPdfAccessResponse } from '@/lib/api/generated/governed-contracts.client';
 
-export interface DdsPdfAccess extends Omit<
-  GovernedPdfAccessResponse,
-  "entityId"
-> {
+export interface DdsPdfAccess extends Omit<GovernedPdfAccessResponse, 'entityId'> {
   ddsId: string;
   degraded: boolean;
 }
@@ -120,7 +113,7 @@ export interface DdsAttachFileResult {
   fileKey: string;
   folderPath: string;
   originalName: string;
-  storageMode: "s3";
+  storageMode: 's3';
   degraded: boolean;
   message: string;
 }
@@ -130,11 +123,7 @@ export interface DdsValidationContext {
   token: string | null;
 }
 
-export type DdsSignatureInviteStatus =
-  | "pending"
-  | "signed"
-  | "expired"
-  | "revoked";
+export type DdsSignatureInviteStatus = 'pending' | 'signed' | 'expired' | 'revoked';
 
 export interface DdsSignatureInviteLink {
   inviteId: string | null;
@@ -167,12 +156,7 @@ export interface DdsPerson {
   status: boolean;
 }
 
-export type DdsApprovalAction =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "canceled"
-  | "reopened";
+export type DdsApprovalAction = 'pending' | 'approved' | 'rejected' | 'canceled' | 'reopened';
 
 export interface DdsApprovalStep {
   level_order: number;
@@ -217,7 +201,7 @@ export interface DdsApprovalFlow {
   ddsId: string;
   companyId: string;
   activeCycle: number | null;
-  status: "not_started" | "pending" | "approved" | "rejected" | "canceled";
+  status: 'not_started' | 'pending' | 'approved' | 'rejected' | 'canceled';
   currentStep: DdsApprovalStep | null;
   steps: DdsApprovalStep[];
   events: DdsApprovalRecord[];
@@ -225,7 +209,7 @@ export interface DdsApprovalFlow {
 
 export interface DdsObservabilityOverview {
   generatedAt: string;
-  tenantScope: "tenant" | "global";
+  tenantScope: 'tenant' | 'global';
   portfolio: {
     total: number;
     drafts: number;
@@ -272,11 +256,11 @@ export interface DdsObservabilityOverview {
 
 export interface DdsObservabilityAlertPreviewItem {
   code:
-    | "dds_public_suspicious_spike"
-    | "dds_public_blocked_spike"
-    | "dds_governance_backlog"
-    | "dds_approval_backlog";
-  severity: "warning" | "critical";
+    | 'dds_public_suspicious_spike'
+    | 'dds_public_blocked_spike'
+    | 'dds_governance_backlog'
+    | 'dds_approval_backlog';
+  severity: 'warning' | 'critical';
   title: string;
   message: string;
   metric: number;
@@ -285,7 +269,7 @@ export interface DdsObservabilityAlertPreviewItem {
 
 export interface DdsObservabilityAlertsPreview {
   generatedAt: string;
-  tenantScope: "tenant" | "global";
+  tenantScope: 'tenant' | 'global';
   automationEnabled: boolean;
   recipients: {
     notificationUsers: number;
@@ -302,7 +286,7 @@ export interface DdsObservabilityAlertsPreview {
 
 export interface DdsObservabilityAlertsDispatchResult {
   generatedAt: string;
-  tenantScope: "tenant" | "global";
+  tenantScope: 'tenant' | 'global';
   dispatched: boolean;
   notificationsCreated: number;
   emailSent: boolean;
@@ -310,7 +294,14 @@ export interface DdsObservabilityAlertsDispatchResult {
   alerts: DdsObservabilityAlertPreviewItem[];
 }
 
-type DdsMutationInput = Omit<Partial<Dds>, "participants"> & {
+type DdsMutationInput = {
+  company_id?: string;
+  tema?: string;
+  conteudo?: string;
+  data?: string;
+  is_modelo?: boolean;
+  site_id?: string;
+  facilitador_id?: string;
   participants?: string[];
   confirm_signature_reset?: boolean;
 };
@@ -320,21 +311,21 @@ export const ddsService = {
     page?: number;
     limit?: number;
     search?: string;
-    kind?: "all" | "model" | "regular";
-    status?: DdsStatus | "all";
+    kind?: 'all' | 'model' | 'regular';
+    status?: DdsStatus | 'all';
     siteId?: string; // Permite override do siteId automático
   }): Promise<PaginatedResponse<Dds>> => {
     // Usa o siteId do store se não for fornecido explicitamente
     const activeSite = siteStore.get();
     const siteId = opts?.siteId ?? activeSite?.siteId;
 
-    const response = await api.get<PaginatedResponse<Dds>>("/dds", {
+    const response = await api.get<PaginatedResponse<Dds>>('/dds', {
       params: {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.kind && opts.kind !== "all" ? { kind: opts.kind } : {}),
-        ...(opts?.status && opts.status !== "all" ? { status: opts.status } : {}),
+        ...(opts?.kind && opts.kind !== 'all' ? { kind: opts.kind } : {}),
+        ...(opts?.status && opts.status !== 'all' ? { status: opts.status } : {}),
         ...(siteId ? { site_id: siteId } : {}),
       },
     });
@@ -345,16 +336,16 @@ export const ddsService = {
     cursor?: string;
     limit?: number;
     search?: string;
-    kind?: "all" | "model" | "regular";
-    status?: DdsStatus | "all";
+    kind?: 'all' | 'model' | 'regular';
+    status?: DdsStatus | 'all';
   }): Promise<CursorPaginatedResponse<Dds>> => {
-    const response = await api.get<CursorPaginatedResponse<Dds>>("/dds", {
+    const response = await api.get<CursorPaginatedResponse<Dds>>('/dds', {
       params: {
         cursor: opts?.cursor,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.kind && opts.kind !== "all" ? { kind: opts.kind } : {}),
-        ...(opts?.status && opts.status !== "all" ? { status: opts.status } : {}),
+        ...(opts?.kind && opts.kind !== 'all' ? { kind: opts.kind } : {}),
+        ...(opts?.status && opts.status !== 'all' ? { status: opts.status } : {}),
       },
     });
     return response.data;
@@ -365,7 +356,7 @@ export const ddsService = {
       fetchPage: (page, limit) => ddsService.findPaginated({ page, limit }),
       limit: 100,
       maxPages: 50,
-      cacheKey: "GET:/dds?page=*&limit=100",
+      cacheKey: 'GET:/dds?page=*&limit=100',
     });
   },
 
@@ -375,24 +366,18 @@ export const ddsService = {
     companyId?: string;
     siteId?: string;
   }): Promise<PaginatedResponse<DdsPerson>> => {
-    const response = await api.get<PaginatedResponse<DdsPerson>>(
-      "/dds/people",
-      {
-        params: {
-          page: opts?.page ?? 1,
-          limit: opts?.limit ?? 20,
-          ...(opts?.siteId ? { site_id: opts.siteId } : {}),
-        },
-        headers: opts?.companyId ? { "x-company-id": opts.companyId } : {},
+    const response = await api.get<PaginatedResponse<DdsPerson>>('/dds/people', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.siteId ? { site_id: opts.siteId } : {}),
       },
-    );
+      headers: opts?.companyId ? { 'x-company-id': opts.companyId } : {},
+    });
     return response.data;
   },
 
-  listAllPeople: async (opts?: {
-    companyId?: string;
-    siteId?: string;
-  }): Promise<DdsPerson[]> => {
+  listAllPeople: async (opts?: { companyId?: string; siteId?: string }): Promise<DdsPerson[]> => {
     return fetchAllPages({
       fetchPage: (page, limit) =>
         ddsService.listPeople({
@@ -404,7 +389,7 @@ export const ddsService = {
       limit: 100,
       maxPages: 50,
       batchSize: 3,
-      cacheKey: `GET:/dds/people?page=*&limit=100&company_id=${opts?.companyId || "all"}&site_id=${opts?.siteId || "all"}`,
+      cacheKey: `GET:/dds/people?page=*&limit=100&company_id=${opts?.companyId || 'all'}&site_id=${opts?.siteId || 'all'}`,
     });
   },
 
@@ -417,21 +402,17 @@ export const ddsService = {
     const payload = omitCompanyId(data);
     const config = tenantConfigFromPayload(data);
     const response = config
-      ? await api.post<Dds>("/dds", payload, config)
-      : await api.post<Dds>("/dds", payload);
+      ? await api.post<Dds>('/dds', payload, config)
+      : await api.post<Dds>('/dds', payload);
     return response.data;
   },
 
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post<DdsAttachFileResult>(
-      `/dds/${id}/file`,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      },
-    );
+    formData.append('file', file);
+    const response = await api.post<DdsAttachFileResult>(`/dds/${id}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
@@ -441,9 +422,7 @@ export const ddsService = {
   },
 
   getValidationContext: async (id: string) => {
-    const response = await api.get<DdsValidationContext>(
-      `/dds/${id}/validation-context`,
-    );
+    const response = await api.get<DdsValidationContext>(`/dds/${id}/validation-context`);
     return response.data;
   },
 
@@ -453,22 +432,18 @@ export const ddsService = {
   },
 
   getObservabilityOverview: async () => {
-    const response = await api.get<DdsObservabilityOverview>(
-      "/dds/observability/overview",
-    );
+    const response = await api.get<DdsObservabilityOverview>('/dds/observability/overview');
     return response.data;
   },
 
   getObservabilityAlertsPreview: async () => {
-    const response = await api.get<DdsObservabilityAlertsPreview>(
-      "/dds/observability/alerts",
-    );
+    const response = await api.get<DdsObservabilityAlertsPreview>('/dds/observability/alerts');
     return response.data;
   },
 
   dispatchObservabilityAlerts: async () => {
     const response = await api.post<DdsObservabilityAlertsDispatchResult>(
-      "/dds/observability/alerts/dispatch",
+      '/dds/observability/alerts/dispatch',
     );
     return response.data;
   },
@@ -510,21 +485,13 @@ export const ddsService = {
     return response.data;
   },
 
-  reopenApprovalFlow: async (
-    id: string,
-    payload: { reason: string; pin: string },
-  ) => {
-    const response = await api.post<DdsApprovalFlow>(
-      `/dds/${id}/approvals/reopen`,
-      payload,
-    );
+  reopenApprovalFlow: async (id: string, payload: { reason: string; pin: string }) => {
+    const response = await api.post<DdsApprovalFlow>(`/dds/${id}/approvals/reopen`, payload);
     return response.data;
   },
 
   listVideoAttachments: async (id: string) => {
-    const response = await api.get<GovernedDocumentVideoAttachment[]>(
-      `/dds/${id}/videos`,
-    );
+    const response = await api.get<GovernedDocumentVideoAttachment[]>(`/dds/${id}/videos`);
     return response.data;
   },
 
@@ -533,12 +500,12 @@ export const ddsService = {
     file: File,
   ): Promise<GovernedDocumentVideoMutationResponse> => {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append('file', file);
     const response = await api.post<GovernedDocumentVideoMutationResponse>(
       `/dds/${id}/videos`,
       formData,
       {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { 'Content-Type': 'multipart/form-data' },
       },
     );
     return response.data;
@@ -598,13 +565,8 @@ export const ddsService = {
       company_id: options?.companyId,
     });
     const response = config
-      ? await api.get<DdsSignatureInviteLink[]>(
-          `/dds/${id}/signature-invites`,
-          config,
-        )
-      : await api.get<DdsSignatureInviteLink[]>(
-          `/dds/${id}/signature-invites`,
-        );
+      ? await api.get<DdsSignatureInviteLink[]>(`/dds/${id}/signature-invites`, config)
+      : await api.get<DdsSignatureInviteLink[]>(`/dds/${id}/signature-invites`);
     return response.data;
   },
 
@@ -621,15 +583,8 @@ export const ddsService = {
     });
     const body = payload || {};
     const response = config
-      ? await api.post<DdsSignatureInviteIssueResult>(
-          `/dds/${id}/signature-invites`,
-          body,
-          config,
-        )
-      : await api.post<DdsSignatureInviteIssueResult>(
-          `/dds/${id}/signature-invites`,
-          body,
-        );
+      ? await api.post<DdsSignatureInviteIssueResult>(`/dds/${id}/signature-invites`, body, config)
+      : await api.post<DdsSignatureInviteIssueResult>(`/dds/${id}/signature-invites`, body);
     return response.data;
   },
 
@@ -637,23 +592,16 @@ export const ddsService = {
     limit = 100,
     excludeId?: string,
   ): Promise<HistoricalPhotoHashReference[]> => {
-    const response = await api.get<HistoricalPhotoHashReference[]>(
-      "/dds/historical-photo-hashes",
-      {
-        params: {
-          limit,
-          ...(excludeId ? { exclude_id: excludeId } : {}),
-        },
+    const response = await api.get<HistoricalPhotoHashReference[]>('/dds/historical-photo-hashes', {
+      params: {
+        limit,
+        ...(excludeId ? { exclude_id: excludeId } : {}),
       },
-    );
+    });
     return response.data;
   },
 
-  listStoredFiles: async (filters?: {
-    company_id?: string;
-    year?: number;
-    week?: number;
-  }) => {
+  listStoredFiles: async (filters?: { company_id?: string; year?: number; week?: number }) => {
     const response = await api.get<
       Array<{
         ddsId: string;
@@ -666,18 +614,14 @@ export const ddsService = {
         folderPath: string;
         originalName: string;
       }>
-    >("/dds/files/list", { params: filters });
+    >('/dds/files/list', { params: filters });
     return response.data;
   },
 
-  downloadWeeklyBundle: async (filters: {
-    company_id?: string;
-    year: number;
-    week: number;
-  }) => {
-    const response = await api.get("/dds/files/weekly-bundle", {
+  downloadWeeklyBundle: async (filters: { company_id?: string; year: number; week: number }) => {
+    const response = await api.get('/dds/files/weekly-bundle', {
       params: filters,
-      responseType: "blob",
+      responseType: 'blob',
     });
     return response.data as Blob;
   },

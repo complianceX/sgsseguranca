@@ -76,10 +76,12 @@ com Run ID e resumo oficial do Grafana Cloud.
 
 ## Local e CI
 
-- Compose local de integração: `backend/docker-compose.test.yml`.
-- Compose do load test: `infra/load-test/compose.yml`.
+- Runbook da VPS de load test: `infra/load-test/README.md` (manifestos remotos
+  podem existir apenas na VPS).
+- Compose local/E2E isolado: `ops/test/compose/docker-compose.e2e.yml` e
+  `ops/test/compose/docker-compose.storage.override.yml`.
 - CI: `.github/workflows/ci.yml` e `.github/workflows/security-scan.yml`.
-- Smoke/load scripts: `tests/load/` e `backend/test/load/`.
+- Smoke/load scripts: `ops/test/load/` e `backend/test/load/`.
 - Frontend: `frontend/`, publicado manualmente na Vercel.
 
 ## Infraestrutura histórica — não usar
