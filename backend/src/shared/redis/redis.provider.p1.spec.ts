@@ -24,6 +24,7 @@ import {
   redisBullMqProvider,
 } from './redis.provider';
 import type { FactoryProvider } from '@nestjs/common';
+import type { Redis } from 'ioredis';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -90,6 +91,15 @@ describe('Redis — Tier Separation (P1)', () => {
       expect(typeof redisCacheProviderFactory.useFactory).toBe('function');
       expect(typeof redisQueueProviderFactory.useFactory).toBe('function');
       expect(typeof redisBullMqProviderFactory.useFactory).toBe('function');
+    });
+
+    it('não duplica o cliente em memória quando Redis está desabilitado', async () => {
+      const fallbackClient = {} as Redis;
+      const factory = redisBullMqProviderFactory.useFactory as (
+        queueClient: Redis,
+      ) => Promise<Redis>;
+
+      await expect(factory(fallbackClient)).resolves.toBe(fallbackClient);
     });
   });
 

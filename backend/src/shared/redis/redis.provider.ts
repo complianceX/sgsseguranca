@@ -892,6 +892,20 @@ export const redisBullMqProvider: Provider = {
   provide: REDIS_CLIENT_BULLMQ,
   inject: [REDIS_CLIENT_QUEUE],
   useFactory: async (queueClient: Redis) => {
+    // When REDIS_DISABLED=true, the queue tier intentionally uses the
+    // in-memory compatibility client. BullMQ is disabled in that mode, so
+    // there is no real connection to duplicate. The provider still resolves
+    // because RedisModule is global and shutdown services inject this token.
+    if (
+      typeof (queueClient as unknown as { duplicate?: unknown }).duplicate !==
+      'function'
+    ) {
+      logger.warn(
+        '[Redis:bullmq] Redis disabled; using the queue compatibility client without BullMQ.',
+      );
+      return queueClient;
+    }
+
     const bullmqClient = queueClient.duplicate({
       maxRetriesPerRequest: null,
     });
