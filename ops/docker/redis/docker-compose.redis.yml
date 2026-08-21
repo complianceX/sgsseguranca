@@ -1,0 +1,106 @@
+services:
+  sgs-redis-auth:
+    image: redis:7-alpine
+    container_name: sgs-redis-auth
+    restart: unless-stopped
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass "${SGS_REDIS_AUTH_PASSWORD}"
+      --maxmemory 128mb
+    volumes:
+      - ./conf/auth.conf:/usr/local/etc/redis/redis.conf:ro
+      - sgs_redis_auth_data:/data
+    networks:
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SGS_REDIS_AUTH_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sgs-redis-ratelimit:
+    image: redis:7-alpine
+    container_name: sgs-redis-ratelimit
+    restart: unless-stopped
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass "${SGS_REDIS_RATELIMIT_PASSWORD}"
+      --maxmemory 128mb
+    volumes:
+      - ./conf/ratelimit.conf:/usr/local/etc/redis/redis.conf:ro
+      - sgs_redis_ratelimit_data:/data
+    networks:
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SGS_REDIS_RATELIMIT_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sgs-redis-cache:
+    image: redis:7-alpine
+    container_name: sgs-redis-cache
+    restart: unless-stopped
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass "${SGS_REDIS_CACHE_PASSWORD}"
+      --maxmemory 512mb
+    volumes:
+      - ./conf/cache.conf:/usr/local/etc/redis/redis.conf:ro
+      - sgs_redis_cache_data:/data
+    networks:
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SGS_REDIS_CACHE_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sgs-redis-queue:
+    image: redis:7-alpine
+    container_name: sgs-redis-queue
+    restart: unless-stopped
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass "${SGS_REDIS_QUEUE_PASSWORD}"
+      --maxmemory 256mb
+    volumes:
+      - ./conf/queue.conf:/usr/local/etc/redis/redis.conf:ro
+      - sgs_redis_queue_data:/data
+    networks:
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SGS_REDIS_QUEUE_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  coolify:
+    external: true
+
+volumes:
+  sgs_redis_auth_data:
+  sgs_redis_ratelimit_data:
+  sgs_redis_cache_data:
+  sgs_redis_queue_data:
