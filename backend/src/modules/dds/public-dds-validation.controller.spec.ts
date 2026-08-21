@@ -4,6 +4,7 @@ import type { MetricsService } from '../../shared/observability/metrics.service'
 import type { SecurityAuditService } from '../../shared/security/security-audit.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import type { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
+import type { TenantService } from '../../shared/tenant/tenant.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { PublicDdsValidationController } from './public-dds-validation.controller';
 
@@ -23,6 +24,7 @@ describe('PublicDdsValidationController', () => {
     PublicValidationGrantService,
     'assertActiveToken'
   >;
+  let tenantService: Pick<TenantService, 'run'>;
 
   beforeEach(() => {
     process.env.PUBLIC_VALIDATION_BLOCK_SUSPICIOUS_UA = 'false';
@@ -46,6 +48,9 @@ describe('PublicDdsValidationController', () => {
     publicValidationGrantService = {
       assertActiveToken: jest.fn(),
     };
+    tenantService = {
+      run: jest.fn((_context, callback) => callback()),
+    };
 
     controller = new PublicDdsValidationController(
       documentRegistryService as DocumentRegistryService,
@@ -53,6 +58,7 @@ describe('PublicDdsValidationController', () => {
       metricsService as MetricsService,
       forensicTrail as ForensicTrailService,
       publicValidationGrantService as PublicValidationGrantService,
+      tenantService as TenantService,
     );
   });
 
@@ -177,6 +183,7 @@ describe('PublicDdsValidationController', () => {
       metricsService as MetricsService,
       forensicTrail as ForensicTrailService,
       publicValidationGrantService as PublicValidationGrantService,
+      tenantService as TenantService,
     );
 
     (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue(

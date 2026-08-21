@@ -12,7 +12,10 @@ describe('DocumentRegistryService', () => {
   let service: DocumentRegistryService;
   let registryRepository: jest.Mocked<Repository<DocumentRegistryEntry>>;
   let versionRepository: jest.Mocked<Repository<DocumentRegistryVersionEntry>>;
-  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
+  let tenantService: Pick<
+    TenantService,
+    'getTenantId' | 'getContext' | 'run'
+  >;
   let documentBundleService: Pick<
     DocumentBundleService,
     'buildWeeklyPdfBundle'
@@ -25,6 +28,7 @@ describe('DocumentRegistryService', () => {
     addOrderBy: jest.Mock;
     take: jest.Mock;
     getMany: jest.Mock;
+    getOne: jest.Mock;
   };
 
   beforeEach(() => {
@@ -35,6 +39,7 @@ describe('DocumentRegistryService', () => {
       addOrderBy: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
+      getOne: jest.fn().mockResolvedValue(null),
     };
 
     registryRepository = {
@@ -56,6 +61,7 @@ describe('DocumentRegistryService', () => {
         isSuperAdmin: false,
         siteScope: 'all',
       }),
+      run: jest.fn((_context, callback) => callback()),
     };
 
     documentBundleService = {
@@ -108,6 +114,29 @@ describe('DocumentRegistryService', () => {
     );
 
     expect(registryRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('executa validação pública dentro do contexto explícito do tenant', async () => {
+    await expect(
+      service.validatePublicCode({
+        code: ' DDS-2026-TEST ',
+        companyId: 'company-1',
+        expectedModule: 'dds',
+      }),
+    ).resolves.toMatchObject({
+      valid: false,
+      code: 'DDS-2026-TEST',
+    });
+
+    expect(tenantService.run).toHaveBeenCalledWith(
+      {
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      expect.any(Function),
+    );
+    expect(queryBuilder.getOne).toHaveBeenCalled();
   });
 
   it('mantém compatibilidade para chamadas internas sem tenant usando companyId explícito', async () => {

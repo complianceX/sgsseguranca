@@ -378,56 +378,65 @@ export class DocumentRegistryService {
       timestamp_authority: string | null;
     }> | null;
   }> {
-    const normalizedCode = String(input.code || '')
-      .trim()
-      .toUpperCase();
-    const entry = await this.findByCode(normalizedCode, input.companyId);
-
-    if (!entry) {
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Documento inválido ou não encontrado.',
-      };
-    }
-
-    if (input.expectedModule && entry.module !== input.expectedModule) {
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Documento inválido ou não encontrado.',
-      };
-    }
-
-    const ddsArtifacts =
-      entry.module === 'dds'
-        ? await this.resolveDdsValidationArtifacts(entry)
-        : null;
-
-    return {
-      valid: true,
-      code: normalizedCode,
-      document: {
-        id: entry.entity_id,
-        module: entry.module,
-        document_type: entry.document_type,
-        title: entry.title,
-        document_date: entry.document_date?.toISOString() || null,
-        original_name: entry.original_name,
-        file_hash: entry.file_hash,
-        updated_at: entry.updated_at.toISOString(),
+    return this.tenantService.run(
+      {
+        companyId: input.companyId,
+        isSuperAdmin: false,
+        siteScope: 'all',
       },
-      final_document: {
-        has_final_pdf: Boolean(entry.file_key),
-        document_code: entry.document_code,
-        original_name: entry.original_name,
-        file_hash: entry.file_hash,
-        emitted_at: entry.created_at?.toISOString() || null,
+      async () => {
+        const normalizedCode = String(input.code || '')
+          .trim()
+          .toUpperCase();
+        const entry = await this.findByCode(normalizedCode, input.companyId);
+
+        if (!entry) {
+          return {
+            valid: false,
+            code: normalizedCode,
+            message: 'Documento inválido ou não encontrado.',
+          };
+        }
+
+        if (input.expectedModule && entry.module !== input.expectedModule) {
+          return {
+            valid: false,
+            code: normalizedCode,
+            message: 'Documento inválido ou não encontrado.',
+          };
+        }
+
+        const ddsArtifacts =
+          entry.module === 'dds'
+            ? await this.resolveDdsValidationArtifacts(entry)
+            : null;
+
+        return {
+          valid: true,
+          code: normalizedCode,
+          document: {
+            id: entry.entity_id,
+            module: entry.module,
+            document_type: entry.document_type,
+            title: entry.title,
+            document_date: entry.document_date?.toISOString() || null,
+            original_name: entry.original_name,
+            file_hash: entry.file_hash,
+            updated_at: entry.updated_at.toISOString(),
+          },
+          final_document: {
+            has_final_pdf: Boolean(entry.file_key),
+            document_code: entry.document_code,
+            original_name: entry.original_name,
+            file_hash: entry.file_hash,
+            emitted_at: entry.created_at?.toISOString() || null,
+          },
+          approval_summary: ddsArtifacts?.approvalSummary || null,
+          dds: ddsArtifacts?.dds || null,
+          approval_timeline: ddsArtifacts?.approvalTimeline || null,
+        };
       },
-      approval_summary: ddsArtifacts?.approvalSummary || null,
-      dds: ddsArtifacts?.dds || null,
-      approval_timeline: ddsArtifacts?.approvalTimeline || null,
-    };
+    );
   }
 
   private async resolveDdsValidationArtifacts(
