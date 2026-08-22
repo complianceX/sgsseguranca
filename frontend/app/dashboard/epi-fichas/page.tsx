@@ -417,9 +417,11 @@ export default function EpiFichasPage() {
               id="epi-search"
               type="text"
               value={epiSearch}
-              onChange={(e) => setEpiSearch(e.target.value)}
+              onChange={(e) => { setEpiSearch(e.target.value); setSelectedEpi(null); setForm((prev) => ({ ...prev, epi_id: '' })); }}
               className={fieldClassName}
               placeholder="Nome ou C.A."
+              aria-controls="epi_id"
+              aria-label="Filtrar EPIs disponíveis"
             />
           </div>
           <div className="space-y-2">
@@ -430,9 +432,11 @@ export default function EpiFichasPage() {
               id="user-search"
               type="text"
               value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
+              onChange={(e) => { setUserSearch(e.target.value); setSelectedUser(null); setForm((prev) => ({ ...prev, user_id: '' })); }}
               className={fieldClassName}
               placeholder="Nome ou função"
+              aria-controls="user_id"
+              aria-label="Filtrar colaboradores disponíveis"
             />
           </div>
         </div>
@@ -457,10 +461,13 @@ export default function EpiFichasPage() {
               value={form.epi_id}
               onChange={(e) => {
                 const value = e.target.value;
-                setSelectedEpi(availableEpis.find((item) => item.id === value) || null);
+                const found = availableEpis.find((item) => item.id === value) || null;
+                setSelectedEpi(found);
                 setForm((prev) => ({ ...prev, epi_id: value }));
+                if (found) setEpiSearch(found.nome);
               }}
               className={fieldClassName}
+              aria-labelledby="epi-search"
             >
               <option value="">Selecione um EPI</option>
               {availableEpis.map((item) => (
@@ -479,10 +486,13 @@ export default function EpiFichasPage() {
               value={form.user_id}
               onChange={(e) => {
                 const value = e.target.value;
-                setSelectedUser(availableUsers.find((item) => item.id === value) || null);
+                const found = availableUsers.find((item) => item.id === value) || null;
+                setSelectedUser(found);
                 setForm((prev) => ({ ...prev, user_id: value }));
+                if (found) setUserSearch(found.nome);
               }}
               className={fieldClassName}
+              aria-labelledby="user-search"
             >
               <option value="">Selecione um colaborador</option>
               {availableUsers.map((item) => (

@@ -7,7 +7,12 @@ import type { Rdo } from "@/services/rdosService";
 import { safeToLocaleDateString } from "@/lib/date/safeFormat";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { formatCpfInput } from "@/lib/format/cpf";
+import { cn } from "@/lib/utils";
 import type { RdoSignModalState } from "@/components/rdos/rdo-modal-types";
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 
 type RdoActionModalsProps = {
@@ -220,7 +225,39 @@ export function RdoActionModals({
                 onChange={(e) => setEmailTo(e.target.value)}
                 className={formInputClassName}
                 placeholder="email@exemplo.com, outro@exemplo.com"
+                aria-describedby={emailTo.trim() ? "email-parsed-list" : undefined}
               />
+              {(() => {
+                const parsed = emailTo.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean);
+                if (parsed.length === 0) return null;
+                const invalid = parsed.filter((e) => !isValidEmail(e));
+                return (
+                  <div id="email-parsed-list" className="mt-2 space-y-1.5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {parsed.map((email, idx) => (
+                        <span
+                          key={idx}
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                            isValidEmail(email)
+                              ? "bg-[color:var(--ds-color-success)]/10 text-[var(--ds-color-success)]"
+                              : "bg-[color:var(--ds-color-danger)]/10 text-[var(--ds-color-danger)]",
+                          )}
+                        >
+                          {email}
+                        </span>
+                      ))}
+                    </div>
+                    {invalid.length > 0 && (
+                      <p className="text-xs text-[var(--ds-color-danger)]" role="alert">
+                        {invalid.length === 1
+                          ? "E-mail inválido — verifique o formato antes de enviar."
+                          : `${invalid.length} e-mails inválidos — verifique os formatos antes de enviar.`}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
               <button
@@ -233,7 +270,11 @@ export function RdoActionModals({
               <button
                 type="button"
                 onClick={onSendEmail}
-                disabled={sendingEmail}
+                disabled={
+                  sendingEmail ||
+                  emailTo.trim() === "" ||
+                  emailTo.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean).some((e) => !isValidEmail(e))
+                }
                 className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
               >
                 <Send className="h-4 w-4" />{" "}

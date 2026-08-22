@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { Trash2, BrainCircuit, Save, ChevronDown, ImageIcon } from 'lucide-react';
+import { Trash2, BrainCircuit, Save, ChevronDown, ImageIcon, ShieldCheck, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
@@ -174,6 +174,24 @@ export function PhotoCard({
               className={`h-2 w-2 rounded-full ${classificationDot(image.ai_condition_classification)}`}
               title={image.ai_condition_classification}
             />
+          )}
+          {image.hash_sha256 && (
+            <span
+              className="inline-flex items-center text-[var(--ds-color-success)]"
+              title={`Integridade verificada (SHA-256: ${image.hash_sha256.slice(0, 8)}…)`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">Integridade verificada</span>
+            </span>
+          )}
+          {image.latitude != null && image.longitude != null && (
+            <span
+              className="inline-flex items-center text-[var(--ds-color-info)]"
+              title={`Geolocalização capturada: ${image.latitude.toFixed(5)}, ${image.longitude.toFixed(5)}`}
+            >
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">Geolocalização capturada</span>
+            </span>
           )}
         </div>
         <button
