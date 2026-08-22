@@ -338,10 +338,14 @@ export class DdsService {
       maxLimit: 100,
     });
 
-    // Prioridade: obra explicitamente selecionada no formulário (opts.siteId).
-    // Fallback para scope do usuário quando não há obra selecionada.
-    const siteIds = opts?.siteId
-      ? [opts.siteId]
+    // Prioridade: obra explicitamente selecionada no formulário (opts.siteId),
+    // intersectada com o escopo do usuário — impede enumeração de obras alheias (SGS-DDS-SEC-006).
+    const requestedSiteId = opts?.siteId?.trim() || null;
+    if (requestedSiteId && !scope.hasCompanyWideAccess && !scope.siteIds.includes(requestedSiteId)) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
+    const siteIds = requestedSiteId
+      ? [requestedSiteId]
       : scope.hasCompanyWideAccess
         ? []
         : scope.siteIds;
