@@ -692,7 +692,10 @@ export class DdsSignatureInviteService implements OnModuleInit {
       .andWhere('dds.deleted_at IS NULL');
 
     if (input.lock) {
-      query.setLock('pessimistic_write');
+      // Lock only the invite row. Without specifying tables TypeORM emits
+      // "FOR UPDATE" without "OF", which PostgreSQL rejects when any
+      // nullable side of a LEFT JOIN is present in the query.
+      query.setLock('pessimistic_write', undefined, ['invite']);
     }
 
     const invite = await query.getOne();
