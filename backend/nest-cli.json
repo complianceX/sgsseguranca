@@ -5,7 +5,7 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [
-      "sophie/kb/**/*",
+      "modules/sophie/kb/**/*",
       "reports/templates/**/*"
     ]
   }
