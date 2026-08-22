@@ -12,10 +12,7 @@ describe('DocumentRegistryService', () => {
   let service: DocumentRegistryService;
   let registryRepository: jest.Mocked<Repository<DocumentRegistryEntry>>;
   let versionRepository: jest.Mocked<Repository<DocumentRegistryVersionEntry>>;
-  let tenantService: Pick<
-    TenantService,
-    'getTenantId' | 'getContext' | 'run'
-  >;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
   let documentBundleService: Pick<
     DocumentBundleService,
     'buildWeeklyPdfBundle'

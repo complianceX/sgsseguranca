@@ -18,6 +18,7 @@ export type EpiAssignmentStatus = 'entregue' | 'devolvido' | 'substituido';
 
 export interface EpiSignatureStamp {
   signer_user_id?: string;
+  signed_on_behalf_of_user_id?: string;
   signer_name?: string;
   signature_data: string;
   signature_type: string;
