@@ -1039,6 +1039,19 @@ export class PtsService {
     this.assertPtDocumentMutable(pt);
     const { executantes, status, ...rest } = updatePtDto;
     this.preservePersistedChecklistAnexoRefs(pt, rest);
+
+    // SGS-PT-SEC-004: mirror the site-scope guard from create() — the RLS
+    // WITH CHECK would also reject the write, but as a 500 (Postgres error)
+    // instead of the expected 400 with an actionable message.
+    if (rest.site_id !== undefined && rest.site_id !== pt.site_id) {
+      const { siteIds, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
+      if (!isSuperAdmin && siteScope !== 'all' && !siteIds.includes(rest.site_id)) {
+        throw new BadRequestException(
+          'PT deve permanecer na obra atual do tenant. A obra só pode ser alterada por um administrador com acesso global.',
+        );
+      }
+    }
+
     const effectiveInicio = rest.data_hora_inicio ?? pt.data_hora_inicio;
     const effectiveFim = rest.data_hora_fim ?? pt.data_hora_fim;
     if (
@@ -1359,6 +1372,15 @@ export class PtsService {
         if (!allowed?.includes(PtStatus.APROVADA)) {
           throw new BadRequestException(
             `Transição inválida: ${pt.status} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+          );
+        }
+        // SGS-PT-SM-006: reject approval of a PT whose validity window has
+        // already closed — refreshExpiredStatuses only acts on already-APROVADA
+        // PTs, so PENDENTE PTs with past data_hora_fim remain approval-eligible
+        // indefinitely without this guard.
+        if (pt.data_hora_fim && new Date(pt.data_hora_fim) <= new Date()) {
+          throw new BadRequestException(
+            'PT com janela de validade encerrada não pode ser aprovada. Emita uma nova PT.',
           );
         }
         await this.assertCanApprove(pt, pt.company_id);
@@ -1985,6 +2007,20 @@ export class PtsService {
     if (pt.pdf_file_key) {
       throw new BadRequestException(
         'Somente PTs sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros já emitidos.',
+      );
+    }
+    // SGS-PT-SM-008: PTs in terminal/active states must not be silently removed
+    // even when they lack a PDF — Aprovada/Encerrada represent safety authorizations
+    // and Cancelada/Expirada carry audit value.
+    const nonRemovableStatuses: string[] = [
+      PtStatus.APROVADA,
+      PtStatus.ENCERRADA,
+      PtStatus.CANCELADA,
+      PtStatus.EXPIRADA,
+    ];
+    if (nonRemovableStatuses.includes(pt.status)) {
+      throw new BadRequestException(
+        `PT com status '${pt.status}' não pode ser removida. Somente PTs em rascunho ou pendentes sem PDF final podem ser excluídas.`,
       );
     }
     await this.documentGovernanceService.removeFinalDocumentReference({
