@@ -6,6 +6,8 @@ Este arquivo é a instrução principal obrigatória para qualquer agente de IA,
 
 Antes de alterar qualquer arquivo, leia e siga todas as regras deste documento.
 
+O processo operacional de execução é consolidado em [`docs/OPERACAO-CANONICA-SGS.md`](docs/OPERACAO-CANONICA-SGS.md): toda validação começa na VPS de teste e produção só pode ser considerada após os gates verdes e autorização explícita.
+
 O SGS é um SaaS multi-tenant de SST que lida com dados sensíveis de empresas, trabalhadores, documentos legais, evidências, fotos, PDFs, APR, DDS, PT, PGR, PCMSO, checklists, auditorias, incidentes, não conformidades, relatórios, permissões, usuários, empresas, anexos, storage, IA e trilhas de auditoria.
 
 Este projeto deve ser tratado como sistema real de produção, com responsabilidade legal, LGPD, isolamento entre empresas e risco real de ataque.

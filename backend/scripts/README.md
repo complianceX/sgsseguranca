@@ -565,4 +565,4 @@ Em caso de problemas:
 1. Verificar logs: `docker-compose logs -f`
 2. Verificar permissões dos scripts
 3. Verificar variáveis de ambiente
-4. Consultar `DEPLOYMENT_GUIDE.md`
+4. Consultar `docs/OPERACAO-CANONICA-SGS.md` e, para publicação, `docs/deploy/COMO-COLOCAR-EM-PRODUCAO.md`

@@ -139,7 +139,6 @@ docs/site/AUDITORIA*.md
 # Relatórios e changelogs de auditoria avulsos (não pertencem ao repositório)
 CHANGELOG-*.md
 SECURITY_TEST_REPORT.md
-RATE_LIMITS.md
 vulnerability-report.md
 security-audit-report.md
 reports/

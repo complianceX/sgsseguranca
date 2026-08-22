@@ -21,7 +21,7 @@
 5. `CREATE INDEX CONCURRENTLY` requer `transaction = false`
 6. UUID como primary key — sempre
 7. Rotas públicas: `@Public()`. Sem tenant: `@TenantOptional()`
-8. Próximo timestamp de migration: `1709000000182`
+8. Nunca inferir o próximo timestamp de migration; conferir o diretório de migrations e executar o check oficial antes de criar uma nova.
 9. `FIELD_ENCRYPTION_ENABLED=true` em produção
 
 ## Estrutura de Módulos
@@ -57,13 +57,15 @@ Filas: mail, pdf-generation, document-import, sla-escalation, expiry-notificatio
 
 Processo separado (`node dist/worker.js`). 8 workers: Mail, Reports, DocumentImport, Dashboard, DisasterRecovery, SlaEscalation, ExpiryNotifications, DocumentRetention
 
-## Deploy
+## Deploy e ambientes
 
-- Backend/Worker: Vultr + Coolify (Docker)
-- Frontend: Vercel
-- DB: Neon
-- Redis: Upstash
-- Storage: Backblaze B2
+- Produção: Hostinger VPS + Coolify; web e worker separados.
+- Frontend: Vercel.
+- DB: Neon PostgreSQL direto, sem host `-pooler`.
+- Redis: self-hosted na infraestrutura atual; não assumir Upstash.
+- Storage: Backblaze B2; Cloudflare R2 é histórico e não deve ser usado como provider atual.
+- Testes: sempre começar na VPS isolada de load test/homologação descrita em `docs/deploy/INFRAESTRUTURA-ATUAL.md`.
+- Processo obrigatório: `docs/OPERACAO-CANONICA-SGS.md`.
 
 ## Padrões de Código
 
