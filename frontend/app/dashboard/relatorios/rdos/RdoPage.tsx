@@ -61,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { openPdfForPrint } from "@/lib/print-utils";
 import { openSafeExternalUrlInNewTab } from "@/lib/security/safe-external-url";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
 import { Permission } from '@/lib/permissions';
@@ -286,6 +287,18 @@ useEffect(() => {
   const [emailModal, setEmailModal] = useState<Rdo | null>(null);
   const [emailTo, setEmailTo] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Delete confirm modal
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(deleteDialogRef, deleteConfirmId !== null, () => setDeleteConfirmId(null));
+
+  // Cancel RDO modal
+  const [cancelTarget, setCancelTarget] = useState<Rdo | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const cancelDialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(cancelDialogRef, cancelTarget !== null, () => { setCancelTarget(null); setCancelReason(""); });
 
   // Paginação + filtros
   const [page, setPage] = useState(1);
@@ -1098,29 +1111,30 @@ useEffect(() => {
     }
   };
 
-  const handleCancelRdo = async (rdo: Rdo) => {
+  const handleCancelRdo = (rdo: Rdo) => {
     if (!tenantPageIsolation.isActiveCompany(rdo.company_id)) return;
     if (!canManageRdo) {
       toast.error("Você não tem permissão para cancelar RDOs.");
       return;
     }
-
     if (rdo.status === "cancelado") {
       toast.error("Este RDO já está cancelado.");
       return;
     }
-
     if (rdo.pdf_file_key) {
       toast.error("RDO com PDF final emitido não pode ser cancelado.");
       return;
     }
+    setCancelTarget(rdo);
+    setCancelReason("");
+  };
 
-    const reason = window.prompt("Informe o motivo do cancelamento do RDO:");
-    if (!reason || !reason.trim()) {
-      return;
-    }
-
-    if (!activeCompanyId) return;
+  const confirmCancelRdo = async () => {
+    if (!cancelTarget || !cancelReason.trim() || !activeCompanyId) return;
+    const rdo = cancelTarget;
+    setCancelTarget(null);
+    setCancelReason("");
+    setIsCancelling(true);
     const operation = tenantPageIsolation.beginOperation(
       `cancel:${rdo.id}`,
       activeCompanyId,
@@ -1128,7 +1142,7 @@ useEffect(() => {
     const isCurrent = () => tenantPageIsolation.isOperationCurrent(operation);
     try {
       if (!isCurrent()) return;
-      const updated = await rdosService.cancel(rdo.id, reason.trim());
+      const updated = await rdosService.cancel(rdo.id, cancelReason.trim());
       if (!isCurrent()) return;
       setRdos((prev) =>
         prev.map((item) => (item.id === updated.id ? updated : item)),
@@ -1144,16 +1158,23 @@ useEffect(() => {
       toast.error(
         getApiErrorMessage(error) || "Não foi possível cancelar o RDO.",
       );
+    } finally {
+      setIsCancelling(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!canManageRdo) {
       toast.error("Você não tem permissão para excluir RDOs.");
       return;
     }
-    if (!confirm("Deseja excluir este RDO?")) return;
-    if (!activeCompanyId) return;
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId || !activeCompanyId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
     const operation = tenantPageIsolation.beginOperation(
       `delete:${id}`,
       activeCompanyId,
@@ -2373,6 +2394,114 @@ useEffect(() => {
         onSendEmail={handleSendEmail}
         formInputClassName={formInputClassName}
       />
+
+      {deleteConfirmId && (
+        <div
+          ref={deleteDialogRef}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rdo-delete-title"
+          aria-describedby="rdo-delete-desc"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
+            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <h2 id="rdo-delete-title" className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                Excluir RDO
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setDeleteConfirmId(null)}
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
+              >
+                <span aria-hidden="true" className="text-lg leading-none">×</span>
+              </button>
+            </div>
+            <div className="p-5">
+              <p id="rdo-delete-desc" className="text-sm text-[var(--ds-color-text-primary)]">
+                Tem certeza que deseja excluir este RDO?
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[var(--ds-color-danger)]">
+                Esta ação é irreversível e apagará todo o histórico de auditoria vinculado.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="rounded-xl border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)]/40"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                className="rounded-xl bg-[var(--ds-color-danger)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Excluir RDO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div
+          ref={cancelDialogRef}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rdo-cancel-title"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
+            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <h2 id="rdo-cancel-title" className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                Cancelar RDO
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => { setCancelTarget(null); setCancelReason(""); }}
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
+              >
+                <span aria-hidden="true" className="text-lg leading-none">×</span>
+              </button>
+            </div>
+            <div className="p-5">
+              <label htmlFor="rdo-cancel-reason" className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Motivo do cancelamento <span className="text-[var(--ds-color-danger)]">*</span>
+              </label>
+              <textarea
+                id="rdo-cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+                aria-required="true"
+                placeholder="Informe o motivo do cancelamento do RDO."
+                className={`${formInputClassName} resize-none`}
+              />
+            </div>
+            <div className="flex justify-end gap-3 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <button
+                type="button"
+                onClick={() => { setCancelTarget(null); setCancelReason(""); }}
+                className="rounded-xl border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)]/40"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={!cancelReason.trim() || isCancelling}
+                onClick={() => void confirmCancelRdo()}
+                className="rounded-xl bg-[var(--ds-color-warning)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCancelling ? "Cancelando…" : "Confirmar cancelamento"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

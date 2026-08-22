@@ -70,7 +70,7 @@ export const EmergencyRescueSection = ({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          <label htmlFor="pt-contato_emergencia" className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Contato de emergência
             {espacoConfinado && (
               <span className="text-[var(--ds-color-danger)]"> *</span>
@@ -78,6 +78,8 @@ export const EmergencyRescueSection = ({
           </label>
           <input
             {...register('contato_emergencia')}
+            id="pt-contato_emergencia"
+            aria-required={espacoConfinado}
             placeholder="Ex: Brigada interna — (11) 99999-0000 / ramal 220"
             className={inputClassName(Boolean(fieldError('contato_emergencia')))}
           />
@@ -89,18 +91,19 @@ export const EmergencyRescueSection = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          <label htmlFor="pt-ponto_encontro" className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Ponto de encontro
           </label>
           <input
             {...register('ponto_encontro')}
+            id="pt-ponto_encontro"
             placeholder="Ex: Portaria principal — área de concentração"
             className={inputClassName(false)}
           />
         </div>
 
         <div className="md:col-span-2">
-          <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          <label htmlFor="pt-plano_resgate" className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Plano de resgate
             {espacoConfinado && (
               <span className="text-[var(--ds-color-danger)]"> *</span>
@@ -108,6 +111,8 @@ export const EmergencyRescueSection = ({
           </label>
           <textarea
             {...register('plano_resgate')}
+            id="pt-plano_resgate"
+            aria-required={espacoConfinado}
             rows={3}
             placeholder="Descreva o plano/equipe de resgate, equipamentos disponíveis e tempo de resposta."
             className={inputClassName(Boolean(fieldError('plano_resgate')))}
@@ -128,10 +133,11 @@ export const EmergencyRescueSection = ({
           </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+              <label htmlFor="pt-vigia_user_id" className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                 Usuário do sistema
               </label>
               <select
+                id="pt-vigia_user_id"
                 value={vigiaUserId}
                 onChange={(event) => {
                   setValue('vigia_user_id', event.target.value, {
@@ -152,10 +158,11 @@ export const EmergencyRescueSection = ({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
+              <label htmlFor="pt-vigia_nome" className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                 Ou nome do vigia (externo)
               </label>
               <input
+                id="pt-vigia_nome"
                 value={vigiaNome}
                 onChange={(event) => {
                   setValue('vigia_nome', event.target.value, {
@@ -179,11 +186,12 @@ export const EmergencyRescueSection = ({
       )}
 
       <div className="mt-4">
-        <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
+        <label htmlFor="pt-epi_draft" className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
           EPIs obrigatórios
         </label>
         <div className="flex gap-2">
           <input
+            id="pt-epi_draft"
             value={epiDraft}
             onChange={(event) => setEpiDraft(event.target.value)}
             onKeyDown={(event) => {

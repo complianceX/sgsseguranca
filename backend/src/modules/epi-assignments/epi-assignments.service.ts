@@ -1,12 +1,14 @@
 ﻿import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { Role } from '../auth/enums/roles.enum';
 import { AuditService } from '../audit-trail/audit.service';
 import { AuditAction } from '../audit-trail/enums/audit-action.enum';
 import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
@@ -94,7 +96,8 @@ export class EpiAssignmentsService {
 
     const assinaturaEntrega = this.buildSignatureStamp(
       dto.assinatura_entrega,
-      user.id,
+      actorId,
+      actorId !== user.id ? user.id : undefined,
     );
 
     const assignment = this.assignmentsRepository.create({
@@ -238,9 +241,21 @@ export class EpiAssignmentsService {
       );
     }
 
+    const scope = this.getSiteAccessScopeOrThrow();
+    const isPrivileged =
+      scope.hasCompanyWideAccess ||
+      scope.profileName === Role.TST ||
+      scope.profileName === Role.SUPERVISOR;
+    if (!isPrivileged && assignment.user_id !== scope.userId) {
+      throw new ForbiddenException(
+        'Você só pode devolver EPIs atribuídos a você.',
+      );
+    }
+
     const assinaturaDevolucao = this.buildSignatureStamp(
       dto.assinatura_devolucao,
-      assignment.user_id,
+      actorId,
+      actorId !== assignment.user_id ? assignment.user_id : undefined,
     );
 
     assignment.status = 'devolvido';
@@ -516,12 +531,14 @@ export class EpiAssignmentsService {
   private buildSignatureStamp(
     input: EpiSignatureInputDto,
     signerUserId?: string,
+    signedOnBehalfOfUserId?: string,
   ): EpiSignatureStamp {
     const generated = this.signatureTimestampService.issueFromRaw(
       input.signature_data,
     );
     return {
       signer_user_id: signerUserId,
+      signed_on_behalf_of_user_id: signedOnBehalfOfUserId,
       signer_name: input.signer_name,
       signature_data: input.signature_data,
       signature_type: input.signature_type,

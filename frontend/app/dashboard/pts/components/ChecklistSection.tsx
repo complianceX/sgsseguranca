@@ -199,10 +199,12 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
               {/* Justificativa */}
               {field.resposta && showJustificationOn.some((value) => value === field.resposta) && (
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                  <label htmlFor={`pt-checklist-just-${index}`} className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
                     Justificativa <span className="text-[var(--color-danger)]">*</span>
                   </label>
                   <textarea
+                    id={`pt-checklist-just-${index}`}
+                    aria-required="true"
                     value={field.justificativa || ''}
                     onChange={(e) => setValue(`${name}.${index}.justificativa`, e.target.value, { shouldValidate: true })}
                     rows={3}
@@ -221,10 +223,11 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
               {/* Anexo governado (se aplicável) */}
               {hasAttachmentField(name) && (
                  <div className="mt-3">
-                    <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                    <label htmlFor={`pt-checklist-anexo-${index}`} className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
                       Anexo (opcional)
                     </label>
                     <input
+                      id={`pt-checklist-anexo-${index}`}
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       disabled={!ptId || uploadingIndex === index}

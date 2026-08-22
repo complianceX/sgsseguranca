@@ -30,6 +30,8 @@ import { FileDown, Plus } from 'lucide-react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
 import { ResponsiveDataList } from '@/components/ui/responsive-data-list';
 import { Button } from '@/components/ui/button';
 import { ModalBody, ModalFooter, ModalFrame, ModalHeader } from '@/components/ui/modal-frame';
@@ -50,6 +52,9 @@ type SignatureTarget =
   | { mode: 'return'; assignmentId: string };
 
 export default function EpiFichasPage() {
+  const { hasPermission } = useAuth();
+  const canManageEpi = hasPermission(Permission.CAN_MANAGE_EPI_ASSIGNMENTS);
+
   const summaryCache = useCachedFetch(
     CACHE_KEYS.epiAssignmentsSummary,
     epiAssignmentsService.getSummary,
@@ -567,13 +572,13 @@ export default function EpiFichasPage() {
           mobile={(assignment) => (
             <article className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{assignment.user?.nome || usersMap.get(assignment.user_id) || '-'}</h3><p className="text-sm text-[var(--ds-color-text-secondary)]">{assignment.epi?.nome || episMap.get(assignment.epi_id) || '-'}</p></div><span className="rounded-full border px-2.5 py-1 text-xs font-semibold">{assignment.status}</span></div>
-              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">CA</dt><dd>{assignment.ca || '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Validade</dt><dd>{assignment.validade_ca ? safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—') : '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Entrega</dt><dd>{safeToLocaleDateString(assignment.entregue_em, 'pt-BR', undefined, '—')}</dd></div></dl>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-[var(--ds-color-text-muted)]">CA</dt><dd>{assignment.ca || '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Validade</dt><dd>{assignment.validade_ca ? (<><span>{safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—')}</span>{' '}<span className={resolveCaStatus(assignment.validade_ca) === 'CA expirado' ? 'text-[var(--ds-color-danger)] font-semibold' : 'text-[var(--ds-color-success)]'}>({resolveCaStatus(assignment.validade_ca)})</span></>) : '-'}</dd></div><div><dt className="text-xs text-[var(--ds-color-text-muted)]">Entrega</dt><dd>{safeToLocaleDateString(assignment.entregue_em, 'pt-BR', undefined, '—')}</dd></div></dl>
               <div className="mt-4 grid grid-cols-1 gap-2 border-t pt-3 sm:grid-cols-3">
                 <Button size="sm" variant="outline" onClick={() => void openGovernedPdf(assignment)} disabled={pdfLoadingId === assignment.id}>
                   <FileDown className="mr-1 h-4 w-4" />
                   {pdfLoadingId === assignment.id ? 'Processando...' : assignment.pdf_file_key ? 'Abrir PDF oficial' : 'Emitir PDF oficial'}
                 </Button>
-                {assignment.status === 'entregue' ? <><Button size="sm" variant="success" onClick={() => setSignatureTarget({ mode: 'return', assignmentId: assignment.id })}>Devolver</Button><Button size="sm" variant="outline" onClick={() => openReplace(assignment)}>Substituir</Button></> : null}
+                {canManageEpi && assignment.status === 'entregue' ? <><Button size="sm" variant="success" onClick={() => setSignatureTarget({ mode: 'return', assignmentId: assignment.id })}>Devolver</Button><Button size="sm" variant="outline" onClick={() => openReplace(assignment)}>Substituir</Button></> : null}
               </div>
             </article>
           )}
@@ -614,9 +619,15 @@ export default function EpiFichasPage() {
                   </TableCell>
                   <TableCell>{assignment.ca || '-'}</TableCell>
                   <TableCell>
-                    {assignment.validade_ca
-                      ? `${safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—')} (${resolveCaStatus(assignment.validade_ca)})`
-                      : '-'}
+                    {assignment.validade_ca ? (
+                      <>
+                        <span>{safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—')}</span>
+                        {' '}
+                        <span className={resolveCaStatus(assignment.validade_ca) === 'CA expirado' ? 'font-semibold text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-success)]'}>
+                          ({resolveCaStatus(assignment.validade_ca)})
+                        </span>
+                      </>
+                    ) : '-'}
                   </TableCell>
                   <TableCell>{assignment.status}</TableCell>
                   <TableCell>
@@ -637,7 +648,7 @@ export default function EpiFichasPage() {
                             ? 'PDF oficial'
                             : 'Emitir PDF'}
                       </button>
-                      {assignment.status === 'entregue' && (
+                      {canManageEpi && assignment.status === 'entregue' && (
                         <button
                           type="button"
                           className="rounded border px-2 py-1 text-xs text-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-subtle)]"
@@ -651,7 +662,7 @@ export default function EpiFichasPage() {
                           Devolver
                         </button>
                       )}
-                      {assignment.status === 'entregue' && (
+                      {canManageEpi && assignment.status === 'entregue' && (
                         <button
                           type="button"
                           className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"

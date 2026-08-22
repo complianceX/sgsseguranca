@@ -37,6 +37,8 @@ import {
   defaultChecklistColumns,
 } from './columns';
 
+import { ConfirmModal } from '@/components/ui/confirm-modal';
+
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
@@ -96,6 +98,11 @@ export function ChecklistsPageView({
   const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
   const [savedViews, setSavedViews] = useState<ChecklistSavedView[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
+
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [saveViewName, setSaveViewName] = useState('');
+  const [deleteViewConfirmOpen, setDeleteViewConfirmOpen] = useState(false);
+  const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] = useState(false);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -223,11 +230,13 @@ export function ChecklistsPageView({
   }, [activeViewId, savedViews, visibleColumns, modelFilter, searchTerm]);
 
   const saveCurrentView = () => {
-    const proposedName = window.prompt('Nome da vista para salvar:', `Vista ${savedViews.length + 1}`);
-    if (!proposedName) return;
-    const name = proposedName.trim();
-    if (!name) return;
+    setSaveViewName(`Vista ${savedViews.length + 1}`);
+    setSaveViewOpen(true);
+  };
 
+  const confirmSaveView = () => {
+    const name = saveViewName.trim();
+    if (!name) return;
     const nextView: ChecklistSavedView = {
       id: `${Date.now()}`,
       name,
@@ -238,6 +247,7 @@ export function ChecklistsPageView({
     };
     setSavedViews((current) => [nextView, ...current].slice(0, 12));
     setActiveViewId(nextView.id);
+    setSaveViewOpen(false);
     toast.success(`Vista "${name}" salva.`);
   };
 
@@ -245,10 +255,13 @@ export function ChecklistsPageView({
     if (!activeViewId) return;
     const activeView = savedViews.find((view) => view.id === activeViewId);
     if (!activeView) return;
+    setDeleteViewConfirmOpen(true);
+  };
 
-    if (!confirm(`Excluir a vista "${activeView.name}"?`)) return;
+  const confirmDeleteActiveView = () => {
     setSavedViews((current) => current.filter((view) => view.id !== activeViewId));
     setActiveViewId(null);
+    setDeleteViewConfirmOpen(false);
     toast.success('Vista excluída.');
   };
 
@@ -256,9 +269,13 @@ export function ChecklistsPageView({
     setSelectedChecklistIds([]);
   };
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (!selectedChecklistIds.length) return;
-    if (!confirm(`Excluir ${selectedChecklistIds.length} checklist(s) selecionado(s)?`)) return;
+    setDeleteSelectedConfirmOpen(true);
+  };
+
+  const confirmDeleteSelected = async () => {
+    setDeleteSelectedConfirmOpen(false);
     await handleDeleteMany(selectedChecklistIds);
     setSelectedChecklistIds([]);
   };
@@ -545,6 +562,56 @@ export function ChecklistsPageView({
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+
+      <ConfirmModal
+        open={saveViewOpen}
+        onClose={() => setSaveViewOpen(false)}
+        onConfirm={confirmSaveView}
+        title="Salvar vista atual"
+        description="Dê um nome para esta configuração de colunas e filtros."
+        confirmLabel="Salvar"
+        danger={false}
+      >
+        <div className="mt-3">
+          <label
+            htmlFor="checklist-save-view-name"
+            className="block text-sm font-medium text-[var(--ds-color-text-primary)] mb-1"
+          >
+            Nome da vista
+          </label>
+          <input
+            id="checklist-save-view-name"
+            type="text"
+            autoFocus
+            value={saveViewName}
+            onChange={(e) => setSaveViewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveView(); }}
+            maxLength={60}
+            className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-default)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-action-primary)]"
+            aria-required="true"
+          />
+        </div>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={deleteViewConfirmOpen}
+        onClose={() => setDeleteViewConfirmOpen(false)}
+        onConfirm={confirmDeleteActiveView}
+        title="Excluir vista salva"
+        description={`Tem certeza que deseja excluir a vista "${savedViews.find((v) => v.id === activeViewId)?.name ?? ''}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir vista"
+        danger
+      />
+
+      <ConfirmModal
+        open={deleteSelectedConfirmOpen}
+        onClose={() => setDeleteSelectedConfirmOpen(false)}
+        onConfirm={confirmDeleteSelected}
+        title={`Excluir ${selectedChecklistIds.length} checklist(s)`}
+        description={`Tem certeza que deseja excluir ${selectedChecklistIds.length} checklist(s) selecionado(s)? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir selecionados"
+        danger
+      />
     </div>
   );
 }

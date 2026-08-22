@@ -224,10 +224,11 @@ export const AtmosphericReadingsSection = ({
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {READING_COLUMNS.map((column) => (
               <div key={column.key}>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+                <label htmlFor={`pt-draft-${column.key}`} className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                   {column.label}
                 </label>
                 <input
+                  id={`pt-draft-${column.key}`}
                   value={
                     typeof draft[column.key] === 'number'
                       ? Number.isNaN(draft[column.key] as number)
