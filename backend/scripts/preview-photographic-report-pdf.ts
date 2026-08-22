@@ -43,7 +43,7 @@ const sampleSignatureImage = `data:image/svg+xml;utf8,${SAMPLE_SIGNATURE_SVG.rep
 /** Sobrescreva com PREVIEW_OUT_DIR para escrever fora do repositório. */
 const OUT_DIR = process.env.PREVIEW_OUT_DIR
   ? path.resolve(process.env.PREVIEW_OUT_DIR)
-  : REPO_ROOT;
+  : path.join(REPO_ROOT, 'tmp', 'pdfs');
 const SHOT_DIR = process.env.PREVIEW_SHOT_DIR
   ? path.resolve(process.env.PREVIEW_SHOT_DIR)
   : OUT_DIR;
@@ -53,10 +53,10 @@ const SHOT_DIR = process.env.PREVIEW_SHOT_DIR
  * moldura, não o conteúdo da foto. Sem arquivo, os cards renderizam o estado
  * "sem foto", que também é um caminho que vale conferir.
  */
-const photoPath =
-  process.env.PREVIEW_PHOTO ||
-  path.join(REPO_ROOT, 'report-upload.png');
-const photoDataUrl = fs.existsSync(photoPath)
+const photoPath = process.env.PREVIEW_PHOTO
+  ? path.resolve(process.env.PREVIEW_PHOTO)
+  : null;
+const photoDataUrl = photoPath && fs.existsSync(photoPath)
   ? `data:image/png;base64,${fs.readFileSync(photoPath).toString('base64')}`
   : null;
 
@@ -249,6 +249,9 @@ const renderableImages = [
 ] as never;
 
 async function main() {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.mkdirSync(SHOT_DIR, { recursive: true });
+
   // QR real, gerado com as mesmas opções que o serviço usa.
   const qrDataUri = await QRCode.toDataURL(
     'https://app.sgsseguranca.com.br/validar/RFP-2026-C283FE18?token=abc123',
