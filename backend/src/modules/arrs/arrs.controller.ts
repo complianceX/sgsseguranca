@@ -152,6 +152,7 @@ export class ArrsController {
   @Post(':id/generate-final-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_arrs')
+  @ForensicAuditAction('finalize', 'arr')
   async generateFinalPdf(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()

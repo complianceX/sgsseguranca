@@ -24,6 +24,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { Epi } from '../epis/entities/epi.entity';
+import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import {
   CreateEpiAssignmentDto,
@@ -52,6 +53,8 @@ export class EpiAssignmentsService {
     private readonly assignmentsRepository: Repository<EpiAssignment>,
     @InjectRepository(Epi)
     private readonly episRepository: Repository<Epi>,
+    @InjectRepository(Site)
+    private readonly sitesRepository: Repository<Site>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly tenantService: TenantService,
@@ -76,6 +79,19 @@ export class EpiAssignmentsService {
         'Ficha EPI deve ser lançada na obra atual.',
       );
     }
+
+    // SGS-EPI-SEC-008: validate site belongs to this company (company-wide
+    // actors bypass the site-scope check above but must still not reference
+    // sites from other tenants).
+    if (effectiveSiteId) {
+      const site = await this.sitesRepository.findOne({
+        where: { id: effectiveSiteId, company_id: companyId },
+      });
+      if (!site) {
+        throw new NotFoundException('Obra não encontrada para esta empresa.');
+      }
+    }
+
     const [epi, user] = await Promise.all([
       this.episRepository.findOne({
         where: { id: dto.epi_id, company_id: companyId },

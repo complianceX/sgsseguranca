@@ -189,7 +189,7 @@ describe('Compliance flows smoke', () => {
     const result = await controller.findAll({
       page: 1,
       limit: 20,
-      user_id: undefined,
+      user_id: 'user-1',
       epi_id: undefined,
       status: undefined,
     });
