@@ -73,3 +73,7 @@ Conclusão: os hardenings P1, o rebuild/DR reconciliado com 299 migrations, a ma
 Checkpoint Final 3: [dds-release-unblock-final-3.md](dds-release-unblock-final-3.md). O score foi recalculado independentemente em 76/100; não há certificação GO.
 
 Autorização final dos três gates, classificação redigida e provas mínimas: [dds-final-release-authorization.md](dds-final-release-authorization.md). Veredito permanece `NO-GO`.
+
+## Addendum de correção DDS — VPS de teste — 2026-08-21
+
+O fluxo público de validação DDS foi corrigido e revalidado somente na VPS isolada: o lookup do `document_registry` e o `forensic_trail_events` agora executam sob contexto explícito do `company_id`. O smoke runtime confirmou `valid=true`, rejeição de token inválido, rejeição cross-tenant, storage `ready` e persistência de três traces forenses. As suítes `public-dds-validation.controller.spec.ts` e `document-registry.service.spec.ts` passaram com `14/14` testes. O veredito de produção continua `NO-GO` enquanto secrets/Gitleaks não tiverem classificação e rotação formais.

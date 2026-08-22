@@ -45,6 +45,7 @@
 | `REDIS_URL` | Não | Legado (compatibilidade) |
 | `REDIS_DISABLED` | Não | `false` — modo degradado |
 | `REDIS_FAIL_OPEN` | Não | `false` em produção |
+| `REDIS_ALLOW_INSECURE_INTERNAL` | Não | Dispensa exigência de TLS quando o Redis remoto está na mesma rede Docker interna da VPS (tráfego nunca sai da máquina). Senha continua obrigatória. Ver `ops/docker/redis/` e `docs/deploy/redis-hardening-rollout.md` |
 
 ---
 

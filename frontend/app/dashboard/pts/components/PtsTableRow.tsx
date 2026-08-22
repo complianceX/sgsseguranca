@@ -186,13 +186,18 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onPrint(pt.id)}
+                aria-label={
+                  pt.pdf_file_key || isApproved
+                    ? 'Imprimir PDF final governado'
+                    : 'Imprimir pré-visualização'
+                }
                 title={
                   pt.pdf_file_key || isApproved
                     ? 'Imprimir PDF final governado'
                     : 'Imprimir pré-visualização'
                 }
               >
-                <Printer className="h-4 w-4" />
+                <Printer className="h-4 w-4" aria-hidden="true" />
               </Button>
               {canManageMail ? (
                 <Button
@@ -200,13 +205,18 @@ export const PtsTableRow = React.memo(
                   size="icon"
                   variant="ghost"
                   onClick={() => onSendEmail(pt.id)}
+                  aria-label={
+                    pt.pdf_file_key || isApproved
+                      ? 'Enviar PDF final governado por e-mail'
+                      : 'Enviar pré-visualização por e-mail'
+                  }
                   title={
                     pt.pdf_file_key || isApproved
                       ? 'Enviar PDF final governado por e-mail'
                       : 'Enviar pré-visualização por e-mail'
                   }
                 >
-                  <Mail className="h-4 w-4" />
+                  <Mail className="h-4 w-4" aria-hidden="true" />
                 </Button>
               ) : null}
               <Button
@@ -214,9 +224,10 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onDownloadPdf(pt.id)}
+                aria-label={pt.pdf_file_key || isApproved ? 'Abrir PDF final governado' : 'Baixar PDF'}
                 title={pt.pdf_file_key || isApproved ? 'Abrir PDF final governado' : 'Baixar PDF'}
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-4 w-4" aria-hidden="true" />
               </Button>
               {isAwaitingApproval && canApprovePt ? (
                 <>
@@ -265,9 +276,11 @@ export const PtsTableRow = React.memo(
                         ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
                         : '',
                     )}
+                    aria-label={isEditable ? 'Editar PT' : 'Somente PTs pendentes podem ser editadas'}
+                    aria-disabled={!isEditable}
                     title={isEditable ? 'Editar PT' : 'Somente PTs pendentes podem ser editadas'}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </Link>
                   <Button
                     type="button"
@@ -275,9 +288,10 @@ export const PtsTableRow = React.memo(
                     variant="ghost"
                     onClick={() => onDelete(pt.id)}
                     className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                    aria-label="Excluir PT"
                     title="Excluir PT"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </>
               ) : null}

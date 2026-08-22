@@ -2,6 +2,8 @@
 
 ## Comece por aqui
 
+> **Processo operacional único:** [`OPERACAO-CANONICA-SGS.md`](./OPERACAO-CANONICA-SGS.md). Validação começa na VPS de teste; produção só depois dos gates verdes e autorização explícita.
+
 | Você é… | Leia |
 |---|---|
 | **Dev novo no projeto** | [consulta-rapida/visao-geral.md](./consulta-rapida/visao-geral.md) → [architecture/SGS-FLUXOGRAMA-COMPLETO.md](./architecture/SGS-FLUXOGRAMA-COMPLETO.md) → [consulta-rapida/onde-alterar-o-que.md](./consulta-rapida/onde-alterar-o-que.md) |
@@ -18,11 +20,12 @@
 ## Governança e conformidade
 - [SGS-GOVERNANCA-DOCUMENTAL.md](./SGS-GOVERNANCA-DOCUMENTAL.md) — autenticidade, prova de assinatura, LGPD, isolamento (linguagem de processo, para auditoria)
 - [state-machines.md](./state-machines.md) — estados e transições de cada entidade
+- [security/RATE_LIMITS.md](./security/RATE_LIMITS.md) — camadas e limites de proteção contra abuso
 
 ## Deploy
 - [deploy/INFRAESTRUTURA-ATUAL.md](./deploy/INFRAESTRUTURA-ATUAL.md) — fonte de verdade da infraestrutura atual, produção e load test
 - [deploy/COMO-COLOCAR-EM-PRODUCAO.md](./deploy/COMO-COLOCAR-EM-PRODUCAO.md) — **nada sobe sozinho neste projeto**; checklist real
-- [deploy/coolify-vultr-backend-web-worker.md](./deploy/coolify-vultr-backend-web-worker.md) — configuração da infra (histórico da migração)
+- [deploy/coolify-vultr-backend-web-worker.md](./deploy/coolify-vultr-backend-web-worker.md) — configuração histórica da infra; não usar como procedimento atual
 
 ## Consulta Rapida
 - [consulta-rapida/README.md](./consulta-rapida/README.md)
@@ -43,6 +46,7 @@
 - [consulta-rapida/troubleshooting.md](./consulta-rapida/troubleshooting.md)
 - [consulta-rapida/faq.md](./consulta-rapida/faq.md)
 - [consulta-rapida/comandos-e-validacao.md](./consulta-rapida/comandos-e-validacao.md)
+- [OPERACAO-CANONICA-SGS.md](./OPERACAO-CANONICA-SGS.md) — ordem única para corrigir, testar e promover
 
 ## Conventions
 - [conventions/frontend.md](./conventions/frontend.md)

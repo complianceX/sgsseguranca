@@ -36,6 +36,12 @@ const API_BASE_URL = String(
   process.env.PROD_SMOKE_API_BASE_URL || 'https://api.sgsseguranca.com.br',
 ).replace(/\/$/, '');
 
+const IS_LOADTEST_TARGET =
+  process.env.APP_ENV === 'loadtest' || API_BASE_URL === 'http://127.0.0.1:3001';
+const EXPECTED_TEST_COMPANY_NAME = IS_LOADTEST_TARGET
+  ? 'SGS_LOADTEST_SYNTHETIC Empresa'
+  : 'Gandra Tecnologia';
+
 const TEST_COMPANY_NAME = String(
   process.env.TEST_COMPANY_NAME || 'Gandra Tecnologia',
 ).trim();
@@ -63,8 +69,12 @@ const UA = 'sgs-prod-gandra-dds-smoke/1.0';
 
 function assertSafeMode() {
   if (!TEST_COMPANY_ID) throw new Error('TEST_COMPANY_ID ausente. Abortando.');
-  if (TEST_COMPANY_NAME !== 'Gandra Tecnologia')
+  if (TEST_COMPANY_NAME !== EXPECTED_TEST_COMPANY_NAME)
     throw new Error(`TEST_COMPANY_NAME inesperado (${TEST_COMPANY_NAME}).`);
+  if (IS_LOADTEST_TARGET && API_BASE_URL !== 'http://127.0.0.1:3001')
+    throw new Error('Alvo loadtest deve usar a API local do container. Abortando.');
+  if (!IS_LOADTEST_TARGET && API_BASE_URL !== 'https://api.sgsseguranca.com.br')
+    throw new Error('Alvo fora do loadtest não é a API de produção autorizada. Abortando.');
   if (!PRODUCTION_SAFE_TEST_MODE)
     throw new Error('PRODUCTION_SAFE_TEST_MODE=false. Abortando.');
   if (!DISABLE_EXTERNAL_NOTIFICATIONS)
@@ -495,7 +505,7 @@ async function validatePublicly(documentCode, token) {
   const params = new URLSearchParams({ code: documentCode });
   if (token) params.set('token', token);
   const response = await fetch(
-    `${API_BASE_URL}/public/documents/validate?${params.toString()}`,
+    `${API_BASE_URL}/public/dds/validate?${params.toString()}`,
     { headers: { 'User-Agent': UA } },
   );
   const body = await response.json().catch(() => ({}));
@@ -510,7 +520,13 @@ async function run() {
   const warnings = [];
 
   try {
-    await client.query(`SELECT set_config('app.is_super_admin','true',false)`);
+    await client.query(
+      `SELECT
+         set_config('app.current_company_id', $1, false),
+         set_config('app.current_company', $1, false),
+         set_config('app.is_super_admin', 'true', false)`,
+      [TEST_COMPANY_ID],
+    );
     const company = await assertTargetCompany(client);
     const site = await pickTargetSite(client);
     let resumable = await findResumableDds(client, tema);
@@ -755,6 +771,55 @@ async function run() {
         ? await validatePublicly(contextCode, contextToken)
         : { status: validationContext.status, ok: false, body: null };
 
+    const publicValidationValid =
+      publicValidation.body?.valid ?? publicValidation.body?.isValid ?? false;
+    if (!publicValidation.ok || publicValidationValid !== true) {
+      throw new Error(
+        `Validação pública do DDS falhou. status=${publicValidation.status} ` +
+          `body=${JSON.stringify({
+            valid: publicValidation.body?.valid,
+            isValid: publicValidation.body?.isValid,
+            message: publicValidation.body?.message,
+            module: publicValidation.body?.module,
+            code: publicValidation.body?.code,
+          })}`,
+      );
+    }
+
+    const invalidPublicValidation = await validatePublicly(
+      contextCode,
+      'invalid.invalid.invalid',
+    );
+    const invalidPublicValidationAccepted =
+      invalidPublicValidation.body?.valid === true ||
+      invalidPublicValidation.body?.isValid === true;
+    if (invalidPublicValidationAccepted) {
+      throw new Error('Token público inválido foi aceito pelo endpoint DDS.');
+    }
+
+    const crossTenantRead = await requestJson(
+      `/dds/${ddsId}`,
+      session.accessToken,
+      { companyId: '00000000-0000-4000-8000-000000000099' },
+    );
+    if (crossTenantRead.ok) {
+      throw new Error('Leitura DDS cross-tenant foi aceita pelo endpoint.');
+    }
+
+    const forensicTrace = await client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM forensic_trail_events
+        WHERE company_id = $1
+          AND module = 'dds_public_validation'
+          AND entity_id = $2
+          AND event_type = 'PUBLIC_VALIDATION_ATTEMPT'`,
+      [TEST_COMPANY_ID, contextCode],
+    );
+    const forensicTraceCount = Number(forensicTrace.rows[0]?.count || 0);
+    if (forensicTraceCount < 1) {
+      throw new Error('Trace forense da validação pública não foi persistido.');
+    }
+
     const report = {
       apiBaseUrl: API_BASE_URL,
       warnings,
@@ -805,11 +870,14 @@ async function run() {
       },
       publicValidation: {
         status: publicValidation.status,
-        valid:
-          publicValidation.body?.valid ??
-          publicValidation.body?.isValid ??
-          null,
+        valid: publicValidationValid,
         moduleReturned: publicValidation.body?.module || null,
+      },
+      adversarial: {
+        invalidPublicTokenRejected:
+          !invalidPublicValidationAccepted,
+        crossTenantReadRejected: !crossTenantRead.ok,
+        forensicTraceCount,
       },
       artifacts: {
         pdfPath: artifactPaths.pdfPath,

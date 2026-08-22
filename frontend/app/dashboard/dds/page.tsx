@@ -247,6 +247,7 @@ export default function DdsPage() {
     useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [operationalizeTarget, setOperationalizeTarget] = useState<Dds | null>(null);
   const [issuingSignatureLinksId, setIssuingSignatureLinksId] = useState<
     string | null
   >(null);
@@ -715,14 +716,14 @@ useEffect(() => {
     }
   };
 
-  const handleOperationalize = async (dds: Dds) => {
-    if (
-      !window.confirm(
-        `Criar novo DDS com base no modelo "${dds.tema}"? Um novo registro será gerado com os mesmos participantes e conteúdo.`,
-      )
-    ) {
-      return;
-    }
+  const handleOperationalize = (dds: Dds) => {
+    setOperationalizeTarget(dds);
+  };
+
+  const confirmOperationalize = async () => {
+    if (!operationalizeTarget) return;
+    const dds = operationalizeTarget;
+    setOperationalizeTarget(null);
 
     try {
       toast.info("Operacionalizando modelo...");
@@ -1854,10 +1855,11 @@ useEffect(() => {
                             onClick={() =>
                               handleCopyFolderPath(file.folderPath)
                             }
+                            aria-label="Copiar caminho da pasta"
                             title="Copiar caminho da pasta"
                             className="h-6 w-6"
                           >
-                            <Copy className="h-3 w-3" />
+                            <Copy className="h-3 w-3" aria-hidden="true" />
                           </Button>
                         </div>
                       </TableCell>
@@ -2404,6 +2406,16 @@ useEffect(() => {
         description="Esta ação é irreversível. O DDS e todos os dados associados serão removidos permanentemente."
         confirmLabel="Excluir"
         loading={deleteLoading}
+      />
+
+      <ConfirmModal
+        open={!!operationalizeTarget}
+        onClose={() => setOperationalizeTarget(null)}
+        onConfirm={() => void confirmOperationalize()}
+        title="Operacionalizar modelo"
+        description={`Criar novo DDS com base no modelo "${operationalizeTarget?.tema ?? ''}"? Um novo registro será gerado com os mesmos participantes e conteúdo.`}
+        confirmLabel="Criar DDS"
+        danger={false}
       />
     </div>
   );

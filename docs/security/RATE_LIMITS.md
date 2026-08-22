@@ -1,8 +1,9 @@
 # Rate Limiting — Guia de Referência
 
 > Documento de referência para as 3 camadas de proteção contra abuso do sistema.
+> A validação operacional segue [`../OPERACAO-CANONICA-SGS.md`](../OPERACAO-CANONICA-SGS.md); este arquivo documenta apenas o controle técnico.
 >
-> Atualizado em: 2026-03-24
+> Atualizado em: 2026-08-21
 
 ---
 

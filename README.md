@@ -336,9 +336,11 @@ Alterações relacionadas a banco de dados, autenticação, autorização, multi
 
 * [Documentação do backend](backend/README.md)
 * [Documentação geral](docs/README.md)
+* [Operação canônica — teste antes de produção](docs/OPERACAO-CANONICA-SGS.md)
 * [Arquitetura e stack](docs/architecture/README.md)
 * [Mapa de módulos](docs/consulta-rapida/mapa-de-modulos.md)
 * [Segurança e governança](docs/consulta-rapida/seguranca-e-governanca.md)
+* [Rate limiting](docs/security/RATE_LIMITS.md)
 * [Infraestrutura atual](docs/deploy/INFRAESTRUTURA-ATUAL.md)
 * [Deploy com Hostinger e Coolify](docs/deploy/COMO-COLOCAR-EM-PRODUCAO.md)
 * [Runbook de produção](backend/docs/RUNBOOK_PRODUCTION.md)

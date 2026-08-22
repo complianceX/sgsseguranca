@@ -219,7 +219,7 @@ export const ExecutionItem = React.memo(
     ) => (
       <label
         key={value}
-        className={`${choiceBaseClassName} ${
+        className={`${choiceBaseClassName} has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-[var(--ds-color-action-primary)] ${
           selectedValue === value
             ? activeClass
             : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]/40"
@@ -229,7 +229,7 @@ export const ExecutionItem = React.memo(
           type="radio"
           value={value}
           {...register(name)}
-          className="hidden"
+          className="sr-only"
         />
         {label}
       </label>

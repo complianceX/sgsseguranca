@@ -82,7 +82,7 @@ echo ========================================
 echo.
 echo Documentacao:
 echo - ..\docs\consulta-rapida\README.md
-echo - ..\docs\consulta-rapida\implementacoes-recentes.md
+echo - ..\docs\OPERACAO-CANONICA-SGS.md
 echo - ..\prompts\INDEX.md
 echo.
 pause

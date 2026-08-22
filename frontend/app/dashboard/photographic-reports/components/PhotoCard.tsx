@@ -2,9 +2,10 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { Trash2, BrainCircuit, Save, ChevronDown, ImageIcon } from 'lucide-react';
+import { Trash2, BrainCircuit, Save, ChevronDown, ImageIcon, ShieldCheck, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { safeExternalArtifactUrl } from '@/lib/security/safe-external-url';
 import type { PhotographicReportDay, PhotographicReportImage } from '@/services/photographicReportsService';
 import {
@@ -112,6 +113,7 @@ export function PhotoCard({
   const [actionResponsible, setActionResponsible] = useState(
     image.action_responsible ?? '',
   );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   /**
    * Marcar como NC sem informar a ação produz uma pendência sem dono — no
@@ -173,11 +175,29 @@ export function PhotoCard({
               title={image.ai_condition_classification}
             />
           )}
+          {image.hash_sha256 && (
+            <span
+              className="inline-flex items-center text-[var(--ds-color-success)]"
+              title={`Integridade verificada (SHA-256: ${image.hash_sha256.slice(0, 8)}…)`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">Integridade verificada</span>
+            </span>
+          )}
+          {image.latitude != null && image.longitude != null && (
+            <span
+              className="inline-flex items-center text-[var(--ds-color-info)]"
+              title={`Geolocalização capturada: ${image.latitude.toFixed(5)}, ${image.longitude.toFixed(5)}`}
+            >
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">Geolocalização capturada</span>
+            </span>
+          )}
         </div>
         <button
           type="button"
           aria-label={`Excluir foto ${String(image.image_order).padStart(2, '0')}`}
-          onClick={() => onDelete(image.id)}
+          onClick={() => setShowDeleteConfirm(true)}
           disabled={!canManage}
           className="text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-danger)] disabled:opacity-40 transition-colors"
         >
@@ -478,6 +498,16 @@ export function PhotoCard({
           Salvar foto
         </Button>
       </div>
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => { setShowDeleteConfirm(false); onDelete(image.id); }}
+        title={`Excluir foto ${String(image.image_order).padStart(2, '0')}`}
+        description="Tem certeza que deseja excluir esta foto? Se houver análise de IA ou não conformidade vinculada, os dados serão perdidos. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir foto"
+        danger
+      />
     </div>
   );
 }

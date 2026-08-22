@@ -25,6 +25,7 @@ import {
 } from '../../shared/security/security-audit.service';
 import { PublicValidationGrantService } from '../../shared/services/public-validation-grant.service';
 import { assertValidSignedToken } from '../../shared/security/signed-token.util';
+import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 type SuspiciousReason =
@@ -66,6 +67,7 @@ export class PublicDdsValidationController {
     private readonly metricsService: MetricsService,
     private readonly forensicTrail: ForensicTrailService,
     private readonly publicValidationGrantService: PublicValidationGrantService,
+    private readonly tenantService: TenantService,
   ) {}
 
   @Get('validate')
@@ -229,25 +231,34 @@ export class PublicDdsValidationController {
       });
     }
 
-    const result = await this.documentRegistryService.validatePublicCode({
-      code: normalizedCode,
-      companyId: payload.companyId,
-      expectedModule: 'dds',
-    });
-    await this.persistValidationTrace({
-      code: normalizedCode,
-      companyId: payload.companyId,
-      outcome: 'success',
-      suspiciousReasons,
-      blocked: false,
-      tokenProtected: true,
-      req,
-    });
+    return this.tenantService.run(
+      {
+        companyId: payload.companyId,
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      async () => {
+        const result = await this.documentRegistryService.validatePublicCode({
+          code: normalizedCode,
+          companyId: payload.companyId,
+          expectedModule: 'dds',
+        });
+        await this.persistValidationTrace({
+          code: normalizedCode,
+          companyId: payload.companyId,
+          outcome: 'success',
+          suspiciousReasons,
+          blocked: false,
+          tokenProtected: true,
+          req,
+        });
 
-    return {
-      ...result,
-      validation_security: baseSecurityPayload,
-    };
+        return {
+          ...result,
+          validation_security: baseSecurityPayload,
+        };
+      },
+    );
   }
 
   private buildSecurityPayload(

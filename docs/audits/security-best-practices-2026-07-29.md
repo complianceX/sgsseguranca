@@ -10,15 +10,42 @@ Os oito achados confirmados na primeira varredura foram corrigidos no código:
 **2 altos, 4 médios e 2 baixos**. A revisão final não deixou achado de código
 aberto dentro deste escopo.
 
-Isso não equivale a afirmar que produção já foi saneada. O rollout ainda deve:
+Isso não equivale a afirmar que produção já foi saneada. Status do rollout
+(verificado em 2026-08-21 via API do Coolify, evidência redigida — nenhum
+valor de segredo foi exibido):
 
-1. configurar `SECURITY_AUDIT_HMAC_KEY` na web e no worker;
-2. executar `ai-recovery:sanitize:dry`, `ai-recovery:sanitize:apply` e novo
-   dry-run com `legacy=0` na fila real;
-3. restringir `/health/ready` no proxy e usar `/health/live` ou
-   `/health/public` como probe externo;
-4. cumprir o bloqueador de TLS/política de eviction descrito em
-   `docs/deploy/redis-hardening-rollout.md`.
+1. ~~configurar `SECURITY_AUDIT_HMAC_KEY` na web e no worker~~ — **CONFIRMADO**:
+   tentativa de criação via `POST /applications/{uuid}/envs` retornou `409
+   Conflict` nos dois apps (`backend-web` e `backend-worker`), confirmando que
+   a chave já existe em ambos. Nenhuma ação necessária; não rotacionado sem
+   motivo para não invalidar pseudônimos já gravados.
+2. ~~executar `ai-recovery:sanitize:dry`, `ai-recovery:sanitize:apply` e novo
+   dry-run com `legacy=0` na fila real~~ — **CONFIRMADO** em 2026-08-21, via
+   terminal do servidor no Coolify: `{"mode":"dry-run","queue":"ai-recovery",
+   "inspected":0,"legacy":0,"sanitized":0}`. Fila vazia no momento da
+   checagem; `:apply` não foi necessário.
+3. ~~restringir `/health/ready` no proxy e usar `/health/live` ou
+   `/health/public` como probe externo~~ — **CONFIRMADO** em 2026-08-22:
+   regra WAF no Cloudflare bloqueando `(http.request.uri.path eq
+   "/health/ready")`. Validado: `/health/ready` → `403`, `/health/live` →
+   `200`. Confirmado antes que `health_check_enabled=false` no Coolify para
+   `backend-web`, então nada interno depende do path público.
+4. ~~cumprir o bloqueador de TLS/política de eviction descrito em
+   `docs/deploy/redis-hardening-rollout.md`~~ — **CONFIRMADO** em 2026-08-22:
+   4 containers Redis separados (`sgs-redis-auth/-ratelimit/-cache/-queue`)
+   com `REDIS_ALLOW_INSECURE_INTERNAL=true`, políticas corretas por tier,
+   sessões Auth não migradas por decisão consciente (armazenamento primário é
+   Postgres), chaves BullMQ migradas (207 chaves, `MIGRATE` sem erro). Web e
+   worker deployados na topologia nova; `/health/ready` de produção retornou
+   `{"status":"ready"}` após o corte, confirmando banco + 4 tiers saudáveis.
+   `sgs-redis` antigo mantido parado (não removido) para janela de rollback.
+
+## Rollout concluído em 2026-08-22
+
+Os quatro itens de rollout pendentes deste relatório foram executados e
+verificados em produção (evidência acima). Este relatório permanece a fonte
+de verdade histórica do achado original; ver `docs/deploy/redis-hardening-rollout.md`
+para o runbook completo executado.
 
 ## Evidências de validação
 

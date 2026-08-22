@@ -11,6 +11,7 @@ Esta pasta foi limpa para manter somente arquivos que ainda servem como:
 
 Os resumos, historicos e passo a passo atualizados do sistema agora ficam em:
 
+- [`../docs/OPERACAO-CANONICA-SGS.md`](../docs/OPERACAO-CANONICA-SGS.md): processo único de correção, teste e promoção
 - [`../docs/consulta-rapida/README.md`](../docs/consulta-rapida/README.md)
 - [`../docs/consulta-rapida/implementacoes-recentes.md`](../docs/consulta-rapida/implementacoes-recentes.md)
 - [`../docs/architecture/fluxos-documentais.md`](../docs/architecture/fluxos-documentais.md)
@@ -28,8 +29,6 @@ Se a duvida for "o que foi implementado?", "como funciona hoje?" ou "onde eu mex
 ### Guias e checklists uteis
 
 - [`BOAS-PRATICAS.md`](./BOAS-PRATICAS.md): guia de boas praticas de frontend
-- [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md): guia de deploy seguro
-- [`README-PRODUCAO.md`](./README-PRODUCAO.md): observacoes de execucao/uso em producao
 - [`SECURITY_AUDIT_CHECKLIST.md`](./SECURITY_AUDIT_CHECKLIST.md): checklist de auditoria de seguranca
 
 ### Utilitarios locais
@@ -55,4 +54,3 @@ Esses conteudos foram consolidados nos docs canonicos do repositorio.
 - decisoes arquiteturais: `docs/architecture`
 - prompts reutilizaveis: `prompts`
 - nao recriar multiplos `FINAL_*`, `SUMMARY_*` ou `STATUS_*` quando o assunto ja estiver coberto nos docs canonicos
-

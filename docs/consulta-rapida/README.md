@@ -2,6 +2,8 @@
 
 Esta pasta foi criada para servir como base de consulta local, com respostas curtas e objetivas sobre o sistema.
 
+Para qualquer correção, teste ou decisão de promoção, siga primeiro [`../OPERACAO-CANONICA-SGS.md`](../OPERACAO-CANONICA-SGS.md). Esta pasta é consulta de domínio, não substitui o processo operacional.
+
 Use estes arquivos como ponto de partida:
 
 - [visao-geral.md](./visao-geral.md): o que o sistema e, como ele esta dividido e quais blocos sao mais importantes
@@ -14,7 +16,7 @@ Use estes arquivos como ponto de partida:
 - [modulos-e-regras.md](./modulos-e-regras.md): modulos principais, regras de governanca e pontos que ja foram endurecidos
 - [../architecture/fluxos-documentais.md](../architecture/fluxos-documentais.md): PDF final, importacao, assinatura, registry, videos e trilha
 - [disaster-recovery-e-backup.md](./disaster-recovery-e-backup.md): backup, proteção do storage, restore, recovery separado, scanner de integridade, runbook e metas iniciais de RPO/RTO
-- [implementacoes-recentes.md](./implementacoes-recentes.md): linha do tempo e passo a passo do que foi implementado nas ultimas rodadas
+- [implementacoes-recentes.md](./implementacoes-recentes.md): histórico de mudanças; não é o manual operacional atual
 - [pdfs-finais-e-storage.md](./pdfs-finais-e-storage.md): onde ficam os PDFs oficiais, como o storage funciona e quais modulos ja estao endurecidos
 - [seguranca-e-governanca.md](./seguranca-e-governanca.md): tenant, RBAC, locks, storage e trilha forense
 - [onde-alterar-o-que.md](./onde-alterar-o-que.md): guia pratico para manutencao e evolucao
@@ -22,14 +24,14 @@ Use estes arquivos como ponto de partida:
 - [faq.md](./faq.md): perguntas frequentes para consulta rapida
 - [comandos-e-validacao.md](./comandos-e-validacao.md): comandos mais usados para rodar, validar e diagnosticar
 - [../deploy/INFRAESTRUTURA-ATUAL.md](../deploy/INFRAESTRUTURA-ATUAL.md): produção, load test, VPS, Coolify e separação de ambientes
-- [../deploy/coolify-vultr-backend-web-worker.md](../deploy/coolify-vultr-backend-web-worker.md): deploy histórico do backend web/worker no Vultr/Coolify
+- [../deploy/coolify-vultr-backend-web-worker.md](../deploy/coolify-vultr-backend-web-worker.md): referência histórica, não usar para a infraestrutura atual
 
 ## Como usar
 
 - Quando a duvida for "onde esta isso?", comece por `onde-fica-cada-coisa.md`
 - Quando a duvida for "como esse fluxo funciona?", comece por `modulos-e-regras.md`
 - Quando a duvida for "em qual camada eu mexo?", consulte `frontend-operacional.md`, `backend-operacional.md` e `onde-alterar-o-que.md`
-- Quando a duvida for "como eu rodo ou valido isso?", abra `comandos-e-validacao.md`
+- Quando a duvida for "como eu rodo ou valido isso?", abra primeiro `../OPERACAO-CANONICA-SGS.md` e depois `comandos-e-validacao.md`
 - Quando a duvida for "por que o e-mail nao enviou?", abra `troubleshooting.md` e `implementacoes-recentes.md`
 - Quando a duvida for mais arquitetural, consulte tambem a pasta [`../architecture`](../architecture)
 

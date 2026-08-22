@@ -641,7 +641,7 @@ useEffect(() => {
             );
           }}
           desktop={() => (
-        <Table className="min-w-[1040px]">
+        <Table className="min-w-[1040px]" aria-label="ARRs em tabela">
           <TableHeader>
             <TableRow>
               <TableHead>Data</TableHead>

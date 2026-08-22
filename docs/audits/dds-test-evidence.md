@@ -86,3 +86,22 @@ Evidência posterior executada na VPS isolada: provider MinIO S3-compatible priv
 A suíte Axe autenticada foi criada em `frontend/e2e/dds-axe-authenticated.spec.ts` e passou em `3/3` viewports (`390x844`, `430x932`, `1440x900`) com `0` violações `serious/critical` em Dashboard, lista DDS e formulário. A suíte de teclado mobile passou `2/2`. O achado desktop de contraste no nome do usuário foi corrigido em `frontend/src/components/Sidebar.tsx`.
 
 O veredito global continua `NO-GO` exclusivamente pelo gate Gitleaks/secrets: source, `ops/test` e worktree atual estão sem findings na varredura redigida desta rodada; os `13` históricos ainda exigem classificação, rotação/revogação formal e scan history final.
+
+## Runtime correction closure — VPS de teste — 2026-08-21
+
+Esta rodada foi executada exclusivamente em `APP_ENV=loadtest`, na VPS isolada. Nenhuma API, banco, storage ou deploy de produção foi alterado.
+
+| Evidência | Resultado |
+| --- | --- |
+| Correção do lookup público do registry | PASS: `DocumentRegistryService.validatePublicCode` executa sob contexto explícito do tenant |
+| Correção do trace forense público | PASS: controller mantém validação e `PUBLIC_VALIDATION_ATTEMPT` no mesmo contexto do tenant |
+| Build da API de teste | PASS: `docker build` compilou TypeScript e recriou `sgs-loadtest-api-loadtest-1` |
+| Smoke DDS governado | PASS: DDS `auditado`, registry `ACTIVE`, hash/PDF presentes, storage `ready`, PDF HTTP 200 |
+| Validação pública DDS | PASS: HTTP 200 e `valid=true` para código + token sintéticos |
+| Token público inválido | PASS: endpoint não aceitou token inválido (`valid` não verdadeiro) |
+| Leitura cross-tenant | PASS: leitura do DDS com tenant sintético diferente foi rejeitada |
+| Forensic trail | PASS: 3 traces `PUBLIC_VALIDATION_ATTEMPT` encontrados para o código sintético |
+| Testes unitários na VPS | PASS: 2 suítes, 14 testes |
+| Saúde após execução | PASS: API HTTP 200; API/Postgres/Redis healthy |
+
+Os identificadores e tokens foram mascarados ou omitidos. O relatório não constitui autorização de produção: o gate histórico de secrets/Gitleaks permanece pendente de classificação, rotação/revogação formal e novo scan de history.
