@@ -1622,7 +1622,9 @@ export class PhotographicReportsService {
     // Two-pass save: first shift all orders to a high temporary range so the
     // unique partial index (report_id, image_order) is not violated mid-batch
     // when two images swap positions and TypeORM issues individual UPDATEs.
-    const finalOrders = new Map([...imageMap.values()].map((img) => [img.id, img.image_order]));
+    const finalOrders = new Map(
+      [...imageMap.values()].map((img) => [img.id, img.image_order]),
+    );
     let tempIdx = 0;
     for (const img of imageMap.values()) {
       img.image_order = images.length * 2 + tempIdx + 1;

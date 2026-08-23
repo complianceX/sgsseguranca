@@ -263,9 +263,10 @@ export class ArrsService {
 
   async update(id: string, updateArrDto: UpdateArrDto): Promise<Arr> {
     // SGS-ARR-BE-009: company_id must not be accepted in update payloads
-    const { participants, company_id, ...rest } = updateArrDto as UpdateArrDto & {
-      company_id?: unknown;
-    };
+    const { participants, company_id, ...rest } =
+      updateArrDto as UpdateArrDto & {
+        company_id?: unknown;
+      };
     if (company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
@@ -273,56 +274,62 @@ export class ArrsService {
     }
 
     // SGS-ARR-CONC-008: acquire row-level lock to prevent lost-update races
-    const arr = await this.arrRepository.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(Arr);
-      const locked = await repo
-        .createQueryBuilder('arr')
-        .setLock('pessimistic_write', undefined, ['arr'])
-        .where('arr.id = :id', { id })
-        .andWhere('arr.deleted_at IS NULL')
-        .getOne()
-        .catch((err: { code?: string }) => {
-          if (err?.code === '55P03') {
-            throw new ConflictException('ARR sendo editada simultaneamente. Tente novamente.');
-          }
-          throw err;
+    const arr = await this.arrRepository.manager.transaction(
+      async (manager) => {
+        const repo = manager.getRepository(Arr);
+        const locked = await repo
+          .createQueryBuilder('arr')
+          .setLock('pessimistic_write', undefined, ['arr'])
+          .where('arr.id = :id', { id })
+          .andWhere('arr.deleted_at IS NULL')
+          .getOne()
+          .catch((err: { code?: string }) => {
+            if (err?.code === '55P03') {
+              throw new ConflictException(
+                'ARR sendo editada simultaneamente. Tente novamente.',
+              );
+            }
+            throw err;
+          });
+
+        if (!locked) {
+          throw new NotFoundException(
+            `Análise de Risco Rápida com ID ${id} não encontrada.`,
+          );
+        }
+
+        this.assertFinalDocumentMutable(locked);
+
+        if (rest.site_id) {
+          this.assertSiteAllowed(rest.site_id);
+        }
+        const participantIds =
+          participants !== undefined
+            ? this.normalizeUniqueIds(participants)
+            : this.getParticipantIds(locked);
+
+        await this.assertRelationsBelongToCompany({
+          companyId: locked.company_id,
+          siteId: rest.site_id ?? locked.site_id,
+          responsavelId: rest.responsavel_id ?? locked.responsavel_id,
+          participantIds,
         });
 
-      if (!locked) {
-        throw new NotFoundException(`Análise de Risco Rápida com ID ${id} não encontrada.`);
-      }
+        Object.assign(locked, rest);
 
-      this.assertFinalDocumentMutable(locked);
+        // SGS-ARR-BR-002: always derive nivel_risco from the matrix
+        locked.nivel_risco = this.resolveNivelRisco(
+          locked.probabilidade,
+          locked.severidade,
+        );
 
-      if (rest.site_id) {
-        this.assertSiteAllowed(rest.site_id);
-      }
-      const participantIds =
-        participants !== undefined
-          ? this.normalizeUniqueIds(participants)
-          : this.getParticipantIds(locked);
+        locked.participants = participantIds.map((participantId) => ({
+          id: participantId,
+        })) as User[];
 
-      await this.assertRelationsBelongToCompany({
-        companyId: locked.company_id,
-        siteId: rest.site_id ?? locked.site_id,
-        responsavelId: rest.responsavel_id ?? locked.responsavel_id,
-        participantIds,
-      });
-
-      Object.assign(locked, rest);
-
-      // SGS-ARR-BR-002: always derive nivel_risco from the matrix
-      locked.nivel_risco = this.resolveNivelRisco(
-        locked.probabilidade,
-        locked.severidade,
-      );
-
-      locked.participants = participantIds.map((participantId) => ({
-        id: participantId,
-      })) as User[];
-
-      return repo.save(locked);
-    });
+        return repo.save(locked);
+      },
+    );
 
     this.logger.log({
       event: 'arr_updated',
@@ -334,47 +341,53 @@ export class ArrsService {
 
   async updateStatus(id: string, status: ArrStatus): Promise<Arr> {
     // SGS-ARR-CONC-008: acquire lock before evaluating transitions
-    const saved = await this.arrRepository.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(Arr);
-      const arr = await repo
-        .createQueryBuilder('arr')
-        .setLock('pessimistic_write', undefined, ['arr'])
-        .where('arr.id = :id', { id })
-        .andWhere('arr.deleted_at IS NULL')
-        .getOne()
-        .catch((err: { code?: string }) => {
-          if (err?.code === '55P03') {
-            throw new ConflictException('ARR sendo editada simultaneamente. Tente novamente.');
-          }
-          throw err;
-        });
+    const saved = await this.arrRepository.manager.transaction(
+      async (manager) => {
+        const repo = manager.getRepository(Arr);
+        const arr = await repo
+          .createQueryBuilder('arr')
+          .setLock('pessimistic_write', undefined, ['arr'])
+          .where('arr.id = :id', { id })
+          .andWhere('arr.deleted_at IS NULL')
+          .getOne()
+          .catch((err: { code?: string }) => {
+            if (err?.code === '55P03') {
+              throw new ConflictException(
+                'ARR sendo editada simultaneamente. Tente novamente.',
+              );
+            }
+            throw err;
+          });
 
-      if (!arr) {
-        throw new NotFoundException(`Análise de Risco Rápida com ID ${id} não encontrada.`);
-      }
+        if (!arr) {
+          throw new NotFoundException(
+            `Análise de Risco Rápida com ID ${id} não encontrada.`,
+          );
+        }
 
-      if (arr.status === ArrStatus.ARQUIVADA) {
-        throw new BadRequestException(
-          'Documento arquivado não pode ter o status alterado.',
-        );
-      }
+        if (arr.status === ArrStatus.ARQUIVADA) {
+          throw new BadRequestException(
+            'Documento arquivado não pode ter o status alterado.',
+          );
+        }
 
-      // SGS-ARR-STATE-006: allow ARQUIVADA even after PDF emission — only
-      // content transitions need assertFinalDocumentMutable
-      if (status !== ArrStatus.ARQUIVADA) {
-        this.assertFinalDocumentMutable(arr);
-      }
+        // SGS-ARR-STATE-006: allow ARQUIVADA even after PDF emission — only
+        // content transitions need assertFinalDocumentMutable
+        if (status !== ArrStatus.ARQUIVADA) {
+          this.assertFinalDocumentMutable(arr);
+        }
 
-      const allowed = ARR_ALLOWED_TRANSITIONS[arr.status] || [];
-      if (!allowed.includes(status)) {
-        throw new BadRequestException(
-          `Transição inválida: ${arr.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
-        );
-      }
+        const allowed = ARR_ALLOWED_TRANSITIONS[arr.status] || [];
+        if (!allowed.includes(status)) {
+          throw new BadRequestException(
+            `Transição inválida: ${arr.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
+          );
+        }
 
-      arr.status = status;
-      return repo.save(arr);
-    });
+        arr.status = status;
+        return repo.save(arr);
+      },
+    );
 
     this.logger.log({
       event: 'arr_status_updated',
@@ -745,15 +758,27 @@ export class ArrsService {
     }
   }
 
-  private resolveNivelRisco(
-    probabilidade: string,
-    severidade: string,
-  ): string {
+  private resolveNivelRisco(probabilidade: string, severidade: string): string {
     // Matriz de risco 3x4: probabilidade × severidade → nível
     const matrix: Record<string, Record<string, string>> = {
-      baixa: { leve: 'baixo', moderada: 'baixo', grave: 'medio', critica: 'alto' },
-      media: { leve: 'baixo', moderada: 'medio', grave: 'alto', critica: 'critico' },
-      alta: { leve: 'medio', moderada: 'alto', grave: 'critico', critica: 'critico' },
+      baixa: {
+        leve: 'baixo',
+        moderada: 'baixo',
+        grave: 'medio',
+        critica: 'alto',
+      },
+      media: {
+        leve: 'baixo',
+        moderada: 'medio',
+        grave: 'alto',
+        critica: 'critico',
+      },
+      alta: {
+        leve: 'medio',
+        moderada: 'alto',
+        grave: 'critico',
+        critica: 'critico',
+      },
     };
     return matrix[probabilidade]?.[severidade] ?? 'alto';
   }

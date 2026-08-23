@@ -82,7 +82,9 @@ function makeService(overrides: {
 
   // Default: site found (so site validation passes in tests that reach it)
   const sitesRepository = overrides.sitesRepository ?? {
-    findOne: jest.fn().mockResolvedValue({ id: 'site-abc', company_id: 'company-1' }),
+    findOne: jest
+      .fn()
+      .mockResolvedValue({ id: 'site-abc', company_id: 'company-1' }),
   };
 
   const defaultContext: TenantContext = {

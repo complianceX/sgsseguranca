@@ -325,9 +325,7 @@ describe('RdosService', () => {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawMany: jest
-        .fn()
-        .mockResolvedValue([{ numero: 'RDO-202603-002' }]),
+      getRawMany: jest.fn().mockResolvedValue([{ numero: 'RDO-202603-002' }]),
     });
     const dto: CreateRdoDto = {
       data: '2026-03-16',
@@ -1235,9 +1233,7 @@ describe('RdosService', () => {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawMany: jest
-        .fn()
-        .mockResolvedValue([{ numero: 'RDO-202603-005' }]),
+      getRawMany: jest.fn().mockResolvedValue([{ numero: 'RDO-202603-005' }]),
     });
     const dto: CreateRdoDto = {
       data: '2026-03-16',
