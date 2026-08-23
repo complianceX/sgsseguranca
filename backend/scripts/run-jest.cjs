@@ -60,7 +60,7 @@ try {
 } catch {
   jestBin = require.resolve('jest-cli/bin/jest');
 }
-const result = spawnSync(process.execPath, [jestBin, ...args], {
+const result = spawnSync(process.execPath, [...process.execArgv, jestBin, ...args], {
   stdio: 'inherit',
   env,
 });
