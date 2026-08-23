@@ -515,8 +515,10 @@ export class MailService {
           break;
         }
         case 'PHOTOGRAPHIC_REPORT': {
-          const photographicReportsService =
-            this.moduleRef.get(PhotographicReportsService, { strict: false });
+          const photographicReportsService = this.moduleRef.get(
+            PhotographicReportsService,
+            { strict: false },
+          );
           const report = await photographicReportsService.findOne(documentId);
           const pdfExports = (report.exports ?? []).filter(
             (e) => e.export_type === PhotographicReportExportType.PDF,
