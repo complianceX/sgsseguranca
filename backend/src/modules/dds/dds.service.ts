@@ -341,7 +341,11 @@ export class DdsService {
     // Prioridade: obra explicitamente selecionada no formulário (opts.siteId),
     // intersectada com o escopo do usuário — impede enumeração de obras alheias (SGS-DDS-SEC-006).
     const requestedSiteId = opts?.siteId?.trim() || null;
-    if (requestedSiteId && !scope.hasCompanyWideAccess && !scope.siteIds.includes(requestedSiteId)) {
+    if (
+      requestedSiteId &&
+      !scope.hasCompanyWideAccess &&
+      !scope.siteIds.includes(requestedSiteId)
+    ) {
       throw new ForbiddenException('Obra fora do escopo do usuário atual.');
     }
     const siteIds = requestedSiteId

@@ -1083,8 +1083,13 @@ export class PtsService {
     // WITH CHECK would also reject the write, but as a 500 (Postgres error)
     // instead of the expected 400 with an actionable message.
     if (rest.site_id !== undefined && rest.site_id !== pt.site_id) {
-      const { siteIds, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
-      if (!isSuperAdmin && siteScope !== 'all' && !siteIds.includes(rest.site_id)) {
+      const { siteIds, siteScope, isSuperAdmin } =
+        this.getTenantContextOrThrow();
+      if (
+        !isSuperAdmin &&
+        siteScope !== 'all' &&
+        !siteIds.includes(rest.site_id)
+      ) {
         throw new BadRequestException(
           'PT deve permanecer na obra atual do tenant. A obra só pode ser alterada por um administrador com acesso global.',
         );
@@ -1119,7 +1124,9 @@ export class PtsService {
           ? pt.executantes.map((executante) => executante.id)
           : []),
       vigiaUserId:
-        rest.vigia_user_id !== undefined ? rest.vigia_user_id : pt.vigia_user_id,
+        rest.vigia_user_id !== undefined
+          ? rest.vigia_user_id
+          : pt.vigia_user_id,
     });
 
     const initialRisk = this.riskCalculationService.calculateScore(
@@ -2089,7 +2096,7 @@ export class PtsService {
     const raw = options?.where;
     const whereArr: FindOptionsWhere<Pt>[] = Array.isArray(raw)
       ? raw
-      : [((raw as FindOptionsWhere<Pt>) ?? {})];
+      : [(raw as FindOptionsWhere<Pt>) ?? {}];
     return this.ptsRepository.count({
       ...options,
       where: whereArr.map((w) => ({

@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Também anonimiza o campo signed_on_behalf_of_user_id (adicionado em 2026-08)
  * no JSONB de assinatura de EPI.
  */
-export class RestoreGdprEpiPtsErasure1709000000378
-  implements MigrationInterface
-{
+export class RestoreGdprEpiPtsErasure1709000000378 implements MigrationInterface {
   name = 'RestoreGdprEpiPtsErasure1709000000378';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

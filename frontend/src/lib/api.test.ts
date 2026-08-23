@@ -57,11 +57,18 @@ describe('api client', () => {
       '/dashboard/aprs',
       '/dashboard/pts',
       '/dashboard/checklists',
-      '/dashboard/nonconformities',
     ])('não aplica a barreira offline a mutações read-write em %s', async (pathname) => {
       setOfflineRoute(pathname);
 
       await expect(api.post('/resource', {})).rejects.not.toBeInstanceOf(
+        OfflineCapabilityError,
+      );
+    });
+
+    it('bloqueia mutação offline em /dashboard/nonconformities (online-required)', async () => {
+      setOfflineRoute('/dashboard/nonconformities');
+
+      await expect(api.post('/resource', {})).rejects.toBeInstanceOf(
         OfflineCapabilityError,
       );
     });

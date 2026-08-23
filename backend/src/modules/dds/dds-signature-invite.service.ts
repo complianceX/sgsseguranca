@@ -539,7 +539,10 @@ export class DdsSignatureInviteService implements OnModuleInit {
     }
     // SGS-DDS-INT-008: AUDITADO também deve bloquear novos convites — alinha com
     // assertWorkflowMutable no caminho autenticado.
-    if (dds.status === DdsStatus.AUDITADO || dds.status === DdsStatus.ARQUIVADO) {
+    if (
+      dds.status === DdsStatus.AUDITADO ||
+      dds.status === DdsStatus.ARQUIVADO
+    ) {
       throw new BadRequestException(
         'DDS auditado ou arquivado não recebe link público de assinatura.',
       );
@@ -731,7 +734,9 @@ export class DdsSignatureInviteService implements OnModuleInit {
       invite.dds.status === DdsStatus.AUDITADO ||
       invite.dds.status === DdsStatus.ARQUIVADO
     ) {
-      throw new GoneException('DDS auditado ou arquivado não aceita novas assinaturas por link público.');
+      throw new GoneException(
+        'DDS auditado ou arquivado não aceita novas assinaturas por link público.',
+      );
     }
     if (invite.dds.version !== invite.dds_version) {
       throw new GoneException(
