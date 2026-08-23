@@ -8,16 +8,11 @@ WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY package*.json ./
-# O postinstall depende desse script existir já no momento do npm ci.
-# Mantemos os install scripts ativos porque dependências nativas de produção
-# (ex.: argon2) precisam deles para gerar os binários usados no boot da API.
-COPY scripts/ensure-puppeteer-browser.cjs ./scripts/ensure-puppeteer-browser.cjs
+COPY scripts ./scripts
 RUN npm ci
 
 COPY . .
 RUN npm run build
-RUN mkdir -p dist/modules/sophie/kb \
-  && cp src/modules/sophie/kb/*.json dist/modules/sophie/kb/
 RUN npm prune --omit=dev && npm cache clean --force
 
 # ===============================
