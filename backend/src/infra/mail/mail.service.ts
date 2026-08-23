@@ -7,6 +7,7 @@
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +26,8 @@ import { DdsService } from '../../modules/dds/dds.service';
 import { DidsService } from '../../modules/dids/dids.service';
 import { AuditsService } from '../../modules/audits/audits.service';
 import { RdosService } from '../../modules/rdos/rdos.service';
+import { PhotographicReportsService } from '../../modules/photographic-reports/photographic-reports.service';
+import { PhotographicReportExportType } from '../../modules/photographic-reports/entities/photographic-report-export.entity';
 import { CompaniesService } from '../../modules/companies/companies.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import type { TenantContext } from '../../shared/tenant/tenant.service';
@@ -193,6 +196,7 @@ export class MailService {
     private readonly integration: IntegrationResilienceService,
     private readonly distributedLock: DistributedLockService,
     private readonly privilegedDb: PrivilegedDbService,
+    private readonly moduleRef: ModuleRef,
   ) {
     this.mailDeliveryEnabled = !isExplicitlyDisabled(
       this.configService.get<string | boolean>('MAIL_ENABLED'),
@@ -508,6 +512,30 @@ export class MailService {
           fileKey = access.fileKey;
           docName = `RDO ${rdo.numero}`;
           subject = `${docName}`;
+          break;
+        }
+        case 'PHOTOGRAPHIC_REPORT': {
+          const photographicReportsService = this.moduleRef.get(
+            PhotographicReportsService,
+            { strict: false },
+          );
+          const report = await photographicReportsService.findOne(documentId);
+          const pdfExports = (report.exports ?? []).filter(
+            (e) => e.export_type === PhotographicReportExportType.PDF,
+          );
+          if (!pdfExports.length) {
+            throw new NotFoundException(
+              'O relatório fotográfico ainda não possui exportação em PDF.',
+            );
+          }
+          const latest = pdfExports.sort(
+            (a, b) =>
+              new Date(b.generated_at).getTime() -
+              new Date(a.generated_at).getTime(),
+          )[0];
+          fileKey = latest.file_url;
+          docName = `Relatório Fotográfico — ${report.client_name} / ${report.project_name}`;
+          subject = docName;
           break;
         }
         default:
