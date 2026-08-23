@@ -44,14 +44,14 @@ const asAdmin = () =>
     password: process.env.E2E_SGS_ADMIN_PASSWORD ?? 'sgs_admin_e2e',
   });
 
-/** Conexão de migrations — dona do schema, enxerga tudo. */
+/** Conexão de migrations — dona do schema, enxerga tudo (SUPERUSER). */
 const asOwner = () =>
   new Client({
     host: HOST,
     port: PORT,
     database: DB,
-    user: process.env.E2E_DATABASE_USER ?? 'neondb_owner',
-    password: process.env.E2E_DATABASE_PASSWORD ?? 'neondb_owner_e2e',
+    user: process.env.E2E_OWNER_USER ?? 'neondb_owner',
+    password: process.env.E2E_OWNER_PASSWORD ?? 'neondb_owner_e2e',
   });
 
 describeE2E('RLS — semântica de guardas fail-open (PostgreSQL real)', () => {
