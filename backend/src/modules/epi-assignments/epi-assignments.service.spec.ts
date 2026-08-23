@@ -33,13 +33,12 @@ function makeService(overrides: {
 }) {
   // Extract override functions early so the transaction closure captures them
   const epiFindOne =
-    (overrides.episRepository as any)?.findOne ??
-    jest.fn().mockResolvedValue(null);
+    overrides.episRepository?.findOne ?? jest.fn().mockResolvedValue(null);
   const assignCreate =
-    (overrides.assignmentsRepository as any)?.create ??
+    overrides.assignmentsRepository?.create ??
     jest.fn((dto: Partial<EpiAssignment>) => cloneAssignment(dto));
   const assignSave =
-    (overrides.assignmentsRepository as any)?.save ??
+    overrides.assignmentsRepository?.save ??
     jest.fn((entity: Partial<EpiAssignment>) =>
       Promise.resolve(entity as EpiAssignment),
     );
@@ -182,7 +181,12 @@ describe('EpiAssignmentsService', () => {
 
     it('copies ca and validade_ca from the EPI to the assignment', async () => {
       const validadeDate = new Date('2099-12-31');
-      const mockEpi = { id: 'epi-1', ca: 'CA-999', validade_ca: validadeDate, status: true };
+      const mockEpi = {
+        id: 'epi-1',
+        ca: 'CA-999',
+        validade_ca: validadeDate,
+        status: true,
+      };
       const mockUser = { id: 'u1', company_id: 'company-1' };
       const created: Partial<EpiAssignment> = {};
 

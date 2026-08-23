@@ -412,7 +412,9 @@ export class DdsApprovalService {
     const companyId = this.tenantService.getTenantId();
     // SGS-DDS-SEC-011: falha fechada — contexto de empresa é obrigatório.
     if (!companyId) {
-      throw new UnauthorizedException('Contexto de empresa não identificado para DDS.');
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para DDS.',
+      );
     }
     return this.ddsRepository.manager.transaction(async (manager) => {
       const ddsRepository = manager.getRepository(Dds);

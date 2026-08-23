@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- os matchers
+   assimétricos do Jest (`expect.any`, `expect.stringContaining`) são tipados
+   como `any`; anotar cada um dispara `no-unnecessary-type-assertion`, então as
+   duas regras se anulam. Mesmo padrão já adotado em auth.service.spec.ts. */
 import type { ConfigService } from '@nestjs/config';
 import type { EntityManager } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -239,7 +243,6 @@ describe('TenantLifecycleService', () => {
         undefined,
         expect.objectContaining({
           filename: 'tenant-onboarding-invite',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           html: expect.stringContaining('21 dias de teste'),
         }),
       );
@@ -327,7 +330,6 @@ describe('TenantLifecycleService', () => {
             funcao: 'Administrador da Empresa',
           }),
           expect.objectContaining({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             user_id: expect.any(String),
             company_id: 'company-1',
             site_id: 'site-1',

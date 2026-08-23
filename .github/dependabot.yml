@@ -15,7 +15,7 @@ updates:
       semver-patch-days: 3
     open-pull-requests-limit: 10
     reviewers:
-      - "complianceX"
+      - "wandersongandra"
     labels:
       - "dependencies"
       - "backend"
@@ -52,7 +52,7 @@ updates:
       semver-patch-days: 3
     open-pull-requests-limit: 10
     reviewers:
-      - "complianceX"
+      - "wandersongandra"
     labels:
       - "dependencies"
       - "frontend"
@@ -88,7 +88,7 @@ updates:
       semver-patch-days: 3
     open-pull-requests-limit: 5
     reviewers:
-      - "complianceX"
+      - "wandersongandra"
     labels:
       - "dependencies"
       - "ci"

@@ -20,15 +20,40 @@ export class PtStatusIntegrity1709000000381 implements MigrationInterface {
       return;
     }
 
+    // Migration 107 can create this constraint on clean DBs; guard against
+    // duplicate before adding.
     await queryRunner.query(`
-      ALTER TABLE "pts"
-        ADD CONSTRAINT "chk_pts_status"
-          CHECK ("status" IN ('Pendente', 'Aprovada', 'Cancelada', 'Encerrada', 'Expirada'))
-          NOT VALID;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_schema = 'public'
+            AND table_name   = 'pts'
+            AND constraint_name = 'chk_pts_status'
+        ) THEN
+          ALTER TABLE "pts"
+            ADD CONSTRAINT "chk_pts_status"
+              CHECK ("status" IN ('Pendente', 'Aprovada', 'Cancelada', 'Encerrada', 'Expirada'))
+              NOT VALID;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "pts" VALIDATE CONSTRAINT "chk_pts_status";
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace
+          WHERE n.nspname = 'public'
+            AND t.relname = 'pts'
+            AND c.conname = 'chk_pts_status'
+            AND NOT c.convalidated
+        ) THEN
+          ALTER TABLE "pts" VALIDATE CONSTRAINT "chk_pts_status";
+        END IF;
+      END $$;
     `);
   }
 
