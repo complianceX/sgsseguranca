@@ -49,6 +49,14 @@ if (isE2EConfig) {
   if (!/--experimental-vm-modules\b/.test(nodeOptions)) {
     env.NODE_OPTIONS = `${nodeOptions}--experimental-vm-modules`.trim();
   }
+  // Propagar --max-old-space-size para workers forked pelo Jest.
+  // Workers nao herdam execArgv do processo pai — herdam apenas NODE_OPTIONS.
+  // Sem isso, cada worker usa o limite default do Node (~1.5 GB), o que pode
+  // causar OOM durante o bootstrap do NestJS AppModule (54 modulos).
+  const heapArg = process.execArgv.find((a) => /^--max-old-space-size=/.test(a));
+  if (heapArg && !/--max-old-space-size\b/.test(env.NODE_OPTIONS)) {
+    env.NODE_OPTIONS = `${env.NODE_OPTIONS} ${heapArg}`.trim();
+  }
 }
 
 // jest-cli/bin/jest was the path in jest v28 and below.
