@@ -28,6 +28,12 @@ export class Epi extends BaseAuditEntity {
   @Column({ default: true })
   status: boolean;
 
+  // SGS-EPI-BR-007: NULL = estoque não rastreado (legado e EPIs sem controle de saldo).
+  // Quando preenchido, entregas são bloqueadas se o saldo for insuficiente e
+  // devoluções/substituições incrementam o saldo automaticamente.
+  @Column({ type: 'int', nullable: true })
+  quantidade_estoque?: number | null;
+
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })
   company: Company;

@@ -24,6 +24,7 @@ import {
   toOffsetPage,
 } from '../../shared/utils/offset-pagination.util';
 import { Epi } from '../epis/entities/epi.entity';
+import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import {
   CreateEpiAssignmentDto,
@@ -52,6 +53,8 @@ export class EpiAssignmentsService {
     private readonly assignmentsRepository: Repository<EpiAssignment>,
     @InjectRepository(Epi)
     private readonly episRepository: Repository<Epi>,
+    @InjectRepository(Site)
+    private readonly sitesRepository: Repository<Site>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly tenantService: TenantService,
@@ -76,6 +79,19 @@ export class EpiAssignmentsService {
         'Ficha EPI deve ser lançada na obra atual.',
       );
     }
+
+    // SGS-EPI-SEC-008: validate site belongs to this company (company-wide
+    // actors bypass the site-scope check above but must still not reference
+    // sites from other tenants).
+    if (effectiveSiteId) {
+      const site = await this.sitesRepository.findOne({
+        where: { id: effectiveSiteId, company_id: companyId },
+      });
+      if (!site) {
+        throw new NotFoundException('Obra não encontrada para esta empresa.');
+      }
+    }
+
     const [epi, user] = await Promise.all([
       this.episRepository.findOne({
         where: { id: dto.epi_id, company_id: companyId },
@@ -94,29 +110,92 @@ export class EpiAssignmentsService {
       );
     }
 
+    // SGS-EPI-BR-006: block delivery of inactive or expired-CA EPIs (NR-6)
+    if (epi.status === false) {
+      throw new BadRequestException(
+        'EPI inativo no catálogo não pode ser entregue.',
+      );
+    }
+    if (epi.validade_ca) {
+      const validade = new Date(epi.validade_ca);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      if (!Number.isNaN(validade.getTime()) && validade < hoje) {
+        throw new BadRequestException(
+          `CA ${epi.ca ?? ''} vencido em ${validade.toISOString().slice(0, 10)}. Atualize o CA antes de entregar (NR-6).`,
+        );
+      }
+    }
+
     const assinaturaEntrega = this.buildSignatureStamp(
       dto.assinatura_entrega,
       actorId,
       actorId !== user.id ? user.id : undefined,
     );
 
-    const assignment = this.assignmentsRepository.create({
-      company_id: companyId,
-      epi_id: dto.epi_id,
-      user_id: dto.user_id,
-      site_id: effectiveSiteId,
-      ca: epi.ca,
-      validade_ca: epi.validade_ca,
-      quantidade: dto.quantidade || 1,
-      status: 'entregue',
-      entregue_em: new Date(),
-      observacoes: dto.observacoes,
-      assinatura_entrega: assinaturaEntrega,
-      created_by_id: actorId,
-      updated_by_id: actorId,
-    });
+    // SGS-EPI-BR-007: atomic stock check-and-decrement inside a transaction with
+    // pessimistic lock on the EPI row to prevent TOCTOU race conditions when two
+    // concurrent requests try to deliver the last unit simultaneously.
+    const saved = await this.assignmentsRepository.manager.transaction(
+      async (trx) => {
+        const epiRepo = trx.getRepository(Epi);
+        let lockedEpi: Epi | null;
+        try {
+          lockedEpi = await epiRepo.findOne({
+            where: { id: dto.epi_id, company_id: companyId },
+            lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+          });
+        } catch (err) {
+          const e = err as { code?: string };
+          if (e?.code === '55P03') {
+            throw new ConflictException(
+              'EPI em processamento por outra operação. Tente novamente.',
+            );
+          }
+          throw err;
+        }
+        if (!lockedEpi) {
+          throw new NotFoundException('EPI não encontrado para esta empresa.');
+        }
+        const qty = dto.quantidade || 1;
+        if (
+          lockedEpi.quantidade_estoque !== null &&
+          lockedEpi.quantidade_estoque !== undefined &&
+          lockedEpi.quantidade_estoque < qty
+        ) {
+          throw new BadRequestException(
+            `Estoque insuficiente. Disponível: ${lockedEpi.quantidade_estoque}, solicitado: ${qty}.`,
+          );
+        }
 
-    const saved = await this.assignmentsRepository.save(assignment);
+        const assignmentRepo = trx.getRepository(EpiAssignment);
+        const assignment = assignmentRepo.create({
+          company_id: companyId,
+          epi_id: dto.epi_id,
+          user_id: dto.user_id,
+          site_id: effectiveSiteId,
+          ca: epi.ca,
+          validade_ca: epi.validade_ca,
+          quantidade: qty,
+          status: 'entregue',
+          entregue_em: new Date(),
+          observacoes: dto.observacoes,
+          assinatura_entrega: assinaturaEntrega,
+          created_by_id: actorId,
+          updated_by_id: actorId,
+        });
+        const savedAssignment = await assignmentRepo.save(assignment);
+
+        // Decrement only when stock is tracked (quantidade_estoque IS NOT NULL)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [qty, dto.epi_id],
+        );
+
+        return savedAssignment;
+      },
+    );
+
     await this.writeAuditLog(AuditAction.CREATE, saved, actorId, {
       event: 'epi_assignment_delivered',
       companyId,
@@ -234,38 +313,70 @@ export class EpiAssignmentsService {
     dto: ReturnEpiAssignmentDto,
     actorId?: string,
   ): Promise<EpiAssignment> {
-    const assignment = await this.findOne(id);
-    if (assignment.status !== 'entregue') {
-      throw new BadRequestException(
-        `Somente fichas entregues podem ser devolvidas. Status atual: ${assignment.status}.`,
-      );
-    }
-
+    // SGS-EPI-CONC-005: wrap in transaction with pessimistic lock to prevent
+    // double-return race (two concurrent requests both reading status='entregue')
     const scope = this.getSiteAccessScopeOrThrow();
-    const isPrivileged =
-      scope.hasCompanyWideAccess ||
-      scope.profileName === Role.TST ||
-      scope.profileName === Role.SUPERVISOR;
-    if (!isPrivileged && assignment.user_id !== scope.userId) {
-      throw new ForbiddenException(
-        'Você só pode devolver EPIs atribuídos a você.',
-      );
-    }
+    const saved = await this.assignmentsRepository.manager.transaction(
+      async (trx) => {
+        const repo = trx.getRepository(EpiAssignment);
+        let assignment: EpiAssignment | null;
+        try {
+          assignment = await repo.findOne({
+            where: {
+              id,
+              company_id: scope.companyId,
+              ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+            },
+            lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+          });
+        } catch (err) {
+          const e = err as { code?: string };
+          if (e?.code === '55P03') {
+            throw new ConflictException(
+              'Ficha em processamento por outra operação. Tente novamente.',
+            );
+          }
+          throw err;
+        }
+        if (!assignment) {
+          throw new NotFoundException(`Ficha EPI com ID ${id} não encontrada.`);
+        }
+        if (assignment.status !== 'entregue') {
+          throw new BadRequestException(
+            `Somente fichas entregues podem ser devolvidas. Status atual: ${assignment.status}.`,
+          );
+        }
+        const isPrivileged =
+          scope.hasCompanyWideAccess ||
+          scope.profileName === Role.TST ||
+          scope.profileName === Role.SUPERVISOR;
+        if (!isPrivileged && assignment.user_id !== scope.userId) {
+          throw new ForbiddenException(
+            'Você só pode devolver EPIs atribuídos a você.',
+          );
+        }
+        const assinaturaDevolucao = this.buildSignatureStamp(
+          dto.assinatura_devolucao,
+          actorId,
+          actorId !== assignment.user_id ? assignment.user_id : undefined,
+        );
+        assignment.status = 'devolvido';
+        assignment.devolvido_em = new Date();
+        assignment.motivo_devolucao = dto.motivo_devolucao;
+        assignment.observacoes = dto.observacoes || assignment.observacoes;
+        assignment.assinatura_devolucao = assinaturaDevolucao;
+        assignment.updated_by_id = actorId;
+        const result = await repo.save(assignment);
 
-    const assinaturaDevolucao = this.buildSignatureStamp(
-      dto.assinatura_devolucao,
-      actorId,
-      actorId !== assignment.user_id ? assignment.user_id : undefined,
+        // SGS-EPI-BR-007: restore stock on return (only when tracked)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [result.quantidade, result.epi_id],
+        );
+
+        return result;
+      },
     );
-
-    assignment.status = 'devolvido';
-    assignment.devolvido_em = new Date();
-    assignment.motivo_devolucao = dto.motivo_devolucao;
-    assignment.observacoes = dto.observacoes || assignment.observacoes;
-    assignment.assinatura_devolucao = assinaturaDevolucao;
-    assignment.updated_by_id = actorId;
-
-    const saved = await this.assignmentsRepository.save(assignment);
     await this.writeAuditLog(AuditAction.UPDATE, saved, actorId, {
       event: 'epi_assignment_returned',
       companyId: saved.company_id,
@@ -279,23 +390,57 @@ export class EpiAssignmentsService {
     dto: ReplaceEpiAssignmentDto,
     actorId?: string,
   ): Promise<EpiAssignment> {
-    const assignment = await this.findOne(id);
-    if (assignment.status !== 'entregue') {
-      throw new BadRequestException(
-        'Somente fichas em uso podem ser marcadas como substituídas.',
-      );
-    }
+    // SGS-EPI-CONC-005: pessimistic lock prevents concurrent return/replace
+    const scope = this.getSiteAccessScopeOrThrow();
+    const saved = await this.assignmentsRepository.manager.transaction(
+      async (trx) => {
+        const repo = trx.getRepository(EpiAssignment);
+        let assignment: EpiAssignment | null;
+        try {
+          assignment = await repo.findOne({
+            where: {
+              id,
+              company_id: scope.companyId,
+              ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+            },
+            lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+          });
+        } catch (err) {
+          const e = err as { code?: string };
+          if (e?.code === '55P03') {
+            throw new ConflictException(
+              'Ficha em processamento por outra operação. Tente novamente.',
+            );
+          }
+          throw err;
+        }
+        if (!assignment) {
+          throw new NotFoundException(`Ficha EPI com ID ${id} não encontrada.`);
+        }
+        if (assignment.status !== 'entregue') {
+          throw new BadRequestException(
+            'Somente fichas em uso podem ser marcadas como substituídas.',
+          );
+        }
+        assignment.status = 'substituido';
+        assignment.observacoes =
+          `${assignment.observacoes || ''}\nSubstituição: ${dto.motivo_substituicao}`.trim();
+        if (dto.observacoes) {
+          assignment.observacoes =
+            `${assignment.observacoes}\n${dto.observacoes}`.trim();
+        }
+        assignment.updated_by_id = actorId;
+        const result = await repo.save(assignment);
 
-    assignment.status = 'substituido';
-    assignment.observacoes =
-      `${assignment.observacoes || ''}\nSubstituição: ${dto.motivo_substituicao}`.trim();
-    if (dto.observacoes) {
-      assignment.observacoes =
-        `${assignment.observacoes}\n${dto.observacoes}`.trim();
-    }
-    assignment.updated_by_id = actorId;
+        // SGS-EPI-BR-007: restore stock on replacement (only when tracked)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [result.quantidade, result.epi_id],
+        );
 
-    const saved = await this.assignmentsRepository.save(assignment);
+        return result;
+      },
+    );
     await this.writeAuditLog(AuditAction.UPDATE, saved, actorId, {
       event: 'epi_assignment_replaced',
       companyId: saved.company_id,
