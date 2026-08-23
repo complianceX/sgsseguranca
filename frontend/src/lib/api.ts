@@ -233,6 +233,7 @@ function scheduleLoginRedirect() {
   window.setTimeout(() => {
     const currentPath = window.location.pathname;
     if (!currentPath.startsWith('/login')) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign('/login?expired=1');
     }
     loginRedirectScheduled = false;

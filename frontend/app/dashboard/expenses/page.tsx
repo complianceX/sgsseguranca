@@ -225,6 +225,7 @@ export default function ExpensesPage() {
       toast.success('Prestação de despesas criada.');
       setShowCreate(false);
       await loadData();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = `/dashboard/expenses/${report.id}`;
     } catch (error) {
       logger.error('Erro ao criar prestação:', error);

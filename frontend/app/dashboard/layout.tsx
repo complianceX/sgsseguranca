@@ -150,6 +150,7 @@ function DashboardShell({
   };
 
   const handleLoginRedirect = () => {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign('/login?expired=1');
   };
 
