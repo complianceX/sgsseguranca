@@ -1,5 +1,7 @@
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
 const os = require('node:os');
+const path = require('node:path');
 
 const args = process.argv.slice(2);
 
@@ -49,10 +51,8 @@ if (isE2EConfig) {
   if (!/--experimental-vm-modules\b/.test(nodeOptions)) {
     env.NODE_OPTIONS = `${nodeOptions}--experimental-vm-modules`.trim();
   }
-  // Propagar --max-old-space-size para workers forked pelo Jest.
-  // Workers nao herdam execArgv do processo pai — herdam apenas NODE_OPTIONS.
-  // Sem isso, cada worker usa o limite default do Node (~1.5 GB), o que pode
-  // causar OOM durante o bootstrap do NestJS AppModule (54 modulos).
+  // Propagar --max-old-space-size para processos filhos (per-file Jest spawns).
+  // Cada spawn herda env mas nao herda execArgv do processo pai.
   const heapArg = process.execArgv.find((a) => /^--max-old-space-size=/.test(a));
   if (heapArg && !/--max-old-space-size\b/.test(env.NODE_OPTIONS)) {
     env.NODE_OPTIONS = `${env.NODE_OPTIONS} ${heapArg}`.trim();
@@ -68,6 +68,89 @@ try {
 } catch {
   jestBin = require.resolve('jest-cli/bin/jest');
 }
+
+// Para suites E2E sem arquivo especifico: spawnar Jest UMA VEZ POR ARQUIVO.
+// Com --runInBand ou maxWorkers=1, o Jest reutiliza o mesmo processo Node para
+// todos os arquivos — o AppModule de NestJS (54 modulos) acumula ~200–400 MB
+// por arquivo e jamais e' liberado dentro do mesmo processo. 15 arquivos x 400 MB
+// = 6 GB, causando OOM independente do heap limit configurado.
+//
+// Spawnar Jest por arquivo garante isolamento de memoria real: cada processo
+// Node morre apos o arquivo, liberando toda a memoria para o proximo.
+const specificTestFile = args.find(
+  (a) => !a.startsWith('-') && (a.endsWith('.e2e-spec.ts') || a.endsWith('.e2e.ts')),
+);
+
+if (isE2EConfig && !specificTestFile) {
+  function findE2EFiles(dir) {
+    const files = [];
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return files;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...findE2EFiles(full));
+      } else if (entry.name.endsWith('.e2e-spec.ts')) {
+        files.push(full);
+      }
+    }
+    return files.sort();
+  }
+
+  const testRoot = path.resolve(__dirname, '..', 'test');
+  const scannedDirs = [path.join(testRoot, 'critical'), path.join(testRoot, 'aprs')];
+  const standaloneFiles = ['idor-security.e2e-spec.ts', 'multi-tenancy.e2e-spec.ts'].map((f) =>
+    path.join(testRoot, f),
+  );
+
+  const testFiles = [
+    ...scannedDirs.flatMap(findE2EFiles),
+    ...standaloneFiles.filter((f) => {
+      try {
+        fs.statSync(f);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  ];
+
+  // Todos os args originais sao flags (--config, --forceExit, etc.)
+  // e sao repassados para cada invocacao por arquivo.
+  const sharedArgs = [...args];
+
+  let failed = false;
+  for (const testFile of testFiles) {
+    const rel = path.relative(testRoot, testFile);
+    process.stdout.write(`\n[e2e] === ${rel} ===\n`);
+
+    const fileResult = spawnSync(
+      process.execPath,
+      [
+        ...process.execArgv,
+        jestBin,
+        '--runInBand', // roda no mesmo processo do spawn (sem sub-workers)
+        testFile.replace(/\\/g, '/'), // filtro de caminho para Jest
+        ...sharedArgs,
+      ],
+      { stdio: 'inherit', env },
+    );
+
+    if (fileResult.error) throw fileResult.error;
+    if (fileResult.status !== 0) {
+      failed = true;
+      break; // fail-fast
+    }
+  }
+
+  process.exit(failed ? 1 : 0);
+}
+
+// Caminho normal: arquivo especifico (test:e2e:dr) ou testes nao-E2E.
 const result = spawnSync(process.execPath, [...process.execArgv, jestBin, ...args], {
   stdio: 'inherit',
   env,
