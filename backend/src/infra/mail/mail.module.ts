@@ -16,7 +16,6 @@ import { DdsModule } from '../../modules/dds/dds.module';
 import { DidsModule } from '../../modules/dids/dids.module';
 import { AuditsModule } from '../../modules/audits/audits.module';
 import { RdosModule } from '../../modules/rdos/rdos.module';
-import { PhotographicReportsModule } from '../../modules/photographic-reports/photographic-reports.module';
 import { CompaniesModule } from '../../modules/companies/companies.module';
 import { StorageModule } from '../storage/storage.module';
 import { ReportsModule } from '../../modules/reports/reports.module';
@@ -41,7 +40,6 @@ import { MailDlqService } from './mail-dlq.service';
     forwardRef(() => DidsModule),
     forwardRef(() => AuditsModule),
     forwardRef(() => RdosModule),
-    forwardRef(() => PhotographicReportsModule),
     CompaniesModule,
     StorageModule,
     ReportsModule,

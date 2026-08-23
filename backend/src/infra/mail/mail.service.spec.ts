@@ -15,6 +15,7 @@ import { DdsService } from '../../modules/dds/dds.service';
 import { DidsService } from '../../modules/dids/dids.service';
 import { AuditsService } from '../../modules/audits/audits.service';
 import { RdosService } from '../../modules/rdos/rdos.service';
+import { PhotographicReportsService } from '../../modules/photographic-reports/photographic-reports.service';
 import { CompaniesService } from '../../modules/companies/companies.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import { DocumentStorageService } from '../../shared/services/document-storage.service';
@@ -175,6 +176,7 @@ describe('MailService', () => {
         { provide: DidsService, useValue: mockDomainService },
         { provide: AuditsService, useValue: mockDomainService },
         { provide: RdosService, useValue: mockDomainService },
+        { provide: PhotographicReportsService, useValue: mockDomainService },
         { provide: CompaniesService, useValue: mockDomainService },
         { provide: TenantService, useValue: mockTenantService },
         { provide: ReportsService, useValue: mockDomainService },
@@ -262,6 +264,7 @@ describe('MailService', () => {
         { provide: DidsService, useValue: mockDomainService },
         { provide: AuditsService, useValue: mockDomainService },
         { provide: RdosService, useValue: mockDomainService },
+        { provide: PhotographicReportsService, useValue: mockDomainService },
         { provide: CompaniesService, useValue: mockDomainService },
         { provide: TenantService, useValue: mockTenantService },
         { provide: ReportsService, useValue: mockDomainService },

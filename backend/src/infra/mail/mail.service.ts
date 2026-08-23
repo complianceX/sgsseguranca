@@ -7,6 +7,7 @@
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -188,8 +189,6 @@ export class MailService {
     private auditsService: AuditsService,
     @Inject(forwardRef(() => RdosService))
     private rdosService: RdosService,
-    @Inject(forwardRef(() => PhotographicReportsService))
-    private photographicReportsService: PhotographicReportsService,
     private companiesService: CompaniesService,
     private tenantService: TenantService,
     private documentStorageService: DocumentStorageService,
@@ -197,6 +196,7 @@ export class MailService {
     private readonly integration: IntegrationResilienceService,
     private readonly distributedLock: DistributedLockService,
     private readonly privilegedDb: PrivilegedDbService,
+    private readonly moduleRef: ModuleRef,
   ) {
     this.mailDeliveryEnabled = !isExplicitlyDisabled(
       this.configService.get<string | boolean>('MAIL_ENABLED'),
@@ -515,8 +515,9 @@ export class MailService {
           break;
         }
         case 'PHOTOGRAPHIC_REPORT': {
-          const report =
-            await this.photographicReportsService.findOne(documentId);
+          const photographicReportsService =
+            this.moduleRef.get(PhotographicReportsService, { strict: false });
+          const report = await photographicReportsService.findOne(documentId);
           const pdfExports = (report.exports ?? []).filter(
             (e) => e.export_type === PhotographicReportExportType.PDF,
           );
