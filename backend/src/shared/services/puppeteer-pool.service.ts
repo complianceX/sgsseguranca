@@ -8,6 +8,7 @@ import { existsSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import * as puppeteer from 'puppeteer';
 import type { Browser, LaunchOptions, Page } from 'puppeteer';
 import {
   getPdfBrowserAcquireTimeoutMs,
@@ -25,8 +26,6 @@ interface PooledBrowser {
   useCount: number;
 }
 
-type PuppeteerModule = typeof import('puppeteer');
-
 @Injectable()
 export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PuppeteerPoolService.name);
@@ -36,10 +35,6 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly acquireTimeoutMs = getPdfBrowserAcquireTimeoutMs();
   private readonly maxUsesPerBrowser = getPdfBrowserMaxUses();
   private cleanupInterval?: NodeJS.Timeout;
-
-  private async loadPuppeteer(): Promise<PuppeteerModule> {
-    return import('puppeteer');
-  }
 
   onModuleInit() {
     this.logger.log(
@@ -176,7 +171,6 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     browser: Browser;
     userDataDir: string;
   }> {
-    const puppeteer = await this.loadPuppeteer();
     const resolvedBrowser = await this.resolveExecutablePath();
     const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
     const runtimeEnv = {
@@ -273,6 +267,16 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Assíncrona desde o Puppeteer 25: `puppeteer.executablePath()` passou a
+   * devolver `Promise<string>`.
+   *
+   * O ramo `env` continua síncrono e é o que produção usa — o Dockerfile define
+   * `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` e `PUPPETEER_SKIP_DOWNLOAD=true`,
+   * então o Chromium vem do sistema operacional e este método retorna antes de
+   * tocar na API do Puppeteer. O `await` abaixo só é exercido em ambiente local
+   * sem a variável definida.
+   */
   private async resolveExecutablePath(): Promise<{
     executablePath?: string;
     source: 'env' | 'puppeteer' | 'default';
@@ -288,7 +292,6 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const puppeteer = await this.loadPuppeteer();
       const executablePath = await puppeteer.executablePath();
       return {
         executablePath,

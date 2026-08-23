@@ -2,9 +2,7 @@ const { existsSync } = require('fs');
 const { join } = require('path');
 const { spawnSync } = require('child_process');
 
-const cacheDir =
-  process.env.PUPPETEER_CACHE_DIR ||
-  join(__dirname, '..', '.cache', 'puppeteer');
+const cacheDir = process.env.PUPPETEER_CACHE_DIR || join(__dirname, '..', '.cache', 'puppeteer');
 const env = { ...process.env, PUPPETEER_CACHE_DIR: cacheDir };
 
 delete env.PUPPETEER_SKIP_DOWNLOAD;
@@ -14,32 +12,23 @@ async function main() {
   let executablePath = null;
 
   try {
-    const puppeteer = await import('puppeteer');
+    const puppeteer = require('puppeteer');
+    // No Puppeteer 25, executablePath() passou a ser assíncrono.
     executablePath = await puppeteer.executablePath();
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `[puppeteer] não foi possível resolver o browser antes do ensure: ${reason}`,
-    );
+    console.warn(`[puppeteer] não foi possível resolver o browser antes do ensure: ${reason}`);
   }
 
   if (executablePath && existsSync(executablePath)) {
     console.log(`[puppeteer] browser já disponível em ${executablePath}`);
-    return;
+    process.exit(0);
   }
 
   console.log(`[puppeteer] instalando browser em cache local: ${cacheDir}`);
 
-  const cliPath = join(
-    __dirname,
-    '..',
-    'node_modules',
-    'puppeteer',
-    'lib',
-    'puppeteer',
-    'node',
-    'cli.js',
-  );
+  // Layout do pacote mudou no Puppeteer 25 (ESM-only, sem a pasta lib/cjs).
+  const cliPath = require.resolve('puppeteer/lib/puppeteer/node/cli.js');
   const install = spawnSync(
     process.execPath,
     [cliPath, 'browsers', 'install', 'chrome'],
@@ -55,7 +44,4 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('[puppeteer] falha inesperada no ensure:', error);
-  process.exit(1);
-});
+main();
