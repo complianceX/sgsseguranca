@@ -167,6 +167,11 @@ export class TestApp {
         await this.resetDataSource.destroy().catch(() => undefined);
       }
       await this.waitForSocketDrain();
+      // Forçar GC após fechar o app para liberar memória entre suítes E2E.
+      // global.gc só existe quando Node é iniciado com --expose-gc.
+      if (typeof (global as Record<string, unknown>).gc === 'function') {
+        (global as Record<string, unknown>).gc();
+      }
     }
   }
 
