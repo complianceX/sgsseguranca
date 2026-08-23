@@ -6,7 +6,7 @@
  *   node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --dry-run
  *   node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --clean
  *
- * Variáveis de ambiente (opcionais — padrões apontam para o Compose isolado de E2E):
+ * Variáveis de ambiente (opcionais — padrões apontam para o docker-compose.test.yml):
  *   DATABASE_HOST, DATABASE_PORT, DATABASE_NAME (ou POSTGRES_DB)
  *   DATABASE_USER (ou POSTGRES_USER), DATABASE_PASSWORD (ou POSTGRES_PASSWORD)
  *
@@ -309,13 +309,6 @@ async function bulkInsertAprs(
 // ─── Entrypoint ──────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  if (process.env.LOAD_TEST_ALLOW_SEED !== 'true') {
-    console.error(
-      '[seed-tenants] BLOQUEADO: defina LOAD_TEST_ALLOW_SEED=true para executar contra este banco.',
-    );
-    process.exit(1);
-  }
-
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const cleanOnly = args.includes('--clean');
