@@ -31,19 +31,43 @@ function makeService(overrides: {
   episRepository?: Partial<Repository<Epi>>;
   usersRepository?: Partial<Repository<User>>;
 }) {
-  const assignmentsRepository = {
-    create: jest.fn((dto: Partial<EpiAssignment>) => cloneAssignment(dto)),
-    save: jest.fn((entity: Partial<EpiAssignment>) =>
+  // Extract override functions early so the transaction closure captures them
+  const epiFindOne =
+    (overrides.episRepository as any)?.findOne ??
+    jest.fn().mockResolvedValue(null);
+  const assignCreate =
+    (overrides.assignmentsRepository as any)?.create ??
+    jest.fn((dto: Partial<EpiAssignment>) => cloneAssignment(dto));
+  const assignSave =
+    (overrides.assignmentsRepository as any)?.save ??
+    jest.fn((entity: Partial<EpiAssignment>) =>
       Promise.resolve(entity as EpiAssignment),
-    ),
+    );
+
+  const assignmentsRepository = {
+    create: assignCreate,
+    save: assignSave,
     findOne: jest.fn().mockResolvedValue(null),
     createQueryBuilder: jest.fn().mockReturnValue(makeQb()),
-    ...overrides.assignmentsRepository,
+    // SGS-EPI-BR-007: create() now wraps stock check + save in a transaction
+    manager: {
+      transaction: jest.fn(async (cb: (trx: unknown) => Promise<unknown>) => {
+        const trx = {
+          getRepository: (entity: unknown) => {
+            if (entity === Epi) return { findOne: epiFindOne };
+            return { create: assignCreate, save: assignSave };
+          },
+          query: jest.fn().mockResolvedValue(undefined),
+        };
+        return cb(trx);
+      }),
+    },
+    ...(overrides.assignmentsRepository ?? {}),
   } as unknown as Repository<EpiAssignment>;
 
   const episRepository = {
-    findOne: jest.fn().mockResolvedValue(null),
-    ...overrides.episRepository,
+    findOne: epiFindOne,
+    ...(overrides.episRepository ?? {}),
   } as unknown as Repository<Epi>;
 
   const usersRepository = {

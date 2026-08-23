@@ -28,12 +28,22 @@ function makeService(overrides: {
   assignmentsRepository?: Partial<Repository<EpiAssignment>>;
   episRepository?: Partial<Repository<Epi>>;
   usersRepository?: Partial<Repository<User>>;
+  sitesRepository?: { findOne: jest.Mock };
 }) {
+  // Extract override functions early so the transaction closure captures them
+  const epiFindOne =
+    (overrides.episRepository as any)?.findOne ??
+    jest.fn().mockResolvedValue(null);
+  const assignCreate =
+    (overrides.assignmentsRepository as any)?.create ??
+    jest.fn((dto: Partial<EpiAssignment>) => ({ ...dto }));
+  const assignSave =
+    (overrides.assignmentsRepository as any)?.save ??
+    jest.fn((e: Partial<EpiAssignment>) => Promise.resolve(e as EpiAssignment));
+
   const assignmentsRepository = {
-    create: jest.fn((dto: Partial<EpiAssignment>) => ({ ...dto })),
-    save: jest.fn((e: Partial<EpiAssignment>) =>
-      Promise.resolve(e as EpiAssignment),
-    ),
+    create: assignCreate,
+    save: assignSave,
     findOne: jest.fn().mockResolvedValue(null),
     createQueryBuilder: jest.fn().mockReturnValue({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -44,18 +54,36 @@ function makeService(overrides: {
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
     }),
-    ...overrides.assignmentsRepository,
+    // SGS-EPI-BR-007: create() wraps stock check + save in a transaction
+    manager: {
+      transaction: jest.fn(async (cb: (trx: unknown) => Promise<unknown>) => {
+        const trx = {
+          getRepository: (entity: unknown) => {
+            if (entity === Epi) return { findOne: epiFindOne };
+            return { create: assignCreate, save: assignSave };
+          },
+          query: jest.fn().mockResolvedValue(undefined),
+        };
+        return cb(trx);
+      }),
+    },
+    ...(overrides.assignmentsRepository ?? {}),
   } as unknown as Repository<EpiAssignment>;
 
   const episRepository = {
-    findOne: jest.fn().mockResolvedValue(null),
-    ...overrides.episRepository,
+    findOne: epiFindOne,
+    ...(overrides.episRepository ?? {}),
   } as unknown as Repository<Epi>;
 
   const usersRepository = {
     findOne: jest.fn().mockResolvedValue(null),
     ...overrides.usersRepository,
   } as unknown as Repository<User>;
+
+  // Default: site found (so site validation passes in tests that reach it)
+  const sitesRepository = overrides.sitesRepository ?? {
+    findOne: jest.fn().mockResolvedValue({ id: 'site-abc', company_id: 'company-1' }),
+  };
 
   const defaultContext: TenantContext = {
     companyId: 'company-1',
@@ -85,7 +113,7 @@ function makeService(overrides: {
   return new EpiAssignmentsService(
     assignmentsRepository,
     episRepository,
-    {} as never, // sitesRepository — not needed for these unit tests
+    sitesRepository as never,
     usersRepository,
     tenantService,
     signatureTimestampService,

@@ -2,9 +2,11 @@ import {
   IsBoolean,
   IsDateString,
   IsEmpty,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { sanitizePlainTextTransform } from '../../../shared/utils/plain-text-sanitizer.util';
@@ -36,6 +38,11 @@ export class CreateEpiDto {
   @IsBoolean()
   @IsOptional()
   status?: boolean = true;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  quantidade_estoque?: number | null;
 
   @IsOptional()
   @IsEmpty({

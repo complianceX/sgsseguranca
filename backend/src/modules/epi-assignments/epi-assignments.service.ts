@@ -133,23 +133,69 @@ export class EpiAssignmentsService {
       actorId !== user.id ? user.id : undefined,
     );
 
-    const assignment = this.assignmentsRepository.create({
-      company_id: companyId,
-      epi_id: dto.epi_id,
-      user_id: dto.user_id,
-      site_id: effectiveSiteId,
-      ca: epi.ca,
-      validade_ca: epi.validade_ca,
-      quantidade: dto.quantidade || 1,
-      status: 'entregue',
-      entregue_em: new Date(),
-      observacoes: dto.observacoes,
-      assinatura_entrega: assinaturaEntrega,
-      created_by_id: actorId,
-      updated_by_id: actorId,
-    });
+    // SGS-EPI-BR-007: atomic stock check-and-decrement inside a transaction with
+    // pessimistic lock on the EPI row to prevent TOCTOU race conditions when two
+    // concurrent requests try to deliver the last unit simultaneously.
+    const saved = await this.assignmentsRepository.manager.transaction(
+      async (trx) => {
+        const epiRepo = trx.getRepository(Epi);
+        let lockedEpi: Epi | null;
+        try {
+          lockedEpi = await epiRepo.findOne({
+            where: { id: dto.epi_id, company_id: companyId },
+            lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+          });
+        } catch (err) {
+          const e = err as { code?: string };
+          if (e?.code === '55P03') {
+            throw new ConflictException(
+              'EPI em processamento por outra operação. Tente novamente.',
+            );
+          }
+          throw err;
+        }
+        if (!lockedEpi) {
+          throw new NotFoundException('EPI não encontrado para esta empresa.');
+        }
+        const qty = dto.quantidade || 1;
+        if (
+          lockedEpi.quantidade_estoque !== null &&
+          lockedEpi.quantidade_estoque !== undefined &&
+          lockedEpi.quantidade_estoque < qty
+        ) {
+          throw new BadRequestException(
+            `Estoque insuficiente. Disponível: ${lockedEpi.quantidade_estoque}, solicitado: ${qty}.`,
+          );
+        }
 
-    const saved = await this.assignmentsRepository.save(assignment);
+        const assignmentRepo = trx.getRepository(EpiAssignment);
+        const assignment = assignmentRepo.create({
+          company_id: companyId,
+          epi_id: dto.epi_id,
+          user_id: dto.user_id,
+          site_id: effectiveSiteId,
+          ca: epi.ca,
+          validade_ca: epi.validade_ca,
+          quantidade: qty,
+          status: 'entregue',
+          entregue_em: new Date(),
+          observacoes: dto.observacoes,
+          assinatura_entrega: assinaturaEntrega,
+          created_by_id: actorId,
+          updated_by_id: actorId,
+        });
+        const savedAssignment = await assignmentRepo.save(assignment);
+
+        // Decrement only when stock is tracked (quantidade_estoque IS NOT NULL)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [qty, dto.epi_id],
+        );
+
+        return savedAssignment;
+      },
+    );
+
     await this.writeAuditLog(AuditAction.CREATE, saved, actorId, {
       event: 'epi_assignment_delivered',
       companyId,
@@ -320,7 +366,15 @@ export class EpiAssignmentsService {
         assignment.observacoes = dto.observacoes || assignment.observacoes;
         assignment.assinatura_devolucao = assinaturaDevolucao;
         assignment.updated_by_id = actorId;
-        return repo.save(assignment);
+        const result = await repo.save(assignment);
+
+        // SGS-EPI-BR-007: restore stock on return (only when tracked)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [result.quantidade, result.epi_id],
+        );
+
+        return result;
       },
     );
     await this.writeAuditLog(AuditAction.UPDATE, saved, actorId, {
@@ -376,7 +430,15 @@ export class EpiAssignmentsService {
             `${assignment.observacoes}\n${dto.observacoes}`.trim();
         }
         assignment.updated_by_id = actorId;
-        return repo.save(assignment);
+        const result = await repo.save(assignment);
+
+        // SGS-EPI-BR-007: restore stock on replacement (only when tracked)
+        await trx.query(
+          `UPDATE epis SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2 AND quantidade_estoque IS NOT NULL`,
+          [result.quantidade, result.epi_id],
+        );
+
+        return result;
       },
     );
     await this.writeAuditLog(AuditAction.UPDATE, saved, actorId, {
