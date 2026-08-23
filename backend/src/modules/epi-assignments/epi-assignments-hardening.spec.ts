@@ -32,8 +32,7 @@ function makeService(overrides: {
 }) {
   // Extract override functions early so the transaction closure captures them
   const epiFindOne =
-    overrides.episRepository?.findOne ??
-    jest.fn().mockResolvedValue(null);
+    overrides.episRepository?.findOne ?? jest.fn().mockResolvedValue(null);
   const assignCreate =
     overrides.assignmentsRepository?.create ??
     jest.fn((dto: Partial<EpiAssignment>) => ({ ...dto }));
