@@ -877,16 +877,46 @@ export class SignaturesService {
       };
     }
 
-    const signature = await this.signaturesRepository.findOne({
-      where: { signature_hash: normalizedHash },
-    });
+    // Usa função SECURITY DEFINER para contornar RLS em rota pública.
+    // findOne() via signaturesRepository é bloqueado pela política
+    // site_scope_isolation_policy quando não há contexto de tenant.
+    const rows = await this.dataSource.query<
+      Array<{
+        signature_hash: string;
+        signed_at: Date | null;
+        timestamp_authority: string | null;
+        type: string;
+        timestamp_token: string | null;
+        integrity_payload: Record<string, unknown> | null;
+      }>
+    >('SELECT * FROM verify_signature_by_hash_public($1)', [normalizedHash]);
 
-    if (!signature) {
+    const row = rows[0] ?? null;
+
+    if (!row) {
       return {
         valid: false,
         message: 'Assinatura não localizada.',
       };
     }
+
+    // Constrói objeto compatível com Signature para reutilizar extractVerificationDetails
+    const signature = {
+      signature_hash: row.signature_hash,
+      signed_at: row.signed_at ? new Date(row.signed_at) : null,
+      timestamp_authority: row.timestamp_authority,
+      type: row.type,
+      timestamp_token: row.timestamp_token,
+      integrity_payload: row.integrity_payload,
+    } as Pick<
+      Signature,
+      | 'signature_hash'
+      | 'signed_at'
+      | 'timestamp_authority'
+      | 'type'
+      | 'timestamp_token'
+      | 'integrity_payload'
+    >;
 
     const persistedHash = signature.signature_hash;
     const timestampToken = signature.timestamp_token;
@@ -894,7 +924,9 @@ export class SignaturesService {
       typeof persistedHash === 'string' &&
       typeof timestampToken === 'string' &&
       this.signatureTimestampService.verify(persistedHash, timestampToken);
-    const verificationDetails = this.extractVerificationDetails(signature);
+    const verificationDetails = this.extractVerificationDetails(
+      signature as unknown as Signature,
+    );
 
     return {
       valid,

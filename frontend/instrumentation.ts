@@ -43,6 +43,21 @@ function initializeEdgeSentry() {
     environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
     release: process.env.NEXT_PUBLIC_BUILD_ID,
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    beforeSend(event) {
+      if (event.message) {
+        event.message = scrubbedText(event.message);
+      }
+
+      if (event.exception?.values) {
+        for (const exception of event.exception.values) {
+          if (exception.value) {
+            exception.value = scrubbedText(exception.value);
+          }
+        }
+      }
+
+      return event;
+    },
   });
 }
 

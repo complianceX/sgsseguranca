@@ -58,6 +58,7 @@ import {
 } from '../../../shared/resilience/openai-circuit-breaker.service';
 import { MetricsService } from '../../../shared/observability/metrics.service';
 import { ConsentsService } from '../../consents/consents.service';
+import { stripJpegExifMetadata } from '../strip-jpeg-exif.util';
 import {
   SstAgentResponse,
   SstChatResponse,
@@ -1211,7 +1212,8 @@ export class SstAgentService {
       };
     };
 
-    const dataUrl = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    const strippedBuffer = stripJpegExifMetadata(imageBuffer);
+    const dataUrl = `data:${mimeType};base64,${strippedBuffer.toString('base64')}`;
     const userContext = context?.trim()
       ? `Contexto adicional do usuario: ${context.trim()}`
       : 'Sem contexto adicional fornecido.';

@@ -26,7 +26,8 @@ import { PtsService } from '../../pts/pts.service';
 import { EpisService } from '../../epis/epis.service';
 import { DdsService } from '../../dds/dds.service';
 import { SstToolResult } from './sst-agent.types';
-export { sanitizeForAi } from '../openai-payload-boundary.util';
+import { sanitizeForAi } from '../openai-payload-boundary.util';
+export { sanitizeForAi };
 
 // ---------------------------------------------------------------------------
 // Sanitização de PII — rede de segurança (LGPD)
@@ -266,7 +267,7 @@ export class SstToolsExecutor {
     input: Record<string, unknown>,
   ): Promise<SstToolResult> {
     this.logger.debug(
-      `[SstTool] ${toolName} | input: ${JSON.stringify(input)}`,
+      `[SstTool] ${toolName} | input: ${JSON.stringify(sanitizeForAi(input))}`,
     );
 
     try {

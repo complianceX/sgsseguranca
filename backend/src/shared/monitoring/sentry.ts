@@ -4,6 +4,8 @@ type SentryInitOptions = {
   tracesSampleRate?: number;
   release?: string;
   attachStacktrace?: boolean;
+  sendDefaultPii?: boolean;
+  beforeSend?: (event: Record<string, unknown>) => Record<string, unknown> | null;
 };
 
 type SentryUser = {
@@ -36,6 +38,15 @@ type SentryScope = {
 };
 
 let sentry: SentryLike | null = null;
+
+function scrubSentryText(text: string): string {
+  const s = text.length > 4000 ? text.slice(0, 4000) : text;
+  return s
+    .replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, '[CPF]')
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
+    .replace(/(?:\+55\s?)?\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g, '[TELEFONE]')
+    .replace(/(medico_responsavel|crm_medico|observacoes):\s*[^,\s]+/gi, '$1: [REDACTED]');
+}
 
 export type SentryInitStatus =
   | {
@@ -96,6 +107,26 @@ export function initSentry(serviceTag = 'backend'): SentryInitStatus {
       tracesSampleRate,
       release: process.env.SENTRY_RELEASE || process.env.npm_package_version,
       attachStacktrace: true,
+      sendDefaultPii: false,
+      beforeSend(event) {
+        // Remove PII de mensagens antes de enviar ao Sentry
+        if (typeof event['message'] === 'string') {
+          event['message'] = scrubSentryText(event['message']);
+        }
+        const exValues = (
+          event['exception'] as
+            | { values?: Array<{ value?: string }> }
+            | undefined
+        )?.values;
+        if (Array.isArray(exValues)) {
+          for (const ex of exValues) {
+            if (typeof ex.value === 'string') {
+              ex.value = scrubSentryText(ex.value);
+            }
+          }
+        }
+        return event as Record<string, unknown>;
+      },
     });
     sdk.setTag('service', serviceTag);
     sentry = sdk;

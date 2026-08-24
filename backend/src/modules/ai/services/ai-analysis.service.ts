@@ -26,6 +26,7 @@ import {
   SophiePtJsonResponse,
   SophieTask,
 } from '../sophie.types';
+import { stripJpegExifMetadata } from '../strip-jpeg-exif.util';
 import { MetricsService } from '../../../shared/observability/metrics.service';
 import {
   type AiLlmRuntimeConfig,
@@ -148,7 +149,8 @@ export class AiAnalysisService {
         ],
       });
 
-      const dataUrl = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+      const strippedBuffer = stripJpegExifMetadata(imageBuffer);
+      const dataUrl = `data:image/jpeg;base64,${strippedBuffer.toString('base64')}`;
       const { payload, model } =
         await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
           context: 'analysis:image',
@@ -270,7 +272,8 @@ export class AiAnalysisService {
         ],
       });
 
-      const dataUrl = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+      const strippedBuffer = stripJpegExifMetadata(imageBuffer);
+      const dataUrl = `data:image/jpeg;base64,${strippedBuffer.toString('base64')}`;
       const { payload, model } =
         await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
           context: 'analysis:photographic-report-image',

@@ -1,5 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from '../../shared/decorators/public.decorator';
+import { TenantOptional } from '../../shared/decorators/tenant-optional.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { Role } from '../auth/enums/roles.enum';
 import {
   PrivacyGovernanceService,
   SubprocessorRegistryResponse,
@@ -14,6 +19,9 @@ export class PrivacyGovernanceController {
     private readonly privacyGovernanceService: PrivacyGovernanceService,
   ) {}
 
+  // Transparência pública: lista subprocessadores de dados (LGPD art. 37)
+  @Public()
+  @TenantOptional()
   @Get('subprocessors')
   @ApiOperation({
     summary: 'Public technical subprocessor registry',
@@ -24,6 +32,9 @@ export class PrivacyGovernanceController {
     return this.privacyGovernanceService.getSubprocessors();
   }
 
+  // Transparência pública: matriz de retenção de dados (LGPD art. 37)
+  @Public()
+  @TenantOptional()
   @Get('retention-matrix')
   @ApiOperation({
     summary: 'Technical privacy retention matrix',
@@ -34,6 +45,9 @@ export class PrivacyGovernanceController {
     return this.privacyGovernanceService.getRetentionMatrix();
   }
 
+  // Operacional interno: requer ADMIN_GERAL (dados de offboarding de tenant)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN_GERAL)
   @Get('tenant-offboarding-checklist')
   @ApiOperation({
     summary: 'Tenant offboarding privacy checklist',
