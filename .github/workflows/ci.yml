@@ -265,6 +265,9 @@ jobs:
       - name: Run critical e2e flows
         env:
           NODE_OPTIONS: --experimental-require-module
+          # Armazenamento local: DocumentStorageService usa disco em vez de B2/S3
+          # quando LOCAL_DOCUMENT_STORAGE_DIR está definido (bloqueado em production).
+          LOCAL_DOCUMENT_STORAGE_DIR: /tmp/e2e-document-storage
         run: npm run test:e2e -- --forceExit
 
   backend-dr-e2e:

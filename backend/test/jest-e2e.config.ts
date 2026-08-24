@@ -22,7 +22,11 @@ const config: Config = {
   // ver test/puppeteer-cjs-shim.js.
   moduleNameMapper: {
     '^uuid$': '<rootDir>/uuid-cjs.js',
-    '^puppeteer$': '<rootDir>/puppeteer-cjs-shim.js',
+    // O shim real carrega o Puppeteer ESM via `new Function` (escapa o Jest)
+    // consumindo 300-600 MB de heap e lançando Chromium — causa OOM no CI.
+    // O mock retorna um PDF mínimo válido sem subprocesso, preservando o
+    // contrato HTTP dos endpoints (o que E2E precisa testar).
+    '^puppeteer$': '<rootDir>/puppeteer-e2e-mock.cjs',
   },
   globalSetup: '<rootDir>/setup/e2e-infra-check.ts',
   globalTeardown: '<rootDir>/setup/e2e-global-teardown.ts',

@@ -59,8 +59,6 @@ describeE2E('E2E Critical - APR lifecycle', () => {
   // Sessões reutilizadas entre flows — evita múltiplos roundtrips de login
   let adminSession: LoginSession;
   let tstSession: LoginSession;
-  let workerSession: LoginSession;
-  let adminSessionB: LoginSession;
   let csrfHeaders: Record<string, string>;
 
   // IDs compartilhados entre flows
@@ -72,8 +70,6 @@ describeE2E('E2E Critical - APR lifecycle', () => {
 
     adminSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
     tstSession = await testApp.loginAs(Role.TST, 'tenantA');
-    workerSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
-    adminSessionB = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
     csrfHeaders = await testApp.csrfHeaders();
   });
 
