@@ -4,6 +4,17 @@ const CPF_PATTERN = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g;
 const EMAIL_PATTERN = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
 const PHONE_PATTERN = /\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?(?:9?\d{4})-?\d{4}\b/g;
 const CNPJ_PATTERN = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g;
+// Brazilian RG (7-9 dígitos com separadores opcionais + dígito verificador)
+const RG_PATTERN = /\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]\b/g;
+// PIS / NIS / PASEP (11 dígitos com separadores)
+const PIS_PATTERN = /\b\d{3}\.?\d{5}\.?\d{2}-?\d\b/g;
+// CNH (11 dígitos numéricos sem separadores usuais)
+const CNH_PATTERN = /\bCNH\s*[:nº°]*\s*\d{9,11}\b/gi;
+// Código CID (classificação internacional de doenças)
+const CID_PATTERN = /\bCID[- ]?[A-Z]\d{2,3}(?:\.\d{1,2})?\b/gi;
+// Nomes precedidos de honoríficos — melhor esforço; falso positivo preferível a vazar PII
+const HONORIFIC_NAME_PATTERN =
+  /\b(?:Sr\.?|Sra\.?|Dr\.?|Dra\.?|Prof\.?|Profa\.?|Eng\.?|Enfª?\.?)\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:de|da|do|dos|das|e|el)?\s*[A-ZÀ-Ú][a-zà-ú]+){0,4}/g;
 
 const DIRECT_REDACTION_KEYS = new Set([
   'nome',
@@ -41,6 +52,40 @@ const CONTEXT_REDACTION_KEYS = new Set([
   'employee',
 ]);
 
+// Campos de narrativa livre com alta densidade de PII (LGPD art. 5, V — dado sensível)
+// O conteúdo passa pelo sanitizePrimitiveString mas NÃO é suprimido por completo,
+// pois o modelo de IA precisa do texto para análise SST. Nomes sem honorífico são
+// o risco residual documentado que exige DPA contratual com o provedor de IA.
+const SENSITIVE_NARRATIVE_KEYS = new Set([
+  'observacoes',
+  'observacao',
+  'observações',
+  'observação',
+  'diagnostico',
+  'diagnóstico',
+  'laudo',
+  'resultado',
+  'resultado_exame',
+  'descricao',
+  'descrição',
+  'descricao_risco',
+  'descricao_incidente',
+  'relato',
+  'historico',
+  'histórico',
+  'anamnese',
+  'queixa',
+  'tratamento',
+  'prescricao',
+  'prescrição',
+  'atestado',
+  'cid',
+  'medico_responsavel',
+  'medicoresponsavel',
+  'crm',
+  'crm_medico',
+]);
+
 const JSON_STYLE_PATTERNS: Array<[RegExp, string]> = [
   [/("nome"\s*:\s*")[^"]*(")/gi, '$1[REDACTED_NAME]$2'],
   [/("name"\s*:\s*")[^"]*(")/gi, '$1[REDACTED_NAME]$2'],
@@ -65,8 +110,13 @@ function sanitizePrimitiveString(value: string): string {
   return value
     .replace(CPF_PATTERN, '[CPF]')
     .replace(CNPJ_PATTERN, '[CNPJ]')
+    .replace(RG_PATTERN, '[RG]')
+    .replace(PIS_PATTERN, '[PIS]')
+    .replace(CNH_PATTERN, '[CNH]')
+    .replace(CID_PATTERN, '[CID]')
     .replace(EMAIL_PATTERN, '[EMAIL]')
-    .replace(PHONE_PATTERN, '[PHONE]');
+    .replace(PHONE_PATTERN, '[PHONE]')
+    .replace(HONORIFIC_NAME_PATTERN, '[NOME]');
 }
 
 function sanitizeStructuredString(value: string): string {
@@ -78,6 +128,11 @@ function sanitizeStructuredString(value: string): string {
 
 function sanitizeByKey(key: string, value: string): string {
   const normalizedKey = normalizeKey(key);
+
+  if (SENSITIVE_NARRATIVE_KEYS.has(normalizedKey)) {
+    // Aplica scrubbing completo em campos de narrativa livre (documentos, laudos, relatos)
+    return sanitizePrimitiveString(value);
+  }
 
   if (DIRECT_REDACTION_KEYS.has(normalizedKey)) {
     if (normalizedKey === 'email') {
