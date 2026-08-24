@@ -45,6 +45,12 @@ export class NonConformity extends BaseAuditEntity {
   @Column()
   tipo: string;
 
+  @Column({ nullable: true })
+  tipo_categoria?: string;
+
+  @Column({ nullable: true })
+  tipo_subcategoria?: string;
+
   @Column({ type: 'date' })
   data_identificacao: Date;
 
@@ -86,6 +92,12 @@ export class NonConformity extends BaseAuditEntity {
 
   @Column({ nullable: true })
   requisito_politica?: string;
+
+  @Column({ nullable: true })
+  risco_categoria?: string;
+
+  @Column({ nullable: true })
+  risco_fonte?: string;
 
   @Column()
   risco_perigo: string;
@@ -152,6 +164,12 @@ export class NonConformity extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   verificacao_evidencias?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  fotos_evidencia?: string[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  fotos_verificacao?: string[];
 
   @Column({ type: 'date', nullable: true })
   verificacao_data?: Date;
