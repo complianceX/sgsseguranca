@@ -5,7 +5,9 @@ type SentryInitOptions = {
   release?: string;
   attachStacktrace?: boolean;
   sendDefaultPii?: boolean;
-  beforeSend?: (event: Record<string, unknown>) => Record<string, unknown> | null;
+  beforeSend?: (
+    event: Record<string, unknown>,
+  ) => Record<string, unknown> | null;
 };
 
 type SentryUser = {
@@ -118,8 +120,7 @@ export function initSentry(serviceTag = 'backend'): SentryInitStatus {
         }
         const exValues = (
           event['exception'] as
-            | { values?: Array<{ value?: string }> }
-            | undefined
+            { values?: Array<{ value?: string }> } | undefined
         )?.values;
         if (Array.isArray(exValues)) {
           for (const ex of exValues) {
@@ -128,7 +129,7 @@ export function initSentry(serviceTag = 'backend'): SentryInitStatus {
             }
           }
         }
-        return event as Record<string, unknown>;
+        return event;
       },
     });
     sdk.setTag('service', serviceTag);
