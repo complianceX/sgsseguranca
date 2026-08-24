@@ -333,7 +333,7 @@ export default function ServiceOrdersPage() {
   if (loadError) {
     return (
       <ErrorState
-        title="Falha ao carregar ordens de servico"
+        title="Falha ao carregar ordens de serviço"
         description={loadError}
         action={
           <Button type="button" onClick={loadData}>
@@ -347,9 +347,9 @@ export default function ServiceOrdersPage() {
   return (
     <>
       <ListPageLayout
-        eyebrow="Execucao formalizada"
-        title="Ordens de Servico (NR-1)"
-        description="Documentacao obrigatoria de atividades, riscos, responsaveis e execucao planejada."
+        eyebrow="Execução formalizada"
+        title="Ordens de Serviço (NR-1)"
+        description="Documentação obrigatória de atividades, riscos, responsáveis e execução planejada."
         icon={<ClipboardList className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -396,7 +396,7 @@ export default function ServiceOrdersPage() {
           },
             ]
         }
-        toolbarTitle="Base de ordens de servico"
+        toolbarTitle="Base de ordens de serviço"
         toolbarDescription={`${total} registro(s) no recorte atual com filtros por status e obra.`}
         toolbarContent={
           <div className="grid w-full grid-cols-1 gap-3 md:w-auto md:grid-cols-2">
@@ -447,8 +447,8 @@ export default function ServiceOrdersPage() {
         ) : orders.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              title="Nenhuma Ordem de Servico encontrada"
-              description="Ainda nao existem ordens de servico registradas para este tenant."
+              title="Nenhuma Ordem de Serviço encontrada"
+              description="Ainda não existem ordens de serviço registradas para este tenant."
               action={
                 <button
                   type="button"

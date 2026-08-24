@@ -30,7 +30,8 @@ import {
 } from '@/lib/offline-sync';
 import { useApiStatus } from '@/hooks/useApiStatus';
 import { useApiReconnect } from '@/hooks/useApiReconnect';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { toast } from 'sonner';
@@ -523,10 +524,11 @@ export default function TstFieldPage() {
                   </div>
                 ) : null}
 
-                <Link href={`/dashboard/workers/timeline?userId=${workerStatus.user.id}`}>
-                  <Button type="button" variant="outline" className="w-full justify-center">
-                    Abrir timeline completa do trabalhador
-                  </Button>
+                <Link
+                  href={`/dashboard/workers/timeline?userId=${workerStatus.user.id}`}
+                  className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-center')}
+                >
+                  Abrir timeline completa do trabalhador
                 </Link>
               </div>
             ) : null}

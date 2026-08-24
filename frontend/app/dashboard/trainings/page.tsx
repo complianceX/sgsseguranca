@@ -502,7 +502,7 @@ useEffect(() => {
             ]
         }
         toolbarTitle="Treinamentos registrados"
-        toolbarDescription={`${filteredTrainings.length} resultado(s) exibidos nesta pagina.`}
+        toolbarDescription={`${filteredTrainings.length} resultado(s) exibidos nesta página.`}
         toolbarContent={
           <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-end">
             <div className="ds-list-search ds-list-search--wide min-w-[240px] flex-1 md:flex-none">
