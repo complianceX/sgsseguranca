@@ -101,8 +101,8 @@ export default function EmployeesPage() {
       setLastPage(res.lastPage);
     } catch (error) {
       logger.error('Erro ao carregar funcionarios:', error);
-      setLoadError('Nao foi possivel carregar a lista de funcionarios.');
-      toast.error('Erro ao carregar lista de funcionarios.');
+      setLoadError('Não foi possível carregar a lista de funcionários.');
+      toast.error('Erro ao carregar lista de funcionários.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ export default function EmployeesPage() {
 
   function handleDelete(id: string) {
     if (!activeCompanyId) {
-      toast.error('Selecione uma empresa antes de excluir um funcionario.');
+      toast.error('Selecione uma empresa antes de excluir um funcionário.');
       return;
     }
     setDeleteTargetId(id);
@@ -134,13 +134,13 @@ export default function EmployeesPage() {
 
   async function handleConfirmDelete() {
     if (!deleteTargetId || !activeCompanyId) {
-      toast.error('Selecione um funcionario e uma empresa antes de confirmar.');
+      toast.error('Selecione um funcionário e uma empresa antes de confirmar.');
       return;
     }
 
     const trimmed = stepUpCode.trim();
     if (!trimmed) {
-      toast.error('Informe o codigo de verificacao MFA.');
+      toast.error('Informe o código de verificação MFA.');
       return;
     }
 
@@ -162,13 +162,13 @@ export default function EmployeesPage() {
         activeCompanyId || undefined,
       );
       setEmployees((current) => current.filter((employee) => employee.id !== deleteTargetId));
-      toast.success('Funcionario excluido com sucesso.');
+      toast.success('Funcionário excluído com sucesso.');
       setIsDeleteModalOpen(false);
       setDeleteTargetId(null);
       setStepUpCode('');
     } catch (error) {
       logger.error('Erro ao excluir funcionario:', error);
-      setStepUpError('Codigo de verificacao invalido ou erro na operacao. Tente novamente.');
+      setStepUpError('Código de verificação inválido ou erro na operação. Tente novamente.');
     } finally {
       setStepUpLoading(false);
     }
@@ -194,7 +194,7 @@ export default function EmployeesPage() {
   if (loadError) {
     return (
       <ErrorState
-        title="Falha ao carregar funcionarios"
+        title="Falha ao carregar funcionários"
         description={loadError}
         action={
           <Button type="button" onClick={loadEmployees}>
@@ -208,13 +208,13 @@ export default function EmployeesPage() {
   return (
     <ListPageLayout
       eyebrow="Base de pessoas"
-      title="Funcionarios"
+      title="Funcionários"
       description="Gerencie colaboradores por empresa, obra/setor e contexto operacional."
       icon={<UserRound className="h-5 w-5" />}
       actions={
         <Link href="/dashboard/employees/new" className={buttonVariants()}>
           <Plus className="mr-2 h-4 w-4" />
-          Novo funcionario
+          Novo funcionário
         </Link>
       }
       metrics={
@@ -222,14 +222,14 @@ export default function EmployeesPage() {
           ? []
           : [
         {
-          label: 'Funcionarios no recorte',
+          label: 'Funcionários no recorte',
           value: total,
-          note: 'Colaboradores visiveis nesta pagina.',
+          note: 'Colaboradores visíveis nesta página.',
         },
         {
           label: 'Empresas no recorte',
           value: summary.companies,
-          note: 'Diversidade de vinculo empresarial.',
+          note: 'Diversidade de vínculo empresarial.',
           tone: 'primary',
         },
         {
@@ -241,20 +241,20 @@ export default function EmployeesPage() {
         {
           label: 'Sem obra vinculada',
           value: summary.withoutSite,
-          note: 'Pendencias de alocacao operacional.',
+          note: 'Pendências de alocação operacional.',
           tone: 'warning',
         },
           ]
       }
-      toolbarTitle="Base de funcionarios"
-      toolbarDescription={`${displayedEmployees.length} registro(s) visiveis nesta pagina, com administrador geral oculto da visao operacional.`}
+      toolbarTitle="Base de funcionários"
+      toolbarDescription={`${displayedEmployees.length} registro(s) visíveis nesta página, com administrador geral oculto da visão operacional.`}
       toolbarContent={
         <div className="ds-list-search">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
           <input
             type="text"
             placeholder="Pesquisar por nome ou CPF"
-            aria-label="Pesquisar funcionarios por nome ou CPF"
+            aria-label="Pesquisar funcionários por nome ou CPF"
             className={searchInputClassName}
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
@@ -276,7 +276,7 @@ export default function EmployeesPage() {
         <div className="space-y-4">
           {loading && displayedEmployees.length === 0 ? (
             <div className="p-6">
-              <InlineLoadingState label="Carregando funcionarios..." />
+              <InlineLoadingState label="Carregando funcionários..." />
             </div>
           ) : null}
 
@@ -284,19 +284,19 @@ export default function EmployeesPage() {
             <InlineCallout
               tone="warning"
               icon={<ShieldCheck className="h-4 w-4" />}
-              title="Atencao operacional"
-              description={`Ha ${summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta pagina. Revise a alocacao para evitar inconsistencias em APR, PT e relatorios por obra.`}
+              title="Atenção operacional"
+              description={`Há ${summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta página. Revise a alocação para evitar inconsistências em APR, PT e relatórios por obra.`}
             />
           ) : null}
 
         {!loading && displayedEmployees.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              title="Nenhum funcionario encontrado"
+              title="Nenhum funcionário encontrado"
               description={
                 deferredSearchTerm
                   ? 'Nenhum colaborador corresponde ao filtro aplicado.'
-                  : 'Ainda nao existem funcionarios operacionais cadastrados para este tenant.'
+                  : 'Ainda não existem funcionários operacionais cadastrados para este tenant.'
               }
               action={
                 !deferredSearchTerm ? (
@@ -305,7 +305,7 @@ export default function EmployeesPage() {
                     className={cn(buttonVariants(), 'inline-flex items-center')}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Novo funcionario
+                    Novo funcionário
                   </Link>
                 ) : undefined
               }
@@ -322,10 +322,10 @@ export default function EmployeesPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>CPF</TableHead>
-                <TableHead>Funcao</TableHead>
+                <TableHead>Função</TableHead>
                 <TableHead>Empresa</TableHead>
                 <TableHead>Obra/Setor</TableHead>
-                <TableHead className="text-right">Acoes</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -341,7 +341,7 @@ export default function EmployeesPage() {
                           {employee.nome}
                         </div>
                         <div className="text-xs text-[var(--ds-color-text-muted)]">
-                          Perfil {employee.profile?.nome ?? 'Nao definido'}
+                          Perfil {employee.profile?.nome ?? 'Não definido'}
                         </div>
                         <div className="mt-1">
                           <EmployeeAccessPill employee={employee} />
@@ -364,7 +364,7 @@ export default function EmployeesPage() {
                       <MapIcon className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
                       <span>
                         {employee.site?.nome || (
-                          <span className="text-[var(--ds-color-text-muted)]">Nao vinculada</span>
+                          <span className="text-[var(--ds-color-text-muted)]">Não vinculada</span>
                         )}
                       </span>
                     </div>
@@ -374,7 +374,7 @@ export default function EmployeesPage() {
                       <Link
                         href={`/dashboard/employees/${employee.id}`}
                         className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                        title="Editar funcionario"
+                        title="Editar funcionário"
                       >
                         <Pencil className="h-4 w-4" />
                       </Link>
@@ -390,7 +390,7 @@ export default function EmployeesPage() {
                         size="icon"
                         variant="ghost"
                         onClick={() => handleDelete(employee.id)}
-                        title="Excluir funcionario"
+                        title="Excluir funcionário"
                         className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -435,20 +435,20 @@ export default function EmployeesPage() {
 
       <ModalFrame isOpen={isDeleteModalOpen} onClose={handleCloseModal} shellClassName="max-w-sm">
         <ModalHeader
-          title="Confirmar exclusao de funcionario"
-          description="Esta acao requer verificacao adicional de seguranca."
+          title="Confirmar exclusão de funcionário"
+          description="Esta ação requer verificação adicional de segurança."
           onClose={handleCloseModal}
           icon={<ShieldCheck className="h-5 w-5" />}
         />
         <ModalBody>
           <label htmlFor="stepUpCode" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">
-            Codigo de verificacao MFA
+            Código de verificação MFA
           </label>
           <Input
             id="stepUpCode"
             type="text"
             inputMode="numeric"
-            placeholder="Digite o codigo de 6 a 8 digitos"
+            placeholder="Digite o código de 6 a 8 dígitos"
             value={stepUpCode}
             onChange={(e) => setStepUpCode(e.target.value)}
             disabled={stepUpLoading}
@@ -473,7 +473,7 @@ export default function EmployeesPage() {
               onClick={handleConfirmDelete}
               disabled={stepUpLoading || !stepUpCode.trim()}
             >
-              {stepUpLoading ? 'Verificando...' : 'Excluir funcionario'}
+              {stepUpLoading ? 'Verificando...' : 'Excluir funcionário'}
             </Button>
           </div>
         </ModalFooter>

@@ -556,6 +556,7 @@ useEffect(() => {
             <input
               type="text"
               placeholder="Pesquisar ARR"
+              aria-label="Pesquisar Análise de Risco de Rota"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

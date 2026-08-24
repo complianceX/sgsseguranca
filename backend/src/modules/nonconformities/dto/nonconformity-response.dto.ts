@@ -30,6 +30,12 @@ export class NonConformityResponseDto {
   tipo: string;
 
   @Expose()
+  tipo_categoria?: string;
+
+  @Expose()
+  tipo_subcategoria?: string;
+
+  @Expose()
   data_identificacao: Date;
 
   @Expose()
@@ -70,6 +76,12 @@ export class NonConformityResponseDto {
 
   @Expose()
   requisito_politica?: string;
+
+  @Expose()
+  risco_categoria?: string;
+
+  @Expose()
+  risco_fonte?: string;
 
   @Expose()
   risco_perigo: string;
@@ -136,6 +148,12 @@ export class NonConformityResponseDto {
 
   @Expose()
   verificacao_evidencias?: string;
+
+  @Expose()
+  fotos_evidencia?: string[];
+
+  @Expose()
+  fotos_verificacao?: string[];
 
   @Expose()
   verificacao_data?: Date;

@@ -136,8 +136,8 @@ export default function MachinesPage() {
         },
           ]
       }
-      toolbarTitle="Base de maquinas"
-      toolbarDescription={`${total} maquina(s) encontrada(s) com busca por nome e placa.`}
+      toolbarTitle="Base de máquinas"
+      toolbarDescription={`${total} máquina(s) encontrada(s) com busca por nome e placa.`}
       toolbarContent={
         <div className="ds-list-search">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />

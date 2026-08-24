@@ -48,12 +48,12 @@ export default function RisksPage() {
         {
           label: 'Total monitorado',
           value: total,
-          note: 'Quantidade disponivel no recorte atual.',
+          note: 'Quantidade disponível no recorte atual.',
         },
         {
-          label: 'Resultados visiveis',
+          label: 'Resultados visíveis',
           value: filteredRisks.length,
-          note: 'Itens exibidos apos aplicar a busca.',
+          note: 'Itens exibidos após aplicar a busca.',
           tone: 'primary',
         },
       ]}

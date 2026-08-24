@@ -188,14 +188,14 @@ export default function CompaniesPage() {
           ]
       }
       toolbarTitle="Base de empresas"
-      toolbarDescription={`${total} empresa(s) encontrada(s) com busca por razao social, CNPJ e responsavel.`}
+      toolbarDescription={`${total} empresa(s) encontrada(s) com busca por razão social, CNPJ e responsável.`}
       toolbarContent={
         <div className="ds-list-search">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
           <input
             type="text"
             placeholder="Buscar empresas..."
-            aria-label="Buscar empresas por razao social ou CNPJ"
+            aria-label="Buscar empresas por razão social ou CNPJ"
             className={cn(inputClassName, 'pl-10')}
             value={searchTerm}
             onChange={(event) => {

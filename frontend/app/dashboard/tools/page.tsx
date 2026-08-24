@@ -140,7 +140,7 @@ export default function ToolsPage() {
           ]
       }
       toolbarTitle="Base de ferramentas"
-      toolbarDescription={`${total} ferramenta(s) encontrada(s) com busca por nome e numero de serie.`}
+      toolbarDescription={`${total} ferramenta(s) encontrada(s) com busca por nome e número de série.`}
       toolbarContent={
         <div className="ds-list-search">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />

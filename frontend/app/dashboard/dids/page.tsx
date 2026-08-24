@@ -164,6 +164,7 @@ export default function DidsPage() {
             <input
               type="text"
               placeholder="Pesquisar DID"
+              aria-label="Pesquisar Documento de Identificação"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

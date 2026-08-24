@@ -8,6 +8,8 @@ export interface NonConformity {
   id: string;
   codigo_nc: string;
   tipo: string;
+  tipo_categoria?: string;
+  tipo_subcategoria?: string;
   data_identificacao: string;
   local_setor_area: string;
   checklist_id?: string | null; // linkage opcional para rastreabilidade de inspeção/checklist
@@ -23,6 +25,8 @@ export interface NonConformity {
   requisito_item: string;
   requisito_procedimento?: string;
   requisito_politica?: string;
+  risco_categoria?: string;
+  risco_fonte?: string;
   risco_perigo: string;
   risco_associado: string;
   risco_consequencias?: string[];
@@ -45,6 +49,8 @@ export interface NonConformity {
   acao_preventiva_epc_epi?: string;
   verificacao_resultado?: string;
   verificacao_evidencias?: string;
+  fotos_evidencia?: string[];
+  fotos_verificacao?: string[];
   verificacao_data?: string;
   verificacao_responsavel?: string;
   status: string;

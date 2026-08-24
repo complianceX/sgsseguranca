@@ -30,6 +30,20 @@ export class CreateNonConformityDto {
   @MaxLength(60)
   tipo: string;
 
+  @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
+  @MaxLength(120)
+  @IsOptional()
+  tipo_categoria?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
+  @MaxLength(120)
+  @IsOptional()
+  tipo_subcategoria?: string;
+
   @IsDateString()
   @IsNotEmpty()
   data_identificacao: string;
@@ -125,6 +139,20 @@ export class CreateNonConformityDto {
   @MaxLength(2_000)
   @IsOptional()
   requisito_politica?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
+  @MaxLength(120)
+  @IsOptional()
+  risco_categoria?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(sanitizePlainTextTransform)
+  @MaxLength(200)
+  @IsOptional()
+  risco_fonte?: string;
 
   @IsString()
   @Trim()
@@ -272,6 +300,22 @@ export class CreateNonConformityDto {
   @MaxLength(10_000)
   @IsOptional()
   verificacao_evidencias?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayUnique()
+  @ArrayMaxSize(20)
+  @MaxLength(4_096, { each: true })
+  @IsOptional()
+  fotos_evidencia?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayUnique()
+  @ArrayMaxSize(20)
+  @MaxLength(4_096, { each: true })
+  @IsOptional()
+  fotos_verificacao?: string[];
 
   @IsDateString()
   @IsOptional()

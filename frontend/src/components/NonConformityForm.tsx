@@ -54,6 +54,8 @@ import {
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
   tipo: z.string().min(1, "O tipo é obrigatório"),
+  tipo_categoria: z.string().optional(),
+  tipo_subcategoria: z.string().optional(),
   data_identificacao: z.string(),
   site_id: z.string().optional(),
   local_setor_area: z.string().min(1, "O local/setor/área é obrigatório"),
@@ -70,6 +72,8 @@ const nonConformitySchema = z.object({
   requisito_item: z.string().min(1, "O item é obrigatório"),
   requisito_procedimento: z.string().optional(),
   requisito_politica: z.string().optional(),
+  risco_categoria: z.string().optional(),
+  risco_fonte: z.string().optional(),
   risco_perigo: z.string().min(1, "O perigo é obrigatório"),
   risco_associado: z.string().min(1, "O risco é obrigatório"),
   risco_consequencias: z.array(z.string()).optional(),
@@ -92,6 +96,8 @@ const nonConformitySchema = z.object({
   acao_preventiva_epc_epi: z.string().optional(),
   verificacao_resultado: z.string().optional(),
   verificacao_evidencias: z.string().optional(),
+  fotos_evidencia: z.array(z.string()).optional(),
+  fotos_verificacao: z.array(z.string()).optional(),
   verificacao_data: z.string().optional(),
   verificacao_responsavel: z.string().optional(),
   status: z.string().min(1, "O status é obrigatório"),
@@ -1297,6 +1303,36 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           </div>
           <div>
             <label
+              htmlFor="nc-tipo-categoria"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
+            >
+              Categoria do tipo <span className="font-normal text-[var(--ds-color-text-secondary)]">(opcional)</span>
+            </label>
+            <input
+              id="nc-tipo-categoria"
+              {...register("tipo_categoria")}
+              maxLength={120}
+              placeholder="Ex.: SGS, NR-35, ISO 45001"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="nc-tipo-subcategoria"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
+            >
+              Subcategoria do tipo <span className="font-normal text-[var(--ds-color-text-secondary)]">(opcional)</span>
+            </label>
+            <input
+              id="nc-tipo-subcategoria"
+              {...register("tipo_subcategoria")}
+              maxLength={120}
+              placeholder="Ex.: Trabalho em altura, Espaço confinado"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
+            />
+          </div>
+          <div>
+            <label
               htmlFor="nc-data-identificacao"
               className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
@@ -1581,6 +1617,36 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           5. Análise de Risco Associada
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label
+              htmlFor="nc-risco-categoria"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
+            >
+              Categoria do risco <span className="font-normal text-[var(--ds-color-text-secondary)]">(opcional)</span>
+            </label>
+            <input
+              id="nc-risco-categoria"
+              {...register("risco_categoria")}
+              maxLength={120}
+              placeholder="Ex.: Físico, Químico, Ergonômico"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="nc-risco-fonte"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
+            >
+              Fonte do risco <span className="font-normal text-[var(--ds-color-text-secondary)]">(opcional)</span>
+            </label>
+            <input
+              id="nc-risco-fonte"
+              {...register("risco_fonte")}
+              maxLength={200}
+              placeholder="Ex.: Máquina, Processo, Comportamento"
+              className="w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-colors duration-[120ms] focus:border-[var(--component-field-border-focus)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus-ring)] focus-visible:ring-offset-1"
+            />
+          </div>
           <div>
             <label
               htmlFor="nc-risco-perigo"

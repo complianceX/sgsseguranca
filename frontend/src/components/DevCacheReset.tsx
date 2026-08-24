@@ -25,10 +25,7 @@ function shouldResetDevCaches() {
   );
 }
 
-export function DevCacheReset() {
-  if (process.env.NODE_ENV === 'production') return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+function DevCacheResetInner() {
   useEffect(() => {
     if (!shouldResetDevCaches()) {
       return;
@@ -83,4 +80,9 @@ export function DevCacheReset() {
   }, []);
 
   return null;
+}
+
+export function DevCacheReset() {
+  if (process.env.NODE_ENV === 'production') return null;
+  return <DevCacheResetInner />;
 }

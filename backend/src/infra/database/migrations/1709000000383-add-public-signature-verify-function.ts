@@ -23,9 +23,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   - SET search_path previne search_path injection
  *   - GRANT EXECUTE apenas para o role de runtime (sgs_app)
  */
-export class AddPublicSignatureVerifyFunction1709000000383
-  implements MigrationInterface
-{
+export class AddPublicSignatureVerifyFunction1709000000383 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION verify_signature_by_hash_public(p_hash TEXT)
