@@ -28,8 +28,13 @@ const MINIMAL_PDF = Buffer.from(
     'startxref\n190\n%%EOF\n',
 );
 
-function makeMockPage() {
+function makeMockPage(parentBrowser) {
   return {
+    // Configuração de timeout — chamada pelo PuppeteerPoolService.getPage()
+    setDefaultTimeout: () => {},
+    setDefaultNavigationTimeout: () => {},
+    // Interceptação de rede — chamada pelo PdfService.generateFromHtml()
+    setRequestInterception: async () => {},
     setContent: async () => {},
     emulateMediaType: async () => {},
     setViewport: async () => {},
@@ -41,6 +46,8 @@ function makeMockPage() {
     pdf: async () => MINIMAL_PDF,
     screenshot: async () => MINIMAL_PDF,
     close: async () => {},
+    // Necessário para PuppeteerPoolService.releasePage() identificar o browser
+    browser: () => parentBrowser,
     on: () => {},
     off: () => {},
     removeListener: () => {},
@@ -49,20 +56,23 @@ function makeMockPage() {
 
 function makeMockBrowser() {
   const pages = [];
-  return {
+  const browser = {
     newPage: async () => {
-      const page = makeMockPage();
+      const page = makeMockPage(browser);
       pages.push(page);
       return page;
     },
     pages: async () => [...pages],
     close: async () => {},
     process: () => ({ pid: -1 }),
+    // connected=true evita que o pool recicle o browser em toda chamada getPage()
+    connected: true,
     on: () => {},
     off: () => {},
     removeListener: () => {},
-    isConnected: () => false,
+    isConnected: () => true,
   };
+  return browser;
 }
 
 module.exports = {
