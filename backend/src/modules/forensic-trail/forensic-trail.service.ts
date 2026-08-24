@@ -109,6 +109,14 @@ export class ForensicTrailService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      // Garante que current_company() retorna o tenant correto dentro desta
+      // transação, mesmo quando chamada fora do contexto AsyncLocalStorage
+      // (ex.: audit de tenant_switch antes do tenantService.run() no middleware).
+      if (companyId && this.dataSource.options.type === 'postgres') {
+        await manager.query('SET LOCAL app.current_company_id = $1', [
+          companyId,
+        ]);
+      }
       return execute(manager);
     });
   }
