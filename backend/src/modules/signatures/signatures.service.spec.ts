@@ -1067,25 +1067,26 @@ describe('SignaturesService', () => {
   });
 
   it('não expõe metadados documentais sensíveis na validação pública por hash', async () => {
-    repository.findOne.mockResolvedValue({
-      id: 'sig-1',
-      signature_hash: 'a'.repeat(64),
-      timestamp_token: 'token-1',
-      timestamp_authority: 'authority-1',
-      signed_at: new Date('2026-03-16T12:00:00.000Z'),
-      document_id: 'dds-1',
-      document_type: 'DDS',
-      type: 'hmac',
-      integrity_payload: {
-        verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
-        legal_assurance: 'not_legal_strong',
-        proof_scope: SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
-        signature_evidence_hash: 'evidence-hash',
-        document_binding: {
-          binding_hash: 'binding-hash',
+    // O serviço usa dataSource.query com SECURITY DEFINER — não passa pelo repository.
+    // A função retorna somente as 6 colunas de prova técnica (sem id, document_id, etc.).
+    dataSource.query.mockResolvedValueOnce([
+      {
+        signature_hash: 'a'.repeat(64),
+        timestamp_token: 'token-1',
+        timestamp_authority: 'authority-1',
+        signed_at: new Date('2026-03-16T12:00:00.000Z'),
+        type: 'hmac',
+        integrity_payload: {
+          verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
+          legal_assurance: 'not_legal_strong',
+          proof_scope: SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
+          signature_evidence_hash: 'evidence-hash',
+          document_binding: {
+            binding_hash: 'binding-hash',
+          },
         },
       },
-    });
+    ] as never);
     signatureTimestampService.verify.mockReturnValue(true);
 
     await expect(service.verifyByHashPublic('a'.repeat(64))).resolves.toEqual({
