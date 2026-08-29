@@ -265,14 +265,12 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
         .set(csrfHeaders);
 
       // Com UUIDs válidos, passa validação e executa teste de isolamento
-      expect(response.status).toBe(200);
+      expect([200, 201]).toContain(response.status);
 
       // Resposta deve ter estrutura de resultado de isolamento
-      if (response.status === 200) {
-        const body = response.body as { status?: string; test_name?: string };
-        expect(['secure', 'vulnerable']).toContain(body.status);
-        expect(body.test_name).toBe('Cross-Tenant Data Isolation');
-      }
+      const body = response.body as { status?: string; test_name?: string };
+      expect(['secure', 'vulnerable']).toContain(body.status);
+      expect(body.test_name).toBe('Cross-Tenant Data Isolation');
     });
   });
 

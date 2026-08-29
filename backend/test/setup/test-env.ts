@@ -94,6 +94,7 @@ export function bootstrapBackendTestEnvironment() {
   // Throttle: limites altos para não interferir nos testes
   applyDefault('THROTTLE_LIMIT', '10000');
   applyDefault('THROTTLE_TTL', '60000');
+  applyForced('THROTTLER_AUTH_LIMIT', '100');
   applyForced('LOGIN_THROTTLE_LIMIT', '10000');
   applyForced('FORGOT_PASSWORD_THROTTLE_LIMIT', '10000');
   applyForced('CHANGE_PASSWORD_THROTTLE_LIMIT', '10000');
