@@ -578,7 +578,10 @@ export const KNOWN_SGS_ENV_KEYS = new Set<string>([
   'XDG_CONFIG_HOME',
 ]);
 
-export const TEST_TOOLING_ENV_KEYS = new Set<string>(['DR_E2E_EVIDENCE_PATH']);
+export const TEST_TOOLING_ENV_KEYS = new Set<string>([
+  'DR_E2E_EVIDENCE_PATH',
+  'TENANT_BACKUP_ROOT',
+]);
 
 const SAFE_SYSTEM_ENV_KEYS = new Set([
   'PATH',

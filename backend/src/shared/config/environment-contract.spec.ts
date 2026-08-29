@@ -70,15 +70,16 @@ describe('environment contract', () => {
       ...apiEnvironment(),
       NODE_ENV: 'test',
       DR_E2E_EVIDENCE_PATH: 'temp/dr-e2e-evidence.json',
+      TENANT_BACKUP_ROOT: 'temp/tenant-backups',
     };
 
     expect(() => validateCommonEnvironment(env, { component: 'api' })).toThrow(
-      'DR_E2E_EVIDENCE_PATH',
+      'DR_E2E_EVIDENCE_PATH, TENANT_BACKUP_ROOT',
     );
     expect(() =>
       validateCommonEnvironment(env, {
         component: 'api',
-        allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH'],
+        allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH', 'TENANT_BACKUP_ROOT'],
       }),
     ).not.toThrow();
 
@@ -87,7 +88,7 @@ describe('environment contract', () => {
         { ...env, NODE_ENV: 'production' },
         {
           component: 'api',
-          allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH'],
+          allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH', 'TENANT_BACKUP_ROOT'],
         },
       ),
     ).toThrow('DR_E2E_EVIDENCE_PATH');
