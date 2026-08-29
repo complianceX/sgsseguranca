@@ -33,6 +33,7 @@ function makeMockPage(parentBrowser) {
     // Configuração de timeout — chamada pelo PuppeteerPoolService.getPage()
     setDefaultTimeout: () => {},
     setDefaultNavigationTimeout: () => {},
+    setJavaScriptEnabled: async () => {},
     // Interceptação de rede — chamada pelo PdfService.generateFromHtml()
     setRequestInterception: async () => {},
     setContent: async () => {},
