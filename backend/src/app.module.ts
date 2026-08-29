@@ -916,8 +916,8 @@ export const validationSchema = Joi.object({
         value.NODE_ENV === 'test' ? TEST_TOOLING_ENV_KEYS : undefined,
     });
   } catch (error) {
-    return helpers.error('any.invalid', {
-      message: error instanceof Error ? error.message : 'ENVIRONMENT_INVALID',
+    return helpers.message({
+      custom: error instanceof Error ? error.message : 'ENVIRONMENT_INVALID',
     });
   }
 
