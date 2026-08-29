@@ -212,6 +212,7 @@ services:
         -lc,
         "node /opt/load-test/scripts/guard-environment.mjs && node dist/worker.js",
       ]
+    init: true
     restart: unless-stopped
     mem_limit: ${LOADTEST_WORKER_MEMORY_LIMIT:-1024m}
     cpus: ${LOADTEST_WORKER_CPUS:-1.00}
