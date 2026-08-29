@@ -47,6 +47,51 @@ describe('environment contract', () => {
     ).not.toThrow();
   });
 
+  it('aceita variáveis ambientais do runner por nome exato', () => {
+    expect(() =>
+      assertNoUnknownSgsEnvironmentKeys({
+        ...apiEnvironment(),
+        ENABLE_RUNNER_TRACING: '1',
+        XDG_RUNTIME_DIR: '/tmp/runtime',
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertNoUnknownSgsEnvironmentKeys({
+        ...apiEnvironment(),
+        ENABLE_RUNNER_TRACINGE: '1',
+      }),
+    ).toThrow('ENABLE_RUNNER_TRACINGE');
+  });
+
+  it('mantém variável de evidência restrita ao contexto de teste', () => {
+    const env = {
+      ...apiEnvironment(),
+      NODE_ENV: 'test',
+      DR_E2E_EVIDENCE_PATH: 'temp/dr-e2e-evidence.json',
+    };
+
+    expect(() => validateCommonEnvironment(env, { component: 'api' })).toThrow(
+      'DR_E2E_EVIDENCE_PATH',
+    );
+    expect(() =>
+      validateCommonEnvironment(env, {
+        component: 'api',
+        allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH'],
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      validateCommonEnvironment(
+        { ...env, NODE_ENV: 'production' },
+        {
+          component: 'api',
+          allowedUnknownKeys: ['DR_E2E_EVIDENCE_PATH'],
+        },
+      ),
+    ).toThrow('DR_E2E_EVIDENCE_PATH');
+  });
+
   it('valida configuração válida de API sem expor valores', () => {
     expect(() =>
       validateCommonEnvironment(apiEnvironment(), { component: 'api' }),

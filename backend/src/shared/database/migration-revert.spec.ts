@@ -1,3 +1,6 @@
+import * as path from 'node:path';
+import { createRequire } from 'node:module';
+
 jest.mock('../../../scripts/migration-history-compatibility', () => {
   const actual = jest.requireActual<Record<string, unknown>>(
     '../../../scripts/migration-history-compatibility',
@@ -21,9 +24,25 @@ jest.mock('../../../scripts/migration-history-compatibility', () => {
   };
 });
 
+const { loadEnvironmentContract } = createRequire(__filename)(
+  '../../../scripts/assert-environment-contract.cjs',
+) as {
+  loadEnvironmentContract: (options?: { compiledPath?: string }) => {
+    validateCommonEnvironment: unknown;
+  };
+};
+
 import { revertLastMigration } from '../../../scripts/run-migration-revert';
 
 describe('migration revert compatibility', () => {
+  it('loads the environment contract when dist is absent', () => {
+    const contract = loadEnvironmentContract({
+      compiledPath: path.join(__dirname, 'missing-dist-contract.js'),
+    });
+
+    expect(typeof contract.validateCommonEnvironment).toBe('function');
+  });
+
   it('resolves a legacy row to the canonical migration before down()', async () => {
     const down = jest.fn().mockResolvedValue(undefined);
     let transactionActive = false;

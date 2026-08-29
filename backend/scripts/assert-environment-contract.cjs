@@ -1,8 +1,31 @@
 'use strict';
 
-// Scripts run outside Nest. The compiled contract is the same source used by
-// API/worker bootstrap; failing closed is safer than silently using fallbacks.
-const contract = require('../dist/shared/config/environment-contract.js');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// Production images use the compiled contract. Tests and migration tooling
+// must also work before build, so a clean checkout can load the same source
+// contract through ts-node without introducing a second implementation.
+const compiledContractPath = path.resolve(
+  __dirname,
+  '../dist/shared/config/environment-contract.js',
+);
+const sourceContractPath = path.resolve(
+  __dirname,
+  '../src/shared/config/environment-contract.ts',
+);
+
+function loadEnvironmentContract(options = {}) {
+  const compiledPath = options.compiledPath || compiledContractPath;
+  if (fs.existsSync(compiledPath)) {
+    return require(compiledPath);
+  }
+
+  require('ts-node/register/transpile-only');
+  return require(sourceContractPath);
+}
+
+const contract = loadEnvironmentContract();
 
 function assertScriptEnvironment(options) {
   try {
@@ -14,4 +37,4 @@ function assertScriptEnvironment(options) {
   }
 }
 
-module.exports = { assertScriptEnvironment };
+module.exports = { assertScriptEnvironment, loadEnvironmentContract };

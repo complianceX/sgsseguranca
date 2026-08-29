@@ -101,6 +101,7 @@ import {
 } from './modules/auth/auth-security.config';
 import {
   KNOWN_SGS_ENV_KEYS,
+  TEST_TOOLING_ENV_KEYS,
   validateCommonEnvironment,
 } from './shared/config/environment-contract';
 
@@ -911,6 +912,8 @@ export const validationSchema = Joi.object({
     validateCommonEnvironment(value, {
       component: 'api',
       knownKeys: KNOWN_SGS_ENV_KEYS,
+      allowedUnknownKeys:
+        value.NODE_ENV === 'test' ? TEST_TOOLING_ENV_KEYS : undefined,
     });
   } catch (error) {
     return helpers.error('any.invalid', {

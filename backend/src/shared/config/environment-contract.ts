@@ -7,6 +7,7 @@ export type EnvironmentComponent =
 export type EnvironmentContractOptions = {
   component: EnvironmentComponent;
   knownKeys?: Iterable<string>;
+  allowedUnknownKeys?: Iterable<string>;
   requireDatabase?: boolean;
   requireQueueRedis?: boolean;
   validateFeatureIntegrations?: boolean;
@@ -576,6 +577,8 @@ export const KNOWN_SGS_ENV_KEYS = new Set<string>([
   'XDG_CONFIG_HOME',
 ]);
 
+export const TEST_TOOLING_ENV_KEYS = new Set<string>(['DR_E2E_EVIDENCE_PATH']);
+
 const SAFE_SYSTEM_ENV_KEYS = new Set([
   'PATH',
   'Path',
@@ -648,8 +651,10 @@ const SAFE_SYSTEM_ENV_KEYS = new Set([
   'HOMEPATH',
   'HOMESHARE',
   'VSCODE_INJECTION',
+  'XDG_RUNTIME_DIR',
   // Variáveis injetadas pelo launcher/ambiente de execução, não consumidas
   // pelo SGS. São permitidas por nome exato; typos continuam bloqueados.
+  'ENABLE_RUNNER_TRACING',
   'OPENAI_API_BASE',
   'REFRESH_ENV_VARS',
   'PUPPETEER_SKIP_DOWNLOAD',
@@ -779,12 +784,15 @@ function isSgsNamespaceKey(key: string): boolean {
 export function findUnknownSgsEnvironmentKeys(
   env: NodeJS.ProcessEnv | Record<string, unknown>,
   knownKeys: Iterable<string> = KNOWN_SGS_ENV_KEYS,
+  allowedUnknownKeys?: Iterable<string>,
 ): string[] {
   const known = new Set(knownKeys);
+  const allowed = new Set(allowedUnknownKeys ?? []);
   return Object.keys(env)
     .filter((key) => env[key] !== undefined)
     .filter((key) => !isSafeSystemKey(key))
     .filter((key) => !known.has(key))
+    .filter((key) => !allowed.has(key))
     .filter(isSgsNamespaceKey)
     .sort();
 }
@@ -792,8 +800,13 @@ export function findUnknownSgsEnvironmentKeys(
 export function assertNoUnknownSgsEnvironmentKeys(
   env: NodeJS.ProcessEnv | Record<string, unknown>,
   knownKeys?: Iterable<string>,
+  allowedUnknownKeys?: Iterable<string>,
 ): void {
-  const unknownKeys = findUnknownSgsEnvironmentKeys(env, knownKeys);
+  const unknownKeys = findUnknownSgsEnvironmentKeys(
+    env,
+    knownKeys,
+    allowedUnknownKeys,
+  );
   if (unknownKeys.length > 0) {
     throw new EnvironmentContractError(
       `Unknown SGS environment variable(s): ${unknownKeys.join(', ')}`,
@@ -928,10 +941,14 @@ export function validateCommonEnvironment(
   env: NodeJS.ProcessEnv | Record<string, unknown>,
   options: EnvironmentContractOptions,
 ): void {
-  const knownKeys = options.knownKeys ?? KNOWN_SGS_ENV_KEYS;
-  assertNoUnknownSgsEnvironmentKeys(env, knownKeys);
-
   const nodeEnv = readString(env, 'NODE_ENV').toLowerCase() || 'development';
+  const knownKeys = options.knownKeys ?? KNOWN_SGS_ENV_KEYS;
+  assertNoUnknownSgsEnvironmentKeys(
+    env,
+    knownKeys,
+    nodeEnv === 'test' ? options.allowedUnknownKeys : undefined,
+  );
+
   if (!['development', 'test', 'staging', 'production'].includes(nodeEnv)) {
     throw new EnvironmentContractError('NODE_ENV: INVALID_VALUE');
   }
