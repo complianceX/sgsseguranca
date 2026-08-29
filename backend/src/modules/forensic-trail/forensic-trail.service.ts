@@ -113,9 +113,10 @@ export class ForensicTrailService {
       // transação, mesmo quando chamada fora do contexto AsyncLocalStorage
       // (ex.: audit de tenant_switch antes do tenantService.run() no middleware).
       if (companyId && this.dataSource.options.type === 'postgres') {
-        await manager.query('SET LOCAL app.current_company_id = $1', [
-          companyId,
-        ]);
+        await manager.query(
+          `SELECT set_config('app.current_company_id', $1, true)`,
+          [companyId],
+        );
       }
       return execute(manager);
     });
