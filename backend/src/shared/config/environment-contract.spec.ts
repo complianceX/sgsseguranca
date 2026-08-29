@@ -52,6 +52,7 @@ describe('environment contract', () => {
       assertNoUnknownSgsEnvironmentKeys({
         ...apiEnvironment(),
         ENABLE_RUNNER_TRACING: '1',
+        LEGACY_PASSWORD_AUTH_ENABLED: 'true',
         XDG_RUNTIME_DIR: '/tmp/runtime',
       }),
     ).not.toThrow();
@@ -96,6 +97,26 @@ describe('environment contract', () => {
     expect(() =>
       validateCommonEnvironment(apiEnvironment(), { component: 'api' }),
     ).not.toThrow();
+  });
+
+  it('aceita um alias de cada grupo de credenciais do banco', () => {
+    const env: NodeJS.ProcessEnv = {
+      ...apiEnvironment(),
+      DATABASE_URL: '',
+      PGHOST: 'db.example.invalid',
+      PGUSER: 'runtime',
+      PGPASSWORD: strong('database'),
+      PGDATABASE: 'sgs',
+    };
+
+    expect(() =>
+      validateCommonEnvironment(env, { component: 'api' }),
+    ).not.toThrow();
+
+    delete env.PGPASSWORD;
+    expect(() => validateCommonEnvironment(env, { component: 'api' })).toThrow(
+      'DATABASE_URL or database host credentials: REQUIRED',
+    );
   });
 
   it('exige modo explícito de proxy em ambiente semelhante à produção', () => {

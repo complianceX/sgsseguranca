@@ -283,6 +283,7 @@ export const KNOWN_SGS_ENV_KEYS = new Set<string>([
   'K6_LOGIN_PASSWORD',
   'LANG',
   'LEGACY_CPF_PLAINTEXT_LOOKUP_ENABLED',
+  'LEGACY_PASSWORD_AUTH_ENABLED',
   'LEGAL_AI_CONSENT_VERSION',
   'LEGAL_POLICY_VERSION',
   'LEGAL_TERMS_VERSION',
@@ -976,19 +977,11 @@ export function validateCommonEnvironment(
       'POSTGRESQL_URL',
     ].some((key) => readString(env, key) !== '');
     const hasParts = [
-      'DATABASE_HOST',
-      'PGHOST',
-      'POSTGRES_HOST',
-      'DATABASE_USER',
-      'PGUSER',
-      'POSTGRES_USER',
-      'DATABASE_PASSWORD',
-      'PGPASSWORD',
-      'POSTGRES_PASSWORD',
-      'DATABASE_NAME',
-      'PGDATABASE',
-      'POSTGRES_DB',
-    ].every((key) => readString(env, key) !== '');
+      ['DATABASE_HOST', 'PGHOST', 'POSTGRES_HOST'],
+      ['DATABASE_USER', 'PGUSER', 'POSTGRES_USER'],
+      ['DATABASE_PASSWORD', 'PGPASSWORD', 'POSTGRES_PASSWORD'],
+      ['DATABASE_NAME', 'PGDATABASE', 'POSTGRES_DB'],
+    ].every((aliases) => aliases.some((key) => readString(env, key) !== ''));
     const databaseType =
       readString(env, 'DATABASE_TYPE').toLowerCase() || 'postgres';
     if (
