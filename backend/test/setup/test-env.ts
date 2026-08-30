@@ -81,6 +81,12 @@ export function bootstrapBackendTestEnvironment() {
     'JWT_REFRESH_SECRET',
     'test-refresh-secret-for-e2e-testing-only-0123456789-padded-64chars',
   );
+  applyForced(
+    'SIGNATURE_TIMESTAMP_SECRET',
+    'test-signature-timestamp-secret-0123456789',
+  );
+  applyForced('JWT_ISSUER', 'https://jwt.test.sgs.local');
+  applyForced('JWT_AUDIENCE', 'sgs-test');
 
   // bcrypt: 4 rounds = rápido em testes
   applyDefault('BCRYPT_SALT_ROUNDS', '4');
@@ -88,6 +94,7 @@ export function bootstrapBackendTestEnvironment() {
   // Throttle: limites altos para não interferir nos testes
   applyDefault('THROTTLE_LIMIT', '10000');
   applyDefault('THROTTLE_TTL', '60000');
+  applyForced('THROTTLER_AUTH_LIMIT', '100');
   applyForced('LOGIN_THROTTLE_LIMIT', '10000');
   applyForced('FORGOT_PASSWORD_THROTTLE_LIMIT', '10000');
   applyForced('CHANGE_PASSWORD_THROTTLE_LIMIT', '10000');

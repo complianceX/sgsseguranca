@@ -1,7 +1,13 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import type { TenantService } from '../../../shared/tenant/tenant.service';
 import type { DocumentStorageService } from '../../../shared/services/document-storage.service';
+import { markAuthorizedStorageReference } from '../../../shared/storage/storage-object-reference';
+import type { StorageObjectReference } from '../../../shared/storage/storage-object-reference';
 import { AprLog } from '../entities/apr-log.entity';
 import { Apr, AprStatus } from '../entities/apr.entity';
 import { AprsEvidenceService } from './aprs-evidence.service';
@@ -38,13 +44,19 @@ describe('AprsEvidenceService', () => {
   let service: AprsEvidenceService;
   let aprRepository: {
     findOne: jest.Mock;
-    manager: { getRepository: jest.Mock };
+    manager: { getRepository: jest.Mock; query: jest.Mock };
   };
   let aprLogsRepository: { create: jest.Mock; save: jest.Mock };
   let tenantService: Pick<TenantService, 'getTenantId' | 'getContext' | 'run'>;
   let documentStorageService: Pick<
     DocumentStorageService,
-    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
+    | 'generateDocumentKey'
+    | 'createReference'
+    | 'referenceForExistingObject'
+    | 'uploadFile'
+    | 'uploadFileWithCapability'
+    | 'deleteFile'
+    | 'getSignedUrl'
   >;
 
   let riskItemRepository: { findOne: jest.Mock };
@@ -67,6 +79,7 @@ describe('AprsEvidenceService', () => {
     aprRepository = {
       findOne: jest.fn(),
       manager: {
+        query: jest.fn(),
         getRepository: jest.fn((entity: { name?: string }) => {
           if (entity?.name === 'AprRiskItem') return riskItemRepository;
           if (entity?.name === 'AprRiskEvidence') return evidenceRepository;
@@ -90,13 +103,31 @@ describe('AprsEvidenceService', () => {
       ) as TenantService['run'],
     };
     documentStorageService = {
+      createReference: jest.fn((reference) => reference),
+      referenceForExistingObject: jest.fn(
+        (
+          key: string,
+          owner: { resourceType: string; resourceId: string },
+          purpose: string,
+        ) => ({
+          tenantId: 'company-1',
+          key,
+          owner,
+          purpose,
+        }),
+      ),
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
+      uploadFileWithCapability: jest.fn((reference: StorageObjectReference) =>
+        Promise.resolve(markAuthorizedStorageReference(reference)),
+      ),
       deleteFile: jest.fn(() => Promise.resolve()),
-      getSignedUrl: jest.fn((key: string) =>
-        Promise.resolve(`https://signed.example/${encodeURIComponent(key)}`),
+      getSignedUrl: jest.fn((reference) =>
+        Promise.resolve(
+          `https://signed.example/${encodeURIComponent(reference.key)}`,
+        ),
       ),
     };
 
@@ -130,8 +161,12 @@ describe('AprsEvidenceService', () => {
       '127.0.0.1',
     );
 
-    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      'documents/company-1/apr-evidences/apr-1/evidence.jpg',
+    expect(
+      documentStorageService.uploadFileWithCapability,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
+      }),
       file.buffer,
       'image/jpeg',
     );
@@ -281,7 +316,9 @@ describe('AprsEvidenceService', () => {
     ).rejects.toThrow('constraint violation');
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/apr-evidences/apr-1/evidence.jpg',
+      expect.objectContaining({
+        key: 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
+      }),
     );
   });
 
@@ -443,33 +480,44 @@ describe('AprsEvidenceService', () => {
 
   it('verifyEvidenceByHashPublic retorna verified=true para hash original', async () => {
     const hash = 'a'.repeat(64);
-    evidenceRepository.findOne.mockResolvedValue({
-      hash_sha256: hash,
-      watermarked_hash_sha256: null,
-    });
+    aprRepository.manager.query.mockResolvedValue([{ matched_in: 'original' }]);
 
     const result = await service.verifyEvidenceByHashPublic(hash);
     expect(result).toEqual({ verified: true, matchedIn: 'original' });
   });
 
   it("verifyEvidenceByHashPublic retorna matchedIn=watermarked para hash de marca d'água", async () => {
-    const originalHash = 'a'.repeat(64);
     const watermarkedHash = 'b'.repeat(64);
-    evidenceRepository.findOne.mockResolvedValue({
-      hash_sha256: originalHash,
-      watermarked_hash_sha256: watermarkedHash,
-    });
+    aprRepository.manager.query.mockResolvedValue([
+      { matched_in: 'watermarked' },
+    ]);
 
     const result = await service.verifyEvidenceByHashPublic(watermarkedHash);
     expect(result).toEqual({ verified: true, matchedIn: 'watermarked' });
   });
 
   it('verifyEvidenceByHashPublic retorna verified=false para hash não encontrado', async () => {
-    evidenceRepository.findOne.mockResolvedValue(null);
+    aprRepository.manager.query.mockResolvedValue([]);
 
     const result = await service.verifyEvidenceByHashPublic('c'.repeat(64));
     expect(result.verified).toBe(false);
     expect(result.message).toContain('não localizado');
+  });
+
+  it('verifyEvidenceByHashPublic expõe somente o resultado público mínimo', async () => {
+    aprRepository.manager.query.mockResolvedValue([
+      {
+        matched_in: 'original',
+        apr_id: 'apr-private',
+        company_id: 'tenant-private',
+        file_key: 'documents/private/object.pdf',
+      },
+    ]);
+
+    const result = await service.verifyEvidenceByHashPublic('d'.repeat(64));
+
+    expect(result).toEqual({ verified: true, matchedIn: 'original' });
+    expect(Object.keys(result)).toEqual(['verified', 'matchedIn']);
   });
 
   it('verifyEvidenceByHashPublic rejeita hash com formato inválido', async () => {
@@ -480,18 +528,37 @@ describe('AprsEvidenceService', () => {
 
   it('verifyEvidenceByHashPublic normaliza hash para minúsculas', async () => {
     const hash = 'A'.repeat(64);
-    evidenceRepository.findOne.mockResolvedValue({
-      hash_sha256: hash.toLowerCase(),
-      watermarked_hash_sha256: null,
-    });
+    aprRepository.manager.query.mockResolvedValue([{ matched_in: 'original' }]);
 
     const result = await service.verifyEvidenceByHashPublic(hash);
     expect(result.verified).toBe(true);
+    expect(aprRepository.manager.query).toHaveBeenCalledWith(
+      'SELECT matched_in FROM public.verify_apr_evidence_by_hash_public($1)',
+      [hash.toLowerCase()],
+    );
   });
 
   it('verifyEvidenceByHashPublic rejeita hash vazio', async () => {
     const result = await service.verifyEvidenceByHashPublic('');
     expect(result.verified).toBe(false);
+    expect(aprRepository.manager.query).not.toHaveBeenCalled();
+  });
+
+  it('verifyEvidenceByHashPublic falha sem divulgar erro do banco', async () => {
+    aprRepository.manager.query.mockRejectedValue(
+      new Error(
+        'permission denied for function public.verify_apr_evidence_by_hash_public',
+      ),
+    );
+
+    const verification = service.verifyEvidenceByHashPublic('e'.repeat(64));
+
+    await expect(verification).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    await expect(verification).rejects.toThrow(
+      'Verificação pública de evidência temporariamente indisponível.',
+    );
   });
 
   // ─── listAprEvidences ────────────────────────────────────────────────────

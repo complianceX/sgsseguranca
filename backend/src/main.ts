@@ -36,12 +36,18 @@ import {
   type TelemetryRuntime,
 } from './shared/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './shared/monitoring/sentry';
+import { validateCommonEnvironment } from './shared/config/environment-contract';
 import {
   isCorsOriginAllowed,
   resolveAllowedCorsOrigins,
 } from './shared/security/cors-origins';
 import { ALLOWED_CORS_HEADERS } from './shared/security/cors-headers';
 import { constantTimeEquals } from './shared/security/constant-time.util';
+import {
+  createTrustedProxyPolicy,
+  getRequestIp,
+} from './shared/utils/request-ip.util';
+import { createTrustedProxyAuthenticationMiddleware } from './shared/middleware/trusted-proxy-auth.middleware';
 import type { VersionValue } from '@nestjs/common/interfaces';
 
 const WEB_SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'sgs-backend';
@@ -86,6 +92,7 @@ function logObservabilityStatus(
 }
 
 async function bootstrap() {
+  validateCommonEnvironment(process.env, { component: 'api' });
   const bootstrapLogger = createStructuredWinstonLogger(WEB_SERVICE_NAME);
   const webPort = Number(process.env.PORT || 8080);
   const requestedPrometheusPort = process.env.PROMETHEUS_PORT
@@ -164,6 +171,11 @@ async function bootstrap() {
     );
   }
 
+  const trustedProxyPolicy = createTrustedProxyPolicy(process.env, {
+    requireInProduction: isProductionEnv,
+    requireExplicitMode: isProductionEnv || process.env.NODE_ENV === 'staging',
+  });
+
   if (!('DOMMatrix' in globalThis)) {
     Object.defineProperty(globalThis, 'DOMMatrix', {
       value: class DOMMatrix {
@@ -184,6 +196,17 @@ async function bootstrap() {
   const httpAdapterInstance = app
     .getHttpAdapter()
     .getInstance() as Partial<ExpressApplication>;
+
+  // Deve ser o primeiro middleware do app: consumidores de IP, rate limit e
+  // allowlist só podem observar o estado interno criado aqui.
+  app.use(createTrustedProxyAuthenticationMiddleware(trustedProxyPolicy));
+
+  // Express não recebe confiança ampla no modo autenticado. Nesse modo,
+  // somente getRequestIp() pode promover XFF após autenticação do proxy.
+  httpAdapterInstance.set?.(
+    'trust proxy',
+    trustedProxyPolicy.mode === 'cidr' ? trustedProxyPolicy.isTrusted : false,
+  );
 
   if (process.env.REDIS_DISABLED === 'true') {
     bootstrapLogger.warn({
@@ -254,10 +277,6 @@ async function bootstrap() {
       next();
     };
     app.use('/admin/queues', bullBoardAuth, bullBoardAdapter.getRouter());
-  }
-
-  if (isProductionEnv) {
-    httpAdapterInstance.set?.('trust proxy', 1);
   }
 
   app.use(compression({ threshold: 1024, level: 6 }));
@@ -424,10 +443,7 @@ async function bootstrap() {
       { count: number; resetAt: number }
     >();
     const swaggerRateLimitMiddleware: RequestHandler = (req, res, next) => {
-      const ip =
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-        req.socket?.remoteAddress ||
-        'unknown';
+      const ip = getRequestIp(req) || 'unknown';
       const now = Date.now();
       const windowMs = 60_000;
       const limit = 30;

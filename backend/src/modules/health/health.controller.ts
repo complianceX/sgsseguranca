@@ -190,7 +190,7 @@ export class HealthController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.SUPER_ADMIN)
   @Authorize('can_view_system_health')
   @HealthCheck()
   check() {
@@ -273,7 +273,7 @@ export class HealthController {
 
   @Get('detailed')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.SUPER_ADMIN)
   @Authorize('can_view_system_health')
   async detailed() {
     const dbStatus = await this.healthService.checkDatabase();
@@ -308,7 +308,7 @@ export class HealthController {
 
   @Get('pool')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.SUPER_ADMIN)
   @Authorize('can_view_system_health')
   pool() {
     const stats = this.healthService.getPoolStats();
@@ -330,20 +330,24 @@ export class HealthController {
 
   @Get('puppeteer')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.SUPER_ADMIN)
   @Authorize('can_view_system_health')
-  puppeteer() {
+  async puppeteer() {
     try {
-      const stats = this.puppeteerPool.getPoolStats();
-      const ready = stats.total > 0 && stats.available > 0 && stats.inUse >= 0;
+      const probe = await this.puppeteerPool.probeRuntime();
       return {
-        status: ready ? 'up' : 'degraded',
-        pool: stats,
+        status: 'up',
+        runtime: {
+          durationMs: probe.durationMs,
+          pool: probe.stats,
+        },
       };
     } catch (error) {
+      const stats = this.puppeteerPool.getPoolStats();
       return {
         status: 'down',
-        message: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.name : 'UnknownError',
+        pool: stats,
       };
     }
   }

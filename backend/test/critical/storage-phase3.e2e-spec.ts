@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { createHash, randomUUID } from 'node:crypto';
 import { StorageController } from '../../src/infra/storage/storage.controller';
-import { StorageService } from '../../src/shared/services/storage.service';
+import { DocumentStorageService } from '../../src/shared/services/document-storage.service';
 import { TenantService } from '../../src/shared/tenant/tenant.service';
 import { AuditService } from '../../src/modules/audit-trail/audit.service';
 import { FileInspectionService } from '../../src/shared/security/file-inspection.service';
@@ -23,19 +23,30 @@ const PDF_BUFFER = Buffer.concat([
 describe('E2E Fase 3 - storage quarantine flow', () => {
   let app: INestApplication;
   let storageService: {
+    referenceForExistingObject: jest.Mock;
+    createReference: jest.Mock;
     getPresignedUploadUrl: jest.Mock;
     downloadFileBuffer: jest.Mock;
-    upload: jest.Mock;
+    uploadFile: jest.Mock;
     deleteFile: jest.Mock;
   };
 
   beforeAll(async () => {
     storageService = {
+      referenceForExistingObject: jest.fn(
+        (key: string, owner: object, purpose: string) => ({
+          tenantId: TENANT_ID,
+          key,
+          owner,
+          purpose,
+        }),
+      ),
+      createReference: jest.fn((reference: object) => reference),
       getPresignedUploadUrl: jest
         .fn()
         .mockResolvedValue('https://bucket.example.com/upload'),
       downloadFileBuffer: jest.fn().mockResolvedValue(PDF_BUFFER),
-      upload: jest.fn().mockResolvedValue(undefined),
+      uploadFile: jest.fn().mockResolvedValue(undefined),
       deleteFile: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -43,7 +54,7 @@ describe('E2E Fase 3 - storage quarantine flow', () => {
       controllers: [StorageController],
       providers: [
         {
-          provide: StorageService,
+          provide: DocumentStorageService,
           useValue: storageService,
         },
         {
@@ -121,13 +132,15 @@ describe('E2E Fase 3 - storage quarantine flow', () => {
         sha256Verified: true,
       }),
     );
-    expect(storageService.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^documents\//),
+    expect(storageService.uploadFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: expect.stringMatching(/^documents\//),
+      }),
       expect.any(Buffer),
       'application/pdf',
     );
     expect(storageService.deleteFile).toHaveBeenCalledWith(
-      presigned.body.fileKey,
+      expect.objectContaining({ key: presigned.body.fileKey }),
     );
   });
 

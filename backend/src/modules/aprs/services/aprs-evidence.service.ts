@@ -4,8 +4,9 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import pLimit from 'p-limit';
 import { FindOptionsWhere, In, Repository } from 'typeorm';
@@ -226,17 +227,25 @@ export class AprsEvidenceService {
       originalName,
     );
     const hashSha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const evidenceId = randomUUID();
 
-    await this.documentStorageService.uploadFile(
-      fileKey,
-      file.buffer,
-      file.mimetype,
-    );
+    const uploadedReference =
+      await this.documentStorageService.uploadFileWithCapability(
+        this.documentStorageService.createReference({
+          tenantId: apr.company_id,
+          key: fileKey,
+          owner: { resourceType: 'apr-evidence', resourceId: evidenceId },
+          purpose: 'apr-evidence',
+        }),
+        file.buffer,
+        file.mimetype,
+      );
 
     try {
       const evidenceRepository =
         this.aprsRepository.manager.getRepository(AprRiskEvidence);
       const evidence = evidenceRepository.create({
+        id: evidenceId,
         apr_id: apr.id,
         apr_risk_item_id: riskItem.id,
         uploaded_by_id: userId ?? null,
@@ -288,7 +297,10 @@ export class AprsEvidenceService {
         this.logger,
         `apr-evidence:${apr.id}`,
         fileKey,
-        (key) => this.documentStorageService.deleteFile(key),
+        (key) =>
+          key === uploadedReference.key
+            ? this.documentStorageService.deleteFile(uploadedReference)
+            : Promise.resolve(),
       );
       throw error;
     }
@@ -299,9 +311,8 @@ export class AprsEvidenceService {
     matchedIn?: 'original' | 'watermarked';
     message?: string;
   }> {
-    const normalizedHash = String(hash || '')
-      .trim()
-      .toLowerCase();
+    const normalizedHash =
+      typeof hash === 'string' ? hash.trim().toLowerCase() : '';
     if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
       return {
         verified: false,
@@ -309,23 +320,33 @@ export class AprsEvidenceService {
       };
     }
 
-    // Rota pública sem contexto de tenant — RLS bloquearia todas as linhas.
-    // Executamos a query como super-admin (is_super_admin() = true), que é
-    // permitido pela policy RESTRICTIVE de apr_risk_evidences (migration 079).
-    // O retorno é mínimo (verified + matchedIn) — sem metadados sensíveis.
-    const evidence = await this.tenantService.run(
-      { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
-      () =>
-        this.aprsRepository.manager.getRepository(AprRiskEvidence).findOne({
-          where: [
-            { hash_sha256: normalizedHash },
-            { watermarked_hash_sha256: normalizedHash },
-          ],
-          select: ['id', 'hash_sha256', 'watermarked_hash_sha256'],
-        }),
-    );
+    // A rota pública não possui tenant ALS. A função dedicada atravessa RLS
+    // com owner restrito e devolve somente a classificação do hash; não há
+    // fallback para super-admin na sessão de aplicação.
+    let queryResult: unknown;
+    try {
+      queryResult = await this.aprsRepository.manager.query(
+        'SELECT matched_in FROM public.verify_apr_evidence_by_hash_public($1)',
+        [normalizedHash],
+      );
+    } catch {
+      this.logger.warn('[APR public verification] database unavailable.');
+      throw new ServiceUnavailableException(
+        'Verificação pública de evidência temporariamente indisponível.',
+      );
+    }
+    const rows: unknown[] = Array.isArray(queryResult) ? queryResult : [];
+    const firstRow = rows[0];
+    const matchedInValue =
+      typeof firstRow === 'object' &&
+      firstRow !== null &&
+      'matched_in' in firstRow
+        ? firstRow.matched_in
+        : undefined;
+    const matchedIn =
+      typeof matchedInValue === 'string' ? matchedInValue : undefined;
 
-    if (!evidence) {
+    if (matchedIn !== 'original' && matchedIn !== 'watermarked') {
       return {
         verified: false,
         message: 'Hash não localizado na base de evidências da APR.',
@@ -334,8 +355,7 @@ export class AprsEvidenceService {
 
     return {
       verified: true,
-      matchedIn:
-        evidence.hash_sha256 === normalizedHash ? 'original' : 'watermarked',
+      matchedIn,
     };
   }
 
@@ -367,7 +387,14 @@ export class AprsEvidenceService {
 
           try {
             url = await this.documentStorageService.getSignedUrl(
-              evidence.file_key,
+              this.documentStorageService.referenceForExistingObject(
+                evidence.file_key,
+                {
+                  resourceType: 'apr-evidence',
+                  resourceId: evidence.id,
+                },
+                'p1-document-storage-getSignedUrl',
+              ),
               3600,
             );
           } catch {
@@ -377,7 +404,14 @@ export class AprsEvidenceService {
           if (evidence.watermarked_file_key) {
             try {
               watermarkedUrl = await this.documentStorageService.getSignedUrl(
-                evidence.watermarked_file_key,
+                this.documentStorageService.referenceForExistingObject(
+                  evidence.watermarked_file_key,
+                  {
+                    resourceType: 'apr-evidence-watermarked',
+                    resourceId: evidence.id,
+                  },
+                  'p1-document-storage-getSignedUrl',
+                ),
                 3600,
               );
             } catch {

@@ -760,14 +760,23 @@ export class NonConformitiesService {
         }
 
         try {
-          await this.documentStorageService.deleteFile(payload.fileKey);
+          await this.documentStorageService.deleteFile(
+            this.documentStorageService.referenceForExistingObject(
+              payload.fileKey,
+              {
+                resourceType: 'nc-attachment',
+                resourceId: nc.id,
+              },
+              'p1-document-storage-deleteFile',
+            ),
+          );
           this.logNcEvent('log', 'nc_attachment_removed_from_storage', {
             entityId: nc.id,
           });
         } catch (error) {
           this.logNcEvent('warn', 'nc_attachment_storage_cleanup_failed', {
             entityId: nc.id,
-            errorMessage: error instanceof Error ? error.message : 'unknown',
+            errorName: error instanceof Error ? error.name : 'unknown_error',
           });
         }
       }),
@@ -1603,7 +1612,13 @@ export class NonConformitiesService {
         await manager.getRepository(NonConformity).softDelete(locked.id);
       },
       cleanupStoredFile: (fileKey) =>
-        this.documentStorageService.deleteFile(fileKey),
+        this.documentStorageService.deleteFile(
+          this.documentStorageService.referenceForExistingObject(
+            fileKey,
+            { resourceType: 'nonconformity', resourceId: nonConformity.id },
+            'p1-document-storage-deleteFile',
+          ),
+        ),
     });
     if (!before) {
       throw new ConflictException(
@@ -1684,6 +1699,8 @@ export class NonConformitiesService {
       filters,
       files.map((file) => ({
         fileKey: file.fileKey,
+        resourceType: 'nonconformity',
+        resourceId: file.entityId,
         title: file.title,
         originalName: file.originalName,
         date: file.date,
@@ -1714,7 +1731,14 @@ export class NonConformitiesService {
 
     try {
       const url = await this.documentStorageService.getSignedUrl(
-        nc.pdf_file_key,
+        this.documentStorageService.referenceForExistingObject(
+          nc.pdf_file_key,
+          {
+            resourceType: 'nonconformity',
+            resourceId: nc.id,
+          },
+          'p1-document-storage-getSignedUrl',
+        ),
       );
       const response: NonConformityPdfAccessResponse = {
         entityId: nc.id,
@@ -1747,7 +1771,7 @@ export class NonConformitiesService {
       this.logNcEvent('warn', 'nc_pdf_access_storage_degraded', {
         entityId: nc.id,
         availability: response.availability,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorName: error instanceof Error ? error.name : 'unknown_error',
       });
       return response;
     }
@@ -1783,14 +1807,26 @@ export class NonConformitiesService {
       },
     );
 
+    let uploadedReference: Awaited<
+      ReturnType<DocumentStorageService['uploadFileWithCapability']>
+    > | null = null;
     try {
       assertLeaseHealthy();
-      await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+      uploadedReference =
+        await this.documentStorageService.uploadFileWithCapability(
+          this.documentStorageService.referenceForExistingObject(
+            fileKey,
+            { resourceType: 'nonconformity', resourceId: nc.id },
+            'p1-document-storage-uploadFile',
+          ),
+          buffer,
+          mimeType,
+        );
     } catch (error) {
       this.logNcEvent('warn', 'nc_attachment_upload_failed', {
         entityId: nc.id,
         mimeType,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorName: error instanceof Error ? error.name : 'unknown_error',
       });
       throw error;
     }
@@ -1836,16 +1872,22 @@ export class NonConformitiesService {
       saved = lockedSaved;
       beforeSnapshot = snapshot;
     } catch (error) {
+      if (!uploadedReference) {
+        throw error;
+      }
       await cleanupUploadedFile(
         this.logger,
         `nonconformity-attachment:${nc.id}`,
         fileKey,
-        (key) => this.documentStorageService.deleteFile(key),
+        (key) =>
+          uploadedReference.key === key
+            ? this.documentStorageService.deleteFile(uploadedReference)
+            : Promise.resolve(),
       );
       this.logNcEvent('warn', 'nc_attachment_persist_failed', {
         entityId: nc.id,
         mimeType,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorName: error instanceof Error ? error.name : 'unknown_error',
       });
       throw error;
     }
@@ -1944,7 +1986,16 @@ export class NonConformitiesService {
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
 
     try {
-      await this.documentStorageService.deleteFile(attachment.fileKey);
+      await this.documentStorageService.deleteFile(
+        this.documentStorageService.referenceForExistingObject(
+          attachment.fileKey,
+          {
+            resourceType: 'nc-attachment',
+            resourceId: nc.id,
+          },
+          'p1-document-storage-deleteFile',
+        ),
+      );
       this.logNcEvent('log', 'nc_attachment_removed_immediately', {
         entityId: saved.id,
         attachmentCount: saved.anexos?.length ?? 0,
@@ -1960,7 +2011,7 @@ export class NonConformitiesService {
     } catch (error) {
       this.logNcEvent('warn', 'nc_attachment_storage_cleanup_pending', {
         entityId: saved.id,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorName: error instanceof Error ? error.name : 'unknown_error',
       });
       return {
         entityId: saved.id,
@@ -1996,7 +2047,14 @@ export class NonConformitiesService {
 
     try {
       const url = await this.documentStorageService.getSignedUrl(
-        governedAttachment.fileKey,
+        this.documentStorageService.referenceForExistingObject(
+          governedAttachment.fileKey,
+          {
+            resourceType: 'nc-attachment',
+            resourceId: nc.id,
+          },
+          'p1-document-storage-getSignedUrl',
+        ),
       );
       const response: NonConformityAttachmentAccessResponse = {
         entityId: nc.id,
@@ -2033,7 +2091,7 @@ export class NonConformitiesService {
       this.logNcEvent('warn', 'nc_attachment_storage_degraded', {
         entityId: nc.id,
         index,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorName: error instanceof Error ? error.name : 'unknown_error',
       });
       return response;
     }

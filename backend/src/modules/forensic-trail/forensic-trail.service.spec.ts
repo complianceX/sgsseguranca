@@ -73,7 +73,7 @@ describe('ForensicTrailService', () => {
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     // Garante tenant context mesmo fora do AsyncLocalStorage (ex.: tenant_switch audit)
     expect(manager.query).toHaveBeenCalledWith(
-      'SET LOCAL app.current_company_id = $1',
+      `SELECT set_config('app.current_company_id', $1, true)`,
       ['company-1'],
     );
     expect(manager.query).toHaveBeenCalledWith(

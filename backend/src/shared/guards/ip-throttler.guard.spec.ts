@@ -3,7 +3,7 @@ import {
   ServiceUnavailableException,
   type ExecutionContext,
 } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerException, ThrottlerGuard } from '@nestjs/throttler';
 import { IpThrottlerGuard } from './ip-throttler.guard';
 
 type GuardWithTracker = IpThrottlerGuard & {
@@ -75,9 +75,9 @@ describe('IpThrottlerGuard', () => {
 
   it('usa apenas IP em rotas não sensíveis', async () => {
     const tracker = await guardWithTracker.getTracker({
-      ip: '10.0.0.10',
       path: '/users/me',
       headers: { 'user-agent': 'jest' },
+      socket: { remoteAddress: '10.0.0.10' },
     });
 
     expect(tracker).toBe('10.0.0.10');
@@ -85,16 +85,34 @@ describe('IpThrottlerGuard', () => {
 
   it('combina IP e fingerprint hash em rotas públicas sensíveis', async () => {
     const tracker = await guardWithTracker.getTracker({
-      ip: '10.0.0.10',
       path: '/public/documents/validate',
       headers: {
         'user-agent': 'Mozilla/5.0 test',
         'x-client-fingerprint': 'device-123',
       },
+      socket: { remoteAddress: '10.0.0.10' },
     });
 
     expect(tracker.startsWith('10.0.0.10:')).toBe(true);
     expect(tracker).toHaveLength('10.0.0.10:'.length + 16);
+  });
+
+  it('mantém o bucket para o mesmo peer não confiável apesar de XFFs diferentes', async () => {
+    const trackers = await Promise.all(
+      ['203.0.113.10', '198.51.100.20', '192.0.2.30'].map((forwardedIp) =>
+        guardWithTracker.getTracker({
+          path: '/auth/login',
+          headers: {
+            'user-agent': 'jest',
+            'x-forwarded-for': forwardedIp,
+          },
+          socket: { remoteAddress: '10.10.10.10' },
+        }),
+      ),
+    );
+
+    expect(new Set(trackers).size).toBe(1);
+    expect(trackers[0]?.startsWith('10.10.10.10:')).toBe(true);
   });
 
   it('fecha em rota crítica de auth quando throttler falha e fail-closed está ativo', async () => {
@@ -141,6 +159,49 @@ describe('IpThrottlerGuard', () => {
       IpThrottlerGuard.prototype.canActivate.call(guard, usersContext),
     ).resolves.toBe(true);
   });
+
+  it.each(['/auth/csrf', '/users/me'])(
+    'propaga a negação legítima de throttling em %s',
+    async (path) => {
+      jest
+        .spyOn(ThrottlerGuard.prototype, 'canActivate')
+        .mockRejectedValueOnce(new ThrottlerException());
+
+      const context = {
+        switchToHttp: () => ({
+          getRequest: () => ({ path, headers: {} }),
+        }),
+      } as ExecutionContext;
+
+      await expect(
+        IpThrottlerGuard.prototype.canActivate.call(guard, context),
+      ).rejects.toBeInstanceOf(ThrottlerException);
+    },
+  );
+
+  it.each([
+    '/auth/login',
+    '/auth/refresh',
+    '/auth/me',
+    '/public/documents/validate',
+  ])(
+    'propaga a negação legítima de throttling em rota protegida %s',
+    async (path) => {
+      jest
+        .spyOn(ThrottlerGuard.prototype, 'canActivate')
+        .mockRejectedValueOnce(new ThrottlerException());
+
+      const context = {
+        switchToHttp: () => ({
+          getRequest: () => ({ path, headers: {} }),
+        }),
+      } as ExecutionContext;
+
+      await expect(
+        IpThrottlerGuard.prototype.canActivate.call(guard, context),
+      ).rejects.toBeInstanceOf(ThrottlerException);
+    },
+  );
 
   it('aplica fallback local em rota crítica quando redis do throttler falha', async () => {
     process.env.NODE_ENV = 'production';

@@ -315,7 +315,6 @@ jobs:
       DATABASE_MIGRATION_URL: postgresql://neondb_owner:neondb_owner_e2e@127.0.0.1:5434/sst_test_dr
       DATABASE_ADMIN_URL: postgresql://sgs_admin:sgs_admin_e2e@127.0.0.1:5434/sst_test_dr
       DATABASE_SSL: false
-      DR_E2E_EVIDENCE_PATH: temp/dr-e2e-evidence.json
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6380
       E2E_REDIS_HOST: 127.0.0.1
@@ -448,6 +447,8 @@ jobs:
           SQL
 
       - name: Run DR restore e2e flow
+        env:
+          DR_E2E_EVIDENCE_PATH: temp/dr-e2e-evidence.json
         run: npm run test:e2e -- --forceExit critical/tenant-backup-restore.e2e-spec.ts
 
       - name: Validate restored schema, views, indexes and integrity

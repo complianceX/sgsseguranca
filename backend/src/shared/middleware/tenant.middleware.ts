@@ -8,6 +8,7 @@ import {
 import { Request, Response, NextFunction } from 'express';
 import { TenantService } from '../tenant/tenant.service';
 import { Role } from '../../modules/auth/enums/roles.enum';
+import { normalizeRoleName } from '../../modules/auth/role-normalization.util';
 import {
   normalizeTenantRateLimitPlan,
   TenantRateLimitPlan,
@@ -18,6 +19,7 @@ import type { AuthenticatedPrincipal } from '../../modules/auth/auth-principal.s
 import { TenantValidationService } from '../tenant/tenant-validation.service';
 import { SecurityAuditService } from '../security/security-audit.service';
 import { sanitizeLogUrl } from '../logging/log-sanitizer.util';
+import { getRequestIp } from '../utils/request-ip.util';
 
 type TenantInfo = {
   companyId?: string;
@@ -109,9 +111,10 @@ export class TenantMiddleware implements NestMiddleware {
 
         companyId = principal.companyId;
         tenantPlan = normalizeTenantRateLimitPlan(principal.plan);
-        isSuperAdmin =
-          principal.isSuperAdmin ||
-          principal.profile?.nome === Role.ADMIN_GERAL;
+        // ADMIN_GERAL é administrador do próprio tenant, não plataforma.
+        // Somente o principal reconciliado como SUPER_ADMIN pode selecionar
+        // outro tenant ou abrir contexto global.
+        isSuperAdmin = principal.isSuperAdmin;
 
         // SECURITY: JWT tem company_id mas header diverge → 403 sem detalhes.
         const headerCompanyId = req.headers['x-company-id'] as
@@ -123,7 +126,7 @@ export class TenantMiddleware implements NestMiddleware {
               event: 'tenant_switch',
               userId: principal.userId,
               tenantId: headerCompanyId,
-              ip: req.ip,
+              ip: getRequestIp(req),
               path: sanitizedRequestPath,
             });
             // Registra acesso cross-tenant na forensic trail para auditoria
@@ -142,7 +145,7 @@ export class TenantMiddleware implements NestMiddleware {
               this.logger.warn({
                 event: 'super_admin_missing_explicit_tenant',
                 userId: principal.userId,
-                ip: req.ip,
+                ip: getRequestIp(req),
                 path: sanitizedRequestPath,
               });
               throw new UnauthorizedException(
@@ -153,9 +156,8 @@ export class TenantMiddleware implements NestMiddleware {
             // Auth self-service (/auth/me, /auth/logout, etc.): usa o companyId
             // do próprio principal para que o RLS encontre o usuário corretamente
             // (SELECT users WHERE id = ? AND company_id = ?).
-            // Demais rotas sem tenant obrigatório (admin, companies, profiles, sessions):
-            // mantém undefined para que app.is_super_admin = 'true' habilite
-            // acesso cross-tenant via flag de sessão (ex: listagem de tenants).
+            // Demais rotas globais opcionais mantêm undefined somente para o
+            // principal SUPER_ADMIN explícito.
             companyId = this.isAuthSelfServiceRoute(req)
               ? principal.companyId
               : undefined;
@@ -171,7 +173,7 @@ export class TenantMiddleware implements NestMiddleware {
               userId: principal.userId,
               headerCompanyId,
               tokenCompanyId: null,
-              ip: req.ip,
+              ip: getRequestIp(req),
               method: req.method,
               path: sanitizedRequestPath,
               userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
@@ -187,7 +189,7 @@ export class TenantMiddleware implements NestMiddleware {
               userId: principal.userId,
               tokenCompanyId: companyId,
               headerCompanyId,
-              ip: req.ip,
+              ip: getRequestIp(req),
               method: req.method,
               path: sanitizedRequestPath,
               userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
@@ -298,9 +300,10 @@ export class TenantMiddleware implements NestMiddleware {
       return 'all';
     }
 
+    const normalizedProfile = normalizeRoleName(profileName);
     if (
-      profileName === Role.ADMIN_GERAL ||
-      profileName === Role.ADMIN_EMPRESA
+      normalizedProfile === Role.ADMIN_GERAL ||
+      normalizedProfile === Role.ADMIN_EMPRESA
     ) {
       return 'all';
     }
