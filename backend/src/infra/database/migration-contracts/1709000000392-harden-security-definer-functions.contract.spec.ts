@@ -46,4 +46,14 @@ describe('HardenSecurityDefinerFunctions1709000000392 contract', () => {
     );
     expect(migrationSource).not.toMatch(/transaction\s*=\s*false/);
   });
+
+  it('removes default PUBLIC EXECUTE before transferring function ownership', () => {
+    const revokeIndex = migrationSource.indexOf('REVOKE EXECUTE ON FUNCTION');
+    const ownershipIndex = migrationSource.indexOf(
+      'ALTER FUNCTION public.find_login_user(text, text) OWNER TO sgs_function_owner',
+    );
+
+    expect(revokeIndex).toBeGreaterThanOrEqual(0);
+    expect(ownershipIndex).toBeGreaterThan(revokeIndex);
+  });
 });

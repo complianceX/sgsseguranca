@@ -400,16 +400,9 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
       $$;
     `);
 
-    for (const statement of [
-      `ALTER FUNCTION public.find_login_user(text, text) OWNER TO sgs_function_owner`,
-      `ALTER FUNCTION public.update_login_user_password_hash(uuid, text) OWNER TO sgs_function_owner`,
-      `ALTER FUNCTION public.find_user_bridge(uuid, uuid) OWNER TO sgs_function_owner`,
-      `ALTER FUNCTION public.reset_login_user_password(uuid, text) OWNER TO sgs_function_owner`,
-      `ALTER FUNCTION public.verify_signature_by_hash_public(text) OWNER TO sgs_function_owner`,
-    ]) {
-      await queryRunner.query(statement);
-    }
-
+    // The migration executor still owns the freshly created functions here.
+    // Revoke the default PUBLIC EXECUTE before ownership transfer; after the
+    // transfer PostgreSQL no longer treats the executor as their owner.
     await queryRunner.query(`
       REVOKE EXECUTE ON FUNCTION
         public.find_login_user(text, text),
@@ -428,6 +421,16 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
         public.verify_signature_by_hash_public(text)
       TO sgs_app
     `);
+
+    for (const statement of [
+      `ALTER FUNCTION public.find_login_user(text, text) OWNER TO sgs_function_owner`,
+      `ALTER FUNCTION public.update_login_user_password_hash(uuid, text) OWNER TO sgs_function_owner`,
+      `ALTER FUNCTION public.find_user_bridge(uuid, uuid) OWNER TO sgs_function_owner`,
+      `ALTER FUNCTION public.reset_login_user_password(uuid, text) OWNER TO sgs_function_owner`,
+      `ALTER FUNCTION public.verify_signature_by_hash_public(text) OWNER TO sgs_function_owner`,
+    ]) {
+      await queryRunner.query(statement);
+    }
 
     await queryRunner.query(`
       REVOKE EXECUTE ON FUNCTION
