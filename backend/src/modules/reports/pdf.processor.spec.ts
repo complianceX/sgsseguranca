@@ -292,17 +292,15 @@ describe('PdfProcessor tenant isolation', () => {
     let resolveFirstGeneration!: (value: typeof artifact) => void;
     let generationCalls = 0;
     const reportsService = {
-      generateBuffer: jest.fn(
-        (_reportType: string, _params: unknown, _signal?: AbortSignal) => {
-          generationCalls += 1;
-          if (generationCalls === 1) {
-            return new Promise<typeof artifact>((resolve) => {
-              resolveFirstGeneration = resolve;
-            });
-          }
-          return Promise.resolve(artifact);
-        },
-      ),
+      generateBuffer: jest.fn(() => {
+        generationCalls += 1;
+        if (generationCalls === 1) {
+          return new Promise<typeof artifact>((resolve) => {
+            resolveFirstGeneration = resolve;
+          });
+        }
+        return Promise.resolve(artifact);
+      }),
     };
     const uploadFileWithCapability = jest.fn(
       (reference: StorageObjectReference) =>

@@ -120,15 +120,8 @@ describe('AprsEvidenceService', () => {
         () => 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
-      uploadFileWithCapability: jest.fn(
-        (
-          reference: StorageObjectReference,
-          _file: Parameters<
-            DocumentStorageService['uploadFileWithCapability']
-          >[1],
-          _contentType: string,
-          _metadata?: Record<string, string>,
-        ) => Promise.resolve(markAuthorizedStorageReference(reference)),
+      uploadFileWithCapability: jest.fn((reference: StorageObjectReference) =>
+        Promise.resolve(markAuthorizedStorageReference(reference)),
       ),
       deleteFile: jest.fn(() => Promise.resolve()),
       getSignedUrl: jest.fn((reference) =>
