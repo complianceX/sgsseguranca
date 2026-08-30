@@ -16,18 +16,23 @@ describe('HardenSecurityDefinerFunctions1709000000392 contract', () => {
     expect(migrationSource).toContain("identity.session_user === 'sgs_app'");
   });
 
-  it('uses explicit temporary SET capability without inheritance', () => {
+  it('uses temporary SET capability without forcing an invalid grantor', () => {
     expect(migrationSource).toContain(
       'GRANT sgs_function_owner TO CURRENT_USER',
     );
     expect(migrationSource).toContain('WITH SET TRUE, INHERIT FALSE');
-    expect(migrationSource).toContain('GRANTED BY CURRENT_USER');
+    expect(migrationSource).toContain(
+      'Do not force GRANTED BY CURRENT_USER here',
+    );
+    expect(migrationSource).not.toContain(
+      'WITH SET TRUE, INHERIT FALSE\n        GRANTED BY CURRENT_USER',
+    );
   });
 
-  it('uses temporary schema CREATE and removes it by the same grantor', () => {
+  it('uses temporary schema CREATE and removes it without forcing a grantor', () => {
     expect(migrationSource).toContain('GRANT CREATE ON SCHEMA public');
     expect(migrationSource).toContain('REVOKE CREATE ON SCHEMA public');
-    expect(migrationSource).toContain(
+    expect(migrationSource).not.toContain(
       'FROM sgs_function_owner\n          GRANTED BY CURRENT_USER',
     );
   });

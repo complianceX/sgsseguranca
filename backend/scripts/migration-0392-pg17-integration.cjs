@@ -10,6 +10,7 @@ const APP_ROLE = 'sgs_app';
 const ADMIN_ROLE = 'sgs_admin';
 const PRE_FIX_ROLE = 'pg17_pre_fix_owner';
 const TEST_PASSWORD = 'migration-0392-pg17-test-only';
+const connectedClients = new WeakSet();
 
 function assert(condition, message) {
   if (!condition) {
@@ -37,6 +38,35 @@ function makeConnectionUrl(baseUrl, database) {
   const url = new URL(baseUrl);
   url.pathname = `/${database}`;
   return url.toString();
+}
+
+function createClient(options) {
+  const client = new Client(options);
+  // A FORCE drop can terminate an idle target connection asynchronously.
+  // Consume that cleanup event so it cannot mask the migration assertion.
+  client.on('error', () => {});
+  return client;
+}
+
+async function connectClient(client) {
+  await client.connect();
+  connectedClients.add(client);
+  return client;
+}
+
+async function closeClient(client, cleanupErrors) {
+  if (!client || !connectedClients.has(client)) {
+    return;
+  }
+  try {
+    await client.end();
+  } catch (error) {
+    if (cleanupErrors) {
+      cleanupErrors.push(error);
+    }
+  } finally {
+    connectedClients.delete(client);
+  }
 }
 
 function migrationRunner(client, injectedFailure) {
@@ -201,8 +231,8 @@ async function assertPreFixOwnershipFailure(client) {
 }
 
 async function assertFailureRollback(adminUrl, executorUrl) {
-  const client = new Client({ connectionString: executorUrl, ssl: false });
-  await client.connect();
+  const client = createClient({ connectionString: executorUrl, ssl: false });
+  await connectClient(client);
   try {
     await client.query('BEGIN');
     let failed = false;
@@ -218,40 +248,43 @@ async function assertFailureRollback(adminUrl, executorUrl) {
     assert(failed, 'controlled rollback failure was not observed');
     await client.query('ROLLBACK');
   } finally {
-    await client.end();
+    await closeClient(client);
   }
 
   const targetAdminUrl = makeConnectionUrl(
     adminUrl,
     new URL(executorUrl).pathname.slice(1),
   );
-  const targetAdminClient = new Client({
+  const targetAdminClient = createClient({
     connectionString: targetAdminUrl,
     ssl: false,
   });
-  await targetAdminClient.connect();
-  const rows = await queryRows(
-    targetAdminClient,
-    `
-      SELECT
-        EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_function_owner') AS role_present,
-        EXISTS (
-          SELECT 1
-          FROM pg_proc
-          WHERE pronamespace = 'public'::regnamespace
-            AND proname = 'find_login_user'
-        ) AS function_present
-    `,
-  );
-  assert(
-    !booleanValue(rows[0]?.role_present),
-    '0392 rollback left owner role behind',
-  );
-  assert(
-    !booleanValue(rows[0]?.function_present),
-    '0392 rollback left a hardened function behind',
-  );
-  await targetAdminClient.end();
+  await connectClient(targetAdminClient);
+  try {
+    const rows = await queryRows(
+      targetAdminClient,
+      `
+        SELECT
+          EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgs_function_owner') AS role_present,
+          EXISTS (
+            SELECT 1
+            FROM pg_proc
+            WHERE pronamespace = 'public'::regnamespace
+              AND proname = 'find_login_user'
+          ) AS function_present
+      `,
+    );
+    assert(
+      !booleanValue(rows[0]?.role_present),
+      '0392 rollback left owner role behind',
+    );
+    assert(
+      !booleanValue(rows[0]?.function_present),
+      '0392 rollback left a hardened function behind',
+    );
+  } finally {
+    await closeClient(targetAdminClient);
+  }
 }
 
 async function assertFinalContract(client) {
@@ -393,8 +426,13 @@ async function main() {
     parsedUrl.pathname.slice(1) || 'postgres',
   );
   const executorUrl = makeConnectionUrl(baseUrl, databaseName);
-  const adminClient = new Client({ connectionString: adminUrl, ssl: false });
-  const setupClient = new Client({ connectionString: adminUrl, ssl: false });
+  const adminClient = createClient({ connectionString: adminUrl, ssl: false });
+  let setupClient = createClient({
+    connectionString: adminUrl,
+    ssl: false,
+  });
+  let dbAdminClient = null;
+  let executorClient = null;
   let databaseCreated = false;
   let executorRoleCreated = false;
   let appRoleCreated = false;
@@ -402,9 +440,10 @@ async function main() {
   let preFixRoleCreated = false;
   let functionOwnerRoleCreated = false;
 
+  let operationError = null;
   try {
-    await adminClient.connect();
-    await setupClient.connect();
+    await connectClient(adminClient);
+    await connectClient(setupClient);
 
     const versionRows = await queryRows(
       adminClient,
@@ -446,23 +485,25 @@ async function main() {
       `CREATE DATABASE ${quoteIdentifier(databaseName)} OWNER ${quoteIdentifier(EXECUTOR_ROLE)}`,
     );
     databaseCreated = true;
-    await setupClient.end();
+    await closeClient(setupClient);
+    setupClient = null;
 
-    const dbAdminClient = new Client({
+    dbAdminClient = createClient({
       connectionString: executorUrl,
       ssl: false,
     });
-    await dbAdminClient.connect();
+    await connectClient(dbAdminClient);
     await dbAdminClient.query(
       `ALTER SCHEMA public OWNER TO ${quoteIdentifier(EXECUTOR_ROLE)}`,
     );
-    await dbAdminClient.end();
+    await closeClient(dbAdminClient);
+    dbAdminClient = null;
 
-    const executorClient = new Client({
+    executorClient = createClient({
       connectionString: executorUrl,
       ssl: false,
     });
-    await executorClient.connect();
+    await connectClient(executorClient);
     await createFixtureTables(executorClient);
     await createFixtureFunctions(executorClient);
     preFixRoleCreated = true;
@@ -476,7 +517,8 @@ async function main() {
     await executorClient.query('COMMIT');
     functionOwnerRoleCreated = true;
     await assertFinalContract(executorClient);
-    await executorClient.end();
+    await closeClient(executorClient);
+    executorClient = null;
 
     console.log(
       JSON.stringify({
@@ -491,48 +533,58 @@ async function main() {
         functionCount: 5,
       }),
     );
+  } catch (error) {
+    operationError = error;
+    throw error;
   } finally {
-    if (setupClient._connected) {
-      await setupClient.end();
-    }
+    const cleanupErrors = [];
+    await closeClient(executorClient, cleanupErrors);
+    await closeClient(dbAdminClient, cleanupErrors);
+    await closeClient(setupClient, cleanupErrors);
+
     if (databaseCreated) {
-      const cleanupClient = new Client({
+      const cleanupClient = createClient({
         connectionString: adminUrl,
         ssl: false,
       });
-      await cleanupClient.connect();
-      await cleanupClient.query(
-        `DROP DATABASE ${quoteIdentifier(databaseName)} WITH (FORCE)`,
-      );
-      await cleanupClient.end();
+      try {
+        await connectClient(cleanupClient);
+        await cleanupClient.query(
+          `DROP DATABASE ${quoteIdentifier(databaseName)} WITH (FORCE)`,
+        );
+      } catch (error) {
+        cleanupErrors.push(error);
+      } finally {
+        await closeClient(cleanupClient, cleanupErrors);
+      }
     }
-    if (adminClient._connected) {
-      if (executorRoleCreated) {
-        await adminClient.query(
-          `DROP ROLE IF EXISTS ${quoteIdentifier(EXECUTOR_ROLE)}`,
-        );
+
+    if (connectedClients.has(adminClient)) {
+      for (const roleName of [
+        executorRoleCreated ? EXECUTOR_ROLE : null,
+        appRoleCreated ? APP_ROLE : null,
+        adminRoleCreated ? ADMIN_ROLE : null,
+        preFixRoleCreated ? PRE_FIX_ROLE : null,
+        functionOwnerRoleCreated ? 'sgs_function_owner' : null,
+      ]) {
+        if (!roleName) {
+          continue;
+        }
+        try {
+          await adminClient.query(
+            `DROP ROLE IF EXISTS ${quoteIdentifier(roleName)}`,
+          );
+        } catch (error) {
+          cleanupErrors.push(error);
+        }
       }
-      if (appRoleCreated) {
-        await adminClient.query(
-          `DROP ROLE IF EXISTS ${quoteIdentifier(APP_ROLE)}`,
-        );
-      }
-      if (adminRoleCreated) {
-        await adminClient.query(
-          `DROP ROLE IF EXISTS ${quoteIdentifier(ADMIN_ROLE)}`,
-        );
-      }
-      if (preFixRoleCreated) {
-        await adminClient.query(
-          `DROP ROLE IF EXISTS ${quoteIdentifier(PRE_FIX_ROLE)}`,
-        );
-      }
-      if (functionOwnerRoleCreated) {
-        await adminClient.query(
-          `DROP ROLE IF EXISTS ${quoteIdentifier('sgs_function_owner')}`,
-        );
-      }
-      await adminClient.end();
+    }
+    await closeClient(adminClient, cleanupErrors);
+
+    if (!operationError && cleanupErrors.length > 0) {
+      throw new Error(
+        `PG17 migration integration cleanup failed: ${cleanupErrors[0].message}`,
+      );
     }
   }
 }

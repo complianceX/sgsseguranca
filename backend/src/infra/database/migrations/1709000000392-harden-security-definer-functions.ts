@@ -141,10 +141,13 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
 
     const previousExecutorMembership = membershipsByExecutor[0];
     const temporaryMembership = true;
+    // Do not force GRANTED BY CURRENT_USER here. PostgreSQL 17 permits a
+    // CREATEROLE executor to grant a non-superuser role, but an explicit
+    // grantor must already hold ADMIN on that role. The unqualified form
+    // lets PostgreSQL apply the executor's actual grantor semantics.
     await queryRunner.query(`
       GRANT sgs_function_owner TO CURRENT_USER
         WITH SET TRUE, INHERIT FALSE
-        GRANTED BY CURRENT_USER
     `);
 
     const membershipAfterGrant = rowsOf<RoleMembershipRow>(
@@ -189,7 +192,6 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
     await queryRunner.query(`
       GRANT CREATE ON SCHEMA public
         TO sgs_function_owner
-        GRANTED BY CURRENT_USER
     `);
     const schemaAfterGrant = rowsOf<{ has_create: boolean }>(
       await queryRunner.query(`
@@ -470,7 +472,6 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
       await queryRunner.query(`
         REVOKE CREATE ON SCHEMA public
           FROM sgs_function_owner
-          GRANTED BY CURRENT_USER
       `);
     }
     if (temporaryMembership) {
@@ -480,13 +481,11 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
             WITH ADMIN ${optionLiteral(booleanValue(previousExecutorMembership.admin_option))},
                  INHERIT ${optionLiteral(booleanValue(previousExecutorMembership.inherit_option))},
                  SET ${optionLiteral(booleanValue(previousExecutorMembership.set_option))}
-            GRANTED BY CURRENT_USER
         `);
       } else {
         await queryRunner.query(`
           REVOKE sgs_function_owner
             FROM CURRENT_USER
-            GRANTED BY CURRENT_USER
         `);
       }
     }
