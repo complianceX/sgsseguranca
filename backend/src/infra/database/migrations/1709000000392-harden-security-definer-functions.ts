@@ -3,6 +3,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 type RoleIdentityRow = {
   current_user: string;
   session_user: string;
+  rolsuper: boolean;
+  rolcreaterole: boolean;
 };
 
 type RoleMembershipRow = {
@@ -58,7 +60,15 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const identity = rowsOf<RoleIdentityRow>(
-      await queryRunner.query(`SELECT current_user, session_user`),
+      await queryRunner.query(`
+        SELECT
+          current_user,
+          session_user,
+          r.rolsuper,
+          r.rolcreaterole
+        FROM pg_roles AS r
+        WHERE r.rolname = current_user
+      `),
     )[0];
 
     if (!identity?.current_user || !identity.session_user) {
@@ -69,6 +79,10 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
       identity.session_user === 'sgs_app'
     ) {
       throw new Error('0392 cannot run with the runtime role sgs_app');
+    }
+    const executorIsSuperuser = booleanValue(identity.rolsuper);
+    if (!executorIsSuperuser && !booleanValue(identity.rolcreaterole)) {
+      throw new Error('0392 requires a SUPERUSER or CREATEROLE executor');
     }
 
     await queryRunner.query(`
@@ -140,40 +154,44 @@ export class HardenSecurityDefinerFunctions1709000000392 implements MigrationInt
     }
 
     const previousExecutorMembership = membershipsByExecutor[0];
-    const temporaryMembership = true;
+    // A superuser can SET ROLE to the newly created owner without a catalog
+    // membership. Non-superuser executors need the temporary PG17 SET grant.
+    const temporaryMembership = !executorIsSuperuser;
     // Do not force GRANTED BY CURRENT_USER here. PostgreSQL 17 permits a
     // CREATEROLE executor to grant a non-superuser role, but an explicit
     // grantor must already hold ADMIN on that role. The unqualified form
     // lets PostgreSQL apply the executor's actual grantor semantics.
-    await queryRunner.query(`
-      GRANT sgs_function_owner TO CURRENT_USER
-        WITH SET TRUE, INHERIT FALSE
-    `);
-
-    const membershipAfterGrant = rowsOf<RoleMembershipRow>(
+    if (temporaryMembership) {
       await queryRunner.query(`
-        SELECT
-          grantor.rolname AS grantor,
-          am.admin_option,
-          am.inherit_option,
-          am.set_option
-        FROM pg_auth_members AS am
-        JOIN pg_roles AS granted_role ON granted_role.oid = am.roleid
-        JOIN pg_roles AS member_role ON member_role.oid = am.member
-        JOIN pg_roles AS grantor ON grantor.oid = am.grantor
-        WHERE granted_role.rolname = 'sgs_function_owner'
-          AND member_role.rolname = current_user
-      `),
-    );
-    if (
-      !membershipAfterGrant.some(
-        (membership) =>
-          membership.grantor === identity.current_user &&
-          booleanValue(membership.set_option) &&
-          !booleanValue(membership.inherit_option),
-      )
-    ) {
-      throw new Error('0392 could not establish temporary SET capability');
+        GRANT sgs_function_owner TO CURRENT_USER
+          WITH SET TRUE, INHERIT FALSE
+      `);
+
+      const membershipAfterGrant = rowsOf<RoleMembershipRow>(
+        await queryRunner.query(`
+          SELECT
+            grantor.rolname AS grantor,
+            am.admin_option,
+            am.inherit_option,
+            am.set_option
+          FROM pg_auth_members AS am
+          JOIN pg_roles AS granted_role ON granted_role.oid = am.roleid
+          JOIN pg_roles AS member_role ON member_role.oid = am.member
+          JOIN pg_roles AS grantor ON grantor.oid = am.grantor
+          WHERE granted_role.rolname = 'sgs_function_owner'
+            AND member_role.rolname = current_user
+        `),
+      );
+      if (
+        !membershipAfterGrant.some(
+          (membership) =>
+            membership.grantor === identity.current_user &&
+            booleanValue(membership.set_option) &&
+            !booleanValue(membership.inherit_option),
+        )
+      ) {
+        throw new Error('0392 could not establish temporary SET capability');
+      }
     }
 
     const schemaPrivilege = rowsOf<{ has_create: boolean }>(

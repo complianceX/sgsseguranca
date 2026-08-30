@@ -11,7 +11,9 @@ const migrationSource = readFileSync(
 
 describe('HardenSecurityDefinerFunctions1709000000392 contract', () => {
   it('identifies the executor and rejects the runtime role', () => {
-    expect(migrationSource).toContain('SELECT current_user, session_user');
+    expect(migrationSource).toContain('current_user');
+    expect(migrationSource).toContain('session_user');
+    expect(migrationSource).toContain('rolsuper');
     expect(migrationSource).toContain("identity.current_user === 'sgs_app'");
     expect(migrationSource).toContain("identity.session_user === 'sgs_app'");
   });
@@ -55,5 +57,15 @@ describe('HardenSecurityDefinerFunctions1709000000392 contract', () => {
 
     expect(revokeIndex).toBeGreaterThanOrEqual(0);
     expect(ownershipIndex).toBeGreaterThan(revokeIndex);
+  });
+
+  it('does not require a catalog SET grant when the executor is superuser', () => {
+    expect(migrationSource).toContain('rolsuper');
+    expect(migrationSource).toContain(
+      'const temporaryMembership = !executorIsSuperuser;',
+    );
+    expect(migrationSource).toContain(
+      'if (temporaryMembership) {\n      await queryRunner.query(`\n        GRANT sgs_function_owner TO CURRENT_USER',
+    );
   });
 });
