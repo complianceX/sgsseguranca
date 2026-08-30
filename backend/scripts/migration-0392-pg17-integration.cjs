@@ -34,9 +34,13 @@ function quoteLiteral(value) {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function makeConnectionUrl(baseUrl, database) {
+function makeConnectionUrl(baseUrl, database, credentials) {
   const url = new URL(baseUrl);
   url.pathname = `/${database}`;
+  if (credentials) {
+    url.username = credentials.username;
+    url.password = credentials.password;
+  }
   return url.toString();
 }
 
@@ -143,6 +147,34 @@ async function createFixtureFunctions(client) {
     CREATE OR REPLACE FUNCTION public.try_parse_uuid(text)
     RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$;
   `);
+}
+
+async function assertExecutorIdentity(client) {
+  const rows = await queryRows(
+    client,
+    `
+      SELECT current_user,
+             session_user,
+             rolsuper,
+             rolcreaterole
+      FROM pg_roles
+      WHERE rolname = current_user
+    `,
+  );
+  assert(rows.length === 1, 'PG17 executor identity row missing');
+  assert(
+    rows[0].current_user === EXECUTOR_ROLE &&
+      rows[0].session_user === EXECUTOR_ROLE,
+    'PG17 integration did not connect as the non-superuser executor',
+  );
+  assert(
+    !booleanValue(rows[0].rolsuper),
+    'PG17 executor unexpectedly is superuser',
+  );
+  assert(
+    booleanValue(rows[0].rolcreaterole),
+    'PG17 executor does not have CREATEROLE',
+  );
 }
 
 async function createFixtureTables(client) {
@@ -425,7 +457,10 @@ async function main() {
     baseUrl,
     parsedUrl.pathname.slice(1) || 'postgres',
   );
-  const executorUrl = makeConnectionUrl(baseUrl, databaseName);
+  const executorUrl = makeConnectionUrl(baseUrl, databaseName, {
+    username: EXECUTOR_ROLE,
+    password: TEST_PASSWORD,
+  });
   const adminClient = createClient({ connectionString: adminUrl, ssl: false });
   let setupClient = createClient({
     connectionString: adminUrl,
@@ -504,6 +539,7 @@ async function main() {
       ssl: false,
     });
     await connectClient(executorClient);
+    await assertExecutorIdentity(executorClient);
     await createFixtureTables(executorClient);
     await createFixtureFunctions(executorClient);
     preFixRoleCreated = true;
