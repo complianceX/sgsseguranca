@@ -425,7 +425,16 @@ async function assertFinalContract(client) {
         has_function_privilege('sgs_app', 'public.find_login_user(text, text)', 'EXECUTE') AS app_execute,
         has_function_privilege('sgs_admin', 'public.find_login_user(text, text)', 'EXECUTE') AS admin_execute,
         has_function_privilege('sgs_app', 'public.gdpr_delete_user_data(uuid)', 'EXECUTE') AS app_gdpr,
-        has_function_privilege('sgs_admin', 'public.gdpr_delete_user_data(uuid)', 'EXECUTE') AS admin_gdpr
+        has_function_privilege('sgs_admin', 'public.gdpr_delete_user_data(uuid)', 'EXECUTE') AS admin_gdpr,
+        (SELECT proacl::text FROM pg_proc WHERE oid = 'public.find_login_user(text, text)'::regprocedure) AS hardened_acl,
+        EXISTS (
+          SELECT 1
+          FROM pg_auth_members am
+          JOIN pg_roles member_role ON member_role.oid = am.member
+          JOIN pg_roles granted_role ON granted_role.oid = am.roleid
+          WHERE member_role.rolname = 'sgs_admin'
+            AND granted_role.rolname = 'sgs_function_owner'
+        ) AS admin_owner_membership
     `,
   );
   assert(
@@ -434,7 +443,7 @@ async function assertFinalContract(client) {
   );
   assert(
     !booleanValue(privileges[0]?.admin_execute),
-    'sgs_admin gained hardened function EXECUTE',
+    `sgs_admin gained hardened function EXECUTE (acl=${privileges[0]?.hardened_acl ?? 'null'}, membership=${privileges[0]?.admin_owner_membership ?? 'false'})`,
   );
   assert(!booleanValue(privileges[0]?.app_gdpr), 'sgs_app gained GDPR EXECUTE');
   assert(
