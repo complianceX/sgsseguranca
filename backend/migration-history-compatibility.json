@@ -4,7 +4,25 @@
     "AddAuditChecklistResponses1709000000342": "AddAuditChecklistResponses1709000000386",
     "CreateInspectionsTable1709000000378": "CreateInspectionsTable1709000000387",
     "GrantForensicTrailToSgsAdmin1709000000379": "GrantForensicTrailToSgsAdmin1709000000388",
-    "GrantTenantValidationToSgsAdmin1709000000380": "GrantTenantValidationToSgsAdmin1709000000389"
+    "GrantTenantValidationToSgsAdmin1709000000380": "GrantTenantValidationToSgsAdmin1709000000389",
+    "RlsAddWithCheck1709000000033": "RlsAddWithCheck1709000000325",
+    "UpdateSystemThemeGraphiteNeutral1709000000050": "UpdateSystemThemeGraphiteNeutral1709000000326",
+    "SupabaseRuntimeOptimizations1709000000114": "NeonRuntimeOptimizations1709000000114",
+    "ArrPhase1Hardening1709000000137": "ArrPhase1Hardening1709000000333",
+    "HardenRdoSchemaEnterprise1709000000087": "HardenRdoSchemaEnterprise1709000000327",
+    "ExternalizeCompanyLogo1709000000183": "ExternalizeCompanyLogo1709000000329",
+    "StopWritingAprLegacyRiskItems1709000000184": "StopWritingAprLegacyRiskItems1709000000330",
+    "AiInteractionsOperationalReadiness1709000000185": "AiInteractionsOperationalReadiness1709000000331",
+    "SplitAprCriticalPermissions1709000000194": "SplitAprCriticalPermissions1709000000332",
+    "CreateUserSites1709000000201": "CreateUserSites1709000000336",
+    "HardenDatabaseSecurityPosture1709000000202": "HardenDatabaseSecurityPosture1709000000337",
+    "AddUserModuleAccess1709000000203": "AddUserModuleAccess1709000000338",
+    "EnsureRlsWithCheck1709000000182": "EnsureRlsWithCheck1709000000334",
+    "EnsureThemeGraphiteNeutral1709000000183": "EnsureThemeGraphiteNeutral1709000000328",
+    "HardenNotificationsUseridFk1709000000200": "HardenNotificationsUseridFk1709000000335",
+    "LgpdMaskIpGeolocation1709000000204": "LgpdMaskIpGeolocation1709000000339",
+    "HardenRlsFunctionsSearchPath1709000000205": "HardenRlsFunctionsSearchPath1709000000340",
+    "AddPublicSignatureVerifyFunction1709000000383": "FixPublicSignatureVerifyTimestamp1709000000390"
   },
   "order": {
     "AddMustChangePasswordToUsers1709000000182": {

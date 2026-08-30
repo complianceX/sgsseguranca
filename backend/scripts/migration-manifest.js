@@ -80,7 +80,17 @@ function validateCompatibilityManifest(entries) {
         `Migration compatibility alias target is absent: ${legacyName} -> ${canonicalName}`,
       );
     }
-    if (activeNames.has(legacyName)) {
+    const legacyTimestamp = legacyName.match(/(\d{13})$/)?.[1];
+    const canonicalTimestamp = canonicalName.match(/(\d{13})$/)?.[1];
+    const isIntentionalActiveCanonicalAlias =
+      activeNames.has(legacyName) &&
+      legacyName !== canonicalName &&
+      Boolean(legacyTimestamp && canonicalTimestamp) &&
+      canonicalTimestamp > legacyTimestamp;
+
+    // A proven forward alias may reuse an active canonical name: it remains
+    // direct for its own migration and can satisfy a later equivalent one.
+    if (activeNames.has(legacyName) && !isIntentionalActiveCanonicalAlias) {
       issues.push(
         `Migration compatibility alias is still active and must be removed from source: ${legacyName}`,
       );
