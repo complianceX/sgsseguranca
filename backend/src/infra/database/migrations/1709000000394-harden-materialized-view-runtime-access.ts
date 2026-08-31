@@ -25,6 +25,15 @@ export class HardenMaterializedViewRuntimeAccess1709000000394 implements Migrati
       return;
     }
 
+    const versionRows = (await queryRunner.query(`
+      SELECT current_setting('server_version_num') AS version_num
+    `)) as Array<{ version_num: string }>;
+    const serverVersionNum = Number(versionRows[0]?.version_num);
+    if (!Number.isInteger(serverVersionNum)) {
+      throw new Error('0394 could not identify the PostgreSQL server version');
+    }
+    const supportsMaintain = serverVersionNum >= 170000;
+
     const materializedViews = [
       'company_dashboard_metrics',
       'apr_risk_rankings',
@@ -77,7 +86,9 @@ export class HardenMaterializedViewRuntimeAccess1709000000394 implements Migrati
           `REVOKE ALL PRIVILEGES ON TABLE public."${relationName}" FROM PUBLIC, sgs_app`,
         );
         await queryRunner.query(
-          `GRANT SELECT, MAINTAIN ON TABLE public."${relationName}" TO sgs_admin`,
+          supportsMaintain
+            ? `GRANT SELECT, MAINTAIN ON TABLE public."${relationName}" TO sgs_admin`
+            : `GRANT SELECT ON TABLE public."${relationName}" TO sgs_admin`,
         );
       }
     }
