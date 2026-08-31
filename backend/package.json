@@ -29,6 +29,7 @@
     "test:migration:0392:pg17": "node scripts/migration-0392-pg17-integration.cjs",
     "test:migration:0392:0393:pg17": "node scripts/migration-0392-0393-pg17-integration.cjs",
     "test:migration:0392:0393:0394:pg17": "node scripts/migration-0392-0393-0394-pg17-integration.cjs",
+    "test:migration:0392:0393:0394:0395:0396:pg17": "node scripts/migration-0392-0393-0394-0395-0396-pg17-integration.cjs",
     "migration:run:targeted": "node scripts/run-targeted-migrations.js",
     "release:migrate": "npm run migration:run",
     "registry:reconcile": "node scripts/reconcile-document-registry.js --apply",
