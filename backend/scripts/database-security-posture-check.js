@@ -1,6 +1,9 @@
 const path = require('path');
 const dotenv = require('dotenv');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
+const {
+  inspectPgStatStatementsBoundary,
+} = require('./lib/pg-stat-statements-boundary');
 
 const CRITICAL_FORCE_RLS_TABLES = new Set([
   'users',
@@ -494,6 +497,39 @@ async function runCheck() {
       `)
     ).rows;
 
+    if (
+      checks.extensions.some(
+        (extension) => extension.extname === 'pg_stat_statements',
+      )
+    ) {
+      try {
+        checks.pgStatStatementsBoundary =
+          await inspectPgStatStatementsBoundary(client);
+        if (
+          checks.pgStatStatementsBoundary.classification !==
+          'MANAGED_PROVIDER_CONSTRAINT'
+        ) {
+          findings.push({
+            code: 'PGSTAT-BOUNDARY-UNSAFE',
+            classification: checks.pgStatStatementsBoundary.classification,
+            evidence: checks.pgStatStatementsBoundary.failures,
+          });
+        }
+      } catch (error) {
+        findings.push({
+          code: 'PGSTAT-BOUNDARY-UNVERIFIED',
+          classification: 'FAIL',
+          evidence: [error instanceof Error ? error.message : String(error)],
+        });
+      }
+    } else {
+      checks.pgStatStatementsBoundary = {
+        classification: 'NOT_AVAILABLE',
+        provider: 'Neon',
+      };
+      warnings.push('pg_stat_statements não está habilitado neste banco.');
+    }
+
     if (await tableExists(client, 'signatures')) {
       checks.signaturesSensitiveData = await fetchScalar(
         client,
@@ -613,12 +649,21 @@ function renderHumanReport(report) {
     );
   }
   lines.push('');
+  if (report.checks.pgStatStatementsBoundary) {
+    lines.push('pg_stat_statements_boundary:');
+    lines.push(
+      `  classification=${report.checks.pgStatStatementsBoundary.classification || 'unknown'} provider=${report.checks.pgStatStatementsBoundary.provider || 'unknown'} extension_owner=${report.checks.pgStatStatementsBoundary.extensionOwner || 'unknown'} pg_stat_statements_owner=${report.checks.pgStatStatementsBoundary.pgStatStatementsOwner || 'unknown'} pg_stat_statements_info_owner=${report.checks.pgStatStatementsBoundary.pgStatStatementsInfoOwner || 'unknown'} executor=${report.checks.pgStatStatementsBoundary.executorRole || 'unknown'} runtime_privileged_memberships=${(report.checks.pgStatStatementsBoundary.runtimePrivilegedMemberships || []).join(',') || 'none'}`,
+    );
+    lines.push('');
+  }
   lines.push(`findings (${report.findings.length}):`);
   if (report.findings.length === 0) {
     lines.push('  - none');
   } else {
     for (const finding of report.findings) {
-      lines.push(`  - ${finding}`);
+      lines.push(
+        `  - ${typeof finding === 'string' ? finding : JSON.stringify(finding)}`,
+      );
     }
   }
   lines.push('');

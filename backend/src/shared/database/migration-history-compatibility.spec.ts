@@ -88,12 +88,13 @@ describe('migration history compatibility', () => {
     expect(unknownDrift).toEqual([]);
   });
 
-  it('reports only 0391-0398 as real pending migrations', () => {
+  it('reports only 0391-0401 as real pending migrations', () => {
     const pending = filterPendingMigrations(
       readMigrationManifest().entries,
       executedNames,
     ).map((migration) => migration.name);
 
+    expect(pending).toHaveLength(11);
     expect(pending).toEqual([
       'CreateDurableIdempotencyRecords1709000000391',
       'HardenSecurityDefinerFunctions1709000000392',
@@ -103,6 +104,9 @@ describe('migration history compatibility', () => {
       'CreatePublicAprEvidenceVerifyFunction1709000000396',
       'RemoveMutableSuperAdminPolicyAuthority1709000000397',
       'RestrictRuntimeDatabasePrivileges1709000000398',
+      'HardenDurableIdempotencyRls1709000000399',
+      'RemoveNeonSampleTable1709000000400',
+      'HardenRuntimePgStatStatementsAccess1709000000401',
     ]);
   });
 

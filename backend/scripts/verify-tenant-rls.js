@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
+const {
+  inspectPgStatStatementsBoundary,
+} = require('./lib/pg-stat-statements-boundary');
 
 const TENANT_COLUMNS = [
   'company_id',
@@ -53,9 +56,7 @@ function normalizePolicyFragment(value) {
 
 function parseArrayLike(input) {
   if (Array.isArray(input)) {
-    return input
-      .map((value) => String(value || '').trim())
-      .filter(Boolean);
+    return input.map((value) => String(value || '').trim()).filter(Boolean);
   }
 
   if (typeof input !== 'string') {
@@ -146,14 +147,20 @@ function getPolicyCommandCoverage(policies, tenantColumns) {
   const commands = Array.from(
     new Set(
       policies
-        .map((policy) => String(policy.cmd || '').trim().toUpperCase())
+        .map((policy) =>
+          String(policy.cmd || '')
+            .trim()
+            .toUpperCase(),
+        )
         .filter(Boolean),
     ),
   );
 
   return commands.map((command) => {
     const applicablePolicies = policies.filter((policy) => {
-      const policyCommand = String(policy.cmd || '').trim().toUpperCase();
+      const policyCommand = String(policy.cmd || '')
+        .trim()
+        .toUpperCase();
       return policyCommand === command || policyCommand === 'ALL';
     });
     const policySignals = applicablePolicies.map((policy) => {
@@ -193,7 +200,8 @@ function getPolicyCommandCoverage(policies, tenantColumns) {
       hasTenantScopedPolicy,
       hasSuperAdminScopedPolicy,
       hasCoverage:
-        hasCombinedPolicy || (hasTenantScopedPolicy && hasSuperAdminScopedPolicy),
+        hasCombinedPolicy ||
+        (hasTenantScopedPolicy && hasSuperAdminScopedPolicy),
     };
   });
 }
@@ -209,9 +217,7 @@ function ensureParentDir(filePath) {
 
 async function verifyTenantRls(options = {}) {
   const schema = options.schema || 'public';
-  const requestedTables = Array.isArray(options.tables)
-    ? options.tables
-    : [];
+  const requestedTables = Array.isArray(options.tables) ? options.tables : [];
   const includeOnlyRequested = requestedTables.length > 0;
 
   const report = {
@@ -351,6 +357,42 @@ async function verifyTenantRls(options = {}) {
       }
     }
 
+    const extensionResult = await client.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
+      ) AS enabled`,
+    );
+    if (extensionResult.rows[0]?.enabled) {
+      try {
+        report.pgStatStatementsBoundary =
+          await inspectPgStatStatementsBoundary(client);
+        if (
+          report.pgStatStatementsBoundary.classification !==
+          'MANAGED_PROVIDER_CONSTRAINT'
+        ) {
+          report.failures.push({
+            schema,
+            tableName: 'pg_stat_statements',
+            objectKind: 'provider_observability',
+            classification: report.pgStatStatementsBoundary.classification,
+            issues: report.pgStatStatementsBoundary.failures,
+            policies: [],
+          });
+        }
+      } catch (error) {
+        report.failures.push({
+          schema,
+          tableName: 'pg_stat_statements',
+          objectKind: 'provider_observability',
+          classification: 'FAIL',
+          issues: [error instanceof Error ? error.message : String(error)],
+          policies: [],
+        });
+      }
+    } else {
+      report.pgStatStatementsBoundary = { classification: 'NOT_AVAILABLE' };
+    }
+
     const unprotectedRuntimeObjectsResult = await client.query(
       `
       WITH tenant_columns AS (
@@ -397,7 +439,11 @@ async function verifyTenantRls(options = {}) {
       const tenantColumns = parseArrayLike(row.tenant_columns);
       const issues = [];
 
-      if (UNPROTECTED_OBSERVABILITY_OBJECTS.includes(objectName)) {
+      if (
+        UNPROTECTED_OBSERVABILITY_OBJECTS.includes(objectName) &&
+        report.pgStatStatementsBoundary?.classification !==
+          'MANAGED_PROVIDER_CONSTRAINT'
+      ) {
         issues.push(
           'Role runtime pode consultar view de observabilidade sem RLS',
         );
