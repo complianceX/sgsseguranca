@@ -40,6 +40,103 @@ function normalizeRoleNames(value) {
     .filter((role) => role.length > 0);
 }
 
+function classifyAclEntry({ relationName, acl, requireAdminNormalization }) {
+  const grantee = String(acl.grantee || '');
+  const privilege = String(acl.privilege_type || '');
+  const grantor = String(acl.grantor || '');
+
+  if (grantee === 'PUBLIC') return [];
+  if (grantee === RUNTIME_ROLE) {
+    return [`${relationName} has a direct runtime ACL`];
+  }
+  if (grantee === 'sgs_admin') {
+    const allowed =
+      !requireAdminNormalization ||
+      (relationName === 'pg_stat_statements' &&
+        privilege === 'SELECT' &&
+        !isTruthy(acl.is_grantable));
+    return allowed ? [] : [`${relationName} has an unsafe admin ACL`];
+  }
+  if (!PROVIDER_ROLES.has(grantee) || grantor !== NEON_MANAGED_ACL_GRANTOR) {
+    return [`${relationName} has an unknown or customer-controlled ACL`];
+  }
+  return [];
+}
+
+function classifyRelationAcls({
+  relationName,
+  relationAcls,
+  requireAdminNormalization,
+}) {
+  const failures = [];
+  const publicAcls = relationAcls.filter(
+    (row) => String(row.grantee || '') === 'PUBLIC',
+  );
+  const publicSelect = publicAcls.filter(
+    (row) =>
+      String(row.privilege_type || '') === 'SELECT' &&
+      String(row.grantor || '') === NEON_MANAGED_ACL_GRANTOR &&
+      !isTruthy(row.is_grantable),
+  );
+  if (publicSelect.length !== 1 || publicAcls.length !== 1) {
+    failures.push(
+      `${relationName} PUBLIC ACL is not provider-owned SELECT only`,
+    );
+  }
+  if (
+    publicAcls.some(
+      (row) => String(row.grantor || '') !== NEON_MANAGED_ACL_GRANTOR,
+    )
+  ) {
+    failures.push(`unexpected PUBLIC ACL provenance on ${relationName}`);
+  }
+  for (const acl of relationAcls) {
+    failures.push(
+      ...classifyAclEntry({
+        relationName,
+        acl,
+        requireAdminNormalization,
+      }),
+    );
+  }
+  return {
+    failures,
+    publicAclGrantors: publicAcls.map((row) => String(row.grantor || '')),
+  };
+}
+
+function classifyRelationBoundary({
+  relationName,
+  relationRows,
+  acls,
+  requireAdminNormalization,
+}) {
+  const relation = relationRows.get(relationName);
+  if (!relation) {
+    return {
+      failures: [`${relationName} relation is missing`],
+      owner: null,
+      publicAclGrantors: undefined,
+    };
+  }
+
+  const owner = String(relation.owner || '');
+  const failures = [];
+  if (owner !== NEON_MANAGED_RELATION_OWNER) {
+    failures.push(`unexpected ${relationName} owner`);
+  }
+  const aclResult = classifyRelationAcls({
+    relationName,
+    relationAcls: aclRowsFor(acls, relationName),
+    requireAdminNormalization,
+  });
+  return {
+    failures: [...failures, ...aclResult.failures],
+    owner,
+    publicAclGrantors: aclResult.publicAclGrantors,
+  };
+}
+
 function classifyPgStatStatementsBoundary({
   relations,
   acls,
@@ -75,71 +172,16 @@ function classifyPgStatStatementsBoundary({
   }
 
   for (const relationName of RELATIONS) {
-    const relation = relationRows.get(relationName);
-    if (!relation) {
-      failures.push(`${relationName} relation is missing`);
-      continue;
-    }
-    relationOwners[relationName] = String(relation.owner || '');
-    if (relationOwners[relationName] !== NEON_MANAGED_RELATION_OWNER) {
-      failures.push(`unexpected ${relationName} owner`);
-    }
-
-    const relationAcls = aclRowsFor(acls, relationName);
-    const publicAcls = relationAcls.filter(
-      (row) => String(row.grantee || '') === 'PUBLIC',
-    );
-    const publicSelect = publicAcls.filter(
-      (row) =>
-        String(row.privilege_type || '') === 'SELECT' &&
-        String(row.grantor || '') === NEON_MANAGED_ACL_GRANTOR &&
-        !isTruthy(row.is_grantable),
-    );
-    publicAclGrantors[relationName] = publicAcls.map((row) =>
-      String(row.grantor || ''),
-    );
-    if (publicSelect.length !== 1 || publicAcls.length !== 1) {
-      failures.push(
-        `${relationName} PUBLIC ACL is not provider-owned SELECT only`,
-      );
-    }
-    if (
-      publicAcls.some(
-        (row) => String(row.grantor || '') !== NEON_MANAGED_ACL_GRANTOR,
-      )
-    ) {
-      failures.push(`unexpected PUBLIC ACL provenance on ${relationName}`);
-    }
-
-    for (const acl of relationAcls) {
-      const grantee = String(acl.grantee || '');
-      const privilege = String(acl.privilege_type || '');
-      const grantor = String(acl.grantor || '');
-
-      if (grantee === 'PUBLIC') continue;
-      if (grantee === RUNTIME_ROLE) {
-        failures.push(`${relationName} has a direct runtime ACL`);
-        continue;
-      }
-      if (grantee === 'sgs_admin') {
-        const allowed =
-          !requireAdminNormalization ||
-          (relationName === 'pg_stat_statements' &&
-            privilege === 'SELECT' &&
-            !isTruthy(acl.is_grantable));
-        if (!allowed) {
-          failures.push(`${relationName} has an unsafe admin ACL`);
-        }
-        continue;
-      }
-      if (
-        !PROVIDER_ROLES.has(grantee) ||
-        grantor !== NEON_MANAGED_ACL_GRANTOR
-      ) {
-        failures.push(
-          `${relationName} has an unknown or customer-controlled ACL`,
-        );
-      }
+    const result = classifyRelationBoundary({
+      relationName,
+      relationRows,
+      acls,
+      requireAdminNormalization,
+    });
+    failures.push(...result.failures);
+    if (result.owner !== null) {
+      relationOwners[relationName] = result.owner;
+      publicAclGrantors[relationName] = result.publicAclGrantors;
     }
   }
 

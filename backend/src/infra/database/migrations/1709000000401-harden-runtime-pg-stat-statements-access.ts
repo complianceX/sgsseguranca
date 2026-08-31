@@ -42,6 +42,13 @@ export class HardenRuntimePgStatStatementsAccess1709000000401 implements Migrati
   name = 'HardenRuntimePgStatStatementsAccess1709000000401';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    if (!(await this.isManagedProviderBoundary(queryRunner))) {
+      console.info(
+        '[0401] skipped: no Neon-managed pg_stat_statements boundary is present',
+      );
+      return;
+    }
+
     await this.assertRoles(queryRunner);
     await this.assertRuntimePosture(queryRunner);
 
@@ -71,6 +78,37 @@ export class HardenRuntimePgStatStatementsAccess1709000000401 implements Migrati
 
   public async down(_queryRunner: QueryRunner): Promise<void> {
     // No-op: rollback automático não deve reabrir observabilidade no runtime.
+  }
+
+  private async isManagedProviderBoundary(
+    queryRunner: QueryRunner,
+  ): Promise<boolean> {
+    const rows = (await queryRunner.query(
+      `
+        SELECT
+          EXISTS (
+            SELECT 1
+            FROM pg_roles
+            WHERE rolname = $1
+          ) AS managed_role_exists,
+          EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+              AND c.relname = ANY($2::text[])
+              AND pg_get_userbyid(c.relowner) = $1
+          ) AS managed_relation_exists
+      `,
+      [
+        MANAGED_RELATION_OWNER,
+        RELATIONS.map((value) => value.slice('public.'.length)),
+      ],
+    )) as Row[];
+    return (
+      isTruthy(rows[0]?.managed_role_exists) ||
+      isTruthy(rows[0]?.managed_relation_exists)
+    );
   }
 
   private async assertRoles(queryRunner: QueryRunner): Promise<void> {
