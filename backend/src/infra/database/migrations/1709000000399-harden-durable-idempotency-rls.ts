@@ -35,6 +35,7 @@ export class HardenDurableIdempotencyRls1709000000399 implements MigrationInterf
   name = 'HardenDurableIdempotencyRls1709000000399';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await this.ensurePgcrypto(queryRunner);
     await this.assertPreflight(queryRunner);
 
     await queryRunner.query(`
@@ -101,6 +102,22 @@ export class HardenDurableIdempotencyRls1709000000399 implements MigrationInterf
   public async down(_queryRunner: QueryRunner): Promise<void> {
     // No-op intencional: rollback automático não pode desabilitar RLS nem
     // reabrir acesso irrestrito ao registro durável.
+  }
+
+  private async ensurePgcrypto(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA public`,
+    );
+
+    const extensionRows = (await queryRunner.query(`
+      SELECT n.nspname AS schema_name
+      FROM pg_extension e
+      JOIN pg_namespace n ON n.oid = e.extnamespace
+      WHERE e.extname = 'pgcrypto'
+    `)) as Array<{ schema_name?: string }>;
+    if (extensionRows[0]?.schema_name !== 'public') {
+      throw new Error('0399 requires pgcrypto in the public schema');
+    }
   }
 
   private async assertPreflight(queryRunner: QueryRunner): Promise<void> {
