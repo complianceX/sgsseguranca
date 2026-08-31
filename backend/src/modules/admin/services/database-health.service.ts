@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { PrivilegedDbService } from '../../../shared/database/privileged-db.service';
 
 type HealthCheckRow = {
   table_count?: string | number;
@@ -24,7 +25,10 @@ type HealthCheckRow = {
 export class DatabaseHealthService {
   private readonly logger = new Logger('DatabaseHealthService');
 
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly privilegedDb: PrivilegedDbService,
+  ) {}
 
   private async queryRows<T>(sql: string): Promise<T[]> {
     return this.dataSource.query(sql);
@@ -352,48 +356,55 @@ export class DatabaseHealthService {
     metrics?: { slow_query_count: number };
   }> {
     try {
-      const preload = await this.queryRows<{ libraries?: string }>(`
-        SELECT current_setting('shared_preload_libraries', true) AS libraries
-      `);
-      const libraries = String(preload[0]?.libraries || '');
-      if (
-        !libraries
-          .split(',')
-          .map((item) => item.trim())
-          .includes('pg_stat_statements')
-      ) {
-        return {
-          name: 'Slow Query Detection',
-          status: 'warning',
-          message:
-            'pg_stat_statements is not loaded via shared_preload_libraries',
-        };
-      }
+      return await this.privilegedDb.withRequiredPrivilegedClient(
+        'database_health_slow_queries',
+        async (client) => {
+          const preload = await client.query<{ libraries?: string }>(`
+            SELECT current_setting('shared_preload_libraries', true) AS libraries
+          `);
+          const libraries = String(preload.rows[0]?.libraries || '');
+          if (
+            !libraries
+              .split(',')
+              .map((item) => item.trim())
+              .includes('pg_stat_statements')
+          ) {
+            return {
+              name: 'Slow Query Detection' as const,
+              status: 'warning' as const,
+              message:
+                'pg_stat_statements is not loaded via shared_preload_libraries',
+            };
+          }
 
-      // This requires pg_stat_statements extension
-      const result = await this.queryRows<HealthCheckRow>(`
-        SELECT COUNT(*) as count FROM pg_stat_statements
-        WHERE mean_exec_time > 1000
-      `);
+          const result = await client.query<HealthCheckRow>(`
+            SELECT COUNT(*) as count FROM pg_stat_statements
+            WHERE mean_exec_time > 1000
+          `);
+          const slowCount = this.toInt(result.rows[0]?.count);
+          const status =
+            slowCount === 0 ? 'pass' : slowCount < 10 ? 'warning' : 'fail';
 
-      const slowCount = this.toInt(result[0]?.count);
-      const status =
-        slowCount === 0 ? 'pass' : slowCount < 10 ? 'warning' : 'fail';
-
-      return {
-        name: 'Slow Query Detection',
-        status,
-        message:
-          slowCount === 0
-            ? 'No slow queries detected'
-            : `${slowCount} queries with mean time > 1s`,
-        metrics: { slow_query_count: slowCount },
-      };
+          return {
+            name: 'Slow Query Detection' as const,
+            status,
+            message:
+              slowCount === 0
+                ? 'No slow queries detected'
+                : `${slowCount} queries with mean time > 1s`,
+            metrics: { slow_query_count: slowCount },
+          };
+        },
+      );
     } catch {
+      this.logger.warn(
+        '[HealthCheck] Slow query observability unavailable through privileged database path',
+      );
       return {
         name: 'Slow Query Detection',
         status: 'warning',
-        message: 'Enable pg_stat_statements extension for detailed monitoring',
+        message:
+          'Slow query observability unavailable: privileged database connection is unavailable',
       };
     }
   }
