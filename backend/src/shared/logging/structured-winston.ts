@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { context as otelContext, trace } from '@opentelemetry/api';
 import type { TransformableInfo } from 'logform';
 import * as winston from 'winston';
@@ -163,6 +165,11 @@ function createStructuredJsonFormat(): winston.Logform.Format {
   );
 }
 
+function resolveNonProductionLogDirectory(): string {
+  const tempDirectory = process.env.SGS_TEMP_DIR?.trim();
+  return tempDirectory ? join(tempDirectory, 'logs') : 'logs';
+}
+
 export function buildStructuredLoggerOptions(
   serviceName: string,
 ): winston.LoggerOptions {
@@ -175,9 +182,12 @@ export function buildStructuredLoggerOptions(
   ];
 
   if (!isProduction) {
+    const logDirectory = resolveNonProductionLogDirectory();
+    mkdirSync(logDirectory, { recursive: true });
+
     transports.push(
       new winston.transports.File({
-        filename: 'logs/error.log',
+        filename: join(logDirectory, 'error.log'),
         level: 'error',
         maxsize: 20 * 1024 * 1024,
         maxFiles: 90,
@@ -185,7 +195,7 @@ export function buildStructuredLoggerOptions(
         format: createStructuredJsonFormat(),
       }),
       new winston.transports.File({
-        filename: 'logs/combined.log',
+        filename: join(logDirectory, 'combined.log'),
         maxsize: 20 * 1024 * 1024,
         maxFiles: 90,
         tailable: true,

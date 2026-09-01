@@ -47,6 +47,17 @@ describe('environment contract', () => {
     ).not.toThrow();
   });
 
+  it('aceita metadata de identidade do build no runtime', () => {
+    expect(() =>
+      assertNoUnknownSgsEnvironmentKeys({
+        ...apiEnvironment(),
+        APP_COMMIT_SHA: 'release-sha',
+        APP_VERSION: '2026.09.01',
+        BUILD_ID: 'build-42',
+      }),
+    ).not.toThrow();
+  });
+
   it('aceita variáveis ambientais do runner por nome exato', () => {
     expect(() =>
       assertNoUnknownSgsEnvironmentKeys({
