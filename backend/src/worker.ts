@@ -22,6 +22,7 @@ import {
 } from './shared/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './shared/monitoring/sentry';
 import { validateCommonEnvironment } from './shared/config/environment-contract';
+import { getRuntimeBuildMetadata } from './shared/observability/runtime-build-metadata';
 
 const WORKER_SERVICE_NAME = 'wanderson-gandra-worker';
 const WORKER_TELEMETRY_PORT = 9465;
@@ -203,6 +204,7 @@ async function bootstrap() {
     nodeEnv: process.env.NODE_ENV || 'development',
     healthPath: WORKER_HEALTH_PATH,
     healthPort: healthServer.port,
+    ...getRuntimeBuildMetadata('worker'),
   });
 }
 
