@@ -256,9 +256,12 @@ async function main() {
     await admin.query(`
       CREATE ROLE ${EXECUTOR_ROLE}
         LOGIN PASSWORD '${TEST_PASSWORD}'
-        NOSUPERUSER NOCREATEDB CREATEROLE NOINHERIT NOBYPASSRLS;
-      CREATE DATABASE ${DATABASE} OWNER ${EXECUTOR_ROLE};
+        NOSUPERUSER NOCREATEDB CREATEROLE NOINHERIT NOBYPASSRLS
     `);
+    // CREATE DATABASE cannot share an implicit multi-statement transaction.
+    await admin.query(
+      `CREATE DATABASE ${DATABASE} OWNER ${EXECUTOR_ROLE}`,
+    );
   } finally {
     await admin.end();
   }
