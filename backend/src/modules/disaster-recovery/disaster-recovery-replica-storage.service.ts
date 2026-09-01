@@ -42,8 +42,8 @@ export class DisasterRecoveryReplicaStorageService {
     private readonly integration: IntegrationResilienceService,
   ) {
     // ConfigModule/Joi may already coerce booleans before ConfigService returns
-    // them. Read as unknown and let the shared resolver validate each field
-    // according to its real contract instead of trusting a TypeScript generic.
+    // them. Read as unknown and let the shared resolver enforce the real
+    // runtime type contract instead of trusting a TypeScript generic cast.
     const replica = resolveDrReplicaStorageConfig((key) =>
       this.configService.get<unknown>(key),
     );
@@ -103,48 +103,27 @@ export class DisasterRecoveryReplicaStorageService {
       );
       return true;
     } catch (error) {
-      const statusCode = (error as { $metadata?: { httpStatusCode?: number } })
-        .$metadata?.httpStatusCode;
-      if (statusCode === 404) {
+      const candidate = error as {
+        name?: string;
+        $metadata?: { httpStatusCode?: number };
+      };
+      if (
+        candidate.name === 'NotFound' ||
+        candidate.name === 'NoSuchKey' ||
+        candidate.$metadata?.httpStatusCode === 404
+      ) {
         return false;
       }
       throw error;
     }
   }
 
-  async listKeys(prefix: string): Promise<string[]> {
-    this.assertConfigured();
-
-    const keys: string[] = [];
-    let continuationToken: string | undefined;
-    do {
-      const result = await this.integration.execute(
-        'dr_storage_replica_list_objects',
-        () =>
-          this.client.send(
-            new ListObjectsV2Command({
-              Bucket: this.bucketName!,
-              Prefix: prefix,
-              ContinuationToken: continuationToken,
-            }),
-          ),
-        { timeoutMs: 15_000 },
-      );
-
-      for (const object of result.Contents || []) {
-        if (object.Key) {
-          keys.push(object.Key);
-        }
-      }
-      continuationToken = result.IsTruncated
-        ? result.NextContinuationToken
-        : undefined;
-    } while (continuationToken);
-
-    return keys;
-  }
-
-  async putObject(key: string, body: Buffer): Promise<void> {
+  async uploadBuffer(input: {
+    key: string;
+    buffer: Buffer;
+    contentType: string;
+    metadata?: Record<string, string>;
+  }): Promise<void> {
     this.assertConfigured();
 
     await this.integration.execute(
@@ -153,26 +132,27 @@ export class DisasterRecoveryReplicaStorageService {
         this.client.send(
           new PutObjectCommand({
             Bucket: this.bucketName!,
-            Key: key,
-            Body: body,
+            Key: input.key,
+            Body: input.buffer,
+            ContentType: input.contentType,
+            Metadata: input.metadata,
           }),
         ),
       { timeoutMs: 30_000 },
     );
 
-    this.logger.log(
-      JSON.stringify({
-        event: 'dr_storage_replica_write',
-        keyFingerprint: storageKeyFingerprint(key),
-        bytes: body.length,
-      }),
-    );
+    this.logger.log({
+      event: 'dr_storage_replica_uploaded',
+      bucketName: this.bucketName,
+      keyFingerprint: storageKeyFingerprint(input.key),
+      sizeBytes: input.buffer.byteLength,
+    });
   }
 
-  async readObject(key: string): Promise<Buffer> {
+  async downloadFileBuffer(key: string): Promise<Buffer> {
     this.assertConfigured();
 
-    const result = await this.integration.execute(
+    const response = await this.integration.execute(
       'dr_storage_replica_get_object',
       () =>
         this.client.send(
@@ -184,37 +164,73 @@ export class DisasterRecoveryReplicaStorageService {
       { timeoutMs: 30_000 },
     );
 
-    if (!result.Body) {
-      throw new Error('DR replica object body is empty');
+    const body = response.Body;
+    if (!body || !(body instanceof Readable || isAsyncIterableBody(body))) {
+      throw new Error(`Objeto da réplica não pôde ser lido: ${key}`);
     }
 
-    if (result.Body instanceof Readable) {
-      const chunks: Buffer[] = [];
-      for await (const chunk of result.Body) {
-        chunks.push(toBufferChunk(chunk));
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<
+      Buffer | Uint8Array | string
+    >) {
+      chunks.push(toBufferChunk(chunk));
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  async listKeys(
+    prefix: string,
+    options?: { maxKeys?: number },
+  ): Promise<string[]> {
+    this.assertConfigured();
+
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    const maxKeys = options?.maxKeys;
+
+    do {
+      const response = await this.integration.execute(
+        'dr_storage_replica_list_objects',
+        () =>
+          this.client.send(
+            new ListObjectsV2Command({
+              Bucket: this.bucketName!,
+              Prefix: prefix,
+              ContinuationToken: continuationToken,
+              MaxKeys:
+                maxKeys && maxKeys > 0
+                  ? Math.min(1000, Math.max(1, maxKeys - keys.length))
+                  : undefined,
+            }),
+          ),
+        { timeoutMs: 30_000 },
+      );
+
+      for (const object of response.Contents || []) {
+        if (object.Key) {
+          keys.push(object.Key);
+        }
       }
-      return Buffer.concat(chunks);
-    }
 
-    if (isAsyncIterableBody(result.Body)) {
-      const chunks: Buffer[] = [];
-      for await (const chunk of result.Body) {
-        chunks.push(toBufferChunk(chunk));
-      }
-      return Buffer.concat(chunks);
-    }
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined;
+    } while (
+      continuationToken &&
+      (!maxKeys || maxKeys <= 0 || keys.length < maxKeys)
+    );
 
-    if ('transformToByteArray' in result.Body) {
-      const bytes = await result.Body.transformToByteArray();
-      return Buffer.from(bytes);
-    }
-
-    throw new Error('Unsupported DR replica object body type');
+    return maxKeys && maxKeys > 0 ? keys.slice(0, maxKeys) : keys;
   }
 
   private assertConfigured(): void {
-    if (!this.configured || !this.bucketName) {
-      throw new Error('DR replica storage is not configured');
+    if (this.configured) {
+      return;
     }
+
+    throw new Error(
+      'Storage de réplica não configurado. Defina DR_STORAGE_REPLICA_BUCKET, DR_STORAGE_REPLICA_ENDPOINT e credenciais DR independentes.',
+    );
   }
 }
