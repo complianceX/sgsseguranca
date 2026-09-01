@@ -170,9 +170,7 @@ function captureExecutorControlledMembership(
       '0402 found multiple executor grants for sgs_function_owner',
     );
   }
-  if (
-    memberships.some((membership) => booleanValue(membership.set_option))
-  ) {
+  if (memberships.some((membership) => booleanValue(membership.set_option))) {
     throw new Error(
       '0402 found a pre-existing SET-capable membership for sgs_function_owner',
     );
