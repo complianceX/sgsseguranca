@@ -8,28 +8,75 @@ export type DrReplicaStorageConfig = {
   secretAccessKey: string;
 };
 
-type ReadConfig = (key: string) => string | undefined;
-
-function normalize(value: string | undefined): string {
-  return value?.trim() || '';
-}
+type ReadConfig = (key: string) => unknown;
 
 function fail(message: string): never {
   throw new Error(`DR_REPLICA_STORAGE_CONFIG_INVALID: ${message}`);
 }
 
+function normalizeString(key: string, value: unknown): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    fail(`${key} must be a string`);
+  }
+
+  return value.trim();
+}
+
+function normalizeBoolean(key: string, value: unknown): boolean {
+  if (value === undefined || value === null || value === '') {
+    return false;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    fail(`${key} must be a boolean`);
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '' || normalized === 'false') {
+    return false;
+  }
+  if (normalized === 'true') {
+    return true;
+  }
+
+  fail(`${key} must be true or false`);
+}
+
 export function resolveDrReplicaStorageConfig(
   read: ReadConfig,
 ): DrReplicaStorageConfig {
-  const bucketName = normalize(read('DR_STORAGE_REPLICA_BUCKET'));
-  const endpoint = normalize(read('DR_STORAGE_REPLICA_ENDPOINT'));
-  const region = normalize(read('DR_STORAGE_REPLICA_REGION')) || 'auto';
-  const accessKeyId = normalize(read('DR_STORAGE_REPLICA_ACCESS_KEY_ID'));
-  const secretAccessKey = normalize(
+  const bucketName = normalizeString(
+    'DR_STORAGE_REPLICA_BUCKET',
+    read('DR_STORAGE_REPLICA_BUCKET'),
+  );
+  const endpoint = normalizeString(
+    'DR_STORAGE_REPLICA_ENDPOINT',
+    read('DR_STORAGE_REPLICA_ENDPOINT'),
+  );
+  const region =
+    normalizeString(
+      'DR_STORAGE_REPLICA_REGION',
+      read('DR_STORAGE_REPLICA_REGION'),
+    ) || 'auto';
+  const accessKeyId = normalizeString(
+    'DR_STORAGE_REPLICA_ACCESS_KEY_ID',
+    read('DR_STORAGE_REPLICA_ACCESS_KEY_ID'),
+  );
+  const secretAccessKey = normalizeString(
+    'DR_STORAGE_REPLICA_SECRET_ACCESS_KEY',
     read('DR_STORAGE_REPLICA_SECRET_ACCESS_KEY'),
   );
-  const forcePathStyle = /^true$/i.test(
-    normalize(read('DR_STORAGE_REPLICA_FORCE_PATH_STYLE')),
+  const forcePathStyle = normalizeBoolean(
+    'DR_STORAGE_REPLICA_FORCE_PATH_STYLE',
+    read('DR_STORAGE_REPLICA_FORCE_PATH_STYLE'),
   );
 
   // Region/force-path-style may be harmless defaults in an environment.
@@ -68,9 +115,16 @@ export function resolveDrReplicaStorageConfig(
   }
 
   const primaryBucket =
-    normalize(read('AWS_BUCKET_NAME')) || normalize(read('AWS_S3_BUCKET'));
-  const primaryAccessKeyId = normalize(read('AWS_ACCESS_KEY_ID'));
-  const primarySecretAccessKey = normalize(read('AWS_SECRET_ACCESS_KEY'));
+    normalizeString('AWS_BUCKET_NAME', read('AWS_BUCKET_NAME')) ||
+    normalizeString('AWS_S3_BUCKET', read('AWS_S3_BUCKET'));
+  const primaryAccessKeyId = normalizeString(
+    'AWS_ACCESS_KEY_ID',
+    read('AWS_ACCESS_KEY_ID'),
+  );
+  const primarySecretAccessKey = normalizeString(
+    'AWS_SECRET_ACCESS_KEY',
+    read('AWS_SECRET_ACCESS_KEY'),
+  );
 
   if (primaryBucket && primaryBucket === bucketName) {
     fail('replica bucket must be independent from the primary storage bucket');
