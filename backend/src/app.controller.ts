@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm';
 import { Public } from './shared/decorators/public.decorator';
 import { shouldRequireNoPendingMigrations } from './shared/database/migration-startup.guard';
 import { RedisService } from './shared/redis/redis.service';
+import { getRuntimeBuildMetadata } from './shared/observability/runtime-build-metadata';
 import migrationCompatibility from '../migration-history-compatibility.json';
 
 const LEGACY_MIGRATION_ALIASES: Record<string, string> =
@@ -67,6 +68,16 @@ export class AppController {
     }
 
     return statusPayload;
+  }
+
+  @Public()
+  @Get('health/version')
+  runtimeVersion() {
+    return getRuntimeBuildMetadata('backend', {
+      APP_COMMIT_SHA: this.configService.get<string>('APP_COMMIT_SHA'),
+      APP_VERSION: this.configService.get<string>('APP_VERSION'),
+      BUILD_ID: this.configService.get<string>('BUILD_ID'),
+    });
   }
 
   @Public()

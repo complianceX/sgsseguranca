@@ -67,6 +67,24 @@ describe('AppController', () => {
     expect(result.status).toBe('ok');
   });
 
+  it('deve expor apenas metadata de build allowlisted no health de versão', () => {
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: string) => {
+        if (key === 'APP_COMMIT_SHA') return 'release-sha';
+        if (key === 'APP_VERSION') return '2026.09.01';
+        if (key === 'BUILD_ID') return 'build-42';
+        return defaultValue ?? '';
+      },
+    );
+
+    expect(appController.runtimeVersion()).toEqual({
+      runtime: 'backend',
+      commit: 'release-sha',
+      version: '2026.09.01',
+      buildId: 'build-42',
+    });
+  });
+
   it('deve retornar readiness ok quando banco estiver de pé e redis estiver desabilitado', async () => {
     const result = await appController.healthCheck();
 
