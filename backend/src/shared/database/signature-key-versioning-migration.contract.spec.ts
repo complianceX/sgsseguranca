@@ -13,7 +13,8 @@ type RunnerOptions = {
 
 const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
   let temporarySetMembership = false;
-  const query = jest.fn(async (rawSql: string) => {
+
+  const resolveQuery = (rawSql: string): unknown => {
     const sql = String(rawSql).replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -129,7 +130,11 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
     }
 
     return [];
-  }) as jest.MockedFunction<QueryRunner['query']>;
+  };
+
+  const query = jest.fn((rawSql: string) =>
+    Promise.resolve(resolveQuery(rawSql)),
+  ) as unknown as jest.MockedFunction<QueryRunner['query']>;
 
   return { query };
 };
