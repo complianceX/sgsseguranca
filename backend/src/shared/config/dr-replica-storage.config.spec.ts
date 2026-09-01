@@ -25,6 +25,25 @@ describe('resolveDrReplicaStorageConfig', () => {
     });
   });
 
+  it('tolera somente defaults não materiais sem considerar DR configurado', () => {
+    expect(
+      resolveDrReplicaStorageConfig(
+        reader({
+          DR_STORAGE_REPLICA_REGION: 'auto',
+          DR_STORAGE_REPLICA_FORCE_PATH_STYLE: 'true',
+        }),
+      ),
+    ).toEqual({
+      configured: false,
+      bucketName: null,
+      endpoint: null,
+      region: 'auto',
+      forcePathStyle: false,
+      accessKeyId: '',
+      secretAccessKey: '',
+    });
+  });
+
   it('aceita somente uma réplica completa e independente', () => {
     expect(
       resolveDrReplicaStorageConfig(
