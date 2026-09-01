@@ -83,7 +83,7 @@ describe('AppModule production environment validation', () => {
     process.env = originalEnv;
   });
 
-  async function validate(values: Record<string, unknown>) {
+  function validate(values: Record<string, unknown>) {
     return validationSchema.validate(values, {
       abortEarly: false,
       allowUnknown: true,
