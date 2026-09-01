@@ -1,6 +1,12 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { trace } from '@opentelemetry/api';
 import { requestContextStorage } from '../middleware/request-context.middleware';
-import { buildStructuredLogEntry } from './structured-winston';
+import {
+  buildStructuredLogEntry,
+  buildStructuredLoggerOptions,
+} from './structured-winston';
 
 describe('buildStructuredLogEntry', () => {
   it('mescla payloads estruturados e injeta request context quando faltarem campos', () => {
@@ -64,5 +70,52 @@ describe('buildStructuredLogEntry', () => {
         spanId: 'span-123',
       }),
     );
+  });
+
+  it('usa SGS_TEMP_DIR para os arquivos em runtime não produtivo', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousTempDir = process.env.SGS_TEMP_DIR;
+    const tempDir = mkdtempSync(join(tmpdir(), 'sgs-structured-log-'));
+    let options: ReturnType<typeof buildStructuredLoggerOptions> | undefined;
+
+    process.env.NODE_ENV = 'staging';
+    process.env.SGS_TEMP_DIR = tempDir;
+
+    try {
+      options = buildStructuredLoggerOptions('test-service');
+      const transports = Array.isArray(options.transports)
+        ? options.transports
+        : [options.transports];
+      const fileTransports = transports.slice(1);
+
+      expect(fileTransports).toHaveLength(2);
+      expect((fileTransports[0] as { dirname?: string }).dirname).toBe(
+        join(tempDir, 'logs'),
+      );
+      expect((fileTransports[0] as { filename?: string }).filename).toBe(
+        'error.log',
+      );
+      expect((fileTransports[1] as { dirname?: string }).dirname).toBe(
+        join(tempDir, 'logs'),
+      );
+      expect((fileTransports[1] as { filename?: string }).filename).toBe(
+        'combined.log',
+      );
+    } finally {
+      const transports = options?.transports;
+      const transportList = Array.isArray(transports)
+        ? transports
+        : transports
+          ? [transports]
+          : [];
+      for (const transport of transportList) {
+        transport.close?.();
+      }
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousTempDir === undefined) delete process.env.SGS_TEMP_DIR;
+      else process.env.SGS_TEMP_DIR = previousTempDir;
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
