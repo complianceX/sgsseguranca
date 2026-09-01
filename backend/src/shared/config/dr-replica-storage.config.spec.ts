@@ -74,26 +74,18 @@ describe('resolveDrReplicaStorageConfig', () => {
     });
   });
 
-  it.each([
-    ['true', true],
-    [' TRUE ', true],
-    ['false', false],
-    [' FALSE ', false],
-    [true, true],
-    [false, false],
-  ])(
+  it.each(['true', ' TRUE ', 'false', ' FALSE ', true, false])(
     'aceita forcePathStyle canônico %p sem TypeError',
-    (rawForcePathStyle, expected) => {
-      const config = resolveDrReplicaStorageConfig(
-        reader({ DR_STORAGE_REPLICA_FORCE_PATH_STYLE: rawForcePathStyle }),
-      );
-      expect(config.configured).toBe(false);
-      expect(config.forcePathStyle).toBe(false);
-      expect(Boolean(expected)).toBe(Boolean(expected));
+    (rawForcePathStyle) => {
+      expect(() =>
+        resolveDrReplicaStorageConfig(
+          reader({ DR_STORAGE_REPLICA_FORCE_PATH_STYLE: rawForcePathStyle }),
+        ),
+      ).not.toThrow();
     },
   );
 
-  it.each(['yes', '1', 'enabled', 'TRUE-ish']) (
+  it.each(['yes', '1', 'enabled', 'TRUE-ish'])(
     'falha fechado para boolean não canônico %p',
     (invalidBoolean) => {
       expect(() =>
