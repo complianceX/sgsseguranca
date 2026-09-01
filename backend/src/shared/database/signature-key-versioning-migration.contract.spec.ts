@@ -7,6 +7,7 @@ type QueryRunnerDouble = Pick<QueryRunner, 'query'> & {
 
 type RunnerOptions = {
   preExistingSetMembership?: boolean;
+  providerGrantedMembership?: boolean;
   functionExists?: boolean;
 };
 
@@ -15,7 +16,10 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
   const query = jest.fn(async (rawSql: string) => {
     const sql = String(rawSql).replace(/\s+/g, ' ').trim().toLowerCase();
 
-    if (sql.includes('from pg_roles as r') && sql.includes('where r.rolname = current_user')) {
+    if (
+      sql.includes('from pg_roles as r') &&
+      sql.includes('where r.rolname = current_user')
+    ) {
       return [
         {
           current_user: 'migration_executor',
@@ -26,7 +30,11 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
       ];
     }
 
-    if (sql.includes("unnest(array['sgs_function_owner', 'sgs_app', 'sgs_admin'])")) {
+    if (
+      sql.includes(
+        "unnest(array['sgs_function_owner', 'sgs_app', 'sgs_admin'])",
+      )
+    ) {
       return [
         { role_name: 'sgs_function_owner', present: true },
         { role_name: 'sgs_app', present: true },
@@ -39,10 +47,22 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
     }
 
     if (
-      sql.includes("has_schema_privilege('sgs_function_owner', 'public', 'create')") &&
-      sql.includes("has_table_privilege('sgs_function_owner', 'public.signatures', 'select')")
+      sql.includes(
+        "has_schema_privilege('sgs_function_owner', 'public', 'create')",
+      ) &&
+      sql.includes(
+        "has_table_privilege('sgs_function_owner', 'public.signatures', 'select')",
+      )
     ) {
       return [{ can_create: false, can_select_signatures: true }];
+    }
+
+    if (
+      sql.includes(
+        "has_schema_privilege( 'sgs_function_owner', 'public', 'create' ) as has_create",
+      )
+    ) {
+      return [{ has_create: true }];
     }
 
     if (sql.startsWith('grant sgs_function_owner to current_user')) {
@@ -51,7 +71,7 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
       return [];
     }
 
-    if (sql.startsWith('revoke sgs_function_owner from current_user')) {
+    if (sql.startsWith('revoke sgs_function_owner')) {
       temporarySetMembership = false;
       return [];
     }
@@ -60,7 +80,7 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
       sql.includes('from pg_auth_members as am') &&
       sql.includes("granted_role.rolname = 'sgs_function_owner'")
     ) {
-      return [
+      const rows = [
         {
           grantor: 'migration_executor',
           admin_option: true,
@@ -69,9 +89,22 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
             options.preExistingSetMembership || temporarySetMembership,
         },
       ];
+      if (options.providerGrantedMembership) {
+        rows.unshift({
+          grantor: 'postgres',
+          admin_option: true,
+          inherit_option: false,
+          set_option: false,
+        });
+      }
+      return rows;
     }
 
-    if (sql.includes("where p.oid = 'public.verify_signature_by_hash_public_versioned(text)'::regprocedure")) {
+    if (
+      sql.includes(
+        "where p.oid = 'public.verify_signature_by_hash_public_versioned(text)'::regprocedure",
+      )
+    ) {
       return [
         {
           owner: 'sgs_function_owner',
@@ -85,7 +118,11 @@ const makeQueryRunner = (options: RunnerOptions = {}): QueryRunnerDouble => {
       ];
     }
 
-    if (sql.includes("to_regprocedure('public.verify_signature_by_hash_public_versioned(text)')")) {
+    if (
+      sql.includes(
+        "to_regprocedure('public.verify_signature_by_hash_public_versioned(text)')",
+      )
+    ) {
       return options.functionExists === false
         ? []
         : [{ owner: 'sgs_function_owner' }];
@@ -143,6 +180,15 @@ describe('signature key versioning migration contract', () => {
       'revoke create on schema public from sgs_function_owner',
     );
     expect(sql).toContain('set false');
+  });
+
+  it('preserva membership automática concedida por provider/role diferente', async () => {
+    const queryRunner = makeQueryRunner({ providerGrantedMembership: true });
+    const migration = new AddSignatureKeyVersioning1709000000402();
+
+    await expect(
+      migration.up(queryRunner as unknown as QueryRunner),
+    ).resolves.toBeUndefined();
   });
 
   it('mantém o contrato antigo e restringe a função versionada ao runtime', async () => {
