@@ -60,8 +60,7 @@ describe('DisasterRecoveryReplicaStorageService configuration bootstrap', () => 
     });
 
     expect(
-      () =>
-        new DisasterRecoveryReplicaStorageService(config, integrationStub),
+      () => new DisasterRecoveryReplicaStorageService(config, integrationStub),
     ).toThrow('DR_STORAGE_REPLICA_ACCESS_KEY_ID');
   });
 
