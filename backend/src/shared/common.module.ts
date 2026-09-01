@@ -12,6 +12,7 @@ import { PdfService } from './services/pdf.service';
 import { PuppeteerPoolService } from './services/puppeteer-pool.service';
 import { PdfValidatorService } from './services/pdf-validator.service';
 import { SignatureTimestampService } from './services/signature-timestamp.service';
+import { SignatureTimestampKeyringService } from './services/signature-timestamp-keyring.service';
 import { TenantRepositoryFactory } from './tenant/tenant-repository';
 import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
@@ -63,6 +64,7 @@ import { FileInspectionModule } from './security/file-inspection.module';
     PuppeteerPoolService,
     PdfValidatorService,
     SignatureTimestampService,
+    SignatureTimestampKeyringService,
     RiskCalculationService,
     DocumentDownloadGrantService,
     PublicValidationGrantService,
@@ -91,6 +93,7 @@ import { FileInspectionModule } from './security/file-inspection.module';
     PuppeteerPoolService,
     PdfValidatorService,
     SignatureTimestampService,
+    SignatureTimestampKeyringService,
     RiskCalculationService,
     DocumentDownloadGrantService,
     PublicValidationGrantService,

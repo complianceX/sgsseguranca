@@ -706,6 +706,8 @@ export class EpiAssignmentsService {
       timestamp_token: generated.timestamp_token,
       timestamp_issued_at: generated.timestamp_issued_at,
       timestamp_authority: generated.timestamp_authority,
+      timestamp_token_version: generated.timestamp_token_version,
+      signature_key_id: generated.signature_key_id,
     };
   }
 

@@ -18,6 +18,7 @@ describe('PublicSignaturesController', () => {
   it('retorna o payload público de assinatura válida', async () => {
     (signaturesService.verifyByHashPublic as jest.Mock).mockResolvedValue({
       valid: true,
+      verification_state: 'VALID',
       message: 'Assinatura validada com sucesso.',
       signature: {
         hash: 'a'.repeat(64),
@@ -27,6 +28,7 @@ describe('PublicSignaturesController', () => {
 
     await expect(controller.verify({ hash: 'a'.repeat(64) })).resolves.toEqual({
       valid: true,
+      verification_state: 'VALID',
       message: 'Assinatura validada com sucesso.',
       signature: {
         hash: 'a'.repeat(64),
@@ -38,11 +40,13 @@ describe('PublicSignaturesController', () => {
   it('retorna o payload público de assinatura não localizada', async () => {
     (signaturesService.verifyByHashPublic as jest.Mock).mockResolvedValue({
       valid: false,
+      verification_state: 'NOT_FOUND',
       message: 'Assinatura não localizada.',
     });
 
     await expect(controller.verify({ hash: 'b'.repeat(64) })).resolves.toEqual({
       valid: false,
+      verification_state: 'NOT_FOUND',
       message: 'Assinatura não localizada.',
     });
   });
@@ -50,6 +54,7 @@ describe('PublicSignaturesController', () => {
   it('normaliza hash para minúsculo antes de consultar o serviço', async () => {
     (signaturesService.verifyByHashPublic as jest.Mock).mockResolvedValue({
       valid: false,
+      verification_state: 'INVALID',
       message: 'Assinatura localizada, mas inválida.',
     });
 

@@ -5,6 +5,7 @@ import { PdfValidatorService } from './pdf-validator.service';
 import { PasswordService } from './password.service';
 import { PdfCompressionService } from './pdf-compression.service';
 import { SignatureTimestampService } from './signature-timestamp.service';
+import { SignatureTimestampKeyringService } from './signature-timestamp-keyring.service';
 import { TempCleanupService } from './temp-cleanup.service';
 
 @Global() // Torna os serviços disponíveis globalmente sem precisar importar o módulo
@@ -16,6 +17,7 @@ import { TempCleanupService } from './temp-cleanup.service';
     PasswordService,
     PdfCompressionService,
     SignatureTimestampService,
+    SignatureTimestampKeyringService,
     TempCleanupService,
   ],
   exports: [
@@ -25,6 +27,7 @@ import { TempCleanupService } from './temp-cleanup.service';
     PasswordService,
     PdfCompressionService,
     SignatureTimestampService,
+    SignatureTimestampKeyringService,
     TempCleanupService,
   ],
 })

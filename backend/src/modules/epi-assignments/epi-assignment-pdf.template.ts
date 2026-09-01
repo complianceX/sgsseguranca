@@ -23,6 +23,7 @@ export interface EpiAssignmentPdfData {
     signature_hash?: string;
     timestamp_issued_at?: string;
     timestamp_authority?: string;
+    timestamp_token_version?: string;
   } | null;
 }
 
@@ -114,6 +115,7 @@ export function buildEpiAssignmentPdfHtml(
     ${field('Hash da assinatura', signature?.signature_hash)}
     ${field('Carimbo emitido em', signature?.timestamp_issued_at)}
     ${field('Autoridade do carimbo', signature?.timestamp_authority)}
+    ${field('Versão do carimbo', signature?.timestamp_token_version)}
   </div>
   <div class="governance">Este PDF é um snapshot imutável da entrega registrada. Dados brutos da assinatura não são incorporados ao documento.</div>
   <div class="integrity">Tenant resolvido no servidor: ${escapeInstitutionalPdfHtml(assignment.company_id)} - Ficha: ${escapeInstitutionalPdfHtml(assignment.id)}</div>

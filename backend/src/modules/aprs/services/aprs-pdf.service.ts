@@ -388,6 +388,15 @@ export class AprsPdfService {
     return hash ? hash.slice(0, 16) : '-';
   }
 
+  private buildAprSignatureTimestampVersionLabel(
+    signature?: Pick<Signature, 'timestamp_token_version'> | null,
+  ): string {
+    const version = signature?.timestamp_token_version;
+    return version
+      ? `<span>Versão do carimbo: ${this.escapeHtml(version)}</span>`
+      : '';
+  }
+
   private normalizeAprPdfNarrativeValue(
     value: unknown,
     fallback = '-',
@@ -783,6 +792,7 @@ export class AprsPdfService {
               ? `<span>Autoridade: ${this.escapeHtml(signature.timestamp_authority)}</span>`
               : ''
           }
+          ${this.buildAprSignatureTimestampVersionLabel(signature)}
         </div>
       `;
     };

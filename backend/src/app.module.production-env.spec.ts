@@ -257,6 +257,22 @@ describe('AppModule production environment validation', () => {
     );
   });
 
+  it('aceita somente o par ativo quando a chave legada está no mapa de verificação', async () => {
+    const rotated = {
+      ...productionEnv,
+      SIGNATURE_TIMESTAMP_SECRET: '',
+      SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: '2026-09',
+      SIGNATURE_TIMESTAMP_ACTIVE_SECRET: 'a'.repeat(64),
+      SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON: JSON.stringify({
+        'legacy-v1': 'b'.repeat(64),
+      }),
+    };
+
+    const result = await validate(rotated);
+
+    expect(result.error).toBeUndefined();
+  });
+
   it('bloqueia access token sem expiração em staging', async () => {
     const result = await validate({
       ...productionEnv,

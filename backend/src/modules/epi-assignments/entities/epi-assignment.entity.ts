@@ -26,6 +26,8 @@ export interface EpiSignatureStamp {
   timestamp_token: string;
   timestamp_issued_at: string;
   timestamp_authority: string;
+  timestamp_token_version?: string;
+  signature_key_id?: string;
 }
 
 @Entity('epi_assignments')
