@@ -42,6 +42,74 @@ export interface TimestampVerificationResult {
   status: SignatureTimestampVerificationStatus;
 }
 
+type ParsedTimestampEnvelope = {
+  timestampIssuedAt: string;
+  tokenSignature: string;
+};
+
+function isCanonicalTimestampValue(value: unknown): value is string {
+  if (typeof value !== 'string' || !UTC_TIMESTAMP_PATTERN.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+}
+
+function parseTimestampEnvelope(
+  timestampToken: string,
+): ParsedTimestampEnvelope | null {
+  const dotIndex = timestampToken.lastIndexOf('.');
+  if (dotIndex <= 0 || dotIndex >= timestampToken.length - 1) {
+    return null;
+  }
+
+  const timestampIssuedAt = timestampToken.slice(0, dotIndex);
+  const tokenSignature = timestampToken.slice(dotIndex + 1);
+  if (
+    !isCanonicalTimestampValue(timestampIssuedAt) ||
+    !HMAC_HEX_PATTERN.test(tokenSignature)
+  ) {
+    return null;
+  }
+
+  return { timestampIssuedAt, tokenSignature };
+}
+
+function hasInvalidVerificationMetadata(
+  metadata: SignatureTimestampVerificationMetadata,
+): boolean {
+  return Boolean(
+    (metadata.timestamp_token_version &&
+      metadata.timestamp_token_version !== SIGNATURE_TIMESTAMP_TOKEN_VERSION) ||
+    (metadata.timestamp_authority &&
+      metadata.timestamp_authority !== SIGNATURE_TIMESTAMP_AUTHORITY),
+  );
+}
+
+function missingKeyStatus(keyId: string): SignatureTimestampVerificationStatus {
+  return keyId === SIGNATURE_TIMESTAMP_LEGACY_KEY_ID
+    ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.LEGACY_KEY_UNAVAILABLE
+    : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID;
+}
+
+function verifyTokenSignature(
+  expectedSignatureFactory: () => string,
+  actualSignature: string,
+): boolean {
+  try {
+    const expectedSignature = expectedSignatureFactory();
+    const actualBuffer = Buffer.from(actualSignature, 'utf8');
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    if (actualBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    return timingSafeEqual(actualBuffer, expectedBuffer);
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class SignatureTimestampService {
   private readonly fallbackKeyring: SignatureTimestampKeyringService;
@@ -115,30 +183,12 @@ export class SignatureTimestampService {
     ) {
       return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
-    if (
-      metadata.timestamp_token_version &&
-      metadata.timestamp_token_version !== SIGNATURE_TIMESTAMP_TOKEN_VERSION
-    ) {
-      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
-    }
-    if (
-      metadata.timestamp_authority &&
-      metadata.timestamp_authority !== SIGNATURE_TIMESTAMP_AUTHORITY
-    ) {
+    if (hasInvalidVerificationMetadata(metadata)) {
       return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
 
-    const dotIndex = timestampToken.lastIndexOf('.');
-    if (dotIndex <= 0 || dotIndex >= timestampToken.length - 1) {
-      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
-    }
-
-    const timestampIssuedAt = timestampToken.slice(0, dotIndex);
-    const tokenSignature = timestampToken.slice(dotIndex + 1);
-    if (
-      !this.isCanonicalTimestamp(timestampIssuedAt) ||
-      !HMAC_HEX_PATTERN.test(tokenSignature)
-    ) {
+    const parsedEnvelope = parseTimestampEnvelope(timestampToken);
+    if (!parsedEnvelope) {
       return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
 
@@ -147,33 +197,23 @@ export class SignatureTimestampService {
     const verificationKey = this.getKeyring().getVerificationKey(keyId);
 
     if (!verificationKey) {
-      return {
-        status:
-          keyId === SIGNATURE_TIMESTAMP_LEGACY_KEY_ID
-            ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.LEGACY_KEY_UNAVAILABLE
-            : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
-      };
+      return { status: missingKeyStatus(keyId) };
     }
 
-    try {
-      const expected = this.sign(
-        signatureHash,
-        timestampIssuedAt,
-        verificationKey.secret,
-      );
-      const actualBuffer = Buffer.from(tokenSignature, 'utf8');
-      const expectedBuffer = Buffer.from(expected, 'utf8');
-      if (actualBuffer.length !== expectedBuffer.length) {
-        return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
-      }
-      return {
-        status: timingSafeEqual(actualBuffer, expectedBuffer)
-          ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID
-          : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
-      };
-    } catch {
-      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
-    }
+    const valid = verifyTokenSignature(
+      () =>
+        this.sign(
+          signatureHash,
+          parsedEnvelope.timestampIssuedAt,
+          verificationKey.secret,
+        ),
+      parsedEnvelope.tokenSignature,
+    );
+    return {
+      status: valid
+        ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID
+        : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
+    };
   }
 
   private isCanonicalHash(value: unknown): value is string {
@@ -189,12 +229,7 @@ export class SignatureTimestampService {
   }
 
   private isCanonicalTimestamp(value: unknown): value is string {
-    if (typeof value !== 'string' || !UTC_TIMESTAMP_PATTERN.test(value)) {
-      return false;
-    }
-
-    const parsed = new Date(value);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+    return isCanonicalTimestampValue(value);
   }
 
   private assertCanonicalTimestamp(value: unknown): asserts value is string {

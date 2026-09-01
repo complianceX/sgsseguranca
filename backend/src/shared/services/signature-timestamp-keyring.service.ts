@@ -8,12 +8,124 @@ import {
   isValidSignatureTimestampKeyId,
 } from './signature-timestamp-keyring.contract';
 
+type SignatureTimestampKeyringSnapshot = {
+  active: SignatureTimestampKeyConfig | null;
+  verification: Map<string, SignatureTimestampKeyConfig>;
+};
+
+type SignatureTimestampKeyringValues = {
+  activeKeyId?: string;
+  activeSecret?: string;
+  legacySecret?: string;
+  verificationOnlyJson?: string;
+};
+
+function validateKeyringValues(values: SignatureTimestampKeyringValues): void {
+  if (Boolean(values.activeKeyId) !== Boolean(values.activeSecret)) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID and SIGNATURE_TIMESTAMP_ACTIVE_SECRET must be configured together',
+    );
+  }
+  if (
+    values.activeKeyId &&
+    !isValidSignatureTimestampKeyId(values.activeKeyId)
+  ) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: INVALID_KEY_ID',
+    );
+  }
+  if (
+    values.activeSecret &&
+    Buffer.byteLength(values.activeSecret, 'utf8') < 32
+  ) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: INVALID_LENGTH',
+    );
+  }
+  if (
+    values.legacySecret &&
+    Buffer.byteLength(values.legacySecret, 'utf8') < 32
+  ) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'Signature timestamp secret is too short',
+    );
+  }
+}
+
+function buildVerificationKeys(
+  values: SignatureTimestampKeyringValues,
+): Map<string, SignatureTimestampKeyConfig> {
+  const verification = new Map<string, SignatureTimestampKeyConfig>();
+  const verificationOnly = parseVerificationOnlyKeys(
+    values.verificationOnlyJson,
+  );
+
+  if (values.legacySecret) {
+    verification.set(SIGNATURE_TIMESTAMP_LEGACY_KEY_ID, {
+      keyId: SIGNATURE_TIMESTAMP_LEGACY_KEY_ID,
+      secret: values.legacySecret,
+      canSign: !values.activeSecret,
+    });
+  }
+
+  for (const [keyId, secret] of verificationOnly) {
+    if (verification.has(keyId) || keyId === values.activeKeyId) {
+      throw new SignatureTimestampKeyringConfigurationError(
+        'SIGNATURE_TIMESTAMP key IDs must be unique across active and verification-only keys',
+      );
+    }
+    verification.set(keyId, { keyId, secret, canSign: false });
+  }
+
+  return verification;
+}
+
+function resolveActiveKey(
+  values: SignatureTimestampKeyringValues,
+  verification: Map<string, SignatureTimestampKeyConfig>,
+): SignatureTimestampKeyConfig | null {
+  if (values.activeKeyId && values.activeSecret) {
+    return {
+      keyId: values.activeKeyId,
+      secret: values.activeSecret,
+      canSign: true,
+    };
+  }
+  if (!values.legacySecret) return null;
+  return verification.get(SIGNATURE_TIMESTAMP_LEGACY_KEY_ID) ?? null;
+}
+
+function buildSignatureTimestampKeyringSnapshot(
+  values: SignatureTimestampKeyringValues,
+): SignatureTimestampKeyringSnapshot {
+  validateKeyringValues(values);
+  const verification = buildVerificationKeys(values);
+  if (values.activeKeyId === SIGNATURE_TIMESTAMP_LEGACY_KEY_ID) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: RESERVED_KEY_ID',
+    );
+  }
+
+  const active = resolveActiveKey(values, verification);
+  if (
+    values.activeKeyId &&
+    values.activeSecret &&
+    values.legacySecret === values.activeSecret
+  ) {
+    throw new SignatureTimestampKeyringConfigurationError(
+      'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: MUST_DIFFER_FROM_LEGACY_SECRET',
+    );
+  }
+  if (active && !verification.has(active.keyId)) {
+    verification.set(active.keyId, active);
+  }
+
+  return { active, verification };
+}
+
 @Injectable()
 export class SignatureTimestampKeyringService {
-  private snapshot?: {
-    active: SignatureTimestampKeyConfig | null;
-    verification: Map<string, SignatureTimestampKeyConfig>;
-  };
+  private snapshot?: SignatureTimestampKeyringSnapshot;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -31,83 +143,17 @@ export class SignatureTimestampKeyringService {
       .map((key) => key.keyId);
   }
 
-  private getSnapshot(): {
-    active: SignatureTimestampKeyConfig | null;
-    verification: Map<string, SignatureTimestampKeyConfig>;
-  } {
+  private getSnapshot(): SignatureTimestampKeyringSnapshot {
     if (this.snapshot) return this.snapshot;
 
-    const activeKeyId = this.readString('SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID');
-    const activeSecret = this.readString('SIGNATURE_TIMESTAMP_ACTIVE_SECRET');
-    if (Boolean(activeKeyId) !== Boolean(activeSecret)) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID and SIGNATURE_TIMESTAMP_ACTIVE_SECRET must be configured together',
-      );
-    }
-    if (activeKeyId && !isValidSignatureTimestampKeyId(activeKeyId)) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: INVALID_KEY_ID',
-      );
-    }
-    if (activeSecret && Buffer.byteLength(activeSecret, 'utf8') < 32) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: INVALID_LENGTH',
-      );
-    }
-
-    const legacySecret = this.readString('SIGNATURE_TIMESTAMP_SECRET');
-    if (legacySecret && Buffer.byteLength(legacySecret, 'utf8') < 32) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'Signature timestamp secret is too short',
-      );
-    }
-
-    const verification = new Map<string, SignatureTimestampKeyConfig>();
-    const verificationOnly = parseVerificationOnlyKeys(
-      this.readString('SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON'),
-    );
-
-    if (legacySecret) {
-      verification.set(SIGNATURE_TIMESTAMP_LEGACY_KEY_ID, {
-        keyId: SIGNATURE_TIMESTAMP_LEGACY_KEY_ID,
-        secret: legacySecret,
-        canSign: !activeSecret,
-      });
-    }
-
-    for (const [keyId, secret] of verificationOnly) {
-      if (verification.has(keyId) || keyId === activeKeyId) {
-        throw new SignatureTimestampKeyringConfigurationError(
-          'SIGNATURE_TIMESTAMP key IDs must be unique across active and verification-only keys',
-        );
-      }
-      verification.set(keyId, { keyId, secret, canSign: false });
-    }
-
-    if (activeKeyId === SIGNATURE_TIMESTAMP_LEGACY_KEY_ID) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: RESERVED_KEY_ID',
-      );
-    }
-
-    const active =
-      activeKeyId && activeSecret
-        ? { keyId: activeKeyId, secret: activeSecret, canSign: true }
-        : legacySecret
-          ? (verification.get(SIGNATURE_TIMESTAMP_LEGACY_KEY_ID) ?? null)
-          : null;
-
-    if (activeKeyId && activeSecret && legacySecret === activeSecret) {
-      throw new SignatureTimestampKeyringConfigurationError(
-        'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: MUST_DIFFER_FROM_LEGACY_SECRET',
-      );
-    }
-
-    if (active && !verification.has(active.keyId)) {
-      verification.set(active.keyId, active);
-    }
-
-    this.snapshot = { active, verification };
+    this.snapshot = buildSignatureTimestampKeyringSnapshot({
+      activeKeyId: this.readString('SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID'),
+      activeSecret: this.readString('SIGNATURE_TIMESTAMP_ACTIVE_SECRET'),
+      legacySecret: this.readString('SIGNATURE_TIMESTAMP_SECRET'),
+      verificationOnlyJson: this.readString(
+        'SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON',
+      ),
+    });
     return this.snapshot;
   }
 
