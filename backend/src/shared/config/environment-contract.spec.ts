@@ -257,6 +257,35 @@ describe('environment contract', () => {
     );
   });
 
+  it('aceita rotação com chave ativa separada e chaves históricas somente-verificação', () => {
+    const env = apiEnvironment();
+    delete env.SIGNATURE_TIMESTAMP_SECRET;
+    env.SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID = '2026-09';
+    env.SIGNATURE_TIMESTAMP_ACTIVE_SECRET = strong('active-signature');
+    env.SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON = JSON.stringify({
+      'legacy-v1': strong('historical-signature'),
+    });
+
+    expect(() =>
+      validateCommonEnvironment(env, { component: 'api' }),
+    ).not.toThrow();
+  });
+
+  it('exige o par ativo completo e rejeita mapa histórico malformado', () => {
+    const missingPair = apiEnvironment();
+    delete missingPair.SIGNATURE_TIMESTAMP_ACTIVE_SECRET;
+    missingPair.SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID = '2026-09';
+    expect(() =>
+      validateCommonEnvironment(missingPair, { component: 'api' }),
+    ).toThrow('REQUIRED_TOGETHER');
+
+    const malformed = apiEnvironment();
+    malformed.SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON = '{not-json';
+    expect(() =>
+      validateCommonEnvironment(malformed, { component: 'api' }),
+    ).toThrow('SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON: INVALID_JSON');
+  });
+
   it('rejeita typo da chave dedicada no namespace SGS', () => {
     expect(() =>
       assertNoUnknownSgsEnvironmentKeys({

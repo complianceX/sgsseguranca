@@ -309,6 +309,8 @@ describe('RdosService', () => {
         timestamp_token: `token.${signatureHash}`,
         timestamp_authority: 'internal-hmac-v1',
         timestamp_issued_at: issuedAt || '2026-03-16T12:00:00.000Z',
+        timestamp_token_version: 'v1',
+        signature_key_id: 'legacy-v1',
       })),
     };
     documentVideosService = {

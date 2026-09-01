@@ -18,7 +18,13 @@ import {
   IsNull,
   Repository,
 } from 'typeorm';
-import { SignatureTimestampService } from '../../shared/services/signature-timestamp.service';
+import {
+  SIGNATURE_TIMESTAMP_VERIFICATION_STATUS,
+  SignatureTimestampService,
+  SignatureTimestampVerificationMetadata,
+  SignatureTimestampVerificationStatus,
+  TimestampVerificationResult,
+} from '../../shared/services/signature-timestamp.service';
 import { TenantService } from '../../shared/tenant/tenant.service';
 import {
   isSiteVisibleToScope,
@@ -107,6 +113,15 @@ type SiteScopedSignatureDocument = {
 type SignatureDocumentScope = {
   companyId: string;
   siteId: string | null;
+};
+
+type TimestampVerificationServiceLike = {
+  verify: SignatureTimestampService['verify'];
+  verifyDetailed?: (
+    signatureHash: string,
+    timestampToken: string | null | undefined,
+    metadata: SignatureTimestampVerificationMetadata,
+  ) => TimestampVerificationResult;
 };
 
 type TrainingSignatureDocumentScopeRow = {
@@ -516,6 +531,8 @@ export class SignaturesService {
       signature_hash: generatedStamp.signature_hash,
       timestamp_token: generatedStamp.timestamp_token,
       timestamp_authority: generatedStamp.timestamp_authority,
+      timestamp_token_version: generatedStamp.timestamp_token_version,
+      signature_key_id: generatedStamp.signature_key_id,
       signed_at: signedAt,
       integrity_payload: {
         schema_version: 2,
@@ -588,6 +605,8 @@ export class SignaturesService {
           verificationMode,
           proofScope,
           timestampAuthority: savedSignature.timestamp_authority || null,
+          timestampTokenVersion: savedSignature.timestamp_token_version || null,
+          signatureKeyId: savedSignature.signature_key_id || null,
           registryEntryId: registryContext?.registryEntryId || null,
           documentCode: registryContext?.documentCode || null,
           documentFileHash: registryContext?.fileHash || null,
@@ -808,6 +827,7 @@ export class SignaturesService {
     signed_at?: string;
     timestamp_authority?: string;
     signature_hash?: string;
+    verification_state: SignatureTimestampVerificationStatus;
     verification_mode: SignatureVerificationMode;
     legal_assurance: SignatureLegalAssurance;
     proof_scope?: SignatureProofScope | null;
@@ -833,12 +853,11 @@ export class SignaturesService {
     const hasFields = Boolean(
       signature.signature_hash && signature.timestamp_token,
     );
-    const valid = hasFields
-      ? this.signatureTimestampService.verify(
-          signature.signature_hash as string,
-          signature.timestamp_token as string,
-        )
-      : false;
+    const verificationState = hasFields
+      ? this.resolveTimestampVerificationState(signature)
+      : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.NOT_TOKENIZED;
+    const valid =
+      verificationState === SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID;
     const verificationDetails = this.extractVerificationDetails(signature);
 
     return {
@@ -847,6 +866,7 @@ export class SignaturesService {
       signed_at: signature.signed_at?.toISOString(),
       timestamp_authority: signature.timestamp_authority,
       signature_hash: signature.signature_hash,
+      verification_state: verificationState,
       verification_mode: verificationDetails.verificationMode,
       legal_assurance: verificationDetails.legalAssurance,
       proof_scope: verificationDetails.proofScope,
@@ -857,6 +877,7 @@ export class SignaturesService {
 
   async verifyByHashPublic(signatureHash: string): Promise<{
     valid: boolean;
+    verification_state: SignatureTimestampVerificationStatus;
     message?: string;
     signature?: {
       hash: string;
@@ -876,6 +897,7 @@ export class SignaturesService {
     if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
       return {
         valid: false,
+        verification_state: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
         message: 'Hash SHA-256 inválido.',
       };
     }
@@ -891,14 +913,19 @@ export class SignaturesService {
         type: string;
         timestamp_token: string | null;
         integrity_payload: Record<string, unknown> | null;
+        signature_key_id: string | null;
+        timestamp_token_version: string | null;
       }>
-    >('SELECT * FROM verify_signature_by_hash_public($1)', [normalizedHash]);
+    >('SELECT * FROM verify_signature_by_hash_public_versioned($1)', [
+      normalizedHash,
+    ]);
 
     const row = rows[0] ?? null;
 
     if (!row) {
       return {
         valid: false,
+        verification_state: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.NOT_FOUND,
         message: 'Assinatura não localizada.',
       };
     }
@@ -911,6 +938,8 @@ export class SignaturesService {
       type: row.type,
       timestamp_token: row.timestamp_token,
       integrity_payload: row.integrity_payload,
+      signature_key_id: row.signature_key_id,
+      timestamp_token_version: row.timestamp_token_version,
     } as Pick<
       Signature,
       | 'signature_hash'
@@ -919,23 +948,21 @@ export class SignaturesService {
       | 'type'
       | 'timestamp_token'
       | 'integrity_payload'
+      | 'signature_key_id'
+      | 'timestamp_token_version'
     >;
 
-    const persistedHash = signature.signature_hash;
-    const timestampToken = signature.timestamp_token;
+    const verificationState = this.resolveTimestampVerificationState(signature);
     const valid =
-      typeof persistedHash === 'string' &&
-      typeof timestampToken === 'string' &&
-      this.signatureTimestampService.verify(persistedHash, timestampToken);
+      verificationState === SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID;
     const verificationDetails = this.extractVerificationDetails(
       signature as unknown as Signature,
     );
 
     return {
       valid,
-      message: valid
-        ? 'Assinatura validada com sucesso.'
-        : 'Assinatura localizada, mas inválida.',
+      verification_state: verificationState,
+      message: this.getPublicVerificationMessage(verificationState),
       signature: {
         hash: signature.signature_hash || normalizedHash,
         signed_at: signature.signed_at?.toISOString(),
@@ -948,6 +975,60 @@ export class SignaturesService {
         signature_evidence_hash: verificationDetails.signatureEvidenceHash,
       },
     };
+  }
+
+  private resolveTimestampVerificationState(
+    signature: Pick<
+      Signature,
+      | 'signature_hash'
+      | 'timestamp_token'
+      | 'signature_key_id'
+      | 'timestamp_token_version'
+      | 'timestamp_authority'
+    >,
+  ): SignatureTimestampVerificationStatus {
+    const verifier = this
+      .signatureTimestampService as unknown as TimestampVerificationServiceLike;
+    const detailedVerifier = verifier.verifyDetailed
+      ? (
+          signatureHash: string,
+          timestampToken: string | null | undefined,
+          metadata: SignatureTimestampVerificationMetadata,
+        ) => verifier.verifyDetailed!(signatureHash, timestampToken, metadata)
+      : undefined;
+    if (detailedVerifier) {
+      return detailedVerifier(
+        signature.signature_hash || '',
+        signature.timestamp_token,
+        {
+          signature_key_id: signature.signature_key_id,
+          timestamp_token_version: signature.timestamp_token_version,
+          timestamp_authority: signature.timestamp_authority,
+        },
+      ).status;
+    }
+
+    return this.signatureTimestampService.verify(
+      signature.signature_hash || '',
+      signature.timestamp_token || '',
+    )
+      ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID
+      : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID;
+  }
+
+  private getPublicVerificationMessage(
+    status: SignatureTimestampVerificationStatus,
+  ): string {
+    switch (status) {
+      case SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID:
+        return 'Assinatura validada com sucesso.';
+      case SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.LEGACY_KEY_UNAVAILABLE:
+        return 'Assinatura localizada; verificação histórica indisponível.';
+      case SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.NOT_TOKENIZED:
+        return 'Assinatura localizada sem token de verificação.';
+      default:
+        return 'Assinatura localizada, mas inválida.';
+    }
   }
 
   private resolveEvidenceKind(type: string, signatureData: string): string {

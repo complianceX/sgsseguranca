@@ -165,6 +165,8 @@ type RdoOperationalSignature = {
   signature_hash: string;
   timestamp_token: string;
   timestamp_authority: string;
+  timestamp_token_version: string;
+  signature_key_id: string;
   canonical_payload_version: 1;
 };
 
@@ -1564,6 +1566,8 @@ export class RdosService {
       signature_hash: generatedStamp.signature_hash,
       timestamp_token: generatedStamp.timestamp_token,
       timestamp_authority: generatedStamp.timestamp_authority,
+      timestamp_token_version: generatedStamp.timestamp_token_version,
+      signature_key_id: generatedStamp.signature_key_id,
       canonical_payload_version: 1,
     };
 
@@ -1596,6 +1600,8 @@ export class RdosService {
               documentHash: signaturePayload.document_hash,
               signatureHash: signaturePayload.signature_hash,
               timestampAuthority: signaturePayload.timestamp_authority,
+              timestampTokenVersion: signaturePayload.timestamp_token_version,
+              signatureKeyId: signaturePayload.signature_key_id,
             },
           },
           { manager },

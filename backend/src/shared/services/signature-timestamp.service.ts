@@ -1,23 +1,60 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import {
+  SIGNATURE_TIMESTAMP_AUTHORITY,
+  SIGNATURE_TIMESTAMP_LEGACY_KEY_ID,
+  SIGNATURE_TIMESTAMP_TOKEN_VERSION,
+} from './signature-timestamp-keyring.contract';
+import { SignatureTimestampKeyringService } from './signature-timestamp-keyring.service';
 
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const HMAC_HEX_PATTERN = SHA256_HEX_PATTERN;
 const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+export const SIGNATURE_TIMESTAMP_VERIFICATION_STATUS = {
+  VALID: 'VALID',
+  INVALID: 'INVALID',
+  LEGACY_KEY_UNAVAILABLE: 'LEGACY_KEY_UNAVAILABLE',
+  NOT_TOKENIZED: 'NOT_TOKENIZED',
+  NOT_FOUND: 'NOT_FOUND',
+} as const;
+
+export type SignatureTimestampVerificationStatus =
+  (typeof SIGNATURE_TIMESTAMP_VERIFICATION_STATUS)[keyof typeof SIGNATURE_TIMESTAMP_VERIFICATION_STATUS];
+
+export type SignatureTimestampVerificationMetadata = {
+  signature_key_id?: string | null;
+  timestamp_token_version?: string | null;
+  timestamp_authority?: string | null;
+};
 
 export interface TimestampStamp {
   signature_hash: string;
   timestamp_token: string;
   timestamp_issued_at: string;
   timestamp_authority: string;
+  timestamp_token_version: string;
+  signature_key_id: string;
+}
+
+export interface TimestampVerificationResult {
+  status: SignatureTimestampVerificationStatus;
 }
 
 @Injectable()
 export class SignatureTimestampService {
-  private static readonly AUTHORITY = 'internal-hmac-v1';
+  private readonly fallbackKeyring: SignatureTimestampKeyringService;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional()
+    private readonly injectedKeyring?: SignatureTimestampKeyringService,
+  ) {
+    this.fallbackKeyring = new SignatureTimestampKeyringService(
+      this.configService,
+    );
+  }
 
   issueFromRaw(rawPayload: string): TimestampStamp {
     if (typeof rawPayload !== 'string') {
@@ -32,28 +69,68 @@ export class SignatureTimestampService {
     this.assertCanonicalHash(signatureHash);
     const timestampIssuedAt = issuedAt ?? new Date().toISOString();
     this.assertCanonicalTimestamp(timestampIssuedAt);
-    const tokenSignature = this.sign(signatureHash, timestampIssuedAt);
+
+    const activeKey = this.getKeyring().getActiveSigningKey();
+    if (!activeKey) {
+      throw new Error('Missing SIGNATURE_TIMESTAMP_SECRET');
+    }
+
+    const tokenSignature = this.sign(
+      signatureHash,
+      timestampIssuedAt,
+      activeKey.secret,
+    );
     return {
       signature_hash: signatureHash,
       timestamp_token: `${timestampIssuedAt}.${tokenSignature}`,
       timestamp_issued_at: timestampIssuedAt,
-      timestamp_authority: SignatureTimestampService.AUTHORITY,
+      timestamp_authority: SIGNATURE_TIMESTAMP_AUTHORITY,
+      timestamp_token_version: SIGNATURE_TIMESTAMP_TOKEN_VERSION,
+      signature_key_id: activeKey.keyId,
     };
   }
 
   verify(signatureHash: string, timestampToken: string): boolean {
+    return (
+      this.verifyDetailed(signatureHash, timestampToken).status ===
+      SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID
+    );
+  }
+
+  verifyDetailed(
+    signatureHash: string,
+    timestampToken: string | null | undefined,
+    metadata: SignatureTimestampVerificationMetadata = {},
+  ): TimestampVerificationResult {
+    if (
+      timestampToken === null ||
+      timestampToken === undefined ||
+      timestampToken === ''
+    ) {
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.NOT_TOKENIZED };
+    }
     if (
       !this.isCanonicalHash(signatureHash) ||
       typeof timestampToken !== 'string'
     ) {
-      return false;
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
+    }
+    if (
+      metadata.timestamp_token_version &&
+      metadata.timestamp_token_version !== SIGNATURE_TIMESTAMP_TOKEN_VERSION
+    ) {
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
+    }
+    if (
+      metadata.timestamp_authority &&
+      metadata.timestamp_authority !== SIGNATURE_TIMESTAMP_AUTHORITY
+    ) {
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
 
-    // O timestamp ISO contém um ponto nos milissegundos (ex.: `.000Z`).
-    // O separador do HMAC é o último ponto do envelope.
     const dotIndex = timestampToken.lastIndexOf('.');
     if (dotIndex <= 0 || dotIndex >= timestampToken.length - 1) {
-      return false;
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
 
     const timestampIssuedAt = timestampToken.slice(0, dotIndex);
@@ -62,19 +139,40 @@ export class SignatureTimestampService {
       !this.isCanonicalTimestamp(timestampIssuedAt) ||
       !HMAC_HEX_PATTERN.test(tokenSignature)
     ) {
-      return false;
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
+    }
+
+    const keyId =
+      metadata.signature_key_id?.trim() || SIGNATURE_TIMESTAMP_LEGACY_KEY_ID;
+    const verificationKey = this.getKeyring().getVerificationKey(keyId);
+
+    if (!verificationKey) {
+      return {
+        status:
+          keyId === SIGNATURE_TIMESTAMP_LEGACY_KEY_ID
+            ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.LEGACY_KEY_UNAVAILABLE
+            : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
+      };
     }
 
     try {
-      const expected = this.sign(signatureHash, timestampIssuedAt);
+      const expected = this.sign(
+        signatureHash,
+        timestampIssuedAt,
+        verificationKey.secret,
+      );
       const actualBuffer = Buffer.from(tokenSignature, 'utf8');
       const expectedBuffer = Buffer.from(expected, 'utf8');
       if (actualBuffer.length !== expectedBuffer.length) {
-        return false;
+        return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
       }
-      return timingSafeEqual(actualBuffer, expectedBuffer);
+      return {
+        status: timingSafeEqual(actualBuffer, expectedBuffer)
+          ? SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.VALID
+          : SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID,
+      };
     } catch {
-      return false;
+      return { status: SIGNATURE_TIMESTAMP_VERIFICATION_STATUS.INVALID };
     }
   }
 
@@ -107,25 +205,17 @@ export class SignatureTimestampService {
     }
   }
 
-  private sign(signatureHash: string, timestampIssuedAt: string): string {
-    return createHmac('sha256', this.getSecret())
+  private sign(
+    signatureHash: string,
+    timestampIssuedAt: string,
+    secret: string,
+  ): string {
+    return createHmac('sha256', secret)
       .update(`${signatureHash}.${timestampIssuedAt}`)
       .digest('hex');
   }
 
-  private getSecret(): string {
-    const secret = this.readSecret('SIGNATURE_TIMESTAMP_SECRET');
-    if (!secret) {
-      throw new Error('Missing SIGNATURE_TIMESTAMP_SECRET');
-    }
-    if (Buffer.byteLength(secret, 'utf8') < 32) {
-      throw new Error('Signature timestamp secret is too short');
-    }
-    return secret;
-  }
-
-  private readSecret(key: string): string | undefined {
-    const value = this.configService.get<unknown>(key);
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+  private getKeyring(): SignatureTimestampKeyringService {
+    return this.injectedKeyring ?? this.fallbackKeyring;
   }
 }

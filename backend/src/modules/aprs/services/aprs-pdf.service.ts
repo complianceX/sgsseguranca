@@ -783,6 +783,11 @@ export class AprsPdfService {
               ? `<span>Autoridade: ${this.escapeHtml(signature.timestamp_authority)}</span>`
               : ''
           }
+          ${
+            signature?.timestamp_token_version
+              ? `<span>Versão do carimbo: ${this.escapeHtml(signature.timestamp_token_version)}</span>`
+              : ''
+          }
         </div>
       `;
     };

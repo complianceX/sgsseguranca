@@ -1,5 +1,6 @@
 import { URL } from 'node:url';
 import { createTrustedProxyPolicy } from '../utils/request-ip.util';
+import { parseVerificationOnlyKeys } from '../services/signature-timestamp-keyring.contract';
 
 export type EnvironmentComponent =
   'api' | 'worker' | 'migration' | 'script' | 'loadtest';
@@ -508,6 +509,9 @@ export const KNOWN_SGS_ENV_KEYS = new Set<string>([
   'SENTRY_TRACES_SAMPLE_RATE',
   'SGS_TEMP_DIR',
   'SIGNATURE_TIMESTAMP_SECRET',
+  'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID',
+  'SIGNATURE_TIMESTAMP_ACTIVE_SECRET',
+  'SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON',
   'SIGNATURE_VERIFY_THROTTLE_LIMIT',
   'SIGNATURE_VERIFY_THROTTLE_TTL',
   'SMOKE_MAIL_RECIPIENT',
@@ -1059,10 +1063,73 @@ export function validateCommonEnvironment(
   if (isNonLocal && options.component === 'api') {
     assertSecret(env, 'JWT_SECRET', { required: true, minLength: 64 });
     assertSecret(env, 'JWT_REFRESH_SECRET', { required: true, minLength: 64 });
-    assertSecret(env, 'SIGNATURE_TIMESTAMP_SECRET', {
-      required: true,
-      minLength: 32,
-    });
+    const activeSignatureKeyId = readString(
+      env,
+      'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID',
+    );
+    const activeSignatureSecret = readString(
+      env,
+      'SIGNATURE_TIMESTAMP_ACTIVE_SECRET',
+    );
+    if (Boolean(activeSignatureKeyId) !== Boolean(activeSignatureSecret)) {
+      throw new EnvironmentContractError(
+        'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID and SIGNATURE_TIMESTAMP_ACTIVE_SECRET: REQUIRED_TOGETHER',
+      );
+    }
+    if (activeSignatureKeyId) {
+      if (
+        activeSignatureKeyId === 'legacy-v1' ||
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(activeSignatureKeyId)
+      ) {
+        throw new EnvironmentContractError(
+          'SIGNATURE_TIMESTAMP_ACTIVE_KEY_ID: INVALID_KEY_ID',
+        );
+      }
+      assertSecret(env, 'SIGNATURE_TIMESTAMP_ACTIVE_SECRET', {
+        required: true,
+        minLength: 32,
+      });
+    }
+
+    const legacySignatureSecret = readString(env, 'SIGNATURE_TIMESTAMP_SECRET');
+    if (!legacySignatureSecret && !activeSignatureSecret) {
+      throw new EnvironmentContractError(
+        'SIGNATURE_TIMESTAMP_SECRET: REQUIRED',
+      );
+    }
+    if (legacySignatureSecret) {
+      assertSecret(env, 'SIGNATURE_TIMESTAMP_SECRET', { minLength: 32 });
+    }
+    if (
+      activeSignatureSecret &&
+      legacySignatureSecret &&
+      activeSignatureSecret === legacySignatureSecret
+    ) {
+      throw new EnvironmentContractError(
+        'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: MUST_DIFFER_FROM_LEGACY_SECRET',
+      );
+    }
+    try {
+      parseVerificationOnlyKeys(
+        readString(env, 'SIGNATURE_TIMESTAMP_VERIFICATION_KEYS_JSON') ||
+          undefined,
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new EnvironmentContractError(error.message);
+      }
+      throw error;
+    }
+
+    if (
+      activeSignatureSecret &&
+      (activeSignatureSecret === readString(env, 'JWT_SECRET') ||
+        activeSignatureSecret === readString(env, 'JWT_REFRESH_SECRET'))
+    ) {
+      throw new EnvironmentContractError(
+        'SIGNATURE_TIMESTAMP_ACTIVE_SECRET: MUST_DIFFER_FROM_APPLICATION_SECRETS',
+      );
+    }
 
     if (
       readString(env, 'TRUSTED_PROXY_MODE').toLowerCase() === 'authenticated'
@@ -1075,7 +1142,8 @@ export function validateCommonEnvironment(
       if (
         proxyAuthSecret === readString(env, 'JWT_SECRET') ||
         proxyAuthSecret === readString(env, 'JWT_REFRESH_SECRET') ||
-        proxyAuthSecret === readString(env, 'SIGNATURE_TIMESTAMP_SECRET')
+        proxyAuthSecret === legacySignatureSecret ||
+        proxyAuthSecret === activeSignatureSecret
       ) {
         throw new EnvironmentContractError(
           'TRUSTED_PROXY_AUTH_SECRET: MUST_DIFFER_FROM_APPLICATION_SECRETS',
@@ -1089,18 +1157,12 @@ export function validateCommonEnvironment(
         'JWT_REFRESH_SECRET: MUST_DIFFER_FROM_JWT_SECRET',
       );
     }
-    if (
-      readString(env, 'SIGNATURE_TIMESTAMP_SECRET') ===
-      readString(env, 'JWT_SECRET')
-    ) {
+    if (legacySignatureSecret === readString(env, 'JWT_SECRET')) {
       throw new EnvironmentContractError(
         'SIGNATURE_TIMESTAMP_SECRET: MUST_DIFFER_FROM_JWT_SECRET',
       );
     }
-    if (
-      readString(env, 'SIGNATURE_TIMESTAMP_SECRET') ===
-      readString(env, 'JWT_REFRESH_SECRET')
-    ) {
+    if (legacySignatureSecret === readString(env, 'JWT_REFRESH_SECRET')) {
       throw new EnvironmentContractError(
         'SIGNATURE_TIMESTAMP_SECRET: MUST_DIFFER_FROM_JWT_REFRESH_SECRET',
       );

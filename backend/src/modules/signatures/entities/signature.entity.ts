@@ -66,6 +66,12 @@ export class Signature {
   @Column({ nullable: true })
   timestamp_authority?: string;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  timestamp_token_version?: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  signature_key_id?: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   signed_at?: Date;
 

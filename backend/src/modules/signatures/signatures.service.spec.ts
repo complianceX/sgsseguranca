@@ -1104,6 +1104,7 @@ describe('SignaturesService', () => {
 
     await expect(service.verifyByHashPublic('a'.repeat(64))).resolves.toEqual({
       valid: true,
+      verification_state: 'VALID',
       message: 'Assinatura validada com sucesso.',
       signature: {
         hash: 'a'.repeat(64),
