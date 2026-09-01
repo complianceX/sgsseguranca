@@ -59,9 +59,7 @@ describe('resolveDrReplicaStorageConfig', () => {
   it('aceita réplica completa e independente com boolean já convertido pelo ConfigService', () => {
     expect(
       resolveDrReplicaStorageConfig(
-        reader(
-          completeReplica({ DR_STORAGE_REPLICA_FORCE_PATH_STYLE: false }),
-        ),
+        reader(completeReplica({ DR_STORAGE_REPLICA_FORCE_PATH_STYLE: false })),
       ),
     ).toEqual({
       configured: true,
@@ -158,7 +156,9 @@ describe('resolveDrReplicaStorageConfig', () => {
   it('falha quando o bucket de DR reutiliza o bucket primário', () => {
     expect(() =>
       resolveDrReplicaStorageConfig(
-        reader(completeReplica({ DR_STORAGE_REPLICA_BUCKET: 'primary-bucket' })),
+        reader(
+          completeReplica({ DR_STORAGE_REPLICA_BUCKET: 'primary-bucket' }),
+        ),
       ),
     ).toThrow('replica bucket must be independent');
   });
@@ -180,7 +180,9 @@ describe('resolveDrReplicaStorageConfig', () => {
     expect(() =>
       resolveDrReplicaStorageConfig(
         reader(
-          completeReplica({ DR_STORAGE_REPLICA_ACCESS_KEY_ID: 'primary-access' }),
+          completeReplica({
+            DR_STORAGE_REPLICA_ACCESS_KEY_ID: 'primary-access',
+          }),
         ),
       ),
     ).toThrow('replica access key must be independent');
