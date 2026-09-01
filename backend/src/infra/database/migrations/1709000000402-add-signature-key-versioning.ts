@@ -136,7 +136,7 @@ async function assertPrerequisites(queryRunner: QueryRunner): Promise<void> {
   }
 }
 
-async function readExecutorMembership(
+async function readExecutorMemberships(
   queryRunner: QueryRunner,
 ): Promise<RoleMembershipRow[]> {
   return queryRows<RoleMembershipRow>(
@@ -157,16 +157,22 @@ async function readExecutorMembership(
   );
 }
 
-function assertMembershipPreflight(
+function captureExecutorControlledMembership(
   memberships: RoleMembershipRow[],
   currentUser: string,
 ): RoleMembershipRow | undefined {
-  if (memberships.length > 1) {
+  const membershipsByExecutor = memberships.filter(
+    (membership) => membership.grantor === currentUser,
+  );
+
+  if (membershipsByExecutor.length > 1) {
     throw new Error(
       '0402 found multiple executor grants for sgs_function_owner',
     );
   }
-  if (memberships.some((membership) => booleanValue(membership.set_option))) {
+  if (
+    memberships.some((membership) => booleanValue(membership.set_option))
+  ) {
     throw new Error(
       '0402 found a pre-existing SET-capable membership for sgs_function_owner',
     );
@@ -178,24 +184,26 @@ function assertMembershipPreflight(
       '0402 found a pre-existing INHERIT membership for sgs_function_owner',
     );
   }
-  if (memberships[0] && memberships[0].grantor !== currentUser) {
-    throw new Error(
-      '0402 cannot safely modify executor membership granted by another role',
-    );
-  }
-  return memberships[0];
+
+  // PostgreSQL 17 can keep an automatic membership whose grantor is another
+  // role (for example the bootstrap/provider role). That row is valid state
+  // and must remain untouched. Only the executor-controlled grant is mutated
+  // and later restored, mirroring the proven 0392 ownership-transfer pattern.
+  return membershipsByExecutor[0];
 }
 
 async function establishTemporaryMembership(
   queryRunner: QueryRunner,
   currentUser: string,
 ): Promise<void> {
+  // Deliberately omit GRANTED BY. PostgreSQL 17 chooses the grantor the
+  // executor can legally use; forcing one can itself fail under CREATEROLE.
   await queryRunner.query(`
     GRANT ${FUNCTION_OWNER} TO CURRENT_USER
       WITH SET TRUE, INHERIT FALSE
   `);
 
-  const memberships = await readExecutorMembership(queryRunner);
+  const memberships = await readExecutorMemberships(queryRunner);
   if (
     !memberships.some(
       (membership) =>
@@ -208,12 +216,15 @@ async function establishTemporaryMembership(
   }
 }
 
-async function restoreMembership(
+async function restoreExecutorMembership(
   queryRunner: QueryRunner,
   previousMembership: RoleMembershipRow | undefined,
 ): Promise<void> {
   if (!previousMembership) {
-    await queryRunner.query(`REVOKE ${FUNCTION_OWNER} FROM CURRENT_USER`);
+    await queryRunner.query(`
+      REVOKE ${FUNCTION_OWNER}
+        FROM CURRENT_USER
+    `);
     return;
   }
 
@@ -240,19 +251,11 @@ async function assertFunctionContract(queryRunner: QueryRunner): Promise<void> {
             WHERE acl.grantee = 0
               AND acl.privilege_type = 'EXECUTE'
           ) AS public_execute,
-          EXISTS (
-            SELECT 1
-            FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
-            JOIN pg_roles r ON r.oid = acl.grantee
-            WHERE r.rolname = 'sgs_admin'
-              AND acl.privilege_type = 'EXECUTE'
+          has_function_privilege(
+            'sgs_admin', '${FUNCTION_SIGNATURE}', 'EXECUTE'
           ) AS admin_execute,
-          EXISTS (
-            SELECT 1
-            FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
-            JOIN pg_roles r ON r.oid = acl.grantee
-            WHERE r.rolname = 'sgs_app'
-              AND acl.privilege_type = 'EXECUTE'
+          has_function_privilege(
+            'sgs_app', '${FUNCTION_SIGNATURE}', 'EXECUTE'
           ) AS app_execute,
           has_table_privilege(
             '${FUNCTION_OWNER}', 'public.signatures', 'SELECT'
@@ -278,16 +281,11 @@ async function assertFunctionContract(queryRunner: QueryRunner): Promise<void> {
 }
 
 /**
- * Adiciona somente metadados não secretos para selecionar a chave de
- * verificação. Tokens e linhas históricas permanecem inalterados e NULL
- * significa que o registro depende do contrato legado v1.
+ * Adds non-secret key/version metadata without rewriting historical tokens.
  *
- * A função versionada é separada da função pública histórica para que clientes
- * SQL existentes mantenham o mesmo contrato durante a adoção coordenada.
- *
- * PostgreSQL 17 exige que o executor consiga SET ROLE para o novo owner e que
- * o owner tenha CREATE no schema durante a transferência. Essas capacidades
- * são concedidas apenas temporariamente e removidas antes do pós-check.
+ * PostgreSQL 17 requires the migration executor to be able to SET ROLE to the
+ * target function owner during ownership transfer. The capability and schema
+ * CREATE privilege are temporary, fail-closed, and restored before commit.
  */
 export class AddSignatureKeyVersioning1709000000402 implements MigrationInterface {
   name = 'AddSignatureKeyVersioning1709000000402';
@@ -295,8 +293,9 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
   public async up(queryRunner: QueryRunner): Promise<void> {
     const executor = await assertMigrationExecutor(queryRunner);
     await assertPrerequisites(queryRunner);
-    const previousMembership = assertMembershipPreflight(
-      await readExecutorMembership(queryRunner),
+
+    const previousExecutorMembership = captureExecutorControlledMembership(
+      await readExecutorMemberships(queryRunner),
       executor.currentUser,
     );
 
@@ -314,6 +313,20 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
           TO ${FUNCTION_OWNER}
       `);
       temporarySchemaCreate = true;
+
+      const schemaAfterGrant = (
+        await queryRows<{ has_create: boolean }>(
+          queryRunner,
+          `
+            SELECT has_schema_privilege(
+              '${FUNCTION_OWNER}', 'public', 'CREATE'
+            ) AS has_create
+          `,
+        )
+      )[0];
+      if (!booleanValue(schemaAfterGrant?.has_create)) {
+        throw new Error('0402 could not establish temporary schema CREATE');
+      }
 
       await queryRunner.query(`
         ALTER TABLE public."signatures"
@@ -362,6 +375,8 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
         $$
       `);
 
+      // Revoke the default PUBLIC grant while the migration executor still
+      // owns the freshly created function, before transferring ownership.
       await queryRunner.query(`
         REVOKE EXECUTE ON FUNCTION
           ${FUNCTION_SIGNATURE}
@@ -384,7 +399,10 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
       temporarySchemaCreate = false;
 
       if (temporaryMembership) {
-        await restoreMembership(queryRunner, previousMembership);
+        await restoreExecutorMembership(
+          queryRunner,
+          previousExecutorMembership,
+        );
         temporaryMembership = false;
       }
 
@@ -409,7 +427,10 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
 
       if (temporaryMembership) {
         try {
-          await restoreMembership(queryRunner, previousMembership);
+          await restoreExecutorMembership(
+            queryRunner,
+            previousExecutorMembership,
+          );
         } catch (cleanupError) {
           cleanupErrors.push(
             cleanupError instanceof Error
@@ -433,11 +454,11 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const executor = await assertMigrationExecutor(queryRunner);
-    const memberships = await readExecutorMembership(queryRunner);
-    const previousMembership = assertMembershipPreflight(
-      memberships,
+    const previousExecutorMembership = captureExecutorControlledMembership(
+      await readExecutorMemberships(queryRunner),
       executor.currentUser,
     );
+
     let temporaryMembership = false;
     let roleWasSet = false;
 
@@ -462,6 +483,7 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
           temporaryMembership = true;
           await establishTemporaryMembership(queryRunner, executor.currentUser);
         }
+
         await queryRunner.query(`SET ROLE ${FUNCTION_OWNER}`);
         roleWasSet = true;
         await queryRunner.query(`DROP FUNCTION ${FUNCTION_SIGNATURE}`);
@@ -469,7 +491,10 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
         roleWasSet = false;
 
         if (temporaryMembership) {
-          await restoreMembership(queryRunner, previousMembership);
+          await restoreExecutorMembership(
+            queryRunner,
+            previousExecutorMembership,
+          );
           temporaryMembership = false;
         }
       }
@@ -484,12 +509,15 @@ export class AddSignatureKeyVersioning1709000000402 implements MigrationInterfac
         try {
           await queryRunner.query('RESET ROLE');
         } catch {
-          // TypeORM rollback remains the final safety boundary.
+          // Transaction rollback remains the final safety boundary.
         }
       }
       if (temporaryMembership) {
         try {
-          await restoreMembership(queryRunner, previousMembership);
+          await restoreExecutorMembership(
+            queryRunner,
+            previousExecutorMembership,
+          );
         } catch {
           // Preserve the original rollback error.
         }
