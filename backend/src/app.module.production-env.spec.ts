@@ -1,4 +1,4 @@
-﻿import type { ObjectSchema, ValidationResult } from 'joi';
+import type { ObjectSchema, ValidationResult } from 'joi';
 
 describe('AppModule production environment validation', () => {
   const postgresScheme = 'postgresql://';
@@ -20,12 +20,14 @@ describe('AppModule production environment validation', () => {
     AWS_BUCKET_NAME: 'sgs-01',
     AWS_ENDPOINT:
       'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com',
-    AWS_ACCESS_KEY_ID: 'test-access-key',
-    AWS_SECRET_ACCESS_KEY: 'test-secret',
+    AWS_ACCESS_KEY_ID: 'primary-test-access-key',
+    AWS_SECRET_ACCESS_KEY: 'primary-test-secret',
     S3_FORCE_PATH_STYLE: true,
     DR_STORAGE_REPLICA_BUCKET: 'sgs-02',
     DR_STORAGE_REPLICA_ENDPOINT:
       'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com',
+    DR_STORAGE_REPLICA_ACCESS_KEY_ID: 'dr-test-access-key',
+    DR_STORAGE_REPLICA_SECRET_ACCESS_KEY: 'dr-test-secret',
     DR_STORAGE_REPLICA_FORCE_PATH_STYLE: true,
     // Campos de segurança obrigatórios em produção
     CSRF_TOKEN_SECRET: 'a'.repeat(32),
@@ -42,9 +44,9 @@ describe('AppModule production environment validation', () => {
   };
 
   const originalEnv = process.env;
+  let validationSchema: ObjectSchema;
 
-  beforeEach(() => {
-    jest.resetModules();
+  const applyProductionEnvironment = () => {
     process.env = {
       ...originalEnv,
       ...Object.fromEntries(
@@ -54,25 +56,35 @@ describe('AppModule production environment validation', () => {
         ]),
       ),
     };
+  };
+
+  beforeAll(async () => {
+    // Importar AppModule repetidamente após jest.resetModules() reinstancia
+    // dependências que registram listeners em `process`. O schema é imutável
+    // para estes testes; carregá-lo uma única vez testa o mesmo contrato sem
+    // produzir um falso vazamento de listeners no harness.
+    applyProductionEnvironment();
+    const appModule = (await import('./app.module')) as {
+      validationSchema: ObjectSchema;
+    };
+    validationSchema = appModule.validationSchema;
+    process.env = originalEnv;
+  });
+
+  beforeEach(() => {
+    applyProductionEnvironment();
   });
 
   afterEach(() => {
     process.env = originalEnv;
-    jest.resetModules();
   });
 
-  async function loadValidationSchema(): Promise<ObjectSchema> {
-    // AppModule monta ConfigModule no import; carregamos depois de preparar env
-    // para que a validação global do módulo também receba valores válidos.
-    const appModule = (await import('./app.module')) as {
-      validationSchema: ObjectSchema;
-    };
-    return appModule.validationSchema;
-  }
+  afterAll(() => {
+    process.env = originalEnv;
+  });
 
   async function validate(values: Record<string, unknown>) {
-    const schema = await loadValidationSchema();
-    return schema.validate(values, {
+    return validationSchema.validate(values, {
       abortEarly: false,
       allowUnknown: true,
     });
@@ -84,10 +96,21 @@ describe('AppModule production environment validation', () => {
     return context?.message || result.error?.message || '';
   }
 
-  it('aceita configuração R2 governada com réplica DR usando as credenciais primárias', async () => {
+  it('aceita configuração R2 governada com réplica DR e credenciais independentes', async () => {
     const result = await validate(productionEnv);
 
     expect(result.error).toBeUndefined();
+  });
+
+  it('reutiliza o schema sem acumular listeners de exit no processo', async () => {
+    const listenersBefore = process.listenerCount('exit');
+
+    for (let index = 0; index < 20; index += 1) {
+      const result = await validate(productionEnv);
+      expect(result.error).toBeUndefined();
+    }
+
+    expect(process.listenerCount('exit')).toBe(listenersBefore);
   });
 
   it('bloqueia typo do namespace SGS sem rejeitar o ambiente do container', async () => {
