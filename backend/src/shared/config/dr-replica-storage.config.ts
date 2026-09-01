@@ -32,13 +32,14 @@ export function resolveDrReplicaStorageConfig(
     normalize(read('DR_STORAGE_REPLICA_FORCE_PATH_STYLE')),
   );
 
+  // Region/force-path-style may be harmless defaults in an environment.
+  // A replica is considered intentionally configured only when at least one
+  // material endpoint/bucket/credential field is present.
   const hasReplicaConfiguration = [
     bucketName,
     endpoint,
     accessKeyId,
     secretAccessKey,
-    normalize(read('DR_STORAGE_REPLICA_REGION')),
-    normalize(read('DR_STORAGE_REPLICA_FORCE_PATH_STYLE')),
   ].some((value) => value.length > 0);
 
   if (!hasReplicaConfiguration) {
