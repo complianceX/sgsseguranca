@@ -188,3 +188,44 @@ overrides mínimos eliminaram as vulnerabilidades de dependência observadas.
 Não há P0/P1 aberto. Permanece um P2 de deduplicação atômica de notificações
 que exige schema/constraint futura; migrations continuam intocadas. Este
 resultado é de QA local/source e não fecha o cutover ou release de produção.
+
+## Addendum — branch, PR e CI final
+
+**Data:** 02/09/2026
+
+O commit focado foi publicado na branch empilhada sobre a PR #342 e a PR #343
+foi aberta contra a base `product/wave-3-operational-records-documents`. O
+merge permanece explicitamente proibido nesta execução.
+
+```text
+Wave 4 implementation commit: eb4352bf06b0b4c184bb2bb31fdc9a2dd76846f4
+Push: YES — product/wave-4-cross-cutting-platform-hardening
+PR: #343 — https://github.com/wandersongandra/sgsseguranca/pull/343
+PR state: OPEN
+PR draft: NO
+PR mergeable: YES
+PR base: product/wave-3-operational-records-documents
+PR head at CI verification: eb4352bf06b0b4c184bb2bb31fdc9a2dd76846f4
+Unexpected commits: 0
+CI: PASS — 9/9 reported checks passed
+CI pending: 0
+CI failed: 0
+Required backend/frontend/E2E/DR/PostgreSQL/security checks: PASS
+CodeRabbit: PASS — review skipped because reviews are disabled for this base
+P0: 0
+P1: 0
+P2: 1 — notification durable deduplication requires future schema change
+Storage DR: OUT OF SCOPE / STILL BLOCKED
+Ready for Wave 4 review: YES
+Ready for production: NO
+Merge: NO
+Production access: NO
+Production changed: NO
+Production migration: 0
+Production deploy: NO
+```
+
+O CI verde corresponde exatamente ao HEAD publicado acima. O PR continua
+aberto para revisão; a Wave 4 está pronta para revisão com um único follow-up
+P2 documentado. Migrations 0385–0402 permanecem inalteradas e nenhum gate de
+cutover, Storage DR ou produção foi executado.
