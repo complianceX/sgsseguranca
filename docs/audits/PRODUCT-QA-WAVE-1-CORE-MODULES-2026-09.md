@@ -159,9 +159,12 @@ Wave source commit: e7681de3baf6d8d5f1392b51d31b5bb3477ae93
 Focused paths in source commit: 16
 Unexpected staged paths: 0
 Pre-existing dirty files staged: 0
-Commit: CREATED
-Push: PENDING — authorized by task
-Stacked PR: PENDING — base PR #339 branch
+Documentation commit before this update: ac5aa393e44f19cc3b83b93fd0537f04b7e5a1fb
+Push: YES — branch published normally, no force push
+Stacked PR: OPEN — #340, base PR #339 branch
+PR draft: NO
+PR mergeable: YES — observed before this documentation update
+PR checks: RUNNING — pending checks observed before this documentation update
 Merge: NO
 ```
 
@@ -187,9 +190,11 @@ New Critical: 0
 New High: 0
 Open Wave P0: 0
 Open Wave P1: 0
-Commit: e7681de3baf6d8d5f1392b51d31b5bb3477ae93
-Push: PENDING
-Stacked PR: PENDING
+Source commit: e7681de3baf6d8d5f1392b51d31b5bb3477ae93
+Documentation: COMMITTED — final status update follows in this branch
+Push: YES
+Stacked PR: OPEN — #340
+PR checks: RUNNING at status capture
 Merge: NO
 Deploy: NO
 Production migration: 0
