@@ -12,8 +12,12 @@ acessibilidade, responsividade e preparação de release.
 ## Veredito
 
 ```text
-FRONTEND↔BACKEND INTEGRATION GATE: PASS LIMITED
+FRONTEND↔BACKEND INTEGRATION GATE: PASS WITH DEFERRED LOW
 LOCAL SOURCE/CONTRACT VALIDATION: PASS
+REMOTE CI FOR CURRENT PR HEAD: PASS
+LOCAL FRONTEND BUILD: BLOCKED_BY_LOCAL_MEMORY
+REMOTE FRONTEND CI BUILD: PASS
+EFFECTIVE PR BUILD GATE: PASS
 PRODUCTION RUNTIME READINESS: BLOCKED_BY_PRODUCTION_ACCESS
 TEST-VPS RUNTIME: NOT RUN — no executable test infrastructure path in this session
 READY FOR PRODUCTION: NO
@@ -25,13 +29,18 @@ QA básico em navegador real. Duas correções focadas de integração foram fei
 nesta branch: eliminação de uma corrida de estado tenant/site e eliminação do
 redirecionamento duplicado no logout por inatividade.
 
-O build do backend passou. O build Next compilou o bundle, mas o subprocesso
-de type-check interno do Next encerrou por OOM do runner; o `tsc --noEmit`
-executado isoladamente passou. Isso não é promovido como build frontend PASS.
+O build do backend passou. O build Next local compilou o bundle, mas o
+subprocesso de type-check interno do Next encerrou por OOM do runner; o
+`tsc --noEmit` executado isoladamente passou. Essa limitação local permanece
+registrada historicamente. O job `Frontend Lint/Test/Build` do CI remoto, no
+HEAD atual do PR, concluiu o build frontend com sucesso; portanto o gate de
+build efetivo do PR é PASS sem mascarar o OOM local.
 
 Não houve Postgres/Redis local ou VPS de teste disponível para executar o
-backend HTTP completo. Portanto, os controles de runtime, E2E autenticado,
-RLS live, storage real e release de produção permanecem não comprovados.
+backend HTTP completo nesta sessão. O CI remoto executou E2E crítico, DR
+restore e PostgreSQL 17 em ambientes isolados; isso não é prova de runtime
+live de produção. RLS de produção, storage real e release de produção
+permanecem não comprovados.
 
 ## Limites e preservação
 
@@ -57,7 +66,8 @@ código/configuração; `NOT RUN` = não executado nesta rodada.
 ```text
 origin/main: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
 HEAD inicial da branch: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
-Commits de auditoria: `91fbbd93`, `a6ac4c19`
+HEAD atual da branch: `64ceb8841382c665540cb36cb9cd88f459ffcb9b`
+Commits de auditoria: `91fbbd93`, `a6ac4c19`, `64ceb884`
 Branch: audit/frontend-backend-product-integration-release
 Frontend route/page files: 117
 Backend controller files: 66
@@ -165,8 +175,9 @@ foi reexecutado como prova de runtime nesta branch e não substitui E2E.
   de obra pertencente ao tenant anterior.
 - O cliente API mantém tratamento específico para erros de contexto de tenant
   e evita transformar falha de tenant em refresh/logout involuntário.
-- RLS, banco live, cache Redis e isolamento real entre tenants não foram
-  executados nesta sessão; permanecem `NOT RUN` para este gate.
+- RLS live de produção, banco live e cache Redis de produção não foram
+  executados nesta sessão. O CI remoto validou E2E/RLS em ambiente PostgreSQL
+  isolado; isso permanece distinto de `Production RLS Runtime: NOT RUN`.
 
 ### Datas, timezone e payloads
 
@@ -200,6 +211,7 @@ Viewport 320x568: scrollWidth=320, innerWidth=320 — sem overflow horizontal
 Inputs em viewport móvel: 16px — evita zoom automático iOS
 Backend API local: ausente — ERR_CONNECTION_REFUSED esperado e não mascarado
 Authenticated dashboard E2E: NOT RUN
+Backend critical authenticated E2E in isolated CI: PASS
 ```
 
 Foi verificada a presença de labels/nomes acessíveis, skip link, foco inicial
@@ -244,8 +256,8 @@ passaram.
 ### FE-LOW-002 — rate-limit de rotas auxiliares depende de IP encaminhado
 
 **Estado:** `OPEN / RECOMMENDATION`; nenhum fix cego aplicado.
-**Componentes:** `frontend/app/monitoring-tunnel/route.ts:43-53` e
-`frontend/app/api/keepalive/route.ts:135-143`.
+**Componentes:** `frontend/app/monitoring-tunnel/route.ts:22-25,55` e
+`frontend/app/api/keepalive/route.ts:70`.
 **Evidência:** os handlers usam o primeiro `x-forwarded-for` para a chave de
 rate-limit local. Sem um contrato de proxy confiável demonstrado na camada
 Next, um caller pode variar esse header e reduzir a efetividade do limite por
@@ -253,6 +265,13 @@ IP.
 **Impacto:** disponibilidade/abuso do tunnel ou keepalive; não foi promovido
 como bypass de autenticação. O keepalive exige Authorization/CRON_SECRET em
 produção e falha fechado quando a configuração está ausente.
+**Classificação solicitada:** o limite usa o primeiro `X-Forwarded-For`
+fornecido ao handler (`YES`). O monitoring tunnel não possui autenticação
+independente por ser uma rota de ingestão pública; o keepalive possui
+autenticação independente em produção por `CRON_SECRET` (`NO` para o tunnel,
+`YES` para o keepalive). Não é bypass de autenticação (`NO`). A correção sem
+contrato live da borda não é segura (`NO`); manter `OPEN-DEFERRED UNTIL EDGE
+CONTRACT`, severidade `LOW`.
 **Correção recomendada:** definir a autoridade de proxy na borda e passar um
 identificador de peer confiável, ou mover o limite para uma camada com
 identidade e estado apropriados. Não assumir CIDR/Cloudflare sem prova live.
@@ -277,7 +296,9 @@ Backend type-check: PASS
 Frontend tsc --noEmit (isolated): PASS
 Backend build: PASS
 Frontend Next compile: PASS — type-check phase not completed by runner OOM
-Frontend production build: BLOCKED — Next internal type-check OOM
+Frontend Local Production Build: BLOCKED_BY_LOCAL_MEMORY — Next internal type-check OOM
+Frontend Remote CI Build: PASS — `Build frontend` succeeded on current PR HEAD
+Effective PR Build Gate: PASS
 Frontend npm audit --omit=dev --audit-level=high: PASS — 0 vulnerabilities
 Backend npm audit --omit=dev --audit-level=high: PASS — 0 vulnerabilities
 Semgrep focused changed source: PASS — 0 findings
@@ -289,6 +310,23 @@ Browser QA local: PASS LIMITED
 Playwright authenticated E2E: NOT RUN
 PostgreSQL/Redis live integration: NOT RUN
 CodeQL local: NOT AVAILABLE
+```
+
+### Reconciliação do CI remoto no HEAD atual
+
+```text
+PR HEAD validated by CI: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+CI workflow: SUCCESS
+Backend Lint/Test/Build: SUCCESS
+Frontend Lint/Test/Build: SUCCESS — Build frontend SUCCESS
+Backend E2E Critical Flows: SUCCESS — isolated PostgreSQL/RLS environment
+Backend E2E DR Restore (Dedicated Postgres): SUCCESS
+PostgreSQL 17 Migration 0392 Integration: SUCCESS
+Security Scan: SUCCESS — CodeQL jobs, Semgrep, Gitleaks, Docker, SBOM and dependency checks
+Secret Guard: SUCCESS
+Required Checks: SUCCESS — 25/25 current checks
+CI Pending: 0
+CI Failed: 0
 ```
 
 O warning `MaxListenersExceededWarning` apareceu na suíte backend e não foi
@@ -308,6 +346,7 @@ Production changed: NO
 Production migration: 0
 Production deploy: NO
 Coolify/Traefik/firewall/DNS changed: NO
+Storage DR: OUT OF SCOPE / STILL BLOCKED
 Real tenant/customer data used: NO
 ```
 
@@ -320,10 +359,12 @@ infraestrutura comprovado, não com confiança em header arbitrário.
 
 ```text
 Repository: wandersongandra/sgsseguranca
-Frozen Production Release SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+Frozen Cutover Base SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
 Audit Branch: audit/frontend-backend-product-integration-release
-HEAD: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
-Frontend↔Backend Integration: PASS LIMITED
+Audit Branch Initial SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+Audit Branch Current SHA: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+Current PR HEAD: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+Frontend↔Backend Integration: PASS WITH DEFERRED LOW
 Static Contract Inventory: PASS LIMITED — source evidence only
 Frontend Full Regression: PASS — 155 suites / 878 tests passed
 Backend Full Regression: PASS — 314 suites / 2716 tests passed
@@ -332,15 +373,21 @@ Backend Type-check: PASS
 Frontend Lint: PASS
 Backend Lint: PASS
 Backend Build: PASS
-Frontend Build: BLOCKED_BY_RUNNER_OOM after successful compile
+Frontend Local Build: BLOCKED_BY_LOCAL_MEMORY after successful compile
+Frontend Remote CI Build: PASS
+Effective PR Build Gate: PASS
 Dependency Audit: PASS — frontend/backend 0 high or critical
 Semgrep: PASS focused scope
 Gitleaks: PASS source/config scope
 Browser QA: PASS LIMITED — public local routes
 Authenticated E2E: NOT RUN
-Postgres/Redis Runtime: NOT RUN
-RLS Live: NOT RUN
+Backend Critical E2E CI: PASS — isolated environment
+Database DR Restore CI: PASS — isolated dedicated PostgreSQL
+PostgreSQL 17 CI: PASS
+Postgres/Redis Local Runtime: NOT RUN
+Production RLS Runtime: NOT RUN
 Storage/B2 Runtime: NOT RUN
+Storage DR: OUT OF SCOPE / STILL BLOCKED
 Open Critical: 0
 Open High: 0
 Open Medium: 0
@@ -354,27 +401,214 @@ Production Final Readiness: NO — runtime and production gates pending
 Commit: CREATED — focused audit changes
 Push: YES — audit branch
 PR: OPEN — #339
+PR Title: fix(frontend): harden tenant state and session logout
+PR Title Accurate: YES
+Report Reconciled: YES
 Merge: NO
 Deploy: NO
 ```
 
 ## Próximos passos bloqueados
 
-1. Revisar os sete arquivos funcionais e os testes focados nesta branch.
-2. Reexecutar o build frontend em runner com memória suficiente; não alterar
-   `ignoreBuildErrors` para mascarar o OOM.
+1. Revisar o PR #339 e os sete arquivos funcionais com seus testes focados.
+2. Manter o OOM local registrado; o build remoto do HEAD atual já passou e é
+   a evidência autoritativa do gate de build do PR.
 3. Disponibilizar um backend isolado Postgres/Redis ou VPS de teste executável
-   e repetir E2E autenticado, contratos 401/403/409/422/429, tenant/RLS,
+   para repetir E2E frontend autenticado, contratos 401/403/409/422/429,
    upload, PDF, assinatura, restart e recovery.
-4. Triar `FE-LOW-002` com o owner da borda/proxy.
-5. Somente após revisão e autorização, criar commit focado e abrir PR. Merge,
-   cutover, migration e deploy permanecem fora desta auditoria.
+4. Triar `FE-LOW-002` com o owner da borda/proxy e mantê-lo deferido até o
+   contrato de proxy ser comprovado.
+5. Não mergear sem autorização separada. Storage DR só deve ser tratado
+   quando a VPS/Coolify e o mecanismo aprovado estiverem disponíveis.
 
-**Conclusão:** a integração fonte frontend↔backend está suficientemente
-validada para revisão de PR, com duas correções focadas cobertas por testes. O
-resultado não é uma autorização de release: o build frontend interno sofreu
-OOM, o backend HTTP integrado não foi executado nesta sessão, existe uma
-recomendação baixa sobre identidade de IP encaminhado e produção não foi
-acessada. O SHA de produção permaneceu intacto.
+**Conclusão:** a revisão final do PR #339 reconciliou a evidência local com o
+GitHub: a base congelada permaneceu intacta, o HEAD atual foi separado da base,
+os três commits são do escopo esperado, o CI remoto do HEAD passou e o build
+frontend remoto resolveu a limitação de memória local sem apagar seu registro.
+Os testes focados passaram, FE-MED-001 e FE-LOW-001 estão fechados nesta
+branch, e FE-LOW-002 permanece LOW/deferido até contrato da borda. O PR está
+pronto para decisão futura de merge, não para merge, deploy ou cutover.
+
+PARAR.
+
+---
+
+## Addendum — PR #339 final review e reconciliação do CI
+
+**Data da evidência:** 02/09/2026
+**Escopo:** revisão final do diff do PR, reconciliação com o GitHub e baseline
+de produto. Nenhuma auditoria ampla adicional, operação de produção ou
+configuração de Storage DR foi executada.
+
+### Estado autoritativo
+
+```text
+Repository: wandersongandra/sgsseguranca
+PR: #339
+PR State: OPEN
+PR Draft: NO
+PR Mergeable: YES
+Base Branch: main
+Frozen Cutover Base SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+PR Current HEAD: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+Audit Branch Initial SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+Audit Branch Current SHA: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+Commits: 3
+Changed Files: 8
+Additions: 530
+Deletions: 18
+Unexpected Commits: 0
+Unexpected Files: 0
+```
+
+Os três commits são os esperados para esta branch: correções tenant/site,
+correção do logout/callback React, testes de regressão e documentação da
+auditoria. A lista real do GitHub contém oito arquivos e não contém secrets,
+credenciais Backblaze ou arquivos de produção.
+
+### Revisão dos arquivos do PR
+
+```text
+frontend/src/lib/selectedTenantStore.ts: Expected YES; Security Relevant YES; Functional Change YES; Tests YES; Finding NONE
+frontend/src/lib/selectedTenantStore.test.ts: Expected YES; Security Relevant YES; Functional Change NO; Tests N/A; Finding NONE
+frontend/src/lib/siteStore.ts: Expected YES; Security Relevant YES; Functional Change YES; Tests YES; Finding NONE
+frontend/src/lib/siteStore.test.ts: Expected YES; Security Relevant YES; Functional Change NO; Tests N/A; Finding NONE
+frontend/src/state/AuthContext.tsx: Expected YES; Security Relevant YES; Functional Change YES; Tests YES; Finding NONE
+frontend/src/state/AuthContext.test.tsx: Expected YES; Security Relevant YES; Functional Change NO; Tests N/A; Finding NONE
+frontend/src/components/Sidebar.tsx: Expected YES; Security Relevant NO; Functional Change YES; Tests YES; Finding NONE
+docs/audits/FRONTEND-BACKEND-INTEGRATION-AUDIT-2026-09.md: Expected YES; Security Relevant YES; Functional Change NO; Tests N/A; Finding NONE
+```
+
+O versionamento monotônico invalida continuações antigas antes e depois do
+`await`; `set(B)` vence `set(A)` enfileirado quando necessário, e `clear()`
+impede a ressuscitação. `selectedTenantStore` importa `siteStore`, mas não há
+import inverso. O schema de `sessionStorage` continua validado e o acesso
+permanece protegido contra SSR.
+
+`clearAuthenticatedSession()` limpa token, sessão, refresh hint, caches,
+storage sensível, tenant e site antes do redirect. `logout()` mantém o
+comportamento padrão para callers existentes e aceita o caminho explícito do
+timer. O Sidebar usa callback explícito, portanto nenhum `MouseEvent` pode ser
+interpretado como caminho de redirect.
+
+### Reconciliação do CI remoto
+
+```text
+CI HEAD: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+CI: SUCCESS
+Backend Lint/Test/Build: SUCCESS
+  lint: SUCCESS
+  typecheck: SUCCESS
+  tests: SUCCESS
+  build: SUCCESS
+  migration validation: SUCCESS
+Frontend Lint/Test/Build: SUCCESS
+  dependency audit: SUCCESS
+  lint: SUCCESS
+  tests: SUCCESS
+  build: SUCCESS
+Backend E2E Critical Flows: SUCCESS — PostgreSQL/RLS isolado
+Backend E2E DR Restore (Dedicated Postgres): SUCCESS — PostgreSQL dedicado isolado
+PostgreSQL 17 Migration 0392 Integration: SUCCESS
+Security Scan: SUCCESS — CodeQL jobs, Semgrep, Gitleaks, Docker, SBOM e dependências
+Secret Guard: SUCCESS
+Required Checks: SUCCESS — 25/25
+Pending: 0
+Failed: 0
+```
+
+O job remoto `Build frontend` do mesmo HEAD concluiu com sucesso. O OOM do
+type-check interno do Next local permanece como limitação histórica do
+runner, e não foi apagado nem mascarado; a conclusão correta é
+`Frontend Local Build: BLOCKED_BY_LOCAL_MEMORY`, `Frontend Remote CI Build:
+PASS` e `Effective Build Gate: PASS`.
+
+### FE-LOW-002 e segurança
+
+```text
+Monitoring tunnel uses caller-controlled first X-Forwarded-For: YES
+Keepalive uses caller-controlled first X-Forwarded-For: YES
+Monitoring tunnel independently authenticated: NO — public ingestion route
+Keepalive independently authenticated in production: YES — CRON_SECRET
+Authentication bypass demonstrated: NO
+Current Severity: LOW
+Safe fix without live edge contract: NO
+Disposition: OPEN-DEFERRED UNTIL EDGE CONTRACT
+```
+
+Não foi aplicado `trust proxy=true`, `trust proxy=1`, CIDR arbitrária ou
+correção cega. O limite local dessas rotas continua uma recomendação de
+disponibilidade/abuso, não um bypass de autenticação demonstrado.
+
+### Relatório final obrigatório
+
+```text
+Repository: wandersongandra/sgsseguranca
+PR: #339
+PR State: OPEN
+PR Draft: NO
+PR Mergeable: YES
+Base Branch: main
+Frozen Cutover Base SHA: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+PR Current HEAD: 64ceb8841382c665540cb36cb9cd88f459ffcb9b
+Commits: 3
+Changed Files: 8
+Unexpected Commits: 0
+Unexpected Files: 0
+Tenant Store Review: PASS
+Site Store Review: PASS
+AuthContext Review: PASS
+Sidebar Review: PASS
+Focused Tests: PASS — 3 suites / 15 tests
+Frontend Full Tests: PASS — 155 suites / 878 tests / 2 skipped
+Backend Full Tests: PASS — 314 suites / 2716 tests
+Frontend Local Build: BLOCKED_BY_LOCAL_MEMORY
+Frontend Remote CI Build: PASS
+Effective Build Gate: PASS
+Backend Build CI: PASS
+Critical E2E CI: PASS
+RLS Isolated CI: PASS
+Database DR Restore CI: PASS
+PostgreSQL 17 CI: PASS
+Security Scan: PASS
+Secret Guard: PASS
+Required Checks: PASS
+CI Pending: 0
+CI Failed: 0
+FE-MED-001: CLOSED
+FE-LOW-001: CLOSED
+FE-LOW-002: OPEN-DEFERRED
+Critical: 0
+High: 0
+Medium: 0
+Low: 1
+Report Reconciled: YES
+PR Title Accurate: YES — fix(frontend): harden tenant state and session logout
+Production Access: NO
+Production Changed: NO
+Production Migration: 0
+Production Deploy: NO
+Storage DR: OUT OF SCOPE / STILL BLOCKED
+Main Merge: NO
+Frozen Cutover Release Preserved: YES
+Functional Code Changed After Initial Fix: NO
+Tests Changed After Initial Fix: NO
+Migrations Changed: NO
+Backend Production Code Changed: NO
+Secrets Added: 0
+Commit: YES — docs(audit): reconcile PR 339 remote CI evidence
+Push: YES — audit/frontend-backend-product-integration-release
+Merge: NO
+Ready For Review: YES
+Ready For Merge Decision: YES
+Ready For Production Cutover: NO — this gate does not authorize cutover
+PR #339 REVIEW GATE: PASS WITH DEFERRED LOW
+FINAL VERDICT: PASS WITH DEFERRED LOW
+```
+
+`main` continua no SHA congelado. Produção, Storage DR, Neon de produção,
+Backblaze, Redis de produção, Coolify, Traefik, firewall e DNS permaneceram
+intocados. O PR está pronto para decisão futura de merge, mas esta missão
+proíbe o merge.
 
 PARAR.
