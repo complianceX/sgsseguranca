@@ -205,7 +205,9 @@ PR state: OPEN
 PR draft: NO
 PR mergeable: YES
 PR base: product/wave-3-operational-records-documents
-PR head at CI verification: eb4352bf06b0b4c184bb2bb31fdc9a2dd76846f4
+Initial PR head at implementation CI verification: eb4352bf06b0b4c184bb2bb31fdc9a2dd76846f4
+Documentation follow-up commit: 423c82640eab81bd0eee7c48a61ab9b25875172d
+Current PR head before this wording-only update: 423c82640eab81bd0eee7c48a61ab9b25875172d
 Unexpected commits: 0
 CI: PASS — 9/9 reported checks passed
 CI pending: 0
@@ -225,7 +227,8 @@ Production migration: 0
 Production deploy: NO
 ```
 
-O CI verde corresponde exatamente ao HEAD publicado acima. O PR continua
-aberto para revisão; a Wave 4 está pronta para revisão com um único follow-up
-P2 documentado. Migrations 0385–0402 permanecem inalteradas e nenhum gate de
-cutover, Storage DR ou produção foi executado.
+O CI verde foi confirmado no commit de implementação e novamente no HEAD
+documental subsequente. O PR continua aberto para revisão; a Wave 4 está
+pronta para revisão com um único follow-up P2 documentado. Migrations
+0385–0402 permanecem inalteradas e nenhum gate de cutover, Storage DR ou
+produção foi executado.
