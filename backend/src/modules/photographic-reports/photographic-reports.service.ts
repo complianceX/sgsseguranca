@@ -673,15 +673,21 @@ export class PhotographicReportsService {
     report: PhotographicReport,
     nextStatus: PhotographicReportStatus,
   ): void {
+    this.assertPhotographicReportMutable(report);
+    report.status = nextStatus;
+  }
+
+  private assertPhotographicReportMutable(
+    report: Pick<PhotographicReport, 'status'>,
+  ): void {
     if (
       report.status === PhotographicReportStatus.FINALIZADO ||
       report.status === PhotographicReportStatus.EXPORTADO
     ) {
-      report.status = PhotographicReportStatus.EM_EDICAO;
-      return;
+      throw new BadRequestException(
+        'Relatórios finalizados ou exportados não aceitam alterações pelo fluxo comum. Gere um novo relatório para corrigir o documento.',
+      );
     }
-
-    report.status = nextStatus;
   }
 
   private async ensureDayBelongsToReport(
@@ -884,6 +890,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(id, companyId);
+    this.assertPhotographicReportMutable(report);
 
     let hasMutations = false;
 
@@ -1041,15 +1048,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(id, companyId);
-
-    if (
-      report.status === PhotographicReportStatus.FINALIZADO ||
-      report.status === PhotographicReportStatus.EXPORTADO
-    ) {
-      throw new BadRequestException(
-        'Relatórios finalizados ou exportados não podem ser revertidos para rascunho via edição direta. Use os fluxos formais de revisão.',
-      );
-    }
+    this.assertPhotographicReportMutable(report);
 
     Object.assign(report, {
       ...report,
@@ -1238,6 +1237,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const activityDate = this.normalizeDate(dto.activity_date);
     if (!activityDate) {
       throw new BadRequestException('Data da atividade obrigatória.');
@@ -1279,6 +1279,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const day = await this.ensureDayBelongsToReport(report, dayId);
 
     if (dto.activity_date !== undefined) {
@@ -1310,15 +1311,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
-
-    if (
-      report.status === PhotographicReportStatus.FINALIZADO ||
-      report.status === PhotographicReportStatus.EXPORTADO
-    ) {
-      throw new BadRequestException(
-        'Não é possível remover dias de relatórios finalizados ou exportados.',
-      );
-    }
+    this.assertPhotographicReportMutable(report);
 
     await this.ensureDayBelongsToReport(report, dayId);
     await this.dayRepository.delete({
@@ -1343,6 +1336,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     if (!Array.isArray(files) || !files.length) {
       throw new BadRequestException('Nenhuma foto enviada.');
     }
@@ -1526,6 +1520,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportImageResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const image = await this.ensureImageBelongsToReport(report, imageId);
 
     if (dto.report_day_id !== undefined) {
@@ -1629,14 +1624,7 @@ export class PhotographicReportsService {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
 
-    if (
-      report.status === PhotographicReportStatus.FINALIZADO ||
-      report.status === PhotographicReportStatus.EXPORTADO
-    ) {
-      throw new BadRequestException(
-        'Não é possível remover fotos de relatórios finalizados ou exportados.',
-      );
-    }
+    this.assertPhotographicReportMutable(report);
 
     const image = await this.ensureImageBelongsToReport(report, imageId);
 
@@ -1672,6 +1660,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const images = this.sortImages(report.images || []);
 
     if (dto.imageIds.length !== images.length) {
@@ -1757,6 +1746,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportImageResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const image = await this.ensureImageBelongsToReport(report, imageId);
     const day = image.report_day_id
       ? (report.days || []).find((item) => item.id === image.report_day_id) ||
@@ -1808,6 +1798,7 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     const sortedImages = this.sortImages(report.images || []);
     if (sortedImages.length === 0) {
       throw new BadRequestException('Relatório sem fotos.');
@@ -1885,6 +1876,7 @@ export class PhotographicReportsService {
   async finalize(reportId: string): Promise<PhotographicReportResponse> {
     const companyId = this.getCompanyIdOrThrow();
     const report = await this.findReportEntity(reportId, companyId);
+    this.assertPhotographicReportMutable(report);
     if ((report.images || []).length === 0) {
       throw new BadRequestException('Relatório sem fotos.');
     }
