@@ -14,16 +14,16 @@ import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { logger } from '@/lib/logger';
 import { PageHeader } from '@/components/layout';
-import { InlineLoadingState } from '@/components/ui/state';
+import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { useAuth } from '@/context/AuthContext';
+import { Permission } from '@/lib/permissions';
+import { canWriteSites } from '@/lib/role-access';
 
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
-const errorFieldClassName =
-  'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
-const labelClassName =
-  'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
 const sectionCardClassName =
@@ -49,7 +49,9 @@ export function SiteForm({ id }: SiteFormProps) {
   const [fetching, setFetching] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { user, isAdminGeral } = useAuth();
+  const { user, isAdminGeral, hasPermission, roles } = useAuth();
+  const canManageSite =
+    hasPermission(Permission.CAN_MANAGE_SITES) && canWriteSites(roles, isAdminGeral);
 
   const {
     register,
@@ -72,6 +74,11 @@ export function SiteForm({ id }: SiteFormProps) {
   });
 
   useEffect(() => {
+    if (!canManageSite) {
+      setFetching(false);
+      return;
+    }
+
     async function loadData() {
       try {
         let companiesData: Company[] = [];
@@ -111,7 +118,7 @@ export function SiteForm({ id }: SiteFormProps) {
     }
 
     loadData();
-  }, [id, isAdminGeral, reset, router, setValue, user?.company_id]);
+  }, [canManageSite, id, isAdminGeral, reset, router, setValue, user?.company_id]);
 
   async function onSubmit(data: SiteFormData) {
     try {
@@ -137,9 +144,7 @@ export function SiteForm({ id }: SiteFormProps) {
         fallback: 'Erro ao salvar obra/setor. Tente novamente.',
       });
       setSubmitError(errorMessage);
-      toast.error(
-        'Erro ao salvar obra/setor. Verifique os dados e tente novamente.',
-      );
+      toast.error('Erro ao salvar obra/setor. Verifique os dados e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -154,13 +159,28 @@ export function SiteForm({ id }: SiteFormProps) {
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
 
+  if (!canManageSite) {
+    return (
+      <ErrorState
+        title="Sem permissão para alterar obras/setores"
+        description="Sua função não possui permissão para criar ou editar obras/setores."
+        action={
+          <Link
+            href="/dashboard/sites"
+            className="inline-flex min-h-11 items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white"
+          >
+            Voltar para obras/setores
+          </Link>
+        }
+      />
+    );
+  }
+
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
       {fetching ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
-          <InlineLoadingState
-            label={id ? 'Carregando obra/setor' : 'Preparando obra/setor'}
-          />
+          <InlineLoadingState label={id ? 'Carregando obra/setor' : 'Preparando obra/setor'} />
         </div>
       ) : null}
 
@@ -192,12 +212,11 @@ export function SiteForm({ id }: SiteFormProps) {
           Cadastro guiado
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture a obra ou setor com vínculo claro à empresa e localização
-          operacional.
+          Estruture a obra ou setor com vínculo claro à empresa e localização operacional.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, nome da frente e localização antes de salvar para
-          evitar cadastros duplicados.
+          Revise empresa, nome da frente e localização antes de salvar para evitar cadastros
+          duplicados.
         </p>
       </div>
 
@@ -205,20 +224,14 @@ export function SiteForm({ id }: SiteFormProps) {
         onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
       >
-        {!isAdminGeral ? (
-          <input type="hidden" {...register('company_id')} />
-        ) : null}
+        {!isAdminGeral ? <input type="hidden" {...register('company_id')} /> : null}
         {submitError && (
           <div
             role="alert"
             className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
           >
-            <p className="font-semibold">
-              Não foi possível salvar a obra/setor
-            </p>
-            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
-              {submitError}
-            </p>
+            <p className="font-semibold">Não foi possível salvar a obra/setor</p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
         <section className={sectionCardClassName}>
@@ -227,8 +240,8 @@ export function SiteForm({ id }: SiteFormProps) {
               Contexto operacional
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Defina o vínculo da obra ou setor com a empresa e identifique a
-              frente de forma objetiva.
+              Defina o vínculo da obra ou setor com a empresa e identifique a frente de forma
+              objetiva.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -240,9 +253,7 @@ export function SiteForm({ id }: SiteFormProps) {
                 <select
                   id="company_id"
                   {...register('company_id')}
-                  className={`${fieldClassName} ${
-                    errors.company_id ? errorFieldClassName : ''
-                  }`}
+                  className={`${fieldClassName} ${errors.company_id ? errorFieldClassName : ''}`}
                   aria-invalid={errors.company_id ? 'true' : undefined}
                 >
                   <option value="">Selecione uma empresa</option>
@@ -256,8 +267,7 @@ export function SiteForm({ id }: SiteFormProps) {
                   <p className={errorClassName}>{errors.company_id.message}</p>
                 ) : (
                   <p className={helperClassName}>
-                    A empresa controla o escopo do cadastro e a vinculação
-                    operacional.
+                    A empresa controla o escopo do cadastro e a vinculação operacional.
                   </p>
                 )}
               </div>
@@ -271,9 +281,7 @@ export function SiteForm({ id }: SiteFormProps) {
                 id="nome"
                 type="text"
                 {...register('nome')}
-                className={`${fieldClassName} ${
-                  errors.nome ? errorFieldClassName : ''
-                }`}
+                className={`${fieldClassName} ${errors.nome ? errorFieldClassName : ''}`}
                 aria-invalid={errors.nome ? 'true' : undefined}
                 placeholder="Ex: Obra Centro"
               />
@@ -281,8 +289,7 @@ export function SiteForm({ id }: SiteFormProps) {
                 <p className={errorClassName}>{errors.nome.message}</p>
               ) : (
                 <p className={helperClassName}>
-                  Use um nome curto e inequívoco para facilitar busca e
-                  relatórios.
+                  Use um nome curto e inequívoco para facilitar busca e relatórios.
                 </p>
               )}
             </div>
@@ -295,8 +302,7 @@ export function SiteForm({ id }: SiteFormProps) {
               Localização
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Dados complementares para identificar fisicamente a frente
-              cadastrada.
+              Dados complementares para identificar fisicamente a frente cadastrada.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -312,8 +318,7 @@ export function SiteForm({ id }: SiteFormProps) {
                 placeholder="Rua, Número, Bairro"
               />
               <p className={helperClassName}>
-                Opcional. Ajuda a localizar a frente no mapa operacional e nos
-                relatórios.
+                Opcional. Ajuda a localizar a frente no mapa operacional e nos relatórios.
               </p>
             </div>
 
@@ -321,15 +326,9 @@ export function SiteForm({ id }: SiteFormProps) {
               <label htmlFor="cidade" className={labelClassName}>
                 Cidade
               </label>
-              <input
-                id="cidade"
-                type="text"
-                {...register('cidade')}
-                className={fieldClassName}
-              />
+              <input id="cidade" type="text" {...register('cidade')} className={fieldClassName} />
               <p className={helperClassName}>
-                Opcional. Use a cidade para facilitar filtros administrativos e
-                agrupamentos.
+                Opcional. Use a cidade para facilitar filtros administrativos e agrupamentos.
               </p>
             </div>
 
@@ -346,8 +345,7 @@ export function SiteForm({ id }: SiteFormProps) {
                 placeholder="Ex: MG"
               />
               <p className={helperClassName}>
-                Informe a UF com duas letras para manter o padrão dos
-                relatórios.
+                Informe a UF com duas letras para manter o padrão dos relatórios.
               </p>
             </div>
           </div>

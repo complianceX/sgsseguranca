@@ -166,9 +166,7 @@ export function UserForm({ id }: UserFormProps) {
         await usersService.update(id, payload);
       } else {
         if (!isEmployeePath && !payload.password && !payload.email) {
-          throw new Error(
-            'Informe um e-mail (para enviar as credenciais) ou defina uma senha.',
-          );
+          throw new Error('Informe um e-mail (para enviar as credenciais) ou defina uma senha.');
         }
         if (!isEmployeePath && !payload.profile_id) {
           throw new Error('Selecione um perfil de acesso.');
@@ -596,6 +594,7 @@ export function UserForm({ id }: UserFormProps) {
                       {...register('profile_id')}
                       aria-label="Perfil de acesso"
                       className={fieldClassName}
+                      disabled={Boolean(id)}
                     >
                       <option value="">Selecione um perfil</option>
                       {profiles.map((profile) => (
@@ -605,7 +604,9 @@ export function UserForm({ id }: UserFormProps) {
                       ))}
                     </select>
                     <p className={helperClassName}>
-                      O perfil controla permissões de tela, ações e governança de acesso.
+                      {id
+                        ? 'O perfil atual é somente leitura nesta tela. A troca exige o fluxo de segurança protegido por MFA.'
+                        : 'O perfil controla permissões de tela, ações e governança de acesso.'}
                     </p>
                   </div>
                 )}
