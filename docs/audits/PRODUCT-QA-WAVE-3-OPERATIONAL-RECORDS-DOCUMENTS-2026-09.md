@@ -387,7 +387,7 @@ alteração de produção, banco, storage, Coolify, migration, merge ou deploy.
 
 ```text
 PR #342: OPEN
-PR #342 HEAD: 57d1ae24c8ccdd6c3cd1f792a247884e62f182ce
+PR #342 HEAD: 3c6db8a33e7745a0b3834166a68a99230228f4b5
 PR #342 Base: product/wave-2-sst-critical-workflows
 PR #342 Draft: NO
 PR #342 Mergeable: YES
