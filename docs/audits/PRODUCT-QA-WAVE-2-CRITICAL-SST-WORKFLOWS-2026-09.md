@@ -282,8 +282,9 @@ Production RLS/read-only probe: NOT RUN — production explicitly out of scope
 Production health/deploy/migration: NOT RUN — prohibited by task
 ```
 
-Essas lacunas não foram convertidas em PASS. O CI oficial da PR empilhada e um
-runtime isolado continuam necessários antes de qualquer decisão de produção.
+Essas lacunas não foram convertidas em PASS. O CI oficial da PR empilhada
+passou; um runtime isolado continua necessário antes de qualquer decisão de
+produção.
 
 ## Git, PR e produção
 
@@ -292,13 +293,14 @@ Branch: product/wave-2-sst-critical-workflows
 Base branch: product/wave-1-core-dashboard-companies-users-sites
 Stacked on PR: #340
 Code fix commit: f805622d
-Report commit: pending at report authoring
-PR: NOT OPEN YET
-CI: NOT RUN REMOTELY YET
+Initial report commit: 1d032de9d4d5723bda22415d60c04c5b848876df
+CI addendum commit: follows initial report
+PR: #341 OPEN / non-draft / mergeable
+CI: PASS — 9/9 reported checks
 Unexpected commits: 0 in Wave 2 scope
 Migrations changed: 0
 Merge: NO
-Push: PENDING — authorized only for Wave 2 branch
+Push: YES — Wave 2 branch only
 Deploy: NO
 Production database changed: NO
 Production application changed: NO
@@ -326,18 +328,68 @@ Production changed: NO
 Production migration: 0
 Production deploy: NO
 Storage DR: OUT OF SCOPE / STILL BLOCKED
-Ready For Wave 2 Review: YES — subject to PR CI and reviewer confirmation
+Ready For Wave 2 Review: YES — PR #341 CI terminal PASS; reviewer confirmation remains
 Ready For Production: NO
 Merge: NO
 PRODUCT QA WAVE 2 GATE: PASS WITH FOLLOW-UPS
 FINAL VERDICT: PASS WITH FOLLOW-UPS — review-ready, not production-ready
 PARAR.
+
 ```
+
+---
+
+## Addendum — PR #341 CI e estado de revisão
+
+**Data:** 02/09/2026
+**PR:** [#341](https://github.com/wandersongandra/sgsseguranca/pull/341)
+**Escopo:** publicação da branch Wave 2 e acompanhamento do CI, sem merge.
+
+```text
+PR #341: OPEN
+PR #341 Draft: NO
+PR #341 Mergeable: YES
+PR #341 Base: product/wave-1-core-dashboard-companies-users-sites
+PR #341 Base SHA: ea530532f2dd1b45bf4d340b4de6bc05739b45f5
+PR #341 HEAD: 1d032de9d4d5723bda22415d60c04c5b848876df
+Unexpected commits: 0 — two expected Wave 2 commits
+Required checks: PASS — 9/9 reported checks
+Backend Lint/Test/Build: PASS
+Frontend Lint/Test/Build: PASS
+Backend E2E Critical Flows: PASS
+Backend E2E DR Restore: PASS
+PostgreSQL 17 Migration 0392 Integration: PASS
+Snyk: PASS — no manifest changes detected
+semantic-pr: PASS
+PR Labeler: PASS
+CodeRabbit: PASS — review skipped by base-branch policy
+Merge: NO
+Deploy: NO
+Production migration: 0
+Production changed: NO
+```
+
+O CI remoto confirmou a execução isolada de E2E crítico, DR Restore e
+PostgreSQL 17 para o HEAD exato da PR. Isso fortalece a evidência de revisão
+da branch, mas não autoriza merge, deploy, migration ou cutover. O blocker de
+produto permanece o follow-up P2 sobre a nomenclatura/ausência de uma camada
+dedicada de Inspeções; o runtime de produção e Storage DR permanecem fora do
+escopo e bloqueados por seus gates próprios.
+
+```text
+PRODUCT QA WAVE 2 GATE: PASS WITH FOLLOW-UPS
+Ready For Wave 2 Review: YES
+Ready For Production: NO
+Storage DR: OUT OF SCOPE / STILL BLOCKED
+Production Authenticated Proxy: NOT ACTIVATED
+FINAL VERDICT: PASS WITH FOLLOW-UPS — STOP
+```
+
+PARAR.
 
 ### Próximos limites
 
-Após a abertura da PR empilhada, acompanhar somente o CI da branch Wave 2 e
-registrar seu resultado neste relatório. Não fazer merge, não iniciar Wave 3,
+Após o encerramento do CI da PR empilhada, não fazer merge, não iniciar Wave 3,
 não executar migration 0385–0402/0403+, não publicar o SHA de produção, não
 ativar proxy autenticado e não desbloquear Storage DR nesta execução.
 
