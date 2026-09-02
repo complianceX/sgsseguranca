@@ -54,6 +54,8 @@ Base Wave 1: ea530532f2dd1b45bf4d340b4de6bc05739b45f5
 Branch: product/wave-2-sst-critical-workflows
 Code fix commit: f805622d — fix(product): harden signed EPI assignment edits
 Code fix HEAD tested: f805622d
+Final Wave 2 PR HEAD: ddf97176df0da51d2897dbdea9f4d270b9b53a7c
+Final report sync after CI: documentation-only commit follows
 Initial index: EMPTY
 Migrations changed: 0
 Dependency manifests changed: 0
@@ -294,7 +296,7 @@ Base branch: product/wave-1-core-dashboard-companies-users-sites
 Stacked on PR: #340
 Code fix commit: f805622d
 Initial report commit: 1d032de9d4d5723bda22415d60c04c5b848876df
-CI addendum commit: follows initial report
+CI addendum commit: ddf97176df0da51d2897dbdea9f4d270b9b53a7c
 PR: #341 OPEN / non-draft / mergeable
 CI: PASS — 9/9 reported checks
 Unexpected commits: 0 in Wave 2 scope
@@ -351,7 +353,7 @@ PR #341 Draft: NO
 PR #341 Mergeable: YES
 PR #341 Base: product/wave-1-core-dashboard-companies-users-sites
 PR #341 Base SHA: ea530532f2dd1b45bf4d340b4de6bc05739b45f5
-PR #341 HEAD: 1d032de9d4d5723bda22415d60c04c5b848876df
+PR #341 HEAD: ddf97176df0da51d2897dbdea9f4d270b9b53a7c
 Unexpected commits: 0 — two expected Wave 2 commits
 Required checks: PASS — 9/9 reported checks
 Backend Lint/Test/Build: PASS
