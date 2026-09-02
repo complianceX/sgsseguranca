@@ -383,4 +383,31 @@ backend, bloqueio coerente na UI e regressões permanentes. A decisão de
 produto sobre Inspeções continua explicitamente pendente. Não houve acesso ou
 alteração de produção, banco, storage, Coolify, migration, merge ou deploy.
 
+## Addendum — PR #342 e CI remoto
+
+```text
+PR #342: OPEN
+PR #342 HEAD: 57d1ae24c8ccdd6c3cd1f792a247884e62f182ce
+PR #342 Base: product/wave-2-sst-critical-workflows
+PR #342 Draft: NO
+PR #342 Mergeable: YES
+Required/observed checks: PASS — 9/9
+Backend Lint/Test/Build: PASS
+Frontend Lint/Test/Build: PASS
+Backend E2E Critical Flows: PASS
+Backend E2E DR Restore: PASS
+PostgreSQL 17 Migration 0392 Integration: PASS
+Snyk: PASS — no manifest changes detected
+semantic-pr: PASS
+PR Labeler: PASS
+CodeRabbit: PASS — review skipped for this base branch
+Merge: NO
+Deploy: NO
+Production Migration: 0
+```
+
+A PR foi aberta somente para a branch Wave 3 empilhada na PR #341. O CI
+remoto terminou sem falhas ou pendências. A PR permanece aberta para revisão;
+nenhum merge, deploy, migration ou alteração de produção foi executado.
+
 PARAR.
