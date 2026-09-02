@@ -57,6 +57,7 @@ código/configuração; `NOT RUN` = não executado nesta rodada.
 ```text
 origin/main: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
 HEAD inicial da branch: 03f1574ee6e82558630e82d0a50a08361f8ee6d5
+Commits de auditoria: `91fbbd93`, `a6ac4c19`
 Branch: audit/frontend-backend-product-integration-release
 Frontend route/page files: 117
 Backend controller files: 66
@@ -351,8 +352,8 @@ Production Deploy: NO
 Production Authenticated Proxy Activation: NO
 Production Final Readiness: NO — runtime and production gates pending
 Commit: CREATED — focused audit changes
-Push: PENDING
-PR: PENDING
+Push: YES — audit branch
+PR: OPEN — #339
 Merge: NO
 Deploy: NO
 ```
