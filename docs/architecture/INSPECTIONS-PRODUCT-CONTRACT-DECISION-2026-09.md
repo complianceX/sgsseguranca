@@ -374,9 +374,9 @@ Production Changed: NO
 Production Database Changed: NO
 Production Deploy: NO
 Merge PR #344: NO
-Documentary Commit: TO BE CREATED AFTER VALIDATION
-Documentary Push: TO BE EXECUTED AFTER VALIDATION
-Documentary PR: TO BE OPENED STACKED ON PR #344
+Documentary Commit: e6d3fc41664bd71089f28388076a9ad34565c6c5
+Documentary Push: YES
+Documentary PR: #345 OPEN — stacked on PR #344
 Merge Documentary PR: NO
 Inspections Product Contract Gate: PASS — documentary decision only
 Ready For Production: NO — separate release gate required
@@ -390,5 +390,27 @@ compatibilidade sem superfície ativa. A opção A é recomendada com confiança
 alta, condicionada à confirmação do Product Owner sobre vocabulário e
 tratamento dos registros antigos. Nenhum código funcional, schema, migration,
 produção ou PR #344 foi alterado por esta decisão.
+
+## Addendum — publicação documental
+
+**Data:** 03/09/2026
+**Commit documental:** `e6d3fc41664bd71089f28388076a9ad34565c6c5`
+**PR:** [#345](https://github.com/wandersongandra/sgsseguranca/pull/345)
+
+```text
+Branch: audit/inspections-product-contract
+PR #345: OPEN / non-draft / mergeable
+PR #345 base: fix/notification-durable-dedupe
+PR #345 base HEAD: cf4668c3cfb78eaf95dee3e9f08936eeae1fe153
+PR #345 HEAD: e6d3fc41664bd71089f28388076a9ad34565c6c5
+Unexpected implementation commits: 0
+Merge: NO
+Deploy: NO
+Production Changed: NO
+```
+
+O relatório documental foi o único arquivo do commit; as alterações
+preexistentes em `frontend/app/verify/page.tsx` e seu teste continuam fora do
+índice. O PR #344 não foi modificado.
 
 PARAR.
