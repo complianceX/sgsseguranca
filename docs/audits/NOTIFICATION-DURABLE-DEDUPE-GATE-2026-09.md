@@ -130,3 +130,60 @@ observados e o PR stacked será preparado sobre o #343. Nenhuma operação de
 produção ou cutover está autorizada por este trabalho.
 
 PARAR.
+
+---
+
+## Addendum — PostgreSQL 17 concurrency proof and gate closure
+
+**Data:** 03/09/2026
+**Validated implementation HEAD:** `1a872917ef706d24466c5dc1597d8a5181e58f28`
+
+O primeiro run remoto foi interrompido por uma incompatibilidade do harness
+com o retorno do `QueryRunner`; o teste não mascarou a falha. O harness foi
+corrigido e a segunda execução também ajustou a métrica para registrar somente
+os eventos do cenário concorrente same-key.
+
+```text
+PostgreSQL 17 Notification Dedupe Integration: PASS
+Migration 0403 UP/DOWN/UP: PASS
+Concurrent same-key calls: 25
+Concurrent same-key persisted rows: 1
+Concurrent same-key realtime events: 1
+Cross-tenant same key: PASS
+Cross-user same key: PASS
+Different key: PASS
+Soft-delete recreation: PASS
+Fixture cleanup: PASS — isolated CI database/table only
+```
+
+O run CI `33764221350` terminou com os seis jobs funcionais em sucesso:
+backend lint/test/build, backend E2E crítico, backend E2E DR Restore,
+PostgreSQL 17 da migration 0392, PostgreSQL 17 da deduplicação e frontend
+lint/test/build. Os checks auxiliares de Snyk, label e semantic PR também
+passaram; a revisão CodeRabbit foi pulada pela configuração da branch-base.
+
+```text
+W4-P2-001: CLOSED
+Notification Durable Dedupe Gate: PASS — local + real PostgreSQL 17 CI
+Migration 0385–0402: UNCHANGED
+Historical Backfill: NO
+Existing Notifications Modified: 0
+Production Credentials: NOT USED
+Production Database Changed: NO
+Production Deploy: NO
+```
+
+O PR #344 permanece aberto, não-draft e mergeable, empilhado sobre o HEAD do
+PR #343. Esta closure não autoriza merge, deploy, migration ou alteração de
+produção.
+
+```text
+PR #344: OPEN
+Merge: NO
+Deploy: NO
+Production Migration: 0
+Ready For Production: NO — separate production release gate remains required
+FINAL VERDICT: PASS — future notification dedupe scope
+```
+
+PARAR.
