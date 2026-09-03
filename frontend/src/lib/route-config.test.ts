@@ -51,6 +51,15 @@ describe('route-config — rota /dashboard/dds (achado I1)', () => {
       );
     });
 
+    it('mantém criação e edição restritas à gestão de auditorias', () => {
+      expect(getRoutePermissionException('/dashboard/audits/new')).toBe(
+        Permission.CAN_MANAGE_AUDITS,
+      );
+      expect(getRoutePermissionException('/dashboard/audits/edit/audit-1')).toBe(
+        Permission.CAN_MANAGE_AUDITS,
+      );
+    });
+
     it('getRoutePermissionException retorna can_view_companies para empresas', () => {
       expect(getRoutePermissionException('/dashboard/companies')).toBe(
         Permission.CAN_VIEW_COMPANIES,
@@ -79,6 +88,8 @@ describe('route-config — rota /dashboard/dds (achado I1)', () => {
       { route: '/dashboard/checklists', permission: Permission.CAN_VIEW_CHECKLISTS },
       { route: '/dashboard/checklist-models', permission: Permission.CAN_VIEW_CHECKLISTS },
       { route: '/dashboard/nonconformities', permission: Permission.CAN_VIEW_NC },
+      { route: '/dashboard/audits/new', permission: Permission.CAN_MANAGE_AUDITS },
+      { route: '/dashboard/audits/edit', permission: Permission.CAN_MANAGE_AUDITS },
       { route: '/dashboard/audits', permission: Permission.CAN_VIEW_AUDITS },
       { route: '/dashboard/inspections', permission: Permission.CAN_VIEW_AUDITS },
     ];
