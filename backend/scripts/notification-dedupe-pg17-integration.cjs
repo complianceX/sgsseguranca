@@ -186,6 +186,7 @@ async function runServiceChecks(dataSource, client) {
     1,
     'concurrent dedupe emitted duplicate realtime events',
   );
+  const concurrentRealtimeEvents = events.length;
 
   const crossTenant = await Promise.all([
     service.createDeduped(
@@ -232,7 +233,7 @@ async function runServiceChecks(dataSource, client) {
 
   return {
     rows: contentionRows.rows[0].count,
-    realtimeEvents: events.length,
+    realtimeEvents: concurrentRealtimeEvents,
   };
 }
 
