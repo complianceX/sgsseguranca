@@ -94,7 +94,7 @@ describe('migration history compatibility', () => {
       executedNames,
     ).map((migration) => migration.name);
 
-    expect(pending).toHaveLength(12);
+    expect(pending).toHaveLength(13);
     expect(pending).toEqual([
       'CreateDurableIdempotencyRecords1709000000391',
       'HardenSecurityDefinerFunctions1709000000392',
@@ -108,6 +108,7 @@ describe('migration history compatibility', () => {
       'RemoveNeonSampleTable1709000000400',
       'HardenRuntimePgStatStatementsAccess1709000000401',
       'AddSignatureKeyVersioning1709000000402',
+      'AddNotificationDurableDedupeKey1709000000403',
     ]);
   });
 
