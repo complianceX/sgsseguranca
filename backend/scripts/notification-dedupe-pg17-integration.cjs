@@ -71,9 +71,9 @@ async function applyMigration(dataSource) {
         AND table_name = 'notifications'
         AND column_name = 'dedupe_key'
     `);
-    assert.equal(column.rows.length, 1, '0403 did not add dedupe_key');
-    assert.equal(column.rows[0].data_type, 'character varying');
-    assert.equal(Number(column.rows[0].character_maximum_length), 255);
+    assert.equal(column.length, 1, '0403 did not add dedupe_key');
+    assert.equal(column[0].data_type, 'character varying');
+    assert.equal(Number(column[0].character_maximum_length), 255);
 
     const index = await runner.query(`
       SELECT indexdef
@@ -82,12 +82,12 @@ async function applyMigration(dataSource) {
         AND tablename = 'notifications'
         AND indexname = 'UQ_notifications_company_user_dedupe_active'
     `);
-    assert.equal(index.rows.length, 1, '0403 unique index is missing');
-    assert.match(index.rows[0].indexdef, /UNIQUE INDEX/);
-    assert.match(index.rows[0].indexdef, /company_id/);
-    assert.match(index.rows[0].indexdef, /userId/);
-    assert.match(index.rows[0].indexdef, /dedupe_key/);
-    assert.match(index.rows[0].indexdef, /deleted_at IS NULL/);
+    assert.equal(index.length, 1, '0403 unique index is missing');
+    assert.match(index[0].indexdef, /UNIQUE INDEX/);
+    assert.match(index[0].indexdef, /company_id/);
+    assert.match(index[0].indexdef, /userId/);
+    assert.match(index[0].indexdef, /dedupe_key/);
+    assert.match(index[0].indexdef, /deleted_at IS NULL/);
 
     await runner.query(
       `INSERT INTO ${TABLE} ("company_id", "userId", "type", "title", "message", "dedupe_key")
@@ -120,7 +120,7 @@ async function applyMigration(dataSource) {
         AND table_name = 'notifications'
         AND column_name = 'dedupe_key'
     `);
-    assert.equal(afterDown.rows.length, 0, '0403 down kept dedupe_key');
+    assert.equal(afterDown.length, 0, '0403 down kept dedupe_key');
 
     await migration.up(runner);
     const afterUp = await runner.query(`
@@ -130,7 +130,7 @@ async function applyMigration(dataSource) {
         AND tablename = 'notifications'
         AND indexname = 'UQ_notifications_company_user_dedupe_active'
     `);
-    assert.equal(afterUp.rows.length, 1, '0403 second up missed unique index');
+    assert.equal(afterUp.length, 1, '0403 second up missed unique index');
   } finally {
     await runner.release();
   }
