@@ -236,6 +236,19 @@ jobs:
           ignore-unfixed: true
           format: "sarif"
           output: "trivy-results.sarif"
+          # Sem esta opcao a action monta o SARIF com todas as severidades e
+          # ignora o filtro acima, fazendo findings MEDIUM/LOW derrubarem o
+          # gate. A politica de bloqueio continua sendo HIGH,CRITICAL.
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trivy-fs-sarif
+          path: trivy-results.sarif
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Skip SARIF upload on pull requests
         if: github.event_name == 'pull_request'
