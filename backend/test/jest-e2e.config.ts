@@ -12,7 +12,7 @@ const config: Config = {
     '<rootDir>/multi-tenancy.e2e-spec.ts',
   ],
   transform: {
-    '^.+\\.(t|j)s$': ['ts-jest', { isolatedModules: true }],
+    '^.+\\.(t|j)s$': ['ts-jest', {}],
   },
   // uuid@14 e puppeteer@25+ sao ESM puro. NODE_OPTIONS=--experimental-vm-modules
   // esta ativo para esta config (necessario para pdf-parse/pdfjs-dist), mas

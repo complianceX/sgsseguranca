@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { resolveDrReplicaStorageConfig } from '../../src/shared/config/dr-replica-storage.config';
 
 type CliArgValue = string | boolean;
 export type CliArgs = Record<string, CliArgValue>;
@@ -340,38 +341,24 @@ export async function runWithSuperAdminContext<T>(
 export function resolveReplicaStorageRuntimeConfig(
   baseEnv: NodeJS.ProcessEnv = process.env,
 ): ReplicaStorageRuntimeConfig {
-  const bucketName = baseEnv.DR_STORAGE_REPLICA_BUCKET || null;
-  const endpoint =
-    baseEnv.DR_STORAGE_REPLICA_ENDPOINT || baseEnv.AWS_ENDPOINT || null;
-  const region =
-    baseEnv.DR_STORAGE_REPLICA_REGION || baseEnv.AWS_REGION || 'auto';
-  const accessKeyId =
-    baseEnv.DR_STORAGE_REPLICA_ACCESS_KEY_ID || baseEnv.AWS_ACCESS_KEY_ID || '';
-  const secretAccessKey =
-    baseEnv.DR_STORAGE_REPLICA_SECRET_ACCESS_KEY ||
-    baseEnv.AWS_SECRET_ACCESS_KEY ||
-    '';
-  const forcePathStyle =
-    /^true$/i.test(baseEnv.DR_STORAGE_REPLICA_FORCE_PATH_STYLE || '') ||
-    /^true$/i.test(baseEnv.S3_FORCE_PATH_STYLE || '') ||
-    Boolean(endpoint);
+  const replica = resolveDrReplicaStorageConfig((key) => baseEnv[key]);
 
   return {
-    configured: Boolean(bucketName && accessKeyId && secretAccessKey),
-    bucketName,
-    endpoint,
-    region,
-    forcePathStyle,
+    configured: replica.configured,
+    bucketName: replica.bucketName,
+    endpoint: replica.endpoint,
+    region: replica.region,
+    forcePathStyle: replica.forcePathStyle,
     envOverrides: {
       ...baseEnv,
-      AWS_BUCKET_NAME: bucketName || undefined,
+      AWS_BUCKET_NAME: replica.bucketName || undefined,
       AWS_S3_BUCKET: undefined,
-      AWS_ENDPOINT: endpoint || undefined,
+      AWS_ENDPOINT: replica.endpoint || undefined,
       AWS_S3_ENDPOINT: undefined,
-      AWS_REGION: region,
-      AWS_ACCESS_KEY_ID: accessKeyId || undefined,
-      AWS_SECRET_ACCESS_KEY: secretAccessKey || undefined,
-      S3_FORCE_PATH_STYLE: forcePathStyle ? 'true' : 'false',
+      AWS_REGION: replica.region,
+      AWS_ACCESS_KEY_ID: replica.accessKeyId || undefined,
+      AWS_SECRET_ACCESS_KEY: replica.secretAccessKey || undefined,
+      S3_FORCE_PATH_STYLE: replica.forcePathStyle ? 'true' : 'false',
     },
   };
 }
