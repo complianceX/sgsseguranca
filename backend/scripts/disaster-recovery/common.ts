@@ -1,8 +1,14 @@
-import { spawn, spawnSync } from 'child_process';
+import { spawn, spawnSync, type SpawnOptions } from 'child_process';
 import { createHash } from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { ConfigService } from '@nestjs/config';
+import { CircuitBreakerService } from '../../src/shared/resilience/circuit-breaker.service';
+import { IntegrationResilienceService } from '../../src/shared/resilience/integration-resilience.service';
+import { RetryService } from '../../src/shared/resilience/retry.service';
+import { DisasterRecoveryReplicaStorageService } from '../../src/modules/disaster-recovery/disaster-recovery-replica-storage.service';
 import { resolveDrReplicaStorageConfig } from '../../src/shared/config/dr-replica-storage.config';
+import { formatCommandFailure } from '../../src/modules/disaster-recovery/disaster-recovery-cli.util';
 
 type CliArgValue = string | boolean;
 export type CliArgs = Record<string, CliArgValue>;
@@ -142,12 +148,12 @@ export async function runCommand(input: {
   cwd?: string;
 }): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const options = {
+    const options: SpawnOptions = {
       cwd: input.cwd,
       env: input.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
-    } as const;
+    };
     const child =
       input.command === 'pg_dump'
         ? spawn('pg_dump', input.args, options)
@@ -186,7 +192,12 @@ export async function runCommand(input: {
       const details = (stderr || stdout).trim();
       reject(
         new Error(
-          `Command failed: ${input.command} ${input.args.join(' ')} (exit ${code ?? 'unknown'})${details ? `\n${details}` : ''}`,
+          formatCommandFailure({
+            command: input.command,
+            args: input.args,
+            code,
+            details,
+          }),
         ),
       );
     });
@@ -361,6 +372,19 @@ export function resolveReplicaStorageRuntimeConfig(
       S3_FORCE_PATH_STYLE: replica.forcePathStyle ? 'true' : 'false',
     },
   };
+}
+
+export function createStandaloneReplicaStorageService(
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): DisasterRecoveryReplicaStorageService {
+  const configService = new ConfigService(baseEnv);
+  const integration = new IntegrationResilienceService(
+    configService,
+    new CircuitBreakerService(),
+    new RetryService(),
+  );
+
+  return new DisasterRecoveryReplicaStorageService(configService, integration);
 }
 
 export async function removeFileIfExists(filePath: string): Promise<void> {

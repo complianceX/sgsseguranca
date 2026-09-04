@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { runSyntheticStorageProbe } from '../src/modules/disaster-recovery/disaster-recovery-synthetic-probe';
 import { DisasterRecoveryStorageProtectionService } from '../src/modules/disaster-recovery/disaster-recovery-storage-protection.service';
 import { DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT } from '../src/modules/disaster-recovery/disaster-recovery.constants';
 import { resolveDisasterRecoveryEnvironment } from '../src/modules/disaster-recovery/disaster-recovery.util';
@@ -7,6 +8,7 @@ import {
   getStringArg,
   hasFlag,
   parseCliArgs,
+  createStandaloneReplicaStorageService,
   resolveReplicaStorageRuntimeConfig,
   runWithSuperAdminContext,
   withNestAppContext,
@@ -41,10 +43,26 @@ function resolveSourceStorageSummary(env: NodeJS.ProcessEnv): {
   };
 }
 
-async function main() {
-  const args = parseCliArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2)) {
+  const args = parseCliArgs(argv);
   const execute = hasFlag(args, 'execute');
   const dryRun = !execute || hasFlag(args, 'dry-run');
+  const syntheticProbe = hasFlag(args, 'synthetic-probe');
+
+  if (syntheticProbe) {
+    if (!execute || dryRun) {
+      throw new Error(
+        '--synthetic-probe exige --execute sem --dry-run para evitar ambiguidade operacional.',
+      );
+    }
+
+    const report = await runSyntheticStorageProbe(
+      createStandaloneReplicaStorageService(),
+    );
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
   const triggerSource = getStringArg(args, 'trigger-source') || 'manual';
   const requestedByUserId = getStringArg(args, 'requested-by-user-id');
   const companyId = getStringArg(args, 'company-id');
@@ -149,32 +167,49 @@ async function main() {
       });
 
       console.log(JSON.stringify(report.summary, null, 2));
+
+      if (report.summary.failed > 0) {
+        throw new Error(
+          `Replicação governada terminou com ${report.summary.failed} item(ns) com falha.`,
+        );
+      }
     },
   );
 }
 
-main().catch(async (error) => {
-  const auditPath = path.resolve(
-    process.cwd(),
-    process.env.DR_BACKUP_ROOT || DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT,
-    'audit',
-    'storage-protection.jsonl',
-  );
+export async function runCli(argv = process.argv.slice(2)): Promise<number> {
+  try {
+    await main(argv);
+    return 0;
+  } catch (error) {
+    const auditPath = path.resolve(
+      process.cwd(),
+      process.env.DR_BACKUP_ROOT || DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT,
+      'audit',
+      'storage-protection.jsonl',
+    );
 
-  await appendAuditLog(auditPath, {
-    event: 'dr_storage_protection_failed',
-    status: 'failed',
-    operation: 'storage_replication',
-    timestamp: new Date().toISOString(),
-    metadata: {
-      errorMessage:
-        error instanceof Error ? error.message : 'storage_protection_failed',
-    },
+    await appendAuditLog(auditPath, {
+      event: 'dr_storage_protection_failed',
+      status: 'failed',
+      operation: 'storage_replication',
+      timestamp: new Date().toISOString(),
+      metadata: {
+        errorMessage:
+          error instanceof Error ? error.message : 'storage_protection_failed',
+      },
+    });
+
+    console.error(
+      '[DR][STORAGE] Falha:',
+      error instanceof Error ? error.message : error,
+    );
+    return 1;
+  }
+}
+
+if (require.main === module) {
+  runCli().then((exitCode) => {
+    process.exitCode = exitCode;
   });
-
-  console.error(
-    '[DR][STORAGE] Falha:',
-    error instanceof Error ? error.message : error,
-  );
-  process.exit(1);
-});
+}

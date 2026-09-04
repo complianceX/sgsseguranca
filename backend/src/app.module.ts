@@ -1118,8 +1118,8 @@ export const validationSchema = Joi.object({
     isProduction &&
     env.DR_STORAGE_REPLICA_BUCKET &&
     (!env.DR_STORAGE_REPLICA_ENDPOINT ||
-      (!env.DR_STORAGE_REPLICA_ACCESS_KEY_ID && !env.AWS_ACCESS_KEY_ID) ||
-      (!env.DR_STORAGE_REPLICA_SECRET_ACCESS_KEY && !env.AWS_SECRET_ACCESS_KEY))
+      !env.DR_STORAGE_REPLICA_ACCESS_KEY_ID ||
+      !env.DR_STORAGE_REPLICA_SECRET_ACCESS_KEY)
   ) {
     return helpers.error('any.invalid', {
       message:

@@ -5,6 +5,7 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
+  DeleteObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
@@ -12,6 +13,9 @@ import { Readable } from 'stream';
 import { resolveDrReplicaStorageConfig } from '../../shared/config/dr-replica-storage.config';
 import { IntegrationResilienceService } from '../../shared/resilience/integration-resilience.service';
 import { storageKeyFingerprint } from '../../shared/storage/storage-compensation.util';
+
+const SYNTHETIC_PROBE_KEY_PATTERN =
+  /^sgs-dr-probe\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/probe\.bin$/i;
 
 const toBufferChunk = (chunk: Buffer | Uint8Array | string): Buffer =>
   Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
@@ -177,6 +181,34 @@ export class DisasterRecoveryReplicaStorageService {
     }
 
     return Buffer.concat(chunks);
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    this.assertConfigured();
+
+    if (!SYNTHETIC_PROBE_KEY_PATTERN.test(key)) {
+      throw new Error(
+        'Exclusão na réplica é restrita a objetos do probe sintético.',
+      );
+    }
+
+    await this.integration.execute(
+      'dr_storage_replica_delete_object',
+      () =>
+        this.client.send(
+          new DeleteObjectCommand({
+            Bucket: this.bucketName!,
+            Key: key,
+          }),
+        ),
+      { timeoutMs: 10_000 },
+    );
+
+    this.logger.log({
+      event: 'dr_storage_replica_deleted',
+      bucketName: this.bucketName,
+      keyFingerprint: storageKeyFingerprint(key),
+    });
   }
 
   async listKeys(
