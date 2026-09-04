@@ -96,25 +96,25 @@ describe('AppModule production environment validation', () => {
     return context?.message || result.error?.message || '';
   }
 
-  it('aceita configuração R2 governada com réplica DR e credenciais independentes', async () => {
-    const result = await validate(productionEnv);
+  it('aceita configuração R2 governada com réplica DR e credenciais independentes', () => {
+    const result = validate(productionEnv);
 
     expect(result.error).toBeUndefined();
   });
 
-  it('reutiliza o schema sem acumular listeners de exit no processo', async () => {
+  it('reutiliza o schema sem acumular listeners de exit no processo', () => {
     const listenersBefore = process.listenerCount('exit');
 
     for (let index = 0; index < 20; index += 1) {
-      const result = await validate(productionEnv);
+      const result = validate(productionEnv);
       expect(result.error).toBeUndefined();
     }
 
     expect(process.listenerCount('exit')).toBe(listenersBefore);
   });
 
-  it('bloqueia typo do namespace SGS sem rejeitar o ambiente do container', async () => {
-    const result = await validate({
+  it('bloqueia typo do namespace SGS sem rejeitar o ambiente do container', () => {
+    const result = validate({
       ...productionEnv,
       PATH: '/usr/bin',
       HOSTNAME: 'synthetic-container',
@@ -126,8 +126,8 @@ describe('AppModule production environment validation', () => {
     expect(result.error?.message).not.toContain('must-not-be-printed');
   });
 
-  it('bloqueia produção sem chave HMAC exclusiva para auditoria', async () => {
-    const result = await validate({
+  it('bloqueia produção sem chave HMAC exclusiva para auditoria', () => {
+    const result = validate({
       ...productionEnv,
       SECURITY_AUDIT_HMAC_KEY: '',
     });
@@ -136,8 +136,8 @@ describe('AppModule production environment validation', () => {
     expect(result.error?.message).toContain('SECURITY_AUDIT_HMAC_KEY');
   });
 
-  it('bloqueia produção sem bucket ou credenciais do storage documental', async () => {
-    const result = await validate({
+  it('bloqueia produção sem bucket ou credenciais do storage documental', () => {
+    const result = validate({
       ...productionEnv,
       AWS_BUCKET_NAME: '',
       AWS_ACCESS_KEY_ID: '',
@@ -149,8 +149,8 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('bloqueia Cloudflare R2 em produção sem path-style habilitado', async () => {
-    const result = await validate({
+  it('bloqueia Cloudflare R2 em produção sem path-style habilitado', () => {
+    const result = validate({
       ...productionEnv,
       S3_FORCE_PATH_STYLE: false,
     });
@@ -161,8 +161,8 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('bloqueia tentativa de TLS inseguro no Postgres', async () => {
-    const result = await validate({
+  it('bloqueia tentativa de TLS inseguro no Postgres', () => {
+    const result = validate({
       ...productionEnv,
       DATABASE_SSL: false,
       DATABASE_SSL_ALLOW_INSECURE: true,
@@ -173,8 +173,8 @@ describe('AppModule production environment validation', () => {
     expect(getCustomMessage(result)).toContain('DATABASE_SSL_ALLOW_INSECURE');
   });
 
-  it('bloqueia bucket DR sem endpoint de réplica', async () => {
-    const result = await validate({
+  it('bloqueia bucket DR sem endpoint de réplica', () => {
+    const result = validate({
       ...productionEnv,
       DR_STORAGE_REPLICA_ENDPOINT: '',
     });
@@ -185,8 +185,8 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('bloqueia REFRESH_CSRF_ENFORCED=false fora de development/test', async () => {
-    const result = await validate({
+  it('bloqueia REFRESH_CSRF_ENFORCED=false fora de development/test', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       REFRESH_CSRF_ENFORCED: false,
@@ -198,8 +198,8 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('permite REFRESH_CSRF_ENFORCED=false em development local', async () => {
-    const result = await validate({
+  it('permite REFRESH_CSRF_ENFORCED=false em development local', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'development',
       REFRESH_CSRF_ENFORCED: false,
@@ -208,8 +208,8 @@ describe('AppModule production environment validation', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('bloqueia REFRESH_CSRF_REPORT_ONLY=true fora de development/test', async () => {
-    const result = await validate({
+  it('bloqueia REFRESH_CSRF_REPORT_ONLY=true fora de development/test', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       REFRESH_CSRF_ENFORCED: true,
@@ -222,8 +222,8 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('bloqueia staging sem issuer ou audience JWT', async () => {
-    const result = await validate({
+  it('bloqueia staging sem issuer ou audience JWT', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       JWT_ISSUER: '',
@@ -235,14 +235,14 @@ describe('AppModule production environment validation', () => {
     expect(getCustomMessage(result)).toContain('JWT_ISSUER: REQUIRED');
   });
 
-  it('bloqueia segredo JWT previsível ou compartilhado fora do ambiente local', async () => {
-    const weak = await validate({
+  it('bloqueia segredo JWT previsível ou compartilhado fora do ambiente local', () => {
+    const weak = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       JWT_SECRET: 'a'.repeat(64),
       REFRESH_CSRF_ENFORCED: true,
     });
-    const shared = await validate({
+    const shared = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       JWT_REFRESH_SECRET: productionEnv.JWT_SECRET,
@@ -255,16 +255,16 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('bloqueia produção sem chave dedicada de timestamp ou com chave JWT compartilhada', async () => {
-    const missing = await validate({
+  it('bloqueia produção sem chave dedicada de timestamp ou com chave JWT compartilhada', () => {
+    const missing = validate({
       ...productionEnv,
       SIGNATURE_TIMESTAMP_SECRET: '',
     });
-    const shared = await validate({
+    const shared = validate({
       ...productionEnv,
       SIGNATURE_TIMESTAMP_SECRET: productionEnv.JWT_SECRET,
     });
-    const sharedWithRefresh = await validate({
+    const sharedWithRefresh = validate({
       ...productionEnv,
       SIGNATURE_TIMESTAMP_SECRET: productionEnv.JWT_REFRESH_SECRET,
     });
@@ -280,7 +280,7 @@ describe('AppModule production environment validation', () => {
     );
   });
 
-  it('aceita somente o par ativo quando a chave legada está no mapa de verificação', async () => {
+  it('aceita somente o par ativo quando a chave legada está no mapa de verificação', () => {
     const rotated = {
       ...productionEnv,
       SIGNATURE_TIMESTAMP_SECRET: '',
@@ -291,13 +291,13 @@ describe('AppModule production environment validation', () => {
       }),
     };
 
-    const result = await validate(rotated);
+    const result = validate(rotated);
 
     expect(result.error).toBeUndefined();
   });
 
-  it('bloqueia access token sem expiração em staging', async () => {
-    const result = await validate({
+  it('bloqueia access token sem expiração em staging', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'staging',
       ACCESS_TOKEN_TTL: 'infinite',
@@ -308,8 +308,8 @@ describe('AppModule production environment validation', () => {
     expect(getCustomMessage(result)).toContain('deve ser finito e positivo');
   });
 
-  it('permite REFRESH_CSRF_REPORT_ONLY=true em development local', async () => {
-    const result = await validate({
+  it('permite REFRESH_CSRF_REPORT_ONLY=true em development local', () => {
+    const result = validate({
       ...productionEnv,
       NODE_ENV: 'development',
       REFRESH_CSRF_REPORT_ONLY: true,
