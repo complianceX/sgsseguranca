@@ -185,6 +185,19 @@ describe('AppModule production environment validation', () => {
     );
   });
 
+  it('exige credenciais DR canônicas mesmo quando credenciais primárias existem', () => {
+    const result = validate({
+      ...productionEnv,
+      DR_STORAGE_REPLICA_ACCESS_KEY_ID: '',
+      DR_STORAGE_REPLICA_SECRET_ACCESS_KEY: '',
+    });
+
+    expect(result.error).toBeDefined();
+    expect(getCustomMessage(result)).toContain(
+      'DR_STORAGE_REPLICA_BUCKET foi configurado',
+    );
+  });
+
   it('bloqueia REFRESH_CSRF_ENFORCED=false fora de development/test', () => {
     const result = validate({
       ...productionEnv,
