@@ -64,7 +64,8 @@ Final status:
 ## Exact fingerprints
 
 Only the following exact fingerprints are eligible for the reviewed
-findings. The unresolved findings 12 and 13 are intentionally absent.
+findings. Findings 12 and 13 were added only after the owner confirmations
+recorded above.
 
 ```text
 0e12bb217a3c1e5166e76a2b7c0fa5dfcd757d17:backend/test/setup/test-env.ts:generic-api-key:48
