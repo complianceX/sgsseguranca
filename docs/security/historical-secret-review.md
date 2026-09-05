@@ -20,13 +20,12 @@ authorization headers.
 - The historical JWT in `.tmp_pdf_head.ps1` has a valid structure, an
   expiration claim, and is expired now.
 - The historical R2 credential did not match the current production
-  credentials. The authenticated Wrangler session could list R2 buckets, but
-  the historical token record lookup was not available; status remains
-  unknown.
+  credentials. The owner confirmed revocation or removal; no provider API
+  lookup is claimed.
 - The old authorization credential is not a JWT and does not match the
-  current `JwtAuthGuard` scheme. Railway provider access was unavailable;
-  public DNS resolved and the unauthenticated HTTPS request returned 404,
-  which is insufficient to prove service retirement; status remains unknown.
+  current `JwtAuthGuard` scheme. The owner confirmed retirement of the old
+  Railway resources and services; no Railway login or historical credential
+  check was performed.
 
 The full-history TruffleHog replay correlated the 15 concrete unverified
 records without retaining their detected values: ten were static SVG path data,
@@ -52,8 +51,15 @@ exception. Gitleaks still scans the complete history independently.
 | 9 | `curl-auth-header` | `c6c4929a89365254b70460ce69d45315d916ece6` | `GUIA_INTEGRACAO_MELHORIAS.md:219` | NO | `DOCUMENTATION_PLACEHOLDER` | explicit documentation placeholder | YES |
 | 10 | `curl-auth-header` | `026ece85ef2d3edd052d30f8fff75745fcce599f` | `CHEAT_SHEET.md:266` | NO | `SYNTHETIC_TEST_VALUE` | invalid-token documentation test | YES |
 | 11 | `curl-auth-header` | `026ece85ef2d3edd052d30f8fff75745fcce599f` | `GUIA_INTEGRACAO_MELHORIAS.md:219` | NO | `DOCUMENTATION_PLACEHOLDER` | explicit documentation placeholder | YES |
-| 12 | `generic-api-key` | `355c9000c918fa839705f1fc812d5464aa9b7568` | `prompts/CLOUDFLARE_R2_CONFIGURADO.md:14` | NO | `POTENTIALLY_REAL_CREDENTIAL` | current production mismatch; provider record unknown | NO |
-| 13 | `curl-auth-header` | `355c9000c918fa839705f1fc812d5464aa9b7568` | `prompts/CLOUDFLARE_R2_CONFIGURADO.md:25` | NO | `UNKNOWN` | current scheme mismatch; Railway status unknown | NO |
+| 12 | `generic-api-key` | `355c9000c918fa839705f1fc812d5464aa9b7568` | `prompts/CLOUDFLARE_R2_CONFIGURADO.md:14` | NO | `REVOKED_OR_RETIRED_CREDENTIAL` | `OWNER_CONFIRMED_REVOCATION_OR_REMOVAL` | YES |
+| 13 | `curl-auth-header` | `355c9000c918fa839705f1fc812d5464aa9b7568` | `prompts/CLOUDFLARE_R2_CONFIGURADO.md:25` | NO | `RETIRED_SERVICE_CREDENTIAL` | `OWNER_CONFIRMED_SERVICE_RETIREMENT` | YES |
+
+Final status:
+
+- Finding 12: `RESOLVED`; classification
+  `REVOKED_OR_RETIRED_CREDENTIAL`; exact allowlist `YES`.
+- Finding 13: `RESOLVED`; classification
+  `RETIRED_SERVICE_CREDENTIAL`; exact allowlist `YES`.
 
 ## Exact fingerprints
 
@@ -74,19 +80,20 @@ c6c4929a89365254b70460ce69d45315d916ece6:GUIA_INTEGRACAO_MELHORIAS.md:curl-auth-
 026ece85ef2d3edd052d30f8fff75745fcce599f:GUIA_INTEGRACAO_MELHORIAS.md:curl-auth-header:219
 ```
 
-These entries are intended for exact fingerprint policy only. They do not
-authorize path-wide, rule-wide, history-wide, or documentation-wide ignores.
+These entries are intended for exact fingerprint policy only. Findings 12 and
+13 were added to `.gitleaksignore` only after the owner confirmations recorded
+in the manifest. They do not authorize path-wide, rule-wide, history-wide, or
+documentation-wide ignores.
 
-## Remaining owner blockers
+## Owner confirmation
 
-1. Finding 12 requires an authoritative Cloudflare token-record lookup or
-   equivalent provider evidence. The current status is `UNKNOWN`.
-2. Finding 13 requires authenticated read-only Railway service/configuration
-   evidence or explicit service-retirement evidence. The current status is
-   `UNKNOWN`.
+1. Finding 12 is `RESOLVED` with evidence
+   `OWNER_CONFIRMED_REVOCATION_OR_REMOVAL`.
+2. Finding 13 is `RESOLVED` with evidence
+   `OWNER_CONFIRMED_SERVICE_RETIREMENT`; the historical target is `RETIRED`.
 
-Until both blockers have authoritative resolution, the historical secret gate
-remains blocked.
+No provider API lookup, Railway login, historical credential request, or
+external mutation was performed for these owner confirmations.
 
 ## Local reproduction
 
@@ -97,9 +104,13 @@ redacted output only:
 gitleaks.exe git --no-banner --redact --report-format json --report-path - --log-opts=--all
 ```
 
-With the exact fingerprints above, Gitleaks 8.24.3 reports only findings 12
-and 13 and exits with code 1. This is the expected fail-closed result while
-those findings remain unresolved.
+Before the owner confirmation, Gitleaks 8.24.3 reported only findings 12 and
+13 and exited with code 1. Their exact fingerprints were then added to
+`.gitleaksignore` after the owner confirmed revocation/removal and service
+retirement.
+
+The subsequent Gitleaks 8.24.3 full-history replay reported zero findings and
+exit code 0. This is an exact-fingerprint closure, not a broad suppression.
 
 The pinned TruffleHog binary 3.97.4 was verified locally. WSL2 Ubuntu was
 available, so the full-history Git scan was run against the PR head with
