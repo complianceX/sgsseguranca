@@ -28,6 +28,15 @@ authorization headers.
   public DNS resolved and the unauthenticated HTTPS request returned 404,
   which is insufficient to prove service retirement; status remains unknown.
 
+The full-history TruffleHog replay correlated the 15 concrete unverified
+records without retaining their detected values: ten were static SVG path data,
+four were local/documentation Postgres configuration examples, and one was a
+Gitleaks fingerprint entry in `.gitleaksignore`. Three additional JSON records
+had no Git finding metadata and were not counted as findings. The corresponding
+paths are covered by exact, anchored entries in
+`.github/trufflehog-exclude.txt`; findings 12 and 13 remain outside any new
+exception. Gitleaks still scans the complete history independently.
+
 ## Finding manifest
 
 | ID | Rule | Commit | Path:line | Current tree | Classification | Provider/status proof | Exact allowlist |
@@ -92,9 +101,11 @@ With the exact fingerprints above, Gitleaks 8.24.3 reports only findings 12
 and 13 and exits with code 1. This is the expected fail-closed result while
 those findings remain unresolved.
 
-The pinned TruffleHog binary 3.97.4 was verified locally. The repository
-action runs its Git scan inside a Docker container with `--since-commit`,
-`--branch`, `--fail`, `--no-update`, and the checked-in exclude file. Docker
-was unavailable in the local Windows environment, so an action-equivalent
-Git scan is not claimed as reproduced here. The scheduled evidence remains
-0 verified and 15 unverified findings.
+The pinned TruffleHog binary 3.97.4 was verified locally. WSL2 Ubuntu was
+available, so the full-history Git scan was run against the PR head with
+`--branch`, `--fail`, `--no-update`, and the checked-in exclude file. The first
+replay produced the 15 concrete unverified records described above. After the
+exact path entries were added, the standard replay returned exit code 0 with
+zero concrete findings, zero verified findings, and zero unverified findings;
+three non-finding records had no Git metadata. No provider verification was
+needed after the exact exclusions matched all reviewed artifacts.

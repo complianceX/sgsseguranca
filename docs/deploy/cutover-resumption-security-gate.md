@@ -26,7 +26,9 @@ preflight.
    `.github/trufflehog-exclude.txt`.
 5. Treat `verified`, `unknown`, and `unverified` results as reviewable scan
    evidence. Do not replace the scan with `--only-verified`, broad path
-   exclusions, `continue-on-error`, or a zero exit code.
+   exclusions, `continue-on-error`, or a zero exit code. The checked-in
+   exclude file may contain only anchored paths documented in the historical
+   finding manifest; findings 12 and 13 remain outside any new exception.
 6. Re-run only the incremental release and cutover preflight checks required
    for the new candidate after the security gate is green.
 
