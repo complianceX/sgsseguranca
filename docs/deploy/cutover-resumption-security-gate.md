@@ -20,8 +20,9 @@ preflight.
    and the checked-in `.gitleaksignore`.
 2. Require zero unresolved findings. Exact fingerprints may cover only
    findings documented in `docs/security/historical-secret-review.md`.
-3. Keep the two historical findings marked `UNKNOWN` out of the allowlist
-   until provider evidence proves retirement, revocation, or expiration.
+3. Findings 12 and 13 are resolved by the owner confirmations recorded in
+   `docs/security/historical-secret-review.md`; keep their exact fingerprints
+   limited to those reviewed findings and do not add broad exclusions.
 4. Run the pinned TruffleHog action with the checked-in
    `.github/trufflehog-exclude.txt`.
 5. Treat `verified`, `unknown`, and `unverified` results as reviewable scan
@@ -49,9 +50,13 @@ The security gate never authorizes a migration, deploy, restart, recreate,
 rollback, cutover, provider mutation, or database write. Those operations
 require the separate owner authorization and the complete live preflight.
 
-## Current owner blockers
+## Historical security gate closure
 
-- Cloudflare historical R2 credential: provider record remains unknown.
-- Historical Railway authorization: Railway provider access remains
-  unavailable. Public DNS resolves and the unauthenticated HTTPS request
-  returned 404, but service retirement remains unproven.
+- Finding #12 historical Cloudflare/R2 credential: resolved by
+  owner-confirmed revocation or removal.
+- Finding #13 historical Railway authorization: resolved by
+  owner-confirmed retirement of the old Railway resources and services.
+- Gitleaks 8.24.3 full-history replay: PASS with 0 findings.
+- TruffleHog 3.97.4 full-history: PASS (prior accepted evidence).
+- PR CI: PASS.
+- No production operation is authorized by this document.
