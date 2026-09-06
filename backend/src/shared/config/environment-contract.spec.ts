@@ -64,6 +64,8 @@ describe('environment contract', () => {
         ...apiEnvironment(),
         ADMIN_IP_ALLOWLIST_REQUIRED: 'true',
         TENANT_BACKUP_ENCRYPTION_KEY: strong('tenant-backup'),
+        DLQ_PRUNE_BATCH: '25',
+        REDIS_USERNAME: 'runtime-user',
       }),
     ).not.toThrow();
   });
