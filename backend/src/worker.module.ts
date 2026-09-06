@@ -1,4 +1,5 @@
 import { Module, Logger } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
 import { CacheModule, type CacheModuleOptions } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
@@ -22,6 +23,7 @@ import { DocumentRetentionWorkerModule } from './modules/tasks/document-retentio
 import { RbacModule } from './modules/rbac/rbac.module';
 import { SecurityAuditModule } from './shared/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './shared/redis/worker-heartbeat-reporter.service';
+import { WorkerReadinessService } from './shared/worker/worker-readiness.service';
 import {
   isLocalRedisConnection,
   resolveRedisConnection,
@@ -355,6 +357,7 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
+    DiscoveryModule,
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
@@ -538,7 +541,11 @@ const validationSchema = Joi.object({
     TasksWorkerModule,
     AiRecoveryWorkerModule,
   ],
-  providers: [WorkerHeartbeatReporterService, PostgresApplicationNameService],
+  providers: [
+    WorkerHeartbeatReporterService,
+    PostgresApplicationNameService,
+    WorkerReadinessService,
+  ],
 })
 export class WorkerModule {
   private static getSSLConfig(
